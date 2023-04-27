@@ -1,0 +1,71 @@
+{
+    "name": "UniverseAI",
+    "version": "0.6.0",
+    "description": "The UniverseAI Protocol is a complete package to build decentralized applications with real data interoperability. It is a protocol specification and an implementation of the protocol bundled with an SDK.",
+    "keywords": [
+        "decentralized",
+        "interoperable",
+        "interoperability"
+    ],
+    "homepage": "https://universe.ai",
+    "author": "Thomas Backlund",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/universe-ai/universe.git"
+    },
+    "bugs": {
+        "url": "https://github.com/universe-ai/universe/issues"
+    },
+    "private": false,
+    "license": "Apache-2.0",
+    "engines": {
+        "node": ">=16"
+    },
+    "scripts": {
+        "c": "./node_modules/.bin/tsc",
+        "c-sdk": "./node_modules/.bin/tsc -p ./tsconfig-sdk.json",
+        "pkg-sdk": "npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/cert ./build-sdk/sdk/tools/src/CertCLI.js && npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/keygen ./build-sdk/sdk/tools/src/keygen.js && npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/service ./build-sdk/sdk/tools/src/service.js",
+        "test": "./node_modules/.bin/mocha -r ts-node/register --timeout 10000 'test/**/*.mocha.ts'",
+        "docs": "./node_modules/.bin/typedoc --entryDocument Home.md --hideBreadcrumbs true --hideInPageTOC true --cleanOutputDir false ./src/*.ts",
+        "bebop": "./node_modules/.bin/bebopc",
+        "browser": "./node_modules/.bin/browserify -i ./build/src/datastreamer/FileStreamWriter.js -i ./build/src/datastreamer/FileStreamReader.js ./build/test/integration/chat/Chat.js -o ./build/browser/Chat.js",
+        "lint": "npx eslint ./src"
+    },
+    "devDependencies": {
+        "@tsconfig/node14": "^1.0.1",
+        "@types/blake2b": "^2.1.0",
+        "@types/chai": "^4.3.1",
+        "@types/libsodium-wrappers": "^0.7.9",
+        "@types/mocha": "^9.1.1",
+        "@types/node": "^14.17.21",
+        "@types/sql.js": "^1.4.4",
+        "@typescript-eslint/eslint-plugin": "^5.48.1",
+        "@typescript-eslint/parser": "^5.48.1",
+        "bebop-tools": "^2.3.0",
+        "browserify": "^17.0.0",
+        "chai": "^4.3.6",
+        "eslint": "^8.31.0",
+        "mocha": "^10.0.0",
+        "pkg": "^5.8.0",
+        "regenerator-runtime": "^0.13.9",
+        "ts-node": "^9.1.1",
+        "typedoc": "^0.22.15",
+        "typedoc-plugin-markdown": "^3.11.0",
+        "typescript": "^4.4.3",
+        "webworkify": "^1.5.0"
+    },
+    "dependencies": {
+        "bebop": "^2.3.0",
+        "blake2b": "^2.1.4",
+        "eventemitter3": "^4.0.7",
+        "libsodium-wrappers": "^0.7.9",
+        "pocket-console": "0.5.0",
+        "pocket-messaging": "2.1.0",
+        "pocket-sockets": "2.0.0",
+        "postgresql-client": "^2.5.5",
+        "sql.js": "^1.8.0",
+        "sqlite3": "^5.1.5",
+        "tweetnacl": "^1.0.3",
+        "web-worker": "^1.2.0"
+    }
+}
