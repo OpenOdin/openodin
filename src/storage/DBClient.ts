@@ -24,6 +24,10 @@ export type SQLType = "sqlite" | "sqliteJS" | "pg";
  */
 export class DBClient {
     protected _sqlType: SQLType | undefined;
+    protected isClosed: boolean = false;
+
+    /** Special case onClose event handlers used for sql.js. */
+    protected _closeEventHandlers: (() => void)[] = [];
 
     constructor(protected db: sqlite3.Database | Connection | SQLJSDatabase) {
         if (db instanceof sqlite3.Database) {
@@ -375,6 +379,15 @@ export class DBClient {
             const db = this.db as sqlite3.Database;
             db.on(event, fn);
         }
+        else if (sqlType === "sqliteJS") {
+            const db = this.db as SQLJSDatabase;
+
+            // TODO: not sure how to handle onClose and onError in sql.js
+            //
+            if (event === "close") {
+                this._closeEventHandlers.push(fn);
+            }
+        }
         else if(sqlType === "pg") {
             const db = this.db as Connection;
 
@@ -388,21 +401,38 @@ export class DBClient {
     }
 
     public off(event: string, fn: (...args: any[]) => void) {
-        if ((this.db as any).off){
+        if ((this.db as any).off) {
             (this.db as any).off(event, fn);
         }
         else {
-            throw new Error("sql.js does not support off()");
+            if (event === "close") {
+                this._closeEventHandlers = this._closeEventHandlers.filter( fn2 => fn2 !== fn );
+            }
+
+            // NOTE: sql.js does not have onError.
         }
     }
 
     public close() {
+        if (this.isClosed) {
+            return;
+        }
+
+        this.isClosed = true;
+
         const sqlType = this.getType();
 
         if (sqlType === "sqlite") {
             const db = this.db as sqlite3.Database;
 
             db.close();
+        }
+        else if (sqlType === "sqliteJS") {
+            const db = this.db as SQLJSDatabase;
+
+            db.close();
+
+            this._closeEventHandlers.forEach( fn => fn() );
         }
         else if(sqlType === "pg") {
             const db = this.db as Connection;

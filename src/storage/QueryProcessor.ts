@@ -43,6 +43,12 @@ import {
     DBClient,
 } from "./DBClient";
 
+import {
+    PocketConsole,
+} from "pocket-console";
+
+const console = PocketConsole({module: "QueryProcessor"});
+
 /**
  * Mutable data structure used to keep track of query status.
  */
@@ -215,6 +221,9 @@ export class QueryProcessor {
         this.alreadyProcessedNodes = cache;
     }
 
+    /**
+     * @throws on error
+     */
     public async run() {
         const parentIdStr = this.parentId.toString("hex");
         this.nextLevelIds[parentIdStr] = this.parentId;
@@ -301,7 +310,7 @@ export class QueryProcessor {
                         await this.db.each(sql, params, this.addRow);
                     }
                     catch(e) {
-                        console.debug("db.each", e);
+                        console.debug("error in db.each", e);
                         this._error = e as Error;
                         break;
                     }
@@ -323,6 +332,13 @@ export class QueryProcessor {
         const isFirst = this.flushCount === 0;
 
         this.flushCount++;
+
+        if (this.error()) {
+            this.handleFetchReplyData({
+                status: Status.ERROR, error: "Error fetching from database", rowCount: this.rowCount, now: this.now, isFirst, isLast: true});
+            throw this._error;
+        }
+
         this.handleFetchReplyData({
             status: Status.RESULT, rowCount: this.rowCount, now: this.now, isFirst, isLast: true});
     }
@@ -1291,7 +1307,7 @@ export class QueryProcessor {
                 }
             }
             catch(e) {
-                console.error(e);
+                console.debug(e);
                 return {};
             }
         }
@@ -1876,7 +1892,7 @@ export class QueryProcessor {
                 }
             }
             catch(e) {
-                console.error(e);
+                console.debug(e);
                 return {};
             }
         }

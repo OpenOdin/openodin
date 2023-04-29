@@ -70,6 +70,12 @@ import {
     StorageUtil,
 } from "../util/StorageUtil";
 
+import {
+    PocketConsole,
+} from "pocket-console";
+
+const console = PocketConsole({module: "Driver"});
+
 /**
  * How parents up from inserted/bumped nodes to update the trailupdatetime.
  * 1 means update only the parent nodes.
@@ -512,7 +518,7 @@ export class Driver implements DriverInterface, BlobDriverInterface {
                 }
             }
             catch(e) {
-                console.error("checkLicenses", e);
+                console.debug("checkLicenses", e);
                 return {};
             }
         }
@@ -1521,5 +1527,6 @@ export class Driver implements DriverInterface, BlobDriverInterface {
 
     public close() {
         this.db.close();
+        this.blobDb?.close();
     }
 }
