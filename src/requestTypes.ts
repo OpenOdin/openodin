@@ -27,11 +27,8 @@ export type LimitField = {
 
 /**
  * A FetchQuery must have atleast one Match struct to match on nodes.
- * A Match is processed for each set of siblings in the tree in respect to their level in the tree and their parent.
- * Going downwards in the tree a Match will run independentaly below each parent for the level it triggers on,
- * however matches must ofc have matched on levels above to be able to traverse downwards on those matched nodes.
- * There is no shared data between clusters of nodes below different parents even though they are on
- * the same level in the tree.
+ * A Match is processed for each set of nodes in the tree in respect to their level in the tree.
+ * Matches must have matched on levels above to be able to traverse downwards on those matched nodes.
  */
 export type Match = {
     /** Up to six bytes, lesser means wildcard match on node type. */
@@ -201,7 +198,7 @@ export type FetchQuery = {
      * This can be set regardless if/not triggerNodeId is set and is unsubscribed in the same way.
      *
      * The Storage is not required to support this feature and if it does not support this feature
-     * then a malformed error is returned.
+     * then an error with the status malformed is returned.
      */
     triggerInterval: number,
 

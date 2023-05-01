@@ -4,9 +4,6 @@ import {
 
 import {
     expectAsyncException,
-    OpenSQLite,
-    OpenSQLiteJS,
-    OpenPG,
 } from "../util";
 
 import {
@@ -28,6 +25,7 @@ import {
     Data,
     QueryProcessor,
     FetchRequest,
+    DatabaseUtil,
 } from "../../src";
 
 /**
@@ -94,8 +92,7 @@ describe("Driver: SQLite WAL-mode", function() {
     const config: any = {};
 
     beforeEach("Open database and create tables", async function() {
-        db = new DBClient(await OpenSQLite());
-        await db.exec("PRAGMA journal_mode=WAL;");
+        db = new DBClient(await DatabaseUtil.OpenSQLite());
         driver = new DriverTestWrapper(db);
 
         config.db = db;
@@ -128,8 +125,7 @@ describe("Driver: SQLiteJS WAL-mode", function() {
     const config: any = {};
 
     beforeEach("Open database and create tables", async function() {
-        db = new DBClient(await OpenSQLiteJS());
-        await db.exec("PRAGMA journal_mode=WAL;");
+        db = new DBClient(await DatabaseUtil.OpenSQLiteJS());
         driver = new DriverTestWrapper(db);
 
         config.db = db;
@@ -172,7 +168,7 @@ describe("Driver: PostgreSQL REPEATABLE READ mode", function() {
     const config: any = {};
 
     beforeEach("Open database and create tables", async function() {
-        db = new DBClient(await OpenPG(false));
+        db = new DBClient(await DatabaseUtil.OpenPG());
         driver = new DriverTestWrapper(db);
 
         config.db = db;

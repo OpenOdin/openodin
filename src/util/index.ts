@@ -1,4 +1,5 @@
 export * from "./CertUtil";
+export * from "./DatabaseUtil";
 export * from "./ParseUtil";
 export * from "./common";
 export * from "./NodeUtil";

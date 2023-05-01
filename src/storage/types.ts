@@ -189,6 +189,7 @@ export const TABLES: {[table: string]: any} = {
             },
         },
     },
+export const BLOB_TABLES: {[table: string]: any} = {
     "universe_blob_data": {
         columns: [
             "dataid bytea NOT NULL",
@@ -244,8 +245,11 @@ export type BlobDriverInterface = {
 
     /**
      * Create tables and indexes if non existing.
+     * If all tables already exist returns true.
+     * If only some tables exist returns false.
+     * Else, create all tables and return true.
      */
-    createTables(): void;
+    createTables(): Promise<boolean>;
 
     /**
      * Write blob data.
@@ -323,9 +327,11 @@ export type DriverInterface = {
 
     /**
      * Create tables and indexes if non existing.
-     * Aborts before doing anything if any table is already existing.
+     * If all tables already exist returns true.
+     * If only some tables exist returns false.
+     * Else, create all tables and return true.
      */
-    createTables(): void;
+    createTables(): Promise<boolean>;
 
     /**
      * Drive data from the data layer according to the query and permissions.

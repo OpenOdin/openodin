@@ -214,7 +214,7 @@ export class QueryProcessor {
             }
         }
 
-        assert(this.parentId.length > 0);
+        assert(this.parentId.length > 0, "parentId nor rootNode set on fetchQuery when constucting QueryProcessor");
     }
 
     public setProcessedCache(cache: AlreadyProcessedCache) {

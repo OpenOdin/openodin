@@ -42,7 +42,7 @@ export class DBClient {
     }
 
     public getType(): SQLType {
-        assert(this._sqlType);
+        assert(this._sqlType, "sqlType not set in DBClient");
         return this._sqlType;
     }
 
@@ -180,7 +180,7 @@ export class DBClient {
                 qr = await db.query(sql, {params, cursor: true, fetchCount, onErrorRollback: false, objectRows: true});
             }
 
-            assert(qr?.cursor);
+            assert(qr?.cursor, "cursor not set in DBClient.each");
 
             // If this gets set then abort the cursor and do not issue any more callbacks.
             let cancelled: boolean | undefined = false;

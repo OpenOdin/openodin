@@ -8,18 +8,18 @@ import {
 
 import {
     expectAsyncException,
-    OpenSQLite,
-    OpenPG,
 } from "../util";
 
 import {
     Driver,
+    BlobDriver,
     NodeInterface,
     NodeUtil,
     sleep,
     BLOB_FRAGMENT_SIZE,
     DBClient,
     TABLES,
+    DatabaseUtil,
 } from "../../src";
 
 import fs from "fs";
@@ -34,7 +34,7 @@ class DriverTestWrapper extends Driver {
     }
 }
 
-class BlobDriverTestWrapper extends DriverTestWrapper {
+class BlobDriverTestWrapper extends BlobDriver {
     public async writeBlobFragment(dataId: Buffer, fragment: Buffer, fragmentIndex: number) {
         return super.writeBlobFragment(dataId, fragment, fragmentIndex);
     }
@@ -87,16 +87,13 @@ describe("Concurrency: SQLite WAL-mode for concurrent Driver access", function()
         }
         catch(e) {}
 
-        db1 = new DBClient(await OpenSQLite(dbName));
-        db2 = new DBClient(await OpenSQLite(dbName));
-        db3 = new DBClient(await OpenSQLite(dbName));
+        db1 = new DBClient(await DatabaseUtil.OpenSQLite(dbName));
+        db2 = new DBClient(await DatabaseUtil.OpenSQLite(dbName));
+        db3 = new DBClient(await DatabaseUtil.OpenSQLite(dbName));
 
-        // Write-Ahead Logging is required for transactions to behave as expected.
-        await db1.exec("PRAGMA journal_mode=WAL;");
-
-        driver1 = new BlobDriverTestWrapper(db1);
-        driver2 = new BlobDriverTestWrapper(db2);
-        driver3 = new BlobDriverTestWrapper(db3);
+        driver1 = new DriverTestWrapper(db1);
+        driver2 = new DriverTestWrapper(db2);
+        driver3 = new DriverTestWrapper(db3);
 
         await driver1.createTables();
 
@@ -197,13 +194,13 @@ describe("Concurrency: PostgreSQL REPEATABLE READ mode for concurrent Driver acc
     let node2: NodeInterface | undefined;
 
     beforeEach("Open database and create tables", async function() {
-        db1 = new DBClient(await OpenPG());
-        db2 = new DBClient(await OpenPG());
-        db3 = new DBClient(await OpenPG());
+        db1 = new DBClient(await DatabaseUtil.OpenPG());
+        db2 = new DBClient(await DatabaseUtil.OpenPG());
+        db3 = new DBClient(await DatabaseUtil.OpenPG());
 
-        driver1 = new BlobDriverTestWrapper(db1);
-        driver2 = new BlobDriverTestWrapper(db2);
-        driver3 = new BlobDriverTestWrapper(db3);
+        driver1 = new DriverTestWrapper(db1);
+        driver2 = new DriverTestWrapper(db2);
+        driver3 = new DriverTestWrapper(db3);
 
         for (let table in TABLES) {
             await db1.run(`DROP TABLE IF EXISTS ${table};`);
@@ -581,8 +578,8 @@ describe("Concurrency: SQLite journalling mode for concurrent BlobDriver access"
         }
         catch(e) {}
 
-        db1 = new DBClient(await OpenSQLite(dbName));
-        db2 = new DBClient(await OpenSQLite(dbName));
+        db1 = new DBClient(await DatabaseUtil.OpenSQLite(dbName, false));
+        db2 = new DBClient(await DatabaseUtil.OpenSQLite(dbName, false));
 
         driver1 = new BlobDriverTestWrapper(db1);
         driver2 = new BlobDriverTestWrapper(db2);
@@ -623,15 +620,15 @@ describe("Concurrency: PostgreSQL READ COMMITTED mode for concurrent BlobDriver 
     });
 
     const config: any = {};
-    let driver1: DriverTestWrapper | undefined;
-    let driver2: DriverTestWrapper | undefined;
+    let driver1: BlobDriverTestWrapper | undefined;
+    let driver2: BlobDriverTestWrapper | undefined;
     let db1: DBClient | undefined;
     let db2: DBClient | undefined;
     let db3: DBClient | undefined;
 
     beforeEach("Open database and create tables", async function() {
-        db1 = new DBClient(await OpenPG(false));  // Open in READ COMMITTED mode
-        db2 = new DBClient(await OpenPG(false));  // Open in READ COMMITTED mode
+        db1 = new DBClient(await DatabaseUtil.OpenPG(undefined, false));  // Open in READ COMMITTED mode
+        db2 = new DBClient(await DatabaseUtil.OpenPG(undefined, false));  // Open in READ COMMITTED mode
 
         driver1 = new BlobDriverTestWrapper(db1);
         driver2 = new BlobDriverTestWrapper(db2);

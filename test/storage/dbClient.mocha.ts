@@ -6,14 +6,13 @@ import {
     PromiseCallback,
     DBClient,
     TABLES,
+    BLOB_TABLES,
     sleep,
+    DatabaseUtil,
 } from "../../src";
 
 import {
     expectAsyncException,
-    OpenSQLite,
-    OpenSQLiteJS,
-    OpenPG,
 } from "../util";
 
 
@@ -22,7 +21,7 @@ describe("DBClient: should work with SQLite", function() {
     let config: {dbClient?: DBClient} = {};
 
     beforeEach("Open database and create tables", async function() {
-        dbClient = new DBClient(await OpenSQLite());
+        dbClient = new DBClient(await DatabaseUtil.OpenSQLite(undefined, false));
         config.dbClient = dbClient;
         await dbClient.all(`DROP TABLE IF EXISTS abc;`);
         await dbClient.all(`CREATE TABLE abc (a bytea NULL UNIQUE, b bigint NULL UNIQUE, c integer, d smallint)`);
@@ -60,7 +59,7 @@ describe("DBClient: should work with SQLiteJS", function() {
     let config: {dbClient?: DBClient} = {};
 
     beforeEach("Open database and create tables", async function() {
-        dbClient = new DBClient(await OpenSQLiteJS());
+        dbClient = new DBClient(await DatabaseUtil.OpenSQLiteJS(false));
         config.dbClient = dbClient;
         await dbClient.all(`DROP TABLE IF EXISTS abc;`);
         await dbClient.all(`CREATE TABLE abc (a bytea NULL UNIQUE, b bigint NULL UNIQUE, c integer, d smallint)`);
@@ -113,12 +112,14 @@ describe("DBClient: should work with PostgreSQL", function() {
     let config: {dbClient?: DBClient} = {};
 
     beforeEach("Open database and create tables", async function() {
-        dbClient = new DBClient(await OpenPG());
+        dbClient = new DBClient(await DatabaseUtil.OpenPG(undefined, false));
         config.dbClient = dbClient;
 
-        for (let table in TABLES) {
+        const tables = {...TABLES, ...BLOB_TABLES};
+
+        for (let table in tables) {
             await dbClient.run(`DROP TABLE IF EXISTS ${table};`);
-            for (let idx in TABLES[table].indexes) {
+            for (let idx in tables[table].indexes) {
                 await dbClient.run(`DROP INDEX IF EXISTS ${idx};`);
             }
         }

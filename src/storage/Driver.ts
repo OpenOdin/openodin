@@ -1,6 +1,5 @@
 /**
- * A stateless driver over SQLite or PostgreSQL meant to efficiently drive data
- * from the underlying database.
+ * A stateless driver over SQLite or PostgreSQL to efficiently drive data from the underlying database.
  *
  * Each query runs in a transaction to prevent skewed resultsets if concurrent writes are present.
  *
@@ -24,7 +23,6 @@ import { strict as assert } from "assert";
 
 import {
     DriverInterface,
-    BlobDriverInterface,
     FetchReplyData,
     HandleFetchReplyData,
     TABLES,
@@ -33,7 +31,6 @@ import {
     InsertDestroyHash,
     InsertFriendCert,
     MIN_DIFFICULTY_TOTAL_DESTRUCTION,
-    BLOB_FRAGMENT_SIZE,
 } from "./types";
 
 import {
@@ -84,28 +81,38 @@ const console = PocketConsole({module: "Driver"});
 const MAX_FRESHEN_DEPTH = 10;
 
 /**
- * @see DriverInterface and BlobDriverInterface for details on public functions.
+ * @see DriverInterface for details on public functions.
  */
-export class Driver implements DriverInterface, BlobDriverInterface {
+export class Driver implements DriverInterface {
     constructor(
         protected readonly db: DBClient,
-        protected readonly blobDb?: DBClient,
     ) {}
+
 
     public async init() {
     }
 
-    public async createTables() {
-        try {
-            await this.db.exec("BEGIN;");
 
+    public async createTables(): Promise<boolean> {
+        try {
             const allTables = await this.db.listTables();
 
+            let tableExistingCount = 0;
             for (const table in TABLES) {
                 if (allTables.includes(table)) {
-                    throw new Error(`Table ${table} already exists. Aborting.`);
+                    tableExistingCount++;
                 }
             }
+
+            if (tableExistingCount > 0 && tableExistingCount < Object.keys(TABLES).length) {
+                return false;
+            }
+
+            if (tableExistingCount > 0 && tableExistingCount === Object.keys(TABLES).length) {
+                return true;
+            }
+
+            await this.db.exec("BEGIN;");
 
             for (const table in TABLES) {
                 const columns = TABLES[table].columns.join(",");
@@ -130,6 +137,8 @@ export class Driver implements DriverInterface, BlobDriverInterface {
             this.db.exec("ROLLBACK;");
             throw(e);
         }
+
+        return true;
     }
 
     public async fetch(fetchQuery: FetchQuery, now: number, handleFetchReplyData: HandleFetchReplyData) {
@@ -145,7 +154,7 @@ export class Driver implements DriverInterface, BlobDriverInterface {
                 return;
             }
 
-            assert(rootNode);
+            assert(rootNode, "rootNode expected to be set");
         }
 
         const queryProcessor = 
@@ -212,7 +221,6 @@ export class Driver implements DriverInterface, BlobDriverInterface {
      * @returns node if permissions allow.
      */
     public async fetchSingleNode(nodeId1: Buffer, now: number, clientPublicKey: Buffer, targetPublicKey: Buffer): Promise<NodeInterface | undefined> {
-
         if (!Number.isInteger(now)) {
             throw new Error("now not integer");
         }
@@ -490,7 +498,6 @@ export class Driver implements DriverInterface, BlobDriverInterface {
     }
 
     protected async checkLicenses(licenseHashes: Buffer[], now: number): Promise<{[hash: string]: boolean}> {
-
         const hashesFound: {[hash: string]: boolean} = {};
 
         if (!Number.isInteger(now)) {
@@ -582,7 +589,6 @@ export class Driver implements DriverInterface, BlobDriverInterface {
      * @throws on error.
      */
     protected async filterExisting(nodes: NodeInterface[], preserveTransient: boolean = false): Promise<NodeInterface[]> {
-
         const toKeep: {[id1: string]: {transientHash: Buffer | undefined, keep: boolean}} = {};
 
         const id1s: Buffer[] = [];
@@ -643,7 +649,6 @@ export class Driver implements DriverInterface, BlobDriverInterface {
      * @throws on error.
      */
     protected async filterUnique(nodes: NodeInterface[]): Promise<NodeInterface[]> {
-
         const exists: {[hash: string]: Buffer} = {};
 
         const hashes: {[hash: string]: boolean} = {};
@@ -1088,6 +1093,7 @@ export class Driver implements DriverInterface, BlobDriverInterface {
             throw new Error("now not integer");
         }
 
+
         const ph = this.db.generatePlaceholders(id1s.length);
 
         const sql = `UPDATE universe_nodes SET trailupdatetime=${now} WHERE id1 IN ${ph};`;
@@ -1143,24 +1149,6 @@ export class Driver implements DriverInterface, BlobDriverInterface {
         }
     }
 
-    public async deleteBlobs(nodeId1s: Buffer[]) {
-        this.db.exec("BEGIN;");
-
-        try {
-            const ph = this.db.generatePlaceholders(nodeId1s.length);
-
-            await this.db.run(`DELETE FROM universe_blob_data AS t WHERE t.id1 IN ${ph};`, nodeId1s);
-
-            await this.db.run(`DELETE FROM universe_blob AS t WHERE t.id1 IN ${ph};`, nodeId1s);
-
-            this.db.exec("COMMIT;");
-        }
-        catch(e) {
-            this.db.exec("ROLLBACK;");
-            throw e;
-        }
-    }
-
     /** Notify when the underlaying database connection closes. */
     public onClose(fn: () => void) {
         this.db.on("close", fn);
@@ -1180,353 +1168,7 @@ export class Driver implements DriverInterface, BlobDriverInterface {
         this.db.off("error", fn);
     }
 
-
-    // Blob functions
-    //
-    //
-
-    /**
-     * @see BlobDriverInterface.
-     *
-     * Note: Writing sparsely might not work. Each fragment must be touched to be existing,
-     * meaning that if writing a huge blob of 0-bytes it is not
-     * enough to only write the last byte in the last fragment.
-     * The last byte of every fragment must in such case be written to.
-     */
-    public async writeBlob(dataId: Buffer, pos: number, data: Buffer) {
-        if (!this.blobDb) {
-            throw new Error("Blob DB not available");
-        }
-
-        await this.db.exec("BEGIN;");
-        try {
-            // Handle first fragment
-            //
-            const res = await this.calcBlobStartFragment(dataId, pos, data);
-
-            const {fragment, startFragmentIndex} = res;
-            let index = res.index;
-
-            await this.writeBlobFragment(dataId, fragment, startFragmentIndex);
-
-
-            // Handle middle fragments.
-            //
-            const countFragments = Math.ceil((pos + data.length) / BLOB_FRAGMENT_SIZE);
-
-            let fragmentIndex = startFragmentIndex + 1;
-
-            while (fragmentIndex < startFragmentIndex + countFragments - 1) {
-                const fragment = data.slice(index, index + BLOB_FRAGMENT_SIZE);
-
-                index += BLOB_FRAGMENT_SIZE;
-
-                await this.writeBlobFragment(dataId, fragment, fragmentIndex);
-
-                fragmentIndex++;
-            }
-
-            // Handle last fragment.
-            //
-            if (countFragments > 1 && index < data.length) {
-                const {fragment, endFragmentIndex} =
-                    await this.calcBlobEndFragment(dataId, pos, index, data);
-
-                await this.writeBlobFragment(dataId, fragment, endFragmentIndex);
-            }
-
-            await this.db.exec("COMMIT;");
-        }
-        catch(e) {
-            await this.db.exec("ROLLBACK;");
-            throw e;
-        }
-    }
-
-    /**
-     * @see BlobDriverInterface.
-     */
-    public async readBlob(nodeId1: Buffer, pos: number, length: number): Promise<Buffer> {
-        if (!this.blobDb) {
-            throw new Error("Blob DB not available");
-        }
-
-        const dataId = await this.getBlobDataId(nodeId1);
-
-        if (!dataId) {
-            throw new Error("node blob data does not exist in finalized state");
-        }
-
-        let fragmentIndex = Math.floor(pos / BLOB_FRAGMENT_SIZE);
-        const fragments: Buffer[] = [];
-        let l = 0;
-        let pos2 = pos;
-
-        while (l < length) {
-            const fragment = await this.readBlobFragment(dataId, fragmentIndex, true);
-
-            if (!fragment) {
-                break;
-            }
-
-            const fragment2 = fragment.slice(pos2,pos2+length-l);
-
-            fragments.push(fragment2);
-
-            l += fragment2.length;
-
-            fragmentIndex++;
-            pos2 = 0;
-        }
-
-        return Buffer.concat(fragments);
-    }
-
-    /**
-     * @param dataId
-     * @param pos position in blob
-     * @param data meant to be written starting at blob position.
-     * @returns data of first fragment and the fragment index.
-     */
-    protected async calcBlobStartFragment(dataId: Buffer, pos: number, data: Buffer): Promise<{fragment: Buffer, startFragmentIndex: number, index: number}> {
-        const startFragmentIndex = Math.floor(pos / BLOB_FRAGMENT_SIZE);
-        const boundaryDiff = pos - startFragmentIndex * BLOB_FRAGMENT_SIZE;
-
-        const index = Math.min(BLOB_FRAGMENT_SIZE - boundaryDiff, data.length);
-
-        const dataSlice = data.slice(0, index);
-
-        let fragment: Buffer | undefined;
-
-        if (dataSlice.length < BLOB_FRAGMENT_SIZE) {
-            fragment = await this.readBlobFragment(dataId, startFragmentIndex);
-
-            if (fragment) {
-                const diff = (dataSlice.length + boundaryDiff) - fragment.length;
-
-                if (diff > 0) {
-                    fragment = Buffer.concat([fragment, Buffer.alloc(diff)]);
-                }
-            }
-            else {
-                fragment = Buffer.alloc(boundaryDiff + dataSlice.length);
-            }
-
-            dataSlice.copy(fragment, boundaryDiff);
-        }
-        else {
-            fragment = dataSlice;
-        }
-
-        return {fragment, startFragmentIndex, index};
-    }
-
-    /**
-     * Calculate the end fragment if applicable.
-     * @param dataId
-     * @param startPos the original start position in the blob for the writing.
-     * @param index the index of data reached so far.
-     * @param data the unmodifed data buffer to write.
-     *
-     * @returns data of last fragment and the fragment index of last fragment.
-     * @throws on invalid input parameters.
-     */
-    protected async calcBlobEndFragment(dataId: Buffer, startPos: number, index: number, data: Buffer): Promise<{fragment: Buffer, endFragmentIndex: number}> {
-        const countFragments = Math.ceil((startPos + data.length) / BLOB_FRAGMENT_SIZE);
-        const posFragmentIndex = Math.floor((startPos + index) / BLOB_FRAGMENT_SIZE);
-        const endFragmentIndex = countFragments - 1;
-
-        if (index >= data.length) {
-            throw new Error("End of data reached");
-        }
-        else if (countFragments <= 1 || posFragmentIndex === 0) {
-            throw new Error("This is not the end fragment, looks like the start fragment");
-        }
-        else if (posFragmentIndex !== endFragmentIndex) {
-            throw new Error("This is not the end fragment, looks like a middle fragment");
-        }
-        else if (posFragmentIndex * BLOB_FRAGMENT_SIZE !== startPos + index) {
-            throw new Error("The end fragment must begin on the exact fragment boundary");
-        }
-
-        let fragment: Buffer | undefined;
-
-        if (index + BLOB_FRAGMENT_SIZE === data.length) {
-            fragment = data.slice(index, index + BLOB_FRAGMENT_SIZE);
-        }
-        else {
-            const dataSlice = data.slice(index);
-
-            fragment = await this.readBlobFragment(dataId, endFragmentIndex);
-
-            if (!fragment) {
-                fragment = dataSlice;
-            }
-            else {
-                const remainingLength = Math.max(0, dataSlice.length - fragment.length);
-                fragment = Buffer.concat([fragment, Buffer.alloc(remainingLength)]);
-                dataSlice.copy(fragment, 0);
-            }
-        }
-
-        return {fragment, endFragmentIndex};
-    }
-
-    /**
-     * Insert or replace existing fragment if not finalized already.
-     *
-     * @param dataId
-     * @param fragment data to insert/replace
-     * @param fragmentIndex the fragment index to write to
-     * @throws on error
-     */
-    protected async writeBlobFragment(dataId: Buffer, fragment: Buffer, fragmentIndex: number) {
-        if (fragment.length > BLOB_FRAGMENT_SIZE) {
-            throw new Error("Blob fragment too large");
-        }
-
-        // Note that this write runs in the parent transaction of caller.
-        //
-
-        const ph = this.db.generatePlaceholders(4);
-
-        const sql = `INSERT INTO universe_blob_data (dataid, fragmentnr, finalized, fragment)
-            VALUES ${ph}
-            ON CONFLICT (dataid, fragmentnr) DO UPDATE SET fragment=excluded.fragment
-            WHERE universe_blob_data.finalized=0;`;
-
-        await this.db.run(sql, [dataId, fragmentIndex, 0, fragment]);
-    }
-
-    /**
-     * Read a full blob fragment, finalized or not.
-     *
-     * @param dataId
-     * @param fragmentIndex
-     * @param onlyFinalized set to true to require that the fragment has been finalized.
-     * @throws on error
-     */
-    protected async readBlobFragment(dataId: Buffer, fragmentIndex: number, onlyFinalized: boolean = false): Promise<Buffer | undefined> {
-
-        if (!Number.isInteger(fragmentIndex)) {
-            throw new Error("fragmentIndex not integer");
-        }
-
-        const finalized = onlyFinalized ? "AND finalized=1" : "";
-
-        const ph = this.db.generatePlaceholders(1);
-
-        const sql = `SELECT fragment FROM universe_blob_data
-            WHERE dataid=${ph} AND fragmentnr=${fragmentIndex} ${finalized};`;
-
-        const row = await this.db.get(sql, [dataId]);
-
-        return row?.fragment;
-    }
-
-    /**
-     * @see BlobDriverInterface.
-     */
-    public async readBlobIntermediaryLength(dataId: Buffer): Promise<number | undefined> {
-        if (!this.blobDb) {
-            throw new Error("Blob DB not available");
-        }
-
-        const ph = this.db.generatePlaceholders(1);
-
-        const sql = `SELECT SUM(LENGTH(fragment)) AS length
-            FROM universe_blob_data
-            WHERE dataid=${ph} GROUP BY dataid LIMIT 1`;
-
-        const row = await this.db.get(sql, [dataId]);
-
-        return row?.length;
-    }
-
-    /**
-     * @see BlobDriverInterface.
-     */
-    public async finalizeWriteBlob(nodeId1: Buffer, dataId: Buffer, blobLength: number, blobHash: Buffer) {
-        if (!this.blobDb) {
-            throw new Error("Blob DB not available");
-        }
-
-        const length = await this.readBlobIntermediaryLength(dataId);
-
-        if (length !== blobLength) {
-            throw new Error("blob length not correct");
-        }
-
-        const ph = this.db.generatePlaceholders(1);
-
-        const sql = `SELECT fragment FROM universe_blob_data
-            WHERE dataid=${ph} AND finalized=0 ORDER BY fragmentnr;`;
-
-        const blake = blake2b(32);
-
-        await this.db.exec("BEGIN;");
-
-        try {
-            await this.db.each(sql, [dataId], (row: any): any => {
-                blake.update(row?.fragment);
-            });
-        }
-        catch(e) {
-            await this.db.exec("ROLLBACK;");
-            throw e;
-        }
-
-        const hash = Buffer.from(blake.digest());
-
-        if (!hash.equals(blobHash)) {
-            await this.db.exec("ROLLBACK;");
-            throw new Error("blob hash not correct");
-        }
-
-        const ph1 = this.db.generatePlaceholders(1);
-
-        const sqlUpdate = `UPDATE universe_blob_data SET finalized=1
-            WHERE dataid=${ph1} AND finalized=0;`;
-
-        const ph2 = this.db.generatePlaceholders(2);
-
-        const sqlInsert = `INSERT INTO universe_blob (node_id1, dataid) VALUES ${ph2};`;
-
-        try {
-            await this.db.run(sqlUpdate, [dataId]);
-            await this.db.run(sqlInsert, [nodeId1, dataId]);
-            await this.db.exec("COMMIT;");
-        }
-        catch(e) {
-            await this.db.exec("ROLLBACK;");
-            throw e;
-        }
-    }
-
-    /**
-     * @see BlobDriverInterface.
-     */
-    public async getBlobDataId(nodeId1: Buffer): Promise<Buffer | undefined> {
-        if (!this.blobDb) {
-            throw new Error("Blob DB not available");
-        }
-
-        const ph = this.db.generatePlaceholders(1);
-
-        const sql = `SELECT dataid FROM universe_blob
-            WHERE node_id1=${ph} LIMIT 1`;
-
-        const row = await this.db.get(sql, [nodeId1]);
-
-        if (row?.dataid) {
-            return Buffer.from(row.dataid, "hex");
-        }
-
-        return undefined;
-    }
-
     public close() {
         this.db.close();
-        this.blobDb?.close();
     }
 }

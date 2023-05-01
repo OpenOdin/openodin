@@ -4,25 +4,23 @@ import {
 
 import {
     expectAsyncException,
-    OpenSQLite,
-    OpenSQLiteJS,
-    OpenPG,
 } from "../util";
 
 import {
-    Driver,
+    BlobDriver,
     BLOB_FRAGMENT_SIZE,
     PromiseCallback,
     Hash,
     DBClient,
-    TABLES,
+    BLOB_TABLES,
+    DatabaseUtil,
 } from "../../src";
 
 /**
  * A subclass wrapper to make protected functions accessible publicly.
  *
  */
-class BlobDriverTestWrapper extends Driver {
+class BlobDriverTestWrapper extends BlobDriver {
     public async calcBlobStartFragment(dataId: Buffer, pos: number, data: Buffer): Promise<{fragment: Buffer, startFragmentIndex: number, index: number}> {
         return super.calcBlobStartFragment(dataId, pos, data);
     }
@@ -53,15 +51,15 @@ describe("BlobDriver: SQLite journalling mode", function() {
     const config: any = {};
 
     beforeEach("Open database and create tables", async function() {
-        db = await OpenSQLite();
-        driver = new BlobDriverTestWrapper(new DBClient(db), new DBClient(db));
+        db = await DatabaseUtil.OpenSQLite(undefined, false);
+        driver = new BlobDriverTestWrapper(new DBClient(db));
 
         config.db = db;
         config.driver = driver;
 
-        for (let table in TABLES) {
+        for (let table in BLOB_TABLES) {
             await db.run(`DROP TABLE IF EXISTS ${table};`);
-            for (let idx in TABLES[table].indexes) {
+            for (let idx in BLOB_TABLES[table].indexes) {
                 await db.run(`DROP INDEX IF EXISTS ${idx};`);
             }
         }
@@ -89,16 +87,15 @@ describe("BlobDriver: SQLite WAL-mode", function() {
     const config: any = {};
 
     beforeEach("Open database and create tables", async function() {
-        db = await OpenSQLite();
-        db.exec("PRAGMA journal_mode=WAL;");
-        driver = new BlobDriverTestWrapper(new DBClient(db), new DBClient(db));
+        db = await DatabaseUtil.OpenSQLite();
+        driver = new BlobDriverTestWrapper(new DBClient(db));
 
         config.db = db;
         config.driver = driver;
 
-        for (let table in TABLES) {
+        for (let table in BLOB_TABLES) {
             await db.run(`DROP TABLE IF EXISTS ${table};`);
-            for (let idx in TABLES[table].indexes) {
+            for (let idx in BLOB_TABLES[table].indexes) {
                 await db.run(`DROP INDEX IF EXISTS ${idx};`);
             }
         }
@@ -126,15 +123,15 @@ describe("BlobDriver: SQLiteJS journalling mode", function() {
     const config: any = {};
 
     beforeEach("Open database and create tables", async function() {
-        db = await OpenSQLiteJS();
-        driver = new BlobDriverTestWrapper(new DBClient(db), new DBClient(db));
+        db = await DatabaseUtil.OpenSQLiteJS(false);
+        driver = new BlobDriverTestWrapper(new DBClient(db));
 
         config.db = db;
         config.driver = driver;
 
-        for (let table in TABLES) {
+        for (let table in BLOB_TABLES) {
             await db.run(`DROP TABLE IF EXISTS ${table};`);
-            for (let idx in TABLES[table].indexes) {
+            for (let idx in BLOB_TABLES[table].indexes) {
                 await db.run(`DROP INDEX IF EXISTS ${idx};`);
             }
         }
@@ -162,16 +159,15 @@ describe("BlobDriver: SQLiteJS WAL-mode", function() {
     const config: any = {};
 
     beforeEach("Open database and create tables", async function() {
-        db = await OpenSQLiteJS();
-        db.exec("PRAGMA journal_mode=WAL;");
-        driver = new BlobDriverTestWrapper(new DBClient(db), new DBClient(db));
+        db = await DatabaseUtil.OpenSQLiteJS();
+        driver = new BlobDriverTestWrapper(new DBClient(db));
 
         config.db = db;
         config.driver = driver;
 
-        for (let table in TABLES) {
+        for (let table in BLOB_TABLES) {
             await db.run(`DROP TABLE IF EXISTS ${table};`);
-            for (let idx in TABLES[table].indexes) {
+            for (let idx in BLOB_TABLES[table].indexes) {
                 await db.run(`DROP INDEX IF EXISTS ${idx};`);
             }
         }
@@ -206,15 +202,15 @@ describe("BlobDriver: PostgreSQL READ COMMITTED mode", function() {
     const config: any = {};
 
     beforeEach("Open database and create tables", async function() {
-        db = new DBClient(await OpenPG(false));
-        driver = new BlobDriverTestWrapper(db, db);
+        db = new DBClient(await DatabaseUtil.OpenPG(undefined, false));
+        driver = new BlobDriverTestWrapper(db);
 
         config.db = db;
         config.driver = driver;
 
-        for (let table in TABLES) {
+        for (let table in BLOB_TABLES) {
             await db.run(`DROP TABLE IF EXISTS ${table};`);
-            for (let idx in TABLES[table].indexes) {
+            for (let idx in BLOB_TABLES[table].indexes) {
                 await db.run(`DROP INDEX IF EXISTS ${idx};`);
             }
         }
@@ -249,15 +245,15 @@ describe("BlobDriver: PostgreSQL REPEATABLE READ mode", function() {
     const config: any = {};
 
     beforeEach("Open database and create tables", async function() {
-        db = new DBClient(await OpenPG());
-        driver = new BlobDriverTestWrapper(db, db);
+        db = new DBClient(await DatabaseUtil.OpenPG());
+        driver = new BlobDriverTestWrapper(db);
 
         config.db = db;
         config.driver = driver;
 
-        for (let table in TABLES) {
+        for (let table in BLOB_TABLES) {
             await db.run(`DROP TABLE IF EXISTS ${table};`);
-            for (let idx in TABLES[table].indexes) {
+            for (let idx in BLOB_TABLES[table].indexes) {
                 await db.run(`DROP INDEX IF EXISTS ${idx};`);
             }
         }

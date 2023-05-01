@@ -21,46 +21,60 @@ export class DatabaseUtil {
      *
      * @throws
      */
-    public static async OpenSQLite(uri: string): Promise<sqlite3.Database> {
-        const p = PromiseCallback();
-
-        const db = new sqlite3.Database(uri, sqlite3.OPEN_READWRITE |
-            sqlite3.OPEN_CREATE | sqlite3.OPEN_FULLMUTEX | sqlite3.OPEN_URI,
-            p.cb);
-
+    public static async OpenSQLite(uri: string = ":memory:", walMode: boolean = true): Promise<sqlite3.Database> {
         try {
+            const p = PromiseCallback();
+
+            const db = new sqlite3.Database(uri, sqlite3.OPEN_READWRITE |
+                sqlite3.OPEN_CREATE | sqlite3.OPEN_FULLMUTEX | sqlite3.OPEN_URI,
+                p.cb);
+
             const error = await p.promise;
+
             if (error) {
-                throw new Error(`Could not open sqlite database: ${error}`);
+                throw error;
             }
+
+            if (walMode) {
+                await db.exec("PRAGMA journal_mode=WAL;");
+            }
+
+            return db;
         }
         catch(e) {
             throw new Error(`Could not open sqlite database: ${e}`);
         }
-
-        return db;
     }
 
-    public static async OpenPG(uri: string, repeatableRead: boolean = true): Promise<Connection> {
-        const client = new Connection(uri);
+    public static async OpenPG(uri?: string, repeatableRead: boolean = true): Promise<Connection> {
+        try {
+            const client = new Connection(uri);
 
-        await client.connect();
+            await client.connect();
 
-        if (repeatableRead) {
-            await client.execute(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL REPEATABLE READ; SET SESSION lock_timeout = '1s'; SET SESSION idle_in_transaction_session_timeout = '2s';`);
+            if (repeatableRead) {
+                await client.execute(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL REPEATABLE READ; SET SESSION lock_timeout = '1s'; SET SESSION idle_in_transaction_session_timeout = '2s';`);
+            }
+            else {
+                await client.execute(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL READ COMMITTED; SET SESSION lock_timeout = '1s'; SET SESSION idle_in_transaction_session_timeout = '2s';`);
+            }
+
+            return client;
         }
-        else {
-            await client.execute(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL READ COMMITTED; SET SESSION lock_timeout = '1s'; SET SESSION idle_in_transaction_session_timeout = '2s';`);
+        catch(e) {
+            throw new Error(`Could not open postgres database: ${e}`);
         }
-
-        return client;
     }
 
-    public static async OpenSQLiteJS(): Promise<SQLJSDatabase> {
+    public static async OpenSQLiteJS(walMode: boolean = true): Promise<SQLJSDatabase> {
         try {
             const SQL = await initSqlJs();
 
             const db = new SQL.Database();
+
+            if (walMode) {
+                await db.exec("PRAGMA journal_mode=WAL;");
+            }
 
             return db;
         }
