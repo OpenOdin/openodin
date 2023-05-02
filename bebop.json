@@ -1,0 +1,9 @@
+{
+  "inputDirectory": "./src/p2pclient/bebop",
+  "generators": [
+    {
+      "alias": "ts",
+      "outputFile": "./src/p2pclient/bebop/bebop.ts"
+    }
+  ]
+}

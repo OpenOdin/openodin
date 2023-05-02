@@ -1,0 +1,176 @@
+/**
+ * These data structs are converted into TypeScript using the bebop tool: `npm run bebop`.
+ * The types are used to serialize/deserialize the TypeScript structs defined in requestTypes.ts (see this file for documentation on the structs).
+ * See: https://github.com/RainwayApp/bebop/wiki/Writing-Bops:-The-Bebop-Schema-Language
+ */
+
+struct LimitField {
+    string name;
+    uint16 limit;
+}
+
+struct Filter {
+    string field;
+    string operator;
+    string cmp;
+    byte[] value;
+}
+
+struct Match {
+    byte[] nodeType;
+    Filter[] filters;
+    int32 limit;
+    LimitField limitField;
+    uint16[] level;
+    bool discard;
+    bool bottom;
+    uint8 id;
+    uint8 requireId;
+    byte[] cursorId1;
+}
+
+struct AllowEmbed {
+    byte[] nodeType;
+    Filter[] filters;
+}
+
+struct FetchQuery {
+    int32 depth;
+    int32 limit;
+    int64 cutoffTime;
+    byte[] rootNodeId1;
+    byte[] parentId;
+    byte[] targetPublicKey;
+    byte[] clientPublicKey;
+    byte[] triggerNodeId;
+    bool onlyTrigger;
+    Match[] match;
+    bool discardRoot;
+    AllowEmbed[] embed;
+    bool descending;
+    bool ignoreInactive;
+    bool ignoreOwn;
+    bool preserveTransient;
+    string region;
+    string jurisdiction;
+}
+
+struct FetchTransform {
+    uint16[] algos;
+    bool reverse;
+    byte[] cursorId1;
+    int32 head;
+    int32 tail;
+    byte[] cachedTriggerNodeId;
+    int16 cacheId;
+    bool includeDeleted;
+}
+
+enum Status {
+    RESULT              = 1;
+    MALFORMED           = 2;
+    ERROR               = 3;
+    STORE_FAILED        = 4;
+    FETCH_FAILED        = 5;
+    MISSING_ROOTNODE    = 6;
+    ROOTNODE_LICENSED   = 7;
+    NOT_ALLOWED         = 8;
+    MISMATCH            = 9;
+    EXISTS              = 10;
+    TRY_AGAIN           = 11;
+    MISSING_CURSOR      = 12;
+}
+
+struct FetchResult {
+    byte[][] nodes;
+    byte[][] embed;
+    int64 cutoffTime;
+}
+
+struct TransformResult {
+    byte[][] deletedNodesId1;
+    int32[] indexes;
+    string extra;
+}
+
+message BopFetchRequest {
+    1 -> FetchQuery query;
+    2 -> FetchTransform transform;
+}
+
+message BopFetchResponse {
+    1 -> Status status;
+    2 -> FetchResult result;
+    3 -> TransformResult transformResult;
+    4 -> uint16 seq;
+    5 -> uint16 endSeq;
+    6 -> uint16 rowCount;
+    7 -> string error;
+}
+
+message BopStoreRequest {
+    1 -> byte[][] nodes;
+    2 -> byte[] clientPublicKey;
+    3 -> byte[] targetPublicKey;
+    4 -> byte[] sourcePublicKey;
+    5 -> byte[][] muteMsgIds;
+    6 -> bool preserveTransient;
+}
+
+message BopStoreResponse {
+    1 -> Status status;
+    2 -> byte[][] storedId1;
+    3 -> string error;
+}
+
+message BopUnsubscribeRequest {
+    1 -> byte[] originalMsgId;
+    2 -> byte[] clientPublicKey;
+}
+
+message BopUnsubscribeResponse {
+    1 -> Status status;
+    2 -> string error;
+}
+
+message BopWriteBlobRequest {
+    1 -> byte[] nodeId1;
+    2 -> byte[] clientPublicKey;
+    3 -> byte[] data;
+    4 -> uint64 pos;
+}
+
+message BopWriteBlobResponse {
+    1 -> Status status;
+    2 -> uint64 currentLength;
+    3 -> string error;
+}
+
+message BopReadBlobRequest {
+    1 -> byte[] nodeId1;
+    2 -> byte[] clientPublicKey;
+    3 -> byte[] targetPublicKey;
+    4 -> uint64 pos;
+    5 -> uint32 length;
+}
+
+message BopReadBlobResponse {
+    1 -> Status status;
+    2 -> byte[] data;
+    3 -> uint16 seq;
+    4 -> uint16 endSeq;
+    5 -> uint64 blobLength;
+    6 -> string error;
+}
+
+message BopGenericMessageRequest {
+    1 -> string action;
+    2 -> byte[] clientPublicKey;
+    3 -> byte[] data;
+}
+
+message BopGenericMessageResponse {
+    1 -> Status status;
+    2 -> byte[] data;
+    3 -> string error;
+}
