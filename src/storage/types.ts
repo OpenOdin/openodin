@@ -5,6 +5,7 @@ import {
 
 import {
     Status,
+    FetchRequest,
     FetchQuery,
 } from "../types";
 
@@ -189,6 +190,8 @@ export const TABLES: {[table: string]: any} = {
             },
         },
     },
+};
+
 export const BLOB_TABLES: {[table: string]: any} = {
     "universe_blob_data": {
         columns: [
@@ -441,4 +444,20 @@ export type SelectFriendCertPair = {
     bconstraints: Buffer,
     bimage: Buffer,
     bCertObject?: FriendCertInterface,  // Set later, decoded image.
+};
+
+export type Trigger = {
+    key: string,
+    msgId: Buffer,
+    fetchRequest: FetchRequest,
+    isRunning: boolean,
+    isCorked: boolean,
+    isPending: boolean,
+    handleFetchReplyData?: HandleFetchReplyData,
+    transformer?: Transformer,
+    lastRun: number,
+    closed: boolean,
+
+    /** Set when the query has been fetched the first time. This is imporant if using this trigger with transformers. */
+    hasFetched: boolean,
 };

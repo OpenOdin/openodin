@@ -61,6 +61,10 @@ export class NodeUtil {
 
         const node = new Data();
 
+        if (!params.owner && keyPair) {
+            params.owner = keyPair.publicKey;
+        }
+
         node.setParams(params);
 
         // Check if a signing cert is required.
@@ -108,6 +112,10 @@ export class NodeUtil {
         }
 
         const license = new License();
+
+        if (!params.owner && keyPair) {
+            params.owner = keyPair.publicKey;
+        }
 
         license.setParams(params);
 

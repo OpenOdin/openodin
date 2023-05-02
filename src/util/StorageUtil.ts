@@ -60,6 +60,8 @@ export type FetchRequestTransformParams = {
     head?: number,
     tail?: number,
     cacheId?: number,
+    cachedTriggerNodeId?: Buffer,
+    includeDeleted?: boolean,
 };
 
 export type FetchRequestParams = {

@@ -493,9 +493,7 @@ export class ParseUtil {
     /**
      * @param AutoFetch as:
      * {
-     *  trigger?: {            // undefined means match ALL peers.
-     *   publicKey?: hexstring | Buffer,   // undefined or empty string means match ALL public keys.
-     *  },
+     *  remotePublicKey?: hexstring | Buffer,   // undefined or empty string means match ALL public keys.
      *  query: FetchQuery,
      *  transform: FetchTransform,
      *  downloadBlobs?: boolean,
@@ -507,19 +505,12 @@ export class ParseUtil {
     public static ParseConfigAutoFetch(autoFetch: any): AutoFetch {
         const downloadBlobs = ParseUtil.ParseVariable("autoFetch downloadBlobs must be boolean, if set", autoFetch.downloadBlobs, "boolean", true) ?? false;
         const reverse = ParseUtil.ParseVariable("autoFetch reverse must be boolean, if set", autoFetch.reverse, "boolean", true) ?? false;
-        const trigger0 = ParseUtil.ParseVariable("autoFetch triggers must be object, if set", autoFetch.trigger, "object", true);
-        const trigger = {
-            publicKey: Buffer.alloc(0),
-        };
-        if (trigger0) {
-            trigger.publicKey = ParseUtil.ParseVariable("autoFetch trigger publicKey must be hex-string or Buffer, if set", trigger0.publicKey, "hex", true);
-        }
-
+        const remotePublicKey = ParseUtil.ParseVariable("autoFetch remotePublicKey must be hex-string or Buffer, if set", autoFetch.remotePublicKey, "hex", true) ?? Buffer.alloc(0);
         const query = ParseUtil.ParseQuery(autoFetch.query);
         const transform = ParseUtil.ParseTransform(autoFetch.transform ?? {});
 
         return {
-            trigger,
+            remotePublicKey,
             fetchRequest: {query, transform},
             downloadBlobs,
             reverse,
@@ -626,6 +617,7 @@ export class ParseUtil {
      *  cursorId1?: hexstring | Buffer,
      *  head?: number,
      *  tail?: number,
+     *  cachedTriggerNodeId?: hexstring | Buffer,
      *  cacheId?: number,
      *  includeDeleted?: boolean,
      *
@@ -638,6 +630,7 @@ export class ParseUtil {
             throw new Error("Expecting transform to be object.");
         }
 
+        const cachedTriggerNodeId = ParseUtil.ParseVariable("transform cachedTriggerNodeId must be hex-string or Buffer, if set", transform.cachedTriggerNodeId, "hex", true) ?? Buffer.alloc(0);
         const cacheId = ParseUtil.ParseVariable("transform cacheId must be number, if set", transform.cacheId, "number", true) ?? 0;
         const algos = ParseUtil.ParseVariable("transform algos must be number[], if set", transform.algos, "number[]", true) ?? [];
         const head = ParseUtil.ParseVariable("transform head must be number, if set", transform.head, "number", true) ?? 0;
@@ -652,6 +645,7 @@ export class ParseUtil {
             cursorId1,
             head,
             tail,
+            cachedTriggerNodeId,
             cacheId,
             includeDeleted,
         };

@@ -253,19 +253,18 @@ export type FetchTransform = {
     algos: number[],
 
     /**
-     * The cacheId lets the user differentiate between otherwise identical requests in the case
-     * when a subsequent fetch request follows an identical fetch request existing as a subscription,
-     * and we want to not re-use (or re-use a specific) existing transformer for single fetches.
+     * When fetching with a Transformer without using a trigger one can reuse an existing transformer trigger
+     * cache by referencing the query.triggerNodeId here.
      *
-     * This is useful when first having an active subscription using a transformer then
-     * issuing the exact same fetch request again (without triggerNodeId nor triggerInterval) set
-     * to reuse the existing transformer model.
+     * This can be useful to avoid having to regenerate a complete transformer model for a single fetch.
+     */
+    cachedTriggerNodeId: Buffer,
+
+    /**
+     * This ID can be used to avoid reusing the cache of a specific trigger transform request.
+     * If set then the hash-key will be different for a otherwise identical request.
      *
-     * Typical use case is that the user has a long running subscription running, but also wants to
-     * fetch specific intervals of the model (say for paging up in history). Then reusing the same
-     * model for single fetches is good for performence and also making sure we are fetching against
-     * the exact same model. Changing the cacheId is a way of forcing to not use a cached model, or
-     * forcing to use a specific one.
+     * The use case is to create and reuse a dedicated cache say for paging history.
      */
     cacheId: number,
 
