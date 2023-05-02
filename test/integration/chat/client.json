@@ -1,0 +1,71 @@
+{
+    "keyPair": "!clientKeyfile.json:.keyPair",
+    "storage": {
+        "local": {
+            "exposeToApp": {}
+        }
+    },
+    "connections": [
+        {
+            "factory": {
+                "network": "main",
+                "client": {
+                    "socketType": "WebSocket",
+                    "host": "127.0.0.1",
+                    "port": 8181,
+                    "serverPublicKey": "!serverKeyfile.json:.keyPair.publicKey",
+                    "reconnectDelay": 0
+                }
+            },
+            "connectionType": {
+                "clientType": "extender",
+                "serverType": "extender"
+            },
+            "permissions": {
+                "fetchPermissions": {
+                    "allowEmbed": [
+                            {
+                                "nodeType": "00040002",
+                                "filters": []
+                            }
+                    ],
+                    "allowTrigger": true,
+                    "allowNodeTypes": ["0004"],
+                    "allowReadBlob": true
+                },
+                "storePermissions": {
+                    "allowStore": false,
+                    "allowWriteBlob": false
+                }
+            }
+        }
+    ],
+    "autoFetch": [
+        {
+            "remotePublicKey": "!serverKeyfile.json:.keyPair.publicKey",
+            "query": {
+                "parentId": "0000000000000000000000000000000000000000000000000000000000000000",
+                "triggerNodeId": "0000000000000000000000000000000000000000000000000000000000000000",
+                "depth": -1,
+                "limit": -1,
+                "discardRoot": true,
+                "descending": false,
+                "match": [
+                    {
+                        "nodeType": "00040001"
+                    },
+                    {
+                        "nodeType": "00040002"
+                    }
+                ],
+                "embed": [
+                    {
+                        "nodeType": "00040002",
+                        "filters": []
+                    }
+                ]
+            },
+            "downloadBlobs": true
+        }
+    ]
+}

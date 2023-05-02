@@ -1,0 +1,73 @@
+{
+    "keyPair": "!serverKeyfile.json:.keyPair",
+    "storage": {
+        "local": {
+            "exposeToApp": {}
+        }
+    },
+    "connections": [
+        {
+            "factory": {
+                "maxConnectionsPerIp": 1,
+                "maxConnections": 10,
+                "network": "main",
+                "server": {
+                    "socketType": "WebSocket",
+                    "host": "0.0.0.0",
+                    "port": 8181,
+                    "allowedClients": ["!clientKeyfile.json:.keyPair.publicKey"],
+                    "deniedIPs": [],
+                    "allowedIPs": null
+                }
+            },
+            "connectionType": {
+                "clientType": "extender",
+                "serverType": "extender"
+            },
+            "permissions": {
+                "fetchPermissions": {
+                    "allowEmbed": [
+                            {
+                                "nodeType": "00040002",
+                                "filters": []
+                            }
+                    ],
+                    "allowTrigger": true,
+                    "allowNodeTypes": ["0004"],
+                    "allowReadBlob": true
+                },
+                "storePermissions": {
+                    "allowStore": false,
+                    "allowWriteBlob": false
+                }
+            }
+        }
+    ],
+    "autoFetch": [
+        {
+            "query": {
+                "parentId": "0000000000000000000000000000000000000000000000000000000000000000",
+                "triggerNodeId": "0000000000000000000000000000000000000000000000000000000000000000",
+                "depth": -1,
+                "limit": -1,
+                "discardRoot": true,
+                "descending": false,
+                "match": [
+                    {
+                        "nodeType": "00040001"
+                    },
+                    {
+                        "nodeType": "00040002"
+                    }
+                ],
+                "embed": [
+                        {
+                            "nodeType": "00040002",
+                            "filters": []
+                        }
+                ]
+            },
+            "downloadBlobs": true
+        }
+    ]
+}
