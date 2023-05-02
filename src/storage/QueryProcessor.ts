@@ -376,7 +376,7 @@ export class QueryProcessor {
             }
 
             // Always run this to not miss flipping the cursorPassed flag.
-            let passed2 = this.matchFirst(node, this.currentLevelMatches);
+            const passed2 = this.matchFirst(node, this.currentLevelMatches);
 
             if (!passed || !passed2) {
                 return false;
@@ -1123,15 +1123,15 @@ export class QueryProcessor {
                 triples.push({originalNode: node, embeddedNode, sharedHashStr});
                 allSharedHashes.push(sharedHash);
             }
-            catch(e) {}
+            catch(e) {
+                // Do nothing
+            }
         }
 
         const friendLicensesLength = friendLicenses.length;
 
         if (friendLicensesLength > 0) {
             const friendCertPairs = await this.getFriendCerts(Object.values(distinctLicenseOwners));
-
-            const friendBPublicKey = this.fetchQuery.targetPublicKey;
 
             for (let i=0; i<friendLicensesLength; i++) {
                 const [license, embeddedLicense] = friendLicenses[i];
@@ -1202,7 +1202,7 @@ export class QueryProcessor {
 
         if (certATargetMaxExpireTime !== undefined || certBTargetMaxExpireTime !== undefined) {
 
-            let targetMaxExpireTime = Math.min(
+            const targetMaxExpireTime = Math.min(
                 certATargetMaxExpireTime ?? Number.MAX_SAFE_INTEGER,
                 certBTargetMaxExpireTime ?? Number.MAX_SAFE_INTEGER);
 

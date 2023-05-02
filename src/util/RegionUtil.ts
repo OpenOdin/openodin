@@ -1,4 +1,4 @@
-const ISO3166_1_CODES = [
+export const ISO3166_1_CODES = [
     "AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO", "AQ", "AR", "AS", "AT", "AU", "AW", "AX", "AZ",
     "BA", "BB", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BL", "BM", "BN", "BO", "BQ", "BQ", "BR",
     "BS", "BT", "BV", "BW", "BY", "BZ", "CA", "CC", "CD", "CF", "CG", "CH", "CI", "CK", "CL", "CM",
@@ -17,7 +17,7 @@ const ISO3166_1_CODES = [
     "VI", "VN", "VU", "WF", "WS", "YE", "YT", "ZA", "ZM", "ZW"
 ];
 
-const ISO3166_EU_CODES = [
+export const ISO3166_EU_CODES = [
     "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV",
     "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"
 ];

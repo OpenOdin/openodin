@@ -8,7 +8,6 @@ import {
 
 import {
     Connection,
-    ConnectionConfiguration,
 } from "postgresql-client";
 
 import {

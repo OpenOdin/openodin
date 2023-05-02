@@ -17,8 +17,6 @@
  * The datamodel is built on seven SQL tables which are loosely connected.
  */
 
-import blake2b from "blake2b"
-
 import { strict as assert } from "assert";
 
 import {

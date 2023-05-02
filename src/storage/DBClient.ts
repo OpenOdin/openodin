@@ -380,7 +380,7 @@ export class DBClient {
             db.on(event, fn);
         }
         else if (sqlType === "sqliteJS") {
-            const db = this.db as SQLJSDatabase;
+            //const db = this.db as SQLJSDatabase;
 
             // TODO: not sure how to handle onClose and onError in sql.js
             //

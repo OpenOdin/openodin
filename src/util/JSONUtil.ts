@@ -59,7 +59,7 @@ export class JSONUtil {
      */
     public static ParseJSON(obj: any, varName: string, allowedExternalLoading: string[], orgFile: string): any {
         if (Array.isArray(obj)) {
-            return obj.map( (elm: any, index: number) => {
+            return obj.map( (elm: any) => {
                 return JSONUtil.ParseJSON(elm, `${varName}[]`, allowedExternalLoading, orgFile);
             });
         }

@@ -19,12 +19,11 @@ import {
     DBClient,
 } from "./DBClient";
 
-import {
-    PocketConsole,
-} from "pocket-console";
+//import {
+    //PocketConsole,
+//} from "pocket-console";
 
-const console = PocketConsole({module: "BlobDriver"});
-
+//const console = PocketConsole({module: "BlobDriver"});
 
 /**
  * @see BlobDriverInterface for details on public functions.

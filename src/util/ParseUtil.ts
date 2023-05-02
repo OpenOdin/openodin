@@ -121,7 +121,7 @@ export class ParseUtil {
     public static ParseConfigLocalStorage(obj: any): LocalStorageConfig {
         const permissions = ParseUtil.ParseP2PClientPermissions(obj.permissions);
 
-        let driver: DriverConfig = {
+        const driver: DriverConfig = {
             sqlite: ":memory:",
         };
 
