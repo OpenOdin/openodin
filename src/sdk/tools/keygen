@@ -1,0 +1,25 @@
+#!/usr/bin/env sh
+#
+# This is a thin usage wrapper over src/keygen.ts.
+#
+# This tool creates an Ed25519 key pair in JSON format, as:
+# {
+#   "keyPair": {
+#     "publicKey": "ddf5a7ba5a61f2c1d0aea6e7bcdc0a9818dbc25a3dede93add73088001326b5d",
+#     "secretKey": "97ff96203e294d7469789963fbe6873718f0f3f5834093fc0eecacfa9ee8a483ddf5a7ba5a64f2c1d0aea6e7bcdc2a9818dbc25a3dede95add73088001331b5d"
+#   }
+# }
+#
+# The JSON is output to stdout.
+#
+
+BASEDIR=$( cd "${0%/*}" 2>/dev/null && pwd )
+
+cmd=$(command -v nodejs || command -v node)
+
+if [ -z "${cmd}" ]; then
+    printf "%s\\n" "Error: nodejs or node not found." >&2
+    exit 1
+fi
+
+${cmd} -r ts-node/register "${BASEDIR}/src/keygen.ts"

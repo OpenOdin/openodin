@@ -1,0 +1,28 @@
+#!/usr/bin/env sh
+#
+# This is a thin usage wrapper over src/service.ts.
+#
+
+if [ "$#" -ne 1 ]; then
+    printf "%s\\n" "Usage: ${0} <service.json>" >&2
+    exit 1
+fi
+
+filepath="${1}"
+shift
+
+if [ ! -f "${filepath}" ]; then
+    printf "%s\\n" "Error: File ${filepath} does not exist." >&2
+    exit 1
+fi
+
+BASEDIR=$( cd "${0%/*}" 2>/dev/null && pwd )
+
+cmd=$(command -v nodejs || command -v node)
+
+if [ -z "${cmd}" ]; then
+    printf "%s\\n" "Error: nodejs or node not found." >&2
+    exit 1
+fi
+
+${cmd} -r ts-node/register "${BASEDIR}/src/service.ts" "${filepath}"

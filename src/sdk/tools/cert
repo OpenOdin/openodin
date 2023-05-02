@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+#
+# This is a thin usage wrapper over src/CertCLI.ts.
+#
+
+BASEDIR=$( cd "${0%/*}" 2>/dev/null && pwd )
+
+cmd=$(command -v nodejs || command -v node)
+
+if [ -z "${cmd}" ]; then
+    printf "%s\\n" "Error: nodejs or node not found." >&2
+    exit 1
+fi
+
+${cmd} -r ts-node/register "${BASEDIR}/src/CertCLI.ts" "$@"
