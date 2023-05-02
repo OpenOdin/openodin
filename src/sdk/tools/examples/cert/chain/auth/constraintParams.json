@@ -1,0 +1,18 @@
+{
+    "#--": "This file represents the parameters extracted from the handshake and it is used with the tools to calculate the constraints hash which the handshake parameters must match.",
+
+    "#--": "The creation time of the session in UNIX time milliseconds. This must fall within the certs creation/expireTime.",
+    "creationTime": 1664316000000,
+
+    "#--": "The expire time of the session in UNIX time milliseconds. If the cert has targetMaxExpire set then this must be set.",
+    "expireTime": null,
+
+    "#--": "This is the handshaking cryptographic key, it must match the authCert.targetPublicKeys[0]. It can also be locked in constraints so that the cert can only be used by a specific key.",
+    "publicKey": "!keyFileUser.json:.keyPair.publicKey",
+
+    "#--": "The region possibly to be passed from the peer could be locked as constraints, so that the peer can only use this cert when declaring this specified region.",
+    "region": "SE",
+
+    "#--": "The jurisdiction possibly to be passed from the peer could be locked as constraints, so that the peer can only use this cert when declaring this specified jurisdiction.",
+    "jurisdiction": "SE"
+}

@@ -1,0 +1,44 @@
+{
+    "#--": "This is a friend cert which pairs with it self.",
+
+    "#--": "The hex-encoded 6 byte header of the model type. This dictates what exact cert class will be created. A list of model types is available running `cert list`",
+    "modelType": "000200020000",
+
+    "#--": "The publicKey signing this cert. Since this cert does not have a chain cert this owner is also the issuer. We load this key from an external keyfile.",
+    "owner": "!keyFileIssuer.json:.keyPair.publicKey",
+
+    "#--": "The expected public key of the intermediary signing the embedding license.",
+    "#--": "Note that this array must contain exactly one public key.",
+    "targetPublicKeys": ["!keyFileIntermediary.json:.keyPair.publicKey"],
+
+    "#--": "From the UNIX time (ms) when this cert is valid.",
+    "creationTime": 1664316000000,
+
+    "#--": "The cert has expired on this UNIX time ms.",
+    "expireTime": 1695852000000,
+
+    "#--": "We do not use any chain cert in this example.",
+    "cert": null,
+
+    "#--": "The calculated constraints for which this cert is valid. We load it from external file to not having to modify this file after the constraints have been calculated.",
+    "constraints": "!constraints.json:.constraints",
+
+    "#--": "hex-string of shared secret key for cert pair.",
+    "#--": "This key needs to be exchanged with the peer to be able to calculate the constraints.",
+    "key": "b0bbafe444",
+
+    "#--": "The allowed stack height for this cert. Since we have no chain certs we set this to 1.",
+    "maxChainLength": 1,
+
+    "#--": "If the signature is already created put that here in hex-encoding, otherwise make sure to pass the --keyfile argument to sign the created cert.",
+    "signature": null,
+
+    "#--": "If this is set then limit the session maximum expire time.",
+    "targetMaxExpireTime": null,
+
+    "#--": "Set to true to demand that the license getting extended must be extened by a specific intermediary public key.",
+    "isLockedOnIntermediary": false,
+
+    "#--": "Set to true to demand that the license getting extended has a specific friend level set.",
+    "isLockedOnLevel": false
+}
