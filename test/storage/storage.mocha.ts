@@ -505,37 +505,64 @@ describe("Storage: triggers", function() {
     });
 });
 
-describe.skip("Storage handlers: SQLite WAL-mode", function() {
-    //let driver: DriverTestWrapper | undefined;
-    //let db: DBClient | undefined;
-    //const config: any = {};
 
-    //beforeEach("Open database and create tables", async function() {
-        //db = new DBClient(await DatabaseUtil.OpenSQLite());
-        //driver = new DriverTestWrapper(db);
+describe("Storage: SQLite WAL-mode", function() {
+    let signatureOffloader: SignatureOffloader | undefined;
+    let driver: Driver | undefined;
+    let db: DBClient | undefined;
+    let storage: StorageWrapper | undefined;
+    let p2pClient: P2PClient | undefined;
+    let socket1: Client | undefined;
+    let socket2: Client | undefined;
+    let messaging1: Messaging | undefined;
+    const config: any = {};
 
-        //config.db = db;
-        //config.driver = driver;
+    beforeEach("Open database and create tables", async function() {
+        signatureOffloader = new SignatureOffloader();
+        signatureOffloader.init();
 
-        //for (let table in TABLES) {
-            //await db.run(`DROP TABLE IF EXISTS ${table};`);
-            //for (let idx in TABLES[table].indexes) {
-                //await db.run(`DROP INDEX IF EXISTS ${idx};`);
-            //}
-        //}
+        db = new DBClient(await DatabaseUtil.OpenSQLite());
+        driver = new Driver(db);
 
-        //await driver.createTables();
-    //});
+        for (let table in TABLES) {
+            await db.run(`DROP TABLE IF EXISTS ${table};`);
+            for (let idx in TABLES[table].indexes) {
+                await db.run(`DROP INDEX IF EXISTS ${idx};`);
+            }
+        }
 
-    //afterEach("Close database", function() {
-        //db?.close();
-        //db = undefined;
-        //driver = undefined;
-        //config.db = undefined;
-        //config.driver = undefined;
-    //});
+        await driver.createTables();
 
-    //setupTests(config);
+        // Create virtual paired sockets.
+        [socket1, socket2] = CreatePair();
+        messaging1 = new Messaging(socket1, 0);
+
+        const localProps = makePeerProps(ConnectionType.STORAGE_CLIENT);
+
+        const remoteProps = makePeerProps(ConnectionType.STORAGE_SERVER);
+
+        p2pClient = new P2PClient(messaging1, localProps, remoteProps);
+
+        storage = new StorageWrapper(p2pClient, signatureOffloader, driver);
+
+        storage.init();
+
+        config.db = db;
+        config.driver = driver;
+        config.storage = storage;
+        config.p2pClient = p2pClient;
+
+    });
+
+    afterEach("Close database", function() {
+        driver?.close();
+        db?.close();
+        socket1?.close();
+        socket2?.close();
+        signatureOffloader?.close();
+    });
+
+    setupTests(config);
 });
 
 describe("Storage: SQLiteJS WAL-mode", function() {
@@ -597,48 +624,75 @@ describe("Storage: SQLiteJS WAL-mode", function() {
     setupTests(config);
 });
 
-describe.skip("Storage: PostgreSQL REPEATABLE READ mode", function() {
-    //before(function() {
-        //if (process.env.PGHOST && process.env.PGPORT && process.env.PGUSER) {
-            //// Pass
-        //}
-        //else {
-            //this.skip();
-            //return;
-        //}
-    //});
+describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
+    before(function() {
+        if (process.env.PGHOST && process.env.PGPORT && process.env.PGUSER) {
+            // Pass
+        }
+        else {
+            this.skip();
+            return;
+        }
+    });
 
-    //let driver: DriverTestWrapper | undefined;
-    //let db: DBClient | undefined;
-    //const config: any = {};
+    let signatureOffloader: SignatureOffloader | undefined;
+    let driver: Driver | undefined;
+    let db: DBClient | undefined;
+    let storage: StorageWrapper | undefined;
+    let p2pClient: P2PClient | undefined;
+    let socket1: Client | undefined;
+    let socket2: Client | undefined;
+    let messaging1: Messaging | undefined;
+    const config: any = {};
 
-    //beforeEach("Open database and create tables", async function() {
-        //db = new DBClient(await DatabaseUtil.OpenPG());
-        //driver = new DriverTestWrapper(db);
+    beforeEach("Open database and create tables", async function() {
+        signatureOffloader = new SignatureOffloader();
+        signatureOffloader.init();
 
-        //config.db = db;
-        //config.driver = driver;
+        db = new DBClient(await DatabaseUtil.OpenPG());
+        driver = new Driver(db);
 
-        //for (let table in TABLES) {
-            //await db.run(`DROP TABLE IF EXISTS ${table};`);
-            //for (let idx in TABLES[table].indexes) {
-                //await db.run(`DROP INDEX IF EXISTS ${idx};`);
-            //}
-        //}
+        for (let table in TABLES) {
+            await db.run(`DROP TABLE IF EXISTS ${table};`);
+            for (let idx in TABLES[table].indexes) {
+                await db.run(`DROP INDEX IF EXISTS ${idx};`);
+            }
+        }
 
-        //await driver.createTables();
-    //});
+        await driver.createTables();
 
-    //afterEach("Close database", function() {
-        //db?.close();
-        //db = undefined;
-        //driver = undefined;
-        //config.db = undefined;
-        //config.driver = undefined;
-    //});
+        // Create virtual paired sockets.
+        [socket1, socket2] = CreatePair();
+        messaging1 = new Messaging(socket1, 0);
 
-    //setupTests(config);
+        const localProps = makePeerProps(ConnectionType.STORAGE_CLIENT);
+
+        const remoteProps = makePeerProps(ConnectionType.STORAGE_SERVER);
+
+        p2pClient = new P2PClient(messaging1, localProps, remoteProps);
+
+        storage = new StorageWrapper(p2pClient, signatureOffloader, driver);
+
+        storage.init();
+
+        config.db = db;
+        config.driver = driver;
+        config.storage = storage;
+        config.p2pClient = p2pClient;
+
+    });
+
+    afterEach("Close database", function() {
+        driver?.close();
+        db?.close();
+        socket1?.close();
+        socket2?.close();
+        signatureOffloader?.close();
+    });
+
+    setupTests(config);
 });
+
 
 function setupTests(config: any) {
     it("handleStore", async function() {
