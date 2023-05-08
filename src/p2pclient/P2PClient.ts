@@ -42,6 +42,7 @@ import {
     DeserializeInterface,
     SerializeInterface,
     P2PClientPermissions,
+    LOCKED_PERMISSIONS,
 } from "./types";
 
 import {
@@ -170,20 +171,7 @@ export class P2PClient {
         this.remoteProps = remoteProps;
 
         // Default permissions are locked down.
-        this.permissions = permissions || {
-            allowUncheckedAccess: false,
-            fetchPermissions: {
-                allowEmbed: [],
-                allowTrigger: false,
-                allowNodeTypes: [],
-                allowTransform: [],
-                allowReadBlob: false,
-            },
-            storePermissions: {
-                allowStore: false,
-                allowWriteBlob: false,
-            }
-        };
+        this.permissions = permissions ?? LOCKED_PERMISSIONS;
 
         const eventEmitter = this.messaging.getEventEmitter();
         eventEmitter.on(EventType.CLOSE, this.close);

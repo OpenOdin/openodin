@@ -188,3 +188,58 @@ export type P2PClientStorePermissions = {
  * If only nodeId1 is set that means a successfull download and store of the blob.
  */
 export type BlobEvent = {nodeId1: Buffer, error?: {isRead: boolean | undefined, message: string}};
+
+export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
+    allowUncheckedAccess: true,
+    fetchPermissions: {
+        allowEmbed: [
+            {
+                nodeType: "0004" as any,
+                filters: []
+            }
+        ],
+        allowTrigger: true,
+        allowNodeTypes: ["0004" as any],
+        allowTransform: [1, 2],
+        allowReadBlob: true,
+    },
+    storePermissions: {
+        allowStore: true,
+        allowWriteBlob: true,
+    }
+};
+
+export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
+    allowUncheckedAccess: false,
+    fetchPermissions: {
+        allowEmbed: [
+            {
+                nodeType: "0004" as any,
+                "filters": []
+            }
+        ],
+        allowTrigger: true,
+        allowNodeTypes: ["0004" as any],
+        allowTransform: [1, 2],
+        allowReadBlob: true,
+    },
+    storePermissions: {
+        allowStore: true,
+        allowWriteBlob: true,
+    }
+};
+
+export const LOCKED_PERMISSIONS: P2PClientPermissions = {
+    allowUncheckedAccess: false,
+    fetchPermissions: {
+        allowEmbed: [],
+        allowTrigger: false,
+        allowNodeTypes: [],
+        allowTransform: [],
+        allowReadBlob: false,
+    },
+    storePermissions: {
+        allowStore: false,
+        allowWriteBlob: false,
+    }
+};
