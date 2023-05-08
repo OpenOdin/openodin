@@ -213,8 +213,8 @@ export class Driver implements DriverInterface {
     /**
      * Fetch single node applying permissions.
      *
-     * Note that any restrictive writer mode is ignored.
-     * This is of less importance since we are asking for a specific node.
+     * Note that any restrictive writer mode is ignored but which is
+     * of no importance since we are directly asking for a specific node.
      *
      * @returns node if permissions allow.
      */
@@ -260,15 +260,8 @@ export class Driver implements DriverInterface {
 
                 return nodes[0];
             }
-            else {
-                if (targetPublicKey) {
-                    if (node.canSendPrivately(clientPublicKey, targetPublicKey)) {
-                        return node;
-                    }
-                }
-                else if (node.canHoldPrivately(clientPublicKey)) {
-                    return node;
-                }
+            else if (node.canSendPrivately(clientPublicKey, targetPublicKey)) {
+                return node;
             }
         }
 
@@ -280,7 +273,7 @@ export class Driver implements DriverInterface {
      *
      * @param nodeId the ID1 of the node.
      */
-    protected async getNodeById1(nodeId1: Buffer, now: number): Promise<NodeInterface | undefined> {
+    public async getNodeById1(nodeId1: Buffer, now: number): Promise<NodeInterface | undefined> {
         const ph = this.db.generatePlaceholders(1);
 
         if (!Number.isInteger(now)) {

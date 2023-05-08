@@ -17,6 +17,12 @@ import {
     DBClient,
 } from "../src";
 
+import {
+    PocketConsole,
+} from "pocket-console";
+
+const console = PocketConsole({module: "test/util"});
+
 /**
  * @param promise to await
  * @param expectedMessage if set then the thrown error message must exactly mach this / one of these if array.
@@ -29,6 +35,8 @@ export async function expectAsyncException(promise: Promise<any>, expectedMessag
     }
     catch(e) {
         const error = e as Error;
+
+        console.debug(error);
 
         if (expectedMessage !== undefined && typeof expectedMessage === "string" && expectedMessage !== error.message) {
             throw new Error(`Async function did not throw the expected message but threw: ${error.message}`);

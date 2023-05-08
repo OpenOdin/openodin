@@ -580,6 +580,17 @@ export type WriteBlobRequest = {
      * set to true to allow a different clientPublicKey than the remote public key.
      */
     clientPublicKey: Buffer,
+
+    /**
+     * If this is set then the blob data content is copied from an existing blob
+     * referenced by copyFromId1. The data is not physically copied but deduplicated.
+     * This requires that the writer has read access to the given node and that
+     * the blob hashes match each other (that the data is actually identical).
+     *
+     * The parameters pos and data are ignore if this is set and the successful result is
+     * identical to when completing a write of the full blob.
+     */
+    copyFromId1: Buffer,
 };
 
 /** Struct used for responding to write blob requests. */

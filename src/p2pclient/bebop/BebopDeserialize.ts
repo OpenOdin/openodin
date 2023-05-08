@@ -134,6 +134,7 @@ export class BebopDeserialize {
         obj.nodeId1 = MakeIntoBuffer(obj.nodeId1);
         obj.data = MakeIntoBuffer(obj.data);
         obj.clientPublicKey = MakeIntoBuffer(obj.clientPublicKey);
+        obj.copyFromId1 = MakeIntoBuffer(obj.copyFromId1);
         return obj as unknown as WriteBlobRequest;
     }
 

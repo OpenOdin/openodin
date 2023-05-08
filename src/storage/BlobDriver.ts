@@ -115,9 +115,13 @@ export class BlobDriver implements BlobDriverInterface {
         try {
             const ph = this.blobDb.generatePlaceholders(nodeId1s.length);
 
-            await this.blobDb.run(`DELETE FROM universe_blob_data AS t WHERE t.id1 IN ${ph};`, nodeId1s);
+            const dataIds = (await this.blobDb.all(`DELETE FROM universe_blob AS t WHERE t.node_id1 IN ${ph}
+                RETURNING dataid;`, nodeId1s)).map( (row: any) => row.dataid );
 
-            await this.blobDb.run(`DELETE FROM universe_blob AS t WHERE t.id1 IN ${ph};`, nodeId1s);
+            const ph2 = this.blobDb.generatePlaceholders(dataIds.length);
+
+            await this.blobDb.run(`DELETE FROM universe_blob_data AS bd WHERE bd.dataid IN ${ph2}
+                AND bd.dataid NOT IN (SELECT dataid from universe_blob);`, dataIds);
 
             this.blobDb.exec("COMMIT;");
         }
@@ -385,7 +389,7 @@ export class BlobDriver implements BlobDriverInterface {
     /**
      * @see BlobDriverInterface.
      */
-    public async finalizeWriteBlob(nodeId1: Buffer, dataId: Buffer, blobLength: number, blobHash: Buffer) {
+    public async finalizeWriteBlob(nodeId1: Buffer, dataId: Buffer, blobLength: number, blobHash: Buffer, now: number) {
         assert(this.blobDb, "Blob driver is not available");
 
         const length = await this.readBlobIntermediaryLength(dataId);
@@ -416,8 +420,15 @@ export class BlobDriver implements BlobDriverInterface {
         const hash = Buffer.from(blake.digest());
 
         if (!hash.equals(blobHash)) {
-            await this.blobDb.exec("ROLLBACK;");
-            throw new Error("blob hash not correct");
+            // Delete data and commit.
+            const sqlDelete = `DELETE FROM universe_blob_data
+                WHERE dataid=${ph} AND finalized=0;`;
+
+            await this.blobDb.run(sqlDelete, [dataId]);
+
+            await this.blobDb.exec("COMMIT;");
+
+            throw new Error("Blob hash does not match. Temporary blob data deleted. Write again.");
         }
 
         const ph1 = this.blobDb.generatePlaceholders(1);
@@ -425,13 +436,13 @@ export class BlobDriver implements BlobDriverInterface {
         const sqlUpdate = `UPDATE universe_blob_data SET finalized=1
             WHERE dataid=${ph1} AND finalized=0;`;
 
-        const ph2 = this.blobDb.generatePlaceholders(2);
+        const ph2 = this.blobDb.generatePlaceholders(3);
 
-        const sqlInsert = `INSERT INTO universe_blob (node_id1, dataid) VALUES ${ph2};`;
+        const sqlInsert = `INSERT INTO universe_blob (node_id1, dataid, storagetime) VALUES ${ph2};`;
 
         try {
             await this.blobDb.run(sqlUpdate, [dataId]);
-            await this.blobDb.run(sqlInsert, [nodeId1, dataId]);
+            await this.blobDb.run(sqlInsert, [nodeId1, dataId, now]);
             await this.blobDb.exec("COMMIT;");
         }
         catch(e) {
@@ -448,8 +459,8 @@ export class BlobDriver implements BlobDriverInterface {
 
         const ph = this.blobDb.generatePlaceholders(1);
 
-        const sql = `SELECT dataid FROM universe_blob
-            WHERE node_id1=${ph} LIMIT 1`;
+        const sql = `SELECT universe_blob.dataid FROM universe_blob, universe_blob_data
+            WHERE node_id1=${ph} AND universe_blob_data.dataid = universe_blob.dataid LIMIT 1`;
 
         const row = await this.blobDb.get(sql, [nodeId1]);
 
@@ -458,6 +469,33 @@ export class BlobDriver implements BlobDriverInterface {
         }
 
         return undefined;
+    }
+
+    /**
+     * @see BlobDriverInterface.
+     */
+    public async copyBlob(fromNodeId1: Buffer, toNodeId1: Buffer, now: number): Promise<boolean> {
+        const dataId = await this.getBlobDataId(fromNodeId1);
+
+        if (!dataId) {
+            return false;
+        }
+
+        const ph = this.blobDb.generatePlaceholders(3);
+
+        const sqlInsert = `INSERT INTO universe_blob (node_id1, dataid, storagetime) VALUES ${ph};`;
+
+        try {
+            await this.blobDb.exec("BEGIN;");
+            await this.blobDb.run(sqlInsert, [toNodeId1, dataId, now]);
+            await this.blobDb.exec("COMMIT;");
+        }
+        catch(e) {
+            await this.blobDb.exec("ROLLBACK;");
+            throw e;
+        }
+
+        return true;
     }
 
     public close() {

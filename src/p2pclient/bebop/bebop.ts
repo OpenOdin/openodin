@@ -1181,6 +1181,7 @@ export interface IBopWriteBlobRequest {
   clientPublicKey?: Uint8Array;
   data?: Uint8Array;
   pos?: bigint;
+  copyFromId1?: Uint8Array;
 }
 
 export const BopWriteBlobRequest = {
@@ -1210,6 +1211,10 @@ export const BopWriteBlobRequest = {
       if (message.pos != null) {
         view.writeByte(4);
         view.writeUint64(message.pos);
+      }
+      if (message.copyFromId1 != null) {
+        view.writeByte(5);
+        view.writeBytes(message.copyFromId1);
       }
       view.writeByte(0);
       const end = view.length;
@@ -1247,6 +1252,10 @@ export const BopWriteBlobRequest = {
 
         case 4:
           message.pos = view.readUint64();
+          break;
+
+        case 5:
+          message.copyFromId1 = view.readBytes();
           break;
 
         default:

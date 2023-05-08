@@ -138,6 +138,7 @@ message BopWriteBlobRequest {
     2 -> byte[] clientPublicKey;
     3 -> byte[] data;
     4 -> uint64 pos;
+    5 -> byte[] copyFromId1;
 }
 
 message BopWriteBlobResponse {

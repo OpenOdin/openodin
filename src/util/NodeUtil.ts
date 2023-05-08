@@ -72,10 +72,12 @@ export class NodeUtil {
             if (!nodeCerts) {
                 throw new Error("Missing node certs.");
             }
+
             const nodeCert = Decoder.MatchNodeCert(node, keyPair.publicKey, nodeCerts);
             if (!nodeCert) {
                 throw new Error("Could not find matching data node signing cert.");
             }
+
             node.setCertObject(nodeCert as DataCertInterface);
         }
 

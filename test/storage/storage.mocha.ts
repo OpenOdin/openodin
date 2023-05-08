@@ -16,12 +16,14 @@ import {
     DatabaseUtil,
     DBClient,
     TABLES,
+    BLOB_TABLES,
     Storage,
     P2PClient,
     PeerProps,
     ConnectionType,
     SignatureOffloader,
     Driver,
+    BlobDriver,
     SendResponseFn,
     FetchRequest,
     FetchResponse,
@@ -42,6 +44,11 @@ import {
     Decoder,
     UnsubscribeRequest,
     UnsubscribeResponse,
+    WriteBlobRequest,
+    WriteBlobResponse,
+    ReadBlobRequest,
+    ReadBlobResponse,
+    Hash,
 } from "../../src";
 
 class StorageWrapper extends Storage {
@@ -87,6 +94,14 @@ class StorageWrapper extends Storage {
 
     public handleUnsubscribeWrapped(peer: P2PClient, unsubscribeRequest: UnsubscribeRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<UnsubscribeResponse>) {
         return this.handleUnsubscribe(peer, unsubscribeRequest, fromMsgId, expectingReply, sendResponse);
+    }
+
+    public handleWriteBlobWrapped(peer: P2PClient, writeBlobRequest: WriteBlobRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<WriteBlobResponse>) {
+        return this.handleWriteBlob(peer, writeBlobRequest, fromMsgId, expectingReply, sendResponse);
+    }
+
+    public handleReadBlobWrapped(peer: P2PClient, readBlobRequest: ReadBlobRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ReadBlobResponse>) {
+        return this.handleReadBlob(peer, readBlobRequest, fromMsgId, expectingReply, sendResponse);
     }
 }
 
@@ -509,7 +524,9 @@ describe("Storage: triggers", function() {
 describe("Storage: SQLite WAL-mode", function() {
     let signatureOffloader: SignatureOffloader | undefined;
     let driver: Driver | undefined;
+    let blobDriver: BlobDriver | undefined;
     let db: DBClient | undefined;
+    let blobDb: DBClient | undefined;
     let storage: StorageWrapper | undefined;
     let p2pClient: P2PClient | undefined;
     let socket1: Client | undefined;
@@ -533,6 +550,18 @@ describe("Storage: SQLite WAL-mode", function() {
 
         await driver.createTables();
 
+        blobDb = new DBClient(await DatabaseUtil.OpenSQLite());
+        blobDriver = new BlobDriver(blobDb);
+
+        for (let table in BLOB_TABLES) {
+            await blobDb.run(`DROP TABLE IF EXISTS ${table};`);
+            for (let idx in BLOB_TABLES[table].indexes) {
+                await blobDb.run(`DROP INDEX IF EXISTS ${idx};`);
+            }
+        }
+
+        await blobDriver.createTables();
+
         // Create virtual paired sockets.
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
@@ -543,20 +572,23 @@ describe("Storage: SQLite WAL-mode", function() {
 
         p2pClient = new P2PClient(messaging1, localProps, remoteProps);
 
-        storage = new StorageWrapper(p2pClient, signatureOffloader, driver);
+        storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
         storage.init();
 
         config.db = db;
+        config.blobDb = blobDb;
         config.driver = driver;
+        config.blobDriver = blobDriver;
         config.storage = storage;
         config.p2pClient = p2pClient;
-
     });
 
     afterEach("Close database", function() {
         driver?.close();
         db?.close();
+        blobDriver?.close();
+        blobDb?.close();
         socket1?.close();
         socket2?.close();
         signatureOffloader?.close();
@@ -568,7 +600,9 @@ describe("Storage: SQLite WAL-mode", function() {
 describe("Storage: SQLiteJS WAL-mode", function() {
     let signatureOffloader: SignatureOffloader | undefined;
     let driver: Driver | undefined;
+    let blobDriver: BlobDriver | undefined;
     let db: DBClient | undefined;
+    let blobDb: DBClient | undefined;
     let storage: StorageWrapper | undefined;
     let p2pClient: P2PClient | undefined;
     let socket1: Client | undefined;
@@ -592,6 +626,18 @@ describe("Storage: SQLiteJS WAL-mode", function() {
 
         await driver.createTables();
 
+        blobDb = new DBClient(await DatabaseUtil.OpenSQLite());
+        blobDriver = new BlobDriver(blobDb);
+
+        for (let table in BLOB_TABLES) {
+            await blobDb.run(`DROP TABLE IF EXISTS ${table};`);
+            for (let idx in BLOB_TABLES[table].indexes) {
+                await blobDb.run(`DROP INDEX IF EXISTS ${idx};`);
+            }
+        }
+
+        await blobDriver.createTables();
+
         // Create virtual paired sockets.
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
@@ -602,15 +648,16 @@ describe("Storage: SQLiteJS WAL-mode", function() {
 
         p2pClient = new P2PClient(messaging1, localProps, remoteProps);
 
-        storage = new StorageWrapper(p2pClient, signatureOffloader, driver);
+        storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
         storage.init();
 
         config.db = db;
+        config.blobDb = blobDb;
         config.driver = driver;
+        config.blobDriver = blobDriver;
         config.storage = storage;
         config.p2pClient = p2pClient;
-
     });
 
     afterEach("Close database", function() {
@@ -637,7 +684,9 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
 
     let signatureOffloader: SignatureOffloader | undefined;
     let driver: Driver | undefined;
+    let blobDriver: BlobDriver | undefined;
     let db: DBClient | undefined;
+    let blobDb: DBClient | undefined;
     let storage: StorageWrapper | undefined;
     let p2pClient: P2PClient | undefined;
     let socket1: Client | undefined;
@@ -661,6 +710,18 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
 
         await driver.createTables();
 
+        blobDb = new DBClient(await DatabaseUtil.OpenSQLite());
+        blobDriver = new BlobDriver(blobDb);
+
+        for (let table in BLOB_TABLES) {
+            await blobDb.run(`DROP TABLE IF EXISTS ${table};`);
+            for (let idx in BLOB_TABLES[table].indexes) {
+                await blobDb.run(`DROP INDEX IF EXISTS ${idx};`);
+            }
+        }
+
+        await blobDriver.createTables();
+
         // Create virtual paired sockets.
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
@@ -671,15 +732,16 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
 
         p2pClient = new P2PClient(messaging1, localProps, remoteProps);
 
-        storage = new StorageWrapper(p2pClient, signatureOffloader, driver);
+        storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
         storage.init();
 
         config.db = db;
+        config.blobDb = blobDb;
         config.driver = driver;
+        config.blobDriver = blobDriver;
         config.storage = storage;
         config.p2pClient = p2pClient;
-
     });
 
     afterEach("Close database", function() {
@@ -1033,11 +1095,384 @@ function setupTests(config: any) {
         assert(counter === 1);
     });
 
+    it("#handleWriteBlob, #readBlobRequest", async function() {
+        const storage = config.storage as StorageWrapper;
+        assert(storage);
+        const p2pClient = config.p2pClient as P2PClient;
+        assert(p2pClient);
+
+        const nodeUtil = new NodeUtil();
+        const now = Date.now();
+
+        let expectingReply = ExpectingReply.NONE;  // This is not used.
+        let fromMsgId = Buffer.from([1,2,3,4,5]);
+
+        let keyPair1 = Node.GenKeyPair();
+        let clientPublicKey = keyPair1.publicKey;
+        let targetPublicKey = clientPublicKey;
+        let sourcePublicKey = clientPublicKey;
+        let parentId = Buffer.alloc(32).fill(0x00);
+        let nodeId1 = Buffer.alloc(32).fill(0x01);
+
+        let response: any;
+        const sendResponse: any = (obj: any) => {
+            response = obj;
+        };
+
+        let copyFromId1 = Buffer.alloc(0);
+        let data = Buffer.from("Hello World");
+        let pos = BigInt(Number.MAX_SAFE_INTEGER + 1);
+        let blobLength = BigInt(data.length);
+        let blobHash = Hash(data);
+
+        let writeBlobRequest: WriteBlobRequest = {
+            clientPublicKey,
+            copyFromId1,
+            nodeId1,
+            data,
+            pos,
+        };
+
+        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.ERROR);
+        assert(response.error === "write blob failed: Error: position too large to handle");
+
+        ///
+
+        pos = 0n;
+
+        writeBlobRequest = {
+            clientPublicKey,
+            copyFromId1,
+            nodeId1,
+            data,
+            pos,
+        };
+
+        response = undefined;
+        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.NOT_ALLOWED);
+        assert(response.error === "write blob failed: Error: node not found or not allowed");
+
+
+        const node1 = await nodeUtil.createDataNode({
+            parentId,
+            expireTime: now + 10004,
+            creationTime: now,
+            isPublic: true,
+        }, keyPair1);
+
+        const node2 = await nodeUtil.createDataNode({
+            parentId,
+            expireTime: now + 10004,
+            creationTime: now,
+            isPublic: true,
+            blobHash,
+            blobLength,
+        }, keyPair1);
+
+        let storeRequest = {
+            clientPublicKey,
+            sourcePublicKey,
+            targetPublicKey,
+            preserveTransient: false,
+            nodes: [node1.export(), node2.export()],
+            muteMsgIds: [],
+        };
+
+        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+
+        writeBlobRequest = {
+            clientPublicKey,
+            copyFromId1,
+            nodeId1: node1.getId1() as Buffer,
+            data,
+            pos,
+        };
+
+
+        response = undefined;
+        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.MALFORMED);
+        assert(response.error === "write blob failed: Error: node not configured for blob");
+
+
+        writeBlobRequest = {
+            clientPublicKey,
+            copyFromId1,
+            nodeId1: node2.getId1() as Buffer,
+            data: data.slice(0,6),
+            pos,
+        };
+
+        response = undefined;
+        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.RESULT);
+        assert(response.error === "");
+        assert(response.currentLength === 6n);
+
+
+        let readBlobRequest: ReadBlobRequest = {
+            clientPublicKey,
+            targetPublicKey,
+            nodeId1: node2.getId1() as Buffer,
+            pos: 0n,
+            length: 100,
+        };
+
+        response = undefined;
+        await storage.handleReadBlobWrapped(p2pClient, readBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.ERROR);
+        assert(response.error === "read blob failed: Error: node blob data does not exist in finalized state");
+
+
+        writeBlobRequest = {
+            clientPublicKey,
+            copyFromId1,
+            nodeId1: node2.getId1() as Buffer,
+            data: data.slice(6),
+            pos: 6n,
+        };
+
+        response = undefined;
+        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.RESULT);
+        assert(response.error === "");
+        assert(response.currentLength === blobLength);
+
+        response = undefined;
+        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.EXISTS);
+        assert(response.error === "");
+        assert(response.currentLength === blobLength);
+    });
+
+    it("#handleWriteBlob, #readBlobRequest with permissions", async function() {
+        const storage = config.storage as StorageWrapper;
+        assert(storage);
+        const p2pClient = config.p2pClient as P2PClient;
+        assert(p2pClient);
+
+        const nodeUtil = new NodeUtil();
+        const now = Date.now();
+
+        let expectingReply = ExpectingReply.NONE;  // This is not used.
+        let fromMsgId = Buffer.from([1,2,3,4,5]);
+
+        let keyPair1 = Node.GenKeyPair();
+        let keyPair2 = Node.GenKeyPair();
+        let parentId = Buffer.alloc(32).fill(0x00);
+
+        let response: any;
+        const sendResponse: any = (obj: any) => {
+            response = obj;
+        };
+
+        let copyFromId1 = Buffer.alloc(0);
+        let data = Buffer.from("Hello World");
+        let pos = 0n;
+        let blobLength = BigInt(data.length);
+        let blobHash = Hash(data);
+
+        const node1 = await nodeUtil.createDataNode({
+            parentId,
+            expireTime: now + 10000,
+            creationTime: now,
+            isLicensed: true,
+            blobHash,
+            blobLength,
+        }, keyPair1);
+
+        const license1 = await nodeUtil.createLicenseNode({
+            parentId,
+            refId: node1.getId1(),
+            targetPublicKey: keyPair2.publicKey,
+            expireTime: now + 10000,
+            creationTime: now,
+        }, keyPair1);
+
+
+        const node2 = await nodeUtil.createDataNode({
+            parentId,
+            expireTime: now + 10000,
+            creationTime: now,
+            isLicensed: true,
+            blobHash,
+            blobLength,
+        }, keyPair2);
+
+        const license2 = await nodeUtil.createLicenseNode({
+            parentId,
+            refId: node2.getId1(),
+            targetPublicKey: keyPair1.publicKey,
+            expireTime: now + 10000,
+            creationTime: now,
+        }, keyPair2);
+
+
+        assert(license1.isLicenseTo(node1, keyPair1.publicKey, keyPair2.publicKey));
+
+
+        let storeRequest = {
+            clientPublicKey: keyPair1.publicKey,
+            sourcePublicKey: keyPair1.publicKey,
+            targetPublicKey: keyPair1.publicKey,
+            preserveTransient: false,
+            nodes: [node1.export(), node2.export()],
+            muteMsgIds: [],
+        };
+
+        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+
+
+        let writeBlobRequest: WriteBlobRequest = {
+            clientPublicKey: keyPair2.publicKey,
+            copyFromId1,
+            nodeId1: node1.getId1() as Buffer,
+            data,
+            pos,
+        };
+
+        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.NOT_ALLOWED);
+
+
+        writeBlobRequest = {
+            clientPublicKey: keyPair1.publicKey,
+            copyFromId1,
+            nodeId1: node1.getId1() as Buffer,
+            data,
+            pos,
+        };
+
+        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.RESULT);
+        assert(response.error === "");
+
+
+
+        writeBlobRequest = {
+            clientPublicKey: keyPair1.publicKey,
+            nodeId1: node2.getId1() as Buffer,
+            copyFromId1: node1.getId1() as Buffer,
+            data,
+            pos,
+        };
+
+        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.NOT_ALLOWED);
+
+
+
+        writeBlobRequest = {
+            clientPublicKey: keyPair2.publicKey,
+            nodeId1: node2.getId1() as Buffer,
+            copyFromId1: node1.getId1() as Buffer,
+            data,
+            pos,
+        };
+
+        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.NOT_ALLOWED);
+
+
+        // Store license 1
+        //
+        storeRequest = {
+            clientPublicKey: keyPair1.publicKey,
+            sourcePublicKey: keyPair1.publicKey,
+            targetPublicKey: keyPair1.publicKey,
+            preserveTransient: false,
+            nodes: [license1.export()],
+            muteMsgIds: [],
+        };
+
+        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+
+
+        // Now copy node thanks to license.
+        //
+        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.RESULT);
+
+        // Read node2's blob failing due to lacking license.
+        //
+        let readBlobRequest: ReadBlobRequest = {
+            clientPublicKey: keyPair1.publicKey,
+            targetPublicKey: keyPair1.publicKey,
+            nodeId1: node2.getId1() as Buffer,
+            pos: 0n,
+            length: 100,
+        };
+
+        response = undefined;
+        await storage.handleReadBlobWrapped(p2pClient, readBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.NOT_ALLOWED);
+
+        // Store license 2
+        //
+        storeRequest = {
+            clientPublicKey: keyPair2.publicKey,
+            sourcePublicKey: keyPair2.publicKey,
+            targetPublicKey: keyPair2.publicKey,
+            preserveTransient: false,
+            nodes: [license2.export()],
+            muteMsgIds: [],
+        };
+
+        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+
+        // Read and succeed thanks to license 2
+        //
+        response = undefined;
+        await storage.handleReadBlobWrapped(p2pClient, readBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.RESULT);
+    });
+
+    // TODO
     // test with transformers
-    //  test what?
-    // handleWriteBlob
-    //  add copy feature?
-    // handleReadBlob
 }
 
 function makePeerProps(connectionType: number): PeerProps {

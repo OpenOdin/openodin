@@ -4,6 +4,7 @@ import {
 
 import {
     expectAsyncException,
+    expectAsyncNoException,
 } from "../util";
 
 import {
@@ -492,6 +493,8 @@ function setupBlobTests(config: any) {
 
         assert(driver);
 
+        const now = Date.now();
+
         const dataId = Buffer.alloc(32).fill(101);
 
         let fragment = Buffer.alloc(BLOB_FRAGMENT_SIZE + 1);
@@ -566,14 +569,25 @@ function setupBlobTests(config: any) {
         let blobHash = Hash(Buffer.concat([fragment2, fragment]));
 
         await expectAsyncException(
-            driver.finalizeWriteBlob(nodeId1, dataId, blobLength-1, blobHash),
+            driver.finalizeWriteBlob(nodeId1, dataId, blobLength-1, blobHash, now),
             "blob length not correct");
 
         await expectAsyncException(
-            driver.finalizeWriteBlob(nodeId1, dataId, blobLength, Buffer.alloc(32)),
-            "blob hash not correct");
+            driver.finalizeWriteBlob(nodeId1, dataId, blobLength, Buffer.alloc(32), now),
+            "Blob hash does not match. Temporary blob data deleted. Write again.");
 
-        await driver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash);
+        await expectAsyncException(
+            driver.finalizeWriteBlob(nodeId1, dataId, blobLength-1, blobHash, now),
+            "blob length not correct");
+
+        // Write blob data again
+        //
+
+        await driver.writeBlobFragment(dataId, fragment2, fragmentIndex);
+
+        await driver.writeBlobFragment(dataId, fragment, fragmentIndex+1);
+
+        await driver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
 
         // #getBlobDataId
         //
@@ -601,6 +615,8 @@ function setupBlobTests(config: any) {
         const driver = config.driver;
 
         assert(driver);
+
+        const now = Date.now();
 
         type BlobWrite = {
             nodeId1: Buffer,
@@ -700,7 +716,7 @@ function setupBlobTests(config: any) {
                 let blobLength = blobWrite.finalData.length;
                 let blobHash = Hash(blobWrite.finalData);
 
-                await driver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash);
+                await driver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
 
                 let readData = await driver.readBlob(nodeId1, 0, blobLength);
 
@@ -715,5 +731,90 @@ function setupBlobTests(config: any) {
         }
     });
 
-    // TODO: #deleteBlobs
+    it("#copyBlobs, #deleteBlobs", async function() {
+        const driver = config.driver;
+
+        assert(driver);
+
+        const now = Date.now();
+
+        const nodeId1 = Buffer.alloc(32).fill(0x01);
+        const nodeId2 = Buffer.alloc(32).fill(0x02);
+        const nodeId3 = Buffer.alloc(32).fill(0x03);
+        const clientPublicKey = Buffer.alloc(32).fill(0xa0);
+
+
+        const fragment1 = Buffer.alloc(BLOB_FRAGMENT_SIZE).fill(1);
+        const fragment2 = Buffer.alloc(BLOB_FRAGMENT_SIZE).fill(2);
+
+
+        const dataId = Hash([nodeId1, clientPublicKey]);
+
+        await driver.writeBlob(dataId, 0, fragment1);
+
+        await driver.writeBlob(dataId, BLOB_FRAGMENT_SIZE, fragment2);
+
+        const fullData = Buffer.concat([fragment1, fragment2]);
+        const blobLength = fullData.length;
+        const blobHash = Hash(fullData);
+
+        await driver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
+
+        await expectAsyncNoException(driver.readBlob(nodeId1, 0, 10));
+
+        await expectAsyncException(
+            driver.readBlob(nodeId2, 0, 10),
+            "node blob data does not exist in finalized state");
+
+        let result = await driver.copyBlob(nodeId1, nodeId2, now);
+        assert(result);
+
+        let data1 = await expectAsyncNoException(driver.readBlob(nodeId1, 0, blobLength));
+        assert(data1.equals(fullData));
+
+        let data2 = await expectAsyncNoException(driver.readBlob(nodeId2, 0, blobLength));
+        assert(data2.equals(fullData));
+
+        let dataId2 = await driver.getBlobDataId(nodeId1);
+        assert(dataId2);
+        assert(dataId2.equals(dataId));
+
+        // Delete
+        //
+        await driver.deleteBlobs([nodeId1]);
+
+        dataId2 = await driver.getBlobDataId(nodeId1);
+        assert(dataId2 === undefined);
+
+        await expectAsyncException(
+            driver.readBlob(nodeId1, 0, 10),
+            "node blob data does not exist in finalized state");
+
+        dataId2 = await driver.getBlobDataId(nodeId2);
+        assert(dataId2);
+        assert(dataId2.equals(dataId));
+
+        data2 = await expectAsyncNoException(driver.readBlob(nodeId2, 0, blobLength));
+        assert(data2.equals(fullData));
+
+        result = await driver.copyBlob(nodeId1, nodeId3, now);
+        assert(!result);
+
+        result = await driver.copyBlob(nodeId2, nodeId3, now);
+        assert(result);
+
+        let data3 = await expectAsyncNoException(driver.readBlob(nodeId3, 0, blobLength));
+        assert(data3.equals(fullData));
+
+        await driver.deleteBlobs([nodeId1, nodeId2, nodeId3]);
+
+        dataId2 = await driver.getBlobDataId(nodeId1);
+        assert(!dataId2);
+
+        dataId2 = await driver.getBlobDataId(nodeId2);
+        assert(!dataId2);
+
+        dataId2 = await driver.getBlobDataId(nodeId3);
+        assert(!dataId2);
+    });
 };

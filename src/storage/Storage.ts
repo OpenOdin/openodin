@@ -821,7 +821,20 @@ export class Storage {
 
             const now = this.timeFreeze.read();
 
-            const node = await this.driver.fetchSingleNode(nodeId1, now, writeBlobRequest.clientPublicKey);
+            let node = await this.driver.getNodeById1(nodeId1, now);
+
+            if (!node) {
+                status = Status.NOT_ALLOWED;
+                throw new Error("node not found or not allowed");
+            }
+
+            // If writer is not owner then check permissions.
+            // This is so that the owner can always write blob data even if
+            // there is no active license (yet).
+            //
+            if (!writeBlobRequest.clientPublicKey.equals(node.getOwner() as Buffer)) {
+                node = await this.driver.fetchSingleNode(nodeId1, now, writeBlobRequest.clientPublicKey, writeBlobRequest.clientPublicKey);
+            }
 
             if (!node) {
                 status = Status.NOT_ALLOWED;
@@ -869,7 +882,62 @@ export class Storage {
                 await p.promise;
             }
 
-            await this.blobDriver.writeBlob(dataId, pos, data);
+            if (writeBlobRequest.copyFromId1.length > 0) {
+                // Copy blob data from other existing node.
+                // Hashes must match and writer needs read permissions to the given source node.
+
+                // Check first if client is owner then directly allow copy.
+                // This is so owners can directly write and manage blobs even
+                // if no licenses are created yet.
+                //
+                let copyFromNode = await this.driver.getNodeById1(writeBlobRequest.copyFromId1, now);
+
+                if (!copyFromNode) {
+                    status = Status.NOT_ALLOWED;
+                    throw new Error("copy node not found or not allowed.");
+                }
+
+                // If not owner then fetch the node applying permissions.
+                //
+                if (!writeBlobRequest.clientPublicKey.equals(copyFromNode.getOwner() as Buffer)) {
+                    copyFromNode = await this.driver.fetchSingleNode(writeBlobRequest.copyFromId1,
+                        now, writeBlobRequest.clientPublicKey, writeBlobRequest.clientPublicKey);
+                }
+
+                if (!copyFromNode) {
+                    status = Status.NOT_ALLOWED;
+                    throw new Error("copy node not found or not allowed");
+                }
+
+                const copyBlobHash = copyFromNode.getBlobHash();
+                const copyBlobLength = copyFromNode.getBlobLength();
+                if (copyBlobHash === undefined || !copyBlobHash.equals(blobHash) ||
+                    copyBlobLength === undefined || copyBlobLength !== blobLengthn) {
+
+                    status = Status.MALFORMED;
+                    throw new Error("copy node blob not does not match target");
+                }
+
+                if (! (await this.blobDriver.copyBlob(writeBlobRequest.copyFromId1, nodeId1, now))) {
+                    status = Status.ERROR;
+                    throw new Error("copy node blob data not available as expected");
+                }
+
+                if (sendResponse) {
+                    const writeBlobResponse = {
+                        status: Status.RESULT,
+                        currentLength: blobLengthn,
+                        error: "",
+                    };
+
+                    sendResponse(writeBlobResponse);
+                }
+
+                return;
+            }
+            else {
+                await this.blobDriver.writeBlob(dataId, pos, data);
+            }
 
             const currentLength = await this.blobDriver.readBlobIntermediaryLength(dataId);
 
@@ -885,7 +953,7 @@ export class Storage {
             }
 
             if (currentLength === blobLength) {
-                await this.blobDriver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash);
+                await this.blobDriver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
             }
 
             if (!sendResponse) {

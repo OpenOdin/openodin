@@ -201,11 +201,11 @@ export const BLOB_TABLES: {[table: string]: any} = {
             "fragment bytea NOT NULL",
         ],
         indexes: {
-            "idx_universe_blob_data_data_id": {
+            "idx_universe_blob_data_dataid": {
                 columns: ["dataid"],
                 unique: false,
             },
-            "idx_universe_blob_data_data_id_fragmentnr": {
+            "idx_universe_blob_data_dataid_fragmentnr": {
                 columns: ["dataid", "fragmentnr"],
                 unique: true,
             },
@@ -215,10 +215,15 @@ export const BLOB_TABLES: {[table: string]: any} = {
         columns: [
             "node_id1 bytea NOT NULL",
             "dataid bytea NOT NULL",
+            "storagetime bigint NOT NULL",
         ],
         indexes: {
-            "idx_universe_blob_data_id": {
+            "idx_universe_blob_node_id1": {
                 columns: ["node_id1"],
+                unique: false,
+            },
+            "idx_universe_blob_dataid": {
+                columns: ["dataid"],
                 unique: false,
             },
         },
@@ -263,7 +268,7 @@ export type BlobDriverInterface = {
      *
      * @throws if blob db not available or on malformed input parameters.
      */
-    writeBlob(dataId: Buffer, pos: number, data: Buffer): void;
+    writeBlob(dataId: Buffer, pos: number, data: Buffer): Promise<void>;
 
     /**
      * Read data of finalized blob.
@@ -300,10 +305,11 @@ export type BlobDriverInterface = {
      * @param dataId
      * @param blobLength the expected blob length.
      * @param blobHash the expected blob hash.
+     * @param now the storagetime to set.
      *
      * @throws if blob db not available or length or hash not matching.
      */
-    finalizeWriteBlob(nodeId1: Buffer, dataId: Buffer, blobLength: number, blobHash: Buffer): void;
+    finalizeWriteBlob(nodeId1: Buffer, dataId: Buffer, blobLength: number, blobHash: Buffer, now: number): Promise<void>;
 
     /**
      * @param nodeId1
@@ -314,7 +320,18 @@ export type BlobDriverInterface = {
      */
     getBlobDataId(nodeId1: Buffer): Promise<Buffer | undefined>;
 
-    //deleteBlobs(nodeId1: Buffer): void;
+    /**
+     * Copy blob data from one node to another.
+     * @returns false if source blob is not available.
+     * @throws on db failure
+     */
+    copyBlob(fromNodeId1: Buffer, toNodeId1: Buffer, now: number): Promise<boolean>;
+
+    /**
+     * Dissociate a node id1 from a blob data set.
+     * If it is the last node referecing the data set then also delete the data set.
+     */
+    deleteBlobs(nodeId1: Buffer[]): Promise<void>;
 
     /**
      * Event hook for when the blob driver closes.
@@ -345,13 +362,20 @@ export type DriverInterface = {
     fetch(fetchQuery: FetchQuery, now: number, replyFn: HandleFetchReplyData): void;
 
     /**
+     * Fetch node by its id1.
+     * @returns node if found, undefined if not found.
+     * @throws on decoding error.
+     */
+    getNodeById1(nodeId1: Buffer, now: number): Promise<NodeInterface | undefined>;
+
+    /**
      * Fetch a single node based on its id1 for the permissions combo of
      * clientPublicKey, targetPublicKey.
      * Licenses are allowed to be checked upwards from the node in a generous fashion.
      *
      * @returns the node if found and permissions allow.
      */
-    fetchSingleNode(nodeId1: Buffer, now: number, clientPublicKey: Buffer, targetPublicKey?: Buffer):
+    fetchSingleNode(nodeId1: Buffer, now: number, clientPublicKey: Buffer, targetPublicKey: Buffer):
         Promise<NodeInterface | undefined>;
 
     /**
