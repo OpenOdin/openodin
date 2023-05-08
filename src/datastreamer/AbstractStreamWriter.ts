@@ -160,6 +160,7 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
                         reject({errorOnRead: true, message: "Stream reader reached EOL prematurely"});
                         return;
                     }
+
                 }
                 catch(e) {
                     this.stats.error = true;

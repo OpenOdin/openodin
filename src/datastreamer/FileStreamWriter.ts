@@ -82,7 +82,7 @@ export class FileStreamWriter extends AbstractStreamWriter {
      * Write data to target file.
      * @param readData the data to write.
      * @returns promise which will resolve on success or reject on error.
-     * On success a boolean is returned, if false then the write was discarded due to a fseek.
+     * On success a boolean is returned, if false then the write was discarded due to an fseek.
      */
     protected async write(readData: ReadData): Promise<boolean> {
         if (this.fd === undefined) {

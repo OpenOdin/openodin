@@ -26,7 +26,7 @@ export class FileStreamReader extends AbstractStreamReader {
      * @param pos where in the file to start reading.
      * @param chunkSize the chunk size in bytes to batch read.
      */
-    constructor(filepath: string, pos: bigint = 0n, chunkSize: number = 1024*48) {
+    constructor(filepath: string, pos: bigint = 0n, chunkSize: number = 1024 * 1024) {
         super(pos);
         this.filepath = filepath;
         this.chunkSize = chunkSize;
@@ -98,11 +98,9 @@ export class FileStreamReader extends AbstractStreamReader {
 
             const {bytesRead} = await read(this.fd, data, 0, data.length, Number(this.pos));
 
-            const previousPos = this.pos;
+            this.buffered.push({size: this.size, data: data.slice(0, bytesRead), pos: this.pos});
 
-            this.pos += BigInt(bytesRead);
-
-            this.buffered.push({size: this.size, data: data.slice(0, bytesRead), pos: previousPos});
+            this.pos = this.pos + BigInt(bytesRead);
         }
         catch(e) {
             throw new Error(`Could not read from file: ${this.filepath}: ${e}`);
