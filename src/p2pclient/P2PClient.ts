@@ -456,8 +456,18 @@ export class P2PClient {
      * @param storeRequest
      * @returns limited storeRequest or undefined if not allowed.
      */
-    protected limitStoreRequest = (storeRequest: StoreRequest/*, sendResponse: SendResponseFn<StoreResponse> | undefined*/): StoreRequest | undefined => {
+    protected limitStoreRequest = (storeRequest: StoreRequest, sendResponse: SendResponseFn<StoreResponse> | undefined): StoreRequest | undefined => {
         if (!this.permissions.storePermissions.allowStore) {
+            if (sendResponse) {
+                const storeResponse: StoreResponse = {
+                    status: Status.ERROR,
+                    storedId1: [],
+                    error: "Store not allowed",
+                };
+
+                sendResponse(storeResponse);
+            }
+
             return undefined;
         }
 

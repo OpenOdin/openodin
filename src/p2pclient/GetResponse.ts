@@ -373,7 +373,9 @@ export class GetResponse<ResponseDataType> {
             offFn(fn);
             resolveFn(...args);
         };
+
         onFn(fn);
+
         return new Promise<any>( resolve2 => {
             resolve = resolve2;
         });
