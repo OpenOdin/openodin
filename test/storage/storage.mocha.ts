@@ -126,11 +126,11 @@ describe("Storage: triggers", function() {
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
 
-        const localProps = makePeerProps(ConnectionType.STORAGE_CLIENT);
+        const clientProps = makePeerProps(ConnectionType.STORAGE_CLIENT);
 
-        const remoteProps = makePeerProps(ConnectionType.STORAGE_SERVER);
+        const serverProps = makePeerProps(ConnectionType.STORAGE_SERVER);
 
-        p2pClient = new P2PClient(messaging1, localProps, remoteProps);
+        p2pClient = new P2PClient(messaging1, serverProps, clientProps);
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver);
 
@@ -566,11 +566,11 @@ describe("Storage: SQLite WAL-mode", function() {
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
 
-        const localProps = makePeerProps(ConnectionType.STORAGE_CLIENT);
+        const clientProps = makePeerProps(ConnectionType.STORAGE_CLIENT);
 
-        const remoteProps = makePeerProps(ConnectionType.STORAGE_SERVER);
+        const serverProps = makePeerProps(ConnectionType.STORAGE_SERVER);
 
-        p2pClient = new P2PClient(messaging1, localProps, remoteProps);
+        p2pClient = new P2PClient(messaging1, serverProps, clientProps);
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
@@ -642,11 +642,11 @@ describe("Storage: SQLiteJS WAL-mode", function() {
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
 
-        const localProps = makePeerProps(ConnectionType.STORAGE_CLIENT);
+        const clientProps = makePeerProps(ConnectionType.STORAGE_CLIENT);
 
-        const remoteProps = makePeerProps(ConnectionType.STORAGE_SERVER);
+        const serverProps = makePeerProps(ConnectionType.STORAGE_SERVER);
 
-        p2pClient = new P2PClient(messaging1, localProps, remoteProps);
+        p2pClient = new P2PClient(messaging1, serverProps, clientProps);
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
@@ -710,7 +710,7 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
 
         await driver.createTables();
 
-        blobDb = new DBClient(await DatabaseUtil.OpenSQLite());
+        blobDb = new DBClient(await DatabaseUtil.OpenPG());
         blobDriver = new BlobDriver(blobDb);
 
         for (let table in BLOB_TABLES) {
@@ -726,11 +726,11 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
 
-        const localProps = makePeerProps(ConnectionType.STORAGE_CLIENT);
+        const clientProps = makePeerProps(ConnectionType.STORAGE_CLIENT);
 
-        const remoteProps = makePeerProps(ConnectionType.STORAGE_SERVER);
+        const serverProps = makePeerProps(ConnectionType.STORAGE_SERVER);
 
-        p2pClient = new P2PClient(messaging1, localProps, remoteProps);
+        p2pClient = new P2PClient(messaging1, serverProps, clientProps);
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
@@ -747,6 +747,7 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
     afterEach("Close database", function() {
         driver?.close();
         db?.close();
+        blobDb?.close();
         socket1?.close();
         socket2?.close();
         signatureOffloader?.close();
