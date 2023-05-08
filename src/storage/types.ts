@@ -9,6 +9,10 @@ import {
     FetchQuery,
 } from "../types";
 
+import {
+    Transformer,
+} from "./transformer";
+
 /**
  * The maximum nr of nodes allowed to be returned for a single query.
  */
