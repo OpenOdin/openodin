@@ -4,7 +4,7 @@
 //
 //
 //       bebopc version:
-//           2.3.0
+//           2.4.10
 //
 //
 //       bebopc source:
@@ -753,7 +753,7 @@ export const BopFetchResponse = {
       const start = view.length;
       if (message.status != null) {
         view.writeByte(1);
-        view.writeEnum(message.status);
+        view.writeUint32(message.status);
       }
       if (message.result != null) {
         view.writeByte(2);
@@ -984,7 +984,7 @@ export const BopStoreResponse = {
       const start = view.length;
       if (message.status != null) {
         view.writeByte(1);
-        view.writeEnum(message.status);
+        view.writeUint32(message.status);
       }
       if (message.storedId1 != null) {
         view.writeByte(2);
@@ -1132,7 +1132,7 @@ export const BopUnsubscribeResponse = {
       const start = view.length;
       if (message.status != null) {
         view.writeByte(1);
-        view.writeEnum(message.status);
+        view.writeUint32(message.status);
       }
       if (message.error != null) {
         view.writeByte(2);
@@ -1286,7 +1286,7 @@ export const BopWriteBlobResponse = {
       const start = view.length;
       if (message.status != null) {
         view.writeByte(1);
-        view.writeEnum(message.status);
+        view.writeUint32(message.status);
       }
       if (message.currentLength != null) {
         view.writeByte(2);
@@ -1451,7 +1451,7 @@ export const BopReadBlobResponse = {
       const start = view.length;
       if (message.status != null) {
         view.writeByte(1);
-        view.writeEnum(message.status);
+        view.writeUint32(message.status);
       }
       if (message.data != null) {
         view.writeByte(2);
@@ -1619,7 +1619,7 @@ export const BopGenericMessageResponse = {
       const start = view.length;
       if (message.status != null) {
         view.writeByte(1);
-        view.writeEnum(message.status);
+        view.writeUint32(message.status);
       }
       if (message.data != null) {
         view.writeByte(2);
