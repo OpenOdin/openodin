@@ -54,7 +54,7 @@ class BlobDriverTestWrapper extends BlobDriver {
  * which makes for no skewed data on reads.
  *
  * We also see that concurrent write transactions are not possible but will result
- * in SQLITE_BUSY exception ("Query read timeout" for Postgres).
+ * in SQLITE_BUSY exception ("canceling statement due to lock timeout" for Postgres).
  * We will serialize write transaction from Storage but still parallel write transaction
  * from other processes can appear so we need to be ready for busy exceptions still.
  * My feeling is that if we detect the busy exception on the first write in a transaction
@@ -283,8 +283,8 @@ function setupDriverTests(config: any) {
      * However when using Postgres the initially failed transaction is now voided and cannot
      * continue.
      *
-     * Lesson learned: is using Postgres and "Query read timeout" happens then the transaction
-     * must be rollbacked and retried.
+     * Lesson learned: if using Postgres and "canceling statement due to lock timeout" happens
+     * then the transaction must be rollbacked and retried.
      *
      * In SQLite it is OK to try again after a SQLITE_BUSY within the same transaction.
      */

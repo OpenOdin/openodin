@@ -601,7 +601,7 @@ export type WriteBlobResponse = {
      * Status.NOT_ALLOWED if access to node is not allowed, node not found or if allowWriteBlob is set to false.
      * Status.MALFORMED if input values are wrong or if node is not configured for blob.
      * Status.EXISTS if the blob already exists or if the blob just got finalized to exist from this write action
-     * Status.STORE_FAILED if data could not be written or finalized.
+     * Status.STORE_FAILED if data could not be written or finalized. Database could be busy.
      * Status.MISMATCH if hash does not compute after all data is written.
      * Status.RESULT on successful write, currentLength is set to the size of the written data so far.
      *      The length is the continuous length from start til first gap.

@@ -139,12 +139,18 @@ export class Driver implements DriverInterface {
         return true;
     }
 
+    /**
+     * The query in a read-transaction to guarantee from skewed data.
+     *
+     */
     public async fetch(fetchQuery: FetchQuery, now: number, handleFetchReplyData: HandleFetchReplyData) {
         let rootNode: NodeInterface | undefined;
 
         if (fetchQuery.rootNodeId1.length > 0) {
             let errorReply: FetchReplyData | undefined;
 
+            // Note we do not run this inside a read-transction since it is not necessary.
+            //
             [rootNode, errorReply] = await this.getRootNode(fetchQuery, now);
 
             if (errorReply) {
@@ -155,16 +161,30 @@ export class Driver implements DriverInterface {
             assert(rootNode, "rootNode expected to be set");
         }
 
-        const queryProcessor = 
-            new QueryProcessor(this.db, fetchQuery, rootNode, now, handleFetchReplyData);
+        // We wrap the read in a read-transaction to gurantee non-skewed
+        // result.
+        this.db.exec("BEGIN;");
 
-        await queryProcessor.run();
+        try {
+            const queryProcessor =
+                new QueryProcessor(this.db, fetchQuery, rootNode, now, handleFetchReplyData);
+
+            await queryProcessor.run();
+
+            this.db.exec("COMMIT;");
+        }
+        catch(e) {
+            this.db.exec("ROLLBACK;");
+            throw e;
+        }
     }
 
     /**
      * Get a root node node by its id1.
      *
      * The node is not allowed to be licensed (incl. rightsByAssociation, restrictiveWriter mode).
+     *
+     * This function does not need or manage its own read transaction.
      *
      * @returns node on success else FetchReplyData is set with error reply.
      */
@@ -215,6 +235,8 @@ export class Driver implements DriverInterface {
      *
      * Note that any restrictive writer mode is ignored but which is
      * of no importance since we are directly asking for a specific node.
+     *
+     * This function does not need or manage its own read transaction.
      *
      * @returns node if permissions allow.
      */
@@ -271,6 +293,8 @@ export class Driver implements DriverInterface {
     /**
      * Get single node on id1, preserve transient values.
      *
+     * This function does not need or manage its own read transaction.
+     *
      * @param nodeId the ID1 of the node.
      */
     public async getNodeById1(nodeId1: Buffer, now: number): Promise<NodeInterface | undefined> {
@@ -293,10 +317,15 @@ export class Driver implements DriverInterface {
     }
 
     /**
+     *
+     * This function wraps the calls inside a transaction.
+     *
      * @returns [id1s, parentIds]
      * @throws on error
+     * If the exception indicates a BUSY error then the caller should retry the store.
+     * This can happen for concurrent transaction between processes.
      */
-    public async store(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<[Buffer[], Buffer[]] | undefined> {
+    public async store(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<[Buffer[], Buffer[]]> {
         if (nodes.length > 1000) {
             throw new Error(`Calling store with too many (${nodes.length} nodes), maximum allowed is 1000.`);
         }
@@ -436,6 +465,8 @@ export class Driver implements DriverInterface {
      * Note that since the fetch is done in reverse the node(s) having their ID equal to the
      * parentId of the query are included * in the resultset.
      *
+     * It is expected there is a surrounding transaction in play.
+     *
      * @param parentIds update from these nodes and upwards.
      * @param now time to set as updated time
      * @param depth default (and maximum) of MAX_FRESHEN_DEPTH levels up is updated for trailupdatetime.
@@ -488,6 +519,9 @@ export class Driver implements DriverInterface {
         await this.setTrailUpdateTime(Object.values(id1s), now);
     }
 
+    /**
+     * It is expected there is a surrounding transaction in play.
+     */
     protected async checkLicenses(licenseHashes: Buffer[], now: number): Promise<{[hash: string]: boolean}> {
         const hashesFound: {[hash: string]: boolean} = {};
 
@@ -526,6 +560,8 @@ export class Driver implements DriverInterface {
 
     /**
      * Filter out nodes for which there are destroy hashes present.
+     *
+     * This function does not manage its own transaction.
      *
      * @returns list of nodes not destroyed.
      */
@@ -569,6 +605,8 @@ export class Driver implements DriverInterface {
 
     /**
      * Filter out already existing nodes and return nodes not existing in underlaying storage.
+     *
+     * This function does not manage its own transaction.
      *
      * @param nodes
      * @param preserveTransient if true then nodes are considered non-existing in the storage
@@ -634,6 +672,8 @@ export class Driver implements DriverInterface {
      * as a clash and such a node is not filterd out but returned instead.
      * This is necessary if a store is updating the transient value of an already
      * existing node which also isUnique.
+     *
+     * This function does not manage its own transaction.
      *
      * @return list of nodes not having unique equivalent already existing.
      *
@@ -704,6 +744,10 @@ export class Driver implements DriverInterface {
      * Special Data destroy nodes have their hashes inserted into the `killer_hashes` table.
      *
      * Special Data friend cert bearer nodes have their embedded certs inserted into the `friend_certs` table.
+     *
+     * This function expects to be already within a transaction.
+     *
+     * @throws on error
      */
     protected async storeNodes(nodes: NodeInterface[], now: number, preserveTransient: boolean = false) {
         const destroyHashes = this.extractDestroyHashes(nodes);
@@ -888,6 +932,7 @@ export class Driver implements DriverInterface {
 
     /**
      * Insert achilles hashes.
+     *
      * It is expected there is a surrounding transaction in play.
      *
      * @throws on error
@@ -912,6 +957,7 @@ export class Driver implements DriverInterface {
 
     /**
      * Insert licensee hashes.
+     *
      * It is expected there is a surrounding transaction in play.
      *
      * @throws on error
@@ -944,6 +990,7 @@ export class Driver implements DriverInterface {
 
     /**
      * Insert destroy hashes.
+     *
      * It is expected there is a surrounding transaction in play.
      *
      * @throws on error
@@ -968,6 +1015,7 @@ export class Driver implements DriverInterface {
 
     /**
      * Insert friend certs.
+     *
      * It is expected there is a surrounding transaction in play.
      *
      * @throws on error
@@ -1075,6 +1123,9 @@ export class Driver implements DriverInterface {
         await this.db.run(sql, params);
     }
 
+    /**
+     * It is expected there is a surrounding transaction in play.
+     */
     protected async setTrailUpdateTime(id1s: Buffer[], now: number): Promise<void> {
         if (id1s.length === 0) {
             return;
@@ -1093,6 +1144,8 @@ export class Driver implements DriverInterface {
     }
 
     /**
+     * It is expected there is a surrounding transaction in play.
+     *
      * @returns bumped nodes parent ids
      */
     protected async bumpNodes(bumpHashes: Buffer[], now: number): Promise<Buffer[]> {

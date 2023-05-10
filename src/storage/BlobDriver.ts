@@ -317,6 +317,8 @@ export class BlobDriver implements BlobDriverInterface {
     /**
      * Insert or replace existing fragment if not finalized already.
      *
+     * This function expects to be run within a transaction.
+     *
      * @param dataId
      * @param fragment data to insert/replace
      * @param fragmentIndex the fragment index to write to

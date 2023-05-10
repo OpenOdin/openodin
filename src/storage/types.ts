@@ -403,7 +403,7 @@ export type DriverInterface = {
      * @throws
      */
     store(nodes: NodeInterface[], now: number, preserveTransient: boolean):
-        Promise<[Buffer[], Buffer[]] | undefined>;
+        Promise<[Buffer[], Buffer[]]>;
 
     /**
      * Automatically wraps the deletion in a transaction and rollbacks on error.

@@ -50,6 +50,7 @@ import {
     CopyBuffer,
     DeepCopy,
     PromiseCallback,
+    sleep,
 } from "../util/common";
 
 import {
@@ -59,6 +60,12 @@ import {
 import {
     PocketConsole,
 } from "pocket-console";
+
+/** How many retries to do if database is busy. */
+const MAX_BUSY_RETRIES = 3;
+
+/** The BUSY errors for SQLite, SQLiteJS and for the PostgreSQL driver we are using. */
+const BUSY_ERRORS = ["SQLITE_BUSY: database is locked", "canceling statement due to lock timeout"];
 
 const console = PocketConsole({module: "Storage"});
 
@@ -284,7 +291,23 @@ export class Storage {
 
             ts = this.timeFreeze.freeze();
 
-            const result = await this.driver.store(verifiedNodes, ts, storeRequest.preserveTransient);
+            let result = undefined;
+
+            for (let retry=0; retry<=MAX_BUSY_RETRIES; retry++) {
+                try {
+                    result = await this.driver.store(verifiedNodes, ts, storeRequest.preserveTransient);
+                    break;
+                }
+                catch(e) {
+                    if (BUSY_ERRORS.includes((e as Error).message)) {
+                        console.debug("Database BUSY on store. Sleep and retry.");
+                        await sleep(100);
+                        continue;
+                    }
+
+                    throw e;
+                }
+            }
 
             let storeResponse: StoreResponse;
 
@@ -302,10 +325,11 @@ export class Storage {
                 };
             }
             else {
+                console.debug("Database BUSY, all retries failed.");
                 storeResponse = {
                     status: Status.STORE_FAILED,
                     storedId1: [],
-                    error: "Failed storing nodes",
+                    error: "Failed storing nodes, database busy.",
                 };
             }
 
@@ -920,9 +944,33 @@ export class Storage {
                     throw new Error("copy node blob not does not match target");
                 }
 
-                if (! (await this.blobDriver.copyBlob(writeBlobRequest.copyFromId1, nodeId1, now))) {
-                    status = Status.ERROR;
-                    throw new Error("copy node blob data not available as expected");
+                let done = false;
+
+                for (let retry=0; retry<=MAX_BUSY_RETRIES; retry++) {
+                    try {
+                        if (! (await this.blobDriver.copyBlob(writeBlobRequest.copyFromId1, nodeId1, now))) {
+                            status = Status.ERROR;
+                            throw new Error("copy node blob data not available as expected");
+                        }
+
+                        done = true;
+                        break;
+                    }
+                    catch(e) {
+                        if (BUSY_ERRORS.includes((e as Error).message)) {
+                            console.debug("Database BUSY on copyBlob. Sleep and retry.");
+                            await sleep(100);
+                            continue;
+                        }
+
+                        throw e;
+                    }
+                }
+
+                if (!done) {
+                    console.debug("Database BUSY on copyBlob, all retries failed.");
+                    status = Status.STORE_FAILED;
+                    throw new Error("Database BUSY, all retries failed.");
                 }
 
                 if (sendResponse) {
@@ -938,8 +986,32 @@ export class Storage {
                 return;
             }
             else {
-                await this.blobDriver.writeBlob(dataId, pos, data);
+                let done = false;
+
+                for (let retry=0; retry<=MAX_BUSY_RETRIES; retry++) {
+                    try {
+                        await this.blobDriver.writeBlob(dataId, pos, data);
+                        done = true;
+                        break;
+                    }
+                    catch(e) {
+                        if (BUSY_ERRORS.includes((e as Error).message)) {
+                            console.debug("Database BUSY on writeBlob. Sleep and retry.");
+                            await sleep(100);
+                            continue;
+                        }
+
+                        throw e;
+                    }
+                }
+
+                if (!done) {
+                    console.debug("Database BUSY on writeBlob, all retries failed.");
+                    status = Status.STORE_FAILED;
+                    throw new Error("Database BUSY, all retries failed.");
+                }
             }
+
 
             const currentLength = await this.blobDriver.readBlobIntermediaryLength(dataId);
 
@@ -955,7 +1027,31 @@ export class Storage {
             }
 
             if (currentLength === blobLength) {
-                await this.blobDriver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
+                let done = false;
+
+                for (let retry=0; retry<=MAX_BUSY_RETRIES; retry++) {
+                    try {
+                        await this.blobDriver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
+                        done = true;
+
+                        break;
+                    }
+                    catch(e) {
+                        if (BUSY_ERRORS.includes((e as Error).message)) {
+                            console.debug("Database BUSY on finalizeWriteBlob. Sleep and retry.");
+                            await sleep(100);
+                            continue;
+                        }
+
+                        throw e;
+                    }
+                }
+
+                if (!done) {
+                    console.debug("Database BUSY on finalizeWriteBlob, all retries failed.");
+                    status = Status.STORE_FAILED;
+                    throw new Error("Database BUSY, all retries failed.");
+                }
             }
 
             if (!sendResponse) {
