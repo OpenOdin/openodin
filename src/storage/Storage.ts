@@ -291,7 +291,9 @@ export class Storage {
             if (result) {
                 const [storedId1, parentIds] = result;
 
-                setImmediate( () => this.emitInsertEvent(parentIds, storeRequest.muteMsgIds) );
+                if (parentIds.length > 0) {
+                    setImmediate( () => this.emitInsertEvent(parentIds, storeRequest.muteMsgIds) );
+                }
 
                 storeResponse = {
                     status: Status.RESULT,

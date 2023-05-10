@@ -730,12 +730,13 @@ export class P2PClient {
     /**
      * @param fetchRequest to send to peer.
      * @param timeout How many milliseconds to wait for first reply. 0 means wait forever for first reply.
-     * @param timeoutStream How many milliseconds until timeout if end-of-stream is not reached. Set to 0 to not timeout while streaming.
-     * Timeout counter is reset on each sequence message in a stream.
+     * @param timeoutStream How many milliseconds until timeout if end-of-stream is not reached.
+     * Set to 0 (default) to not timeout while streaming.
+     * Timeout counter is reset on each message received in the stream.
      * @return {getResponse: GetResponse | undefined, msgId: Buffer | undefined} where
      * msgId is undefined on error sending and getResponse is undefined if not expecting any reply.
      */
-    public fetch(fetchRequest: FetchRequest, timeout: number = 60000, timeoutStream: number = 60000): {getResponse: GetResponse<FetchResponse> | undefined, msgId: Buffer | undefined} {
+    public fetch(fetchRequest: FetchRequest, timeout: number = 60000, timeoutStream: number = 0): {getResponse: GetResponse<FetchResponse> | undefined, msgId: Buffer | undefined} {
         try {
             // We are always ready for the response to be larger than a single envelope.
             const isStream = true;
