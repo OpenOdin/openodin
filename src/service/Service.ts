@@ -1318,7 +1318,7 @@ export class Service {
 
         if (localClientType === ConnectionType.STORAGE_CLIENT) {
             if ((remoteServerType & ConnectionType.STORAGE_SERVER) === ConnectionType.STORAGE_SERVER) {
-                autoFetcher = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds);
+                autoFetcher = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds);
                 autoFetcher.onBlob(this.onBlobHandler);
 
                 autoFetcherReverse = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds, true);
@@ -1337,7 +1337,7 @@ export class Service {
         }
         else if (localClientType === ConnectionType.EXTENDER_CLIENT) {
             if ((remoteServerType & ConnectionType.EXTENDER_SERVER) === ConnectionType.EXTENDER_SERVER) {
-                autoFetcher = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds);
+                autoFetcher = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds);
                 autoFetcher.onBlob(this.onBlobHandler);
 
                 autoFetcherReverse = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds, true);
