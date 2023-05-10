@@ -1388,8 +1388,8 @@ function setupDriverTests(config: any) {
 
         rows = await db.all(`SELECT * FROM universe_nodes WHERE id1 IN ${ph}`, [nodeIdB1, nodeIdB2]);
         assert(rows.length === 2);
-        assert(rows[0].storagetime === now + 10);
-        assert(rows[1].storagetime === now + 10);
+        assert(rows[0].updatetime === now + 10);
+        assert(rows[1].updatetime === now + 10);
         assert(rows[0].trailupdatetime === now + 10);
         assert(rows[1].trailupdatetime === now + 10);
 
@@ -1397,7 +1397,7 @@ function setupDriverTests(config: any) {
         ph = db.generatePlaceholders(1);
         rows = await db.all(`SELECT * FROM universe_nodes WHERE id1 IN ${ph}`, [nodeIdA]);
         assert(rows.length === 1);
-        assert(rows[0].storagetime === now);
+        assert(rows[0].updatetime === now);
         assert(rows[0].trailupdatetime === now);
 
         const bumphash2 = rows[0].bumphash;
@@ -1412,11 +1412,11 @@ function setupDriverTests(config: any) {
 
         ph = db.generatePlaceholders(3);
         rows = await db.all(`SELECT * FROM universe_nodes WHERE id1 IN ${ph}`, [nodeIdA, nodeIdB1, nodeIdB2]);
-        assert(rows[0].storagetime === now + 11);
+        assert(rows[0].updatetime === now + 11);
         assert(rows[0].trailupdatetime === now + 11);
-        assert(rows[1].storagetime === now + 11);
+        assert(rows[1].updatetime === now + 11);
         assert(rows[1].trailupdatetime === now + 11);
-        assert(rows[2].storagetime === now + 11);
+        assert(rows[2].updatetime === now + 11);
         assert(rows[2].trailupdatetime === now + 11);
     });
 

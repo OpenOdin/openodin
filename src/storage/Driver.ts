@@ -1090,12 +1090,13 @@ export class Driver implements DriverInterface {
                 node.hashTransient(),
                 now,
                 now,
+                now,
                 bumpHash,
                 node.export(preserveTransient));
         }
 
 
-        const ph = this.db.generatePlaceholders(22, nodes.length);
+        const ph = this.db.generatePlaceholders(23, nodes.length);
 
         let sql: string;
 
@@ -1103,11 +1104,11 @@ export class Driver implements DriverInterface {
             sql = `INSERT INTO universe_nodes
             (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner, dynamic,
             active, ispublic, islicensed, disallowparentlicensing, isleaf,
-            difficulty, sharedhash, transienthash, storagetime, trailupdatetime, bumphash, image)
+            difficulty, sharedhash, transienthash, storagetime, updatetime, trailupdatetime, bumphash, image)
             VALUES ${ph}
             ON CONFLICT (id1) DO UPDATE SET
             transienthash=excluded.transienthash,
-            storagetime=excluded.storagetime,
+            updatetime=excluded.updatetime,
             active=excluded.active,
             image=excluded.image;`
         }
@@ -1115,7 +1116,7 @@ export class Driver implements DriverInterface {
             sql = `INSERT INTO universe_nodes
             (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner, dynamic,
             active, ispublic, islicensed, disallowparentlicensing, isleaf,
-            difficulty, sharedhash, transienthash, storagetime, trailupdatetime, bumphash, image)
+            difficulty, sharedhash, transienthash, storagetime, updatetime, trailupdatetime, bumphash, image)
             VALUES ${ph}
             ON CONFLICT (id1) DO NOTHING;`
         }
@@ -1160,7 +1161,7 @@ export class Driver implements DriverInterface {
         const ph = this.db.generatePlaceholders(bumpHashes.length);
 
         const sql = `UPDATE universe_nodes
-            SET storagetime=${now}, trailupdatetime=${now}
+            SET updatetime=${now}, trailupdatetime=${now}
             WHERE bumphash IN ${ph}
             RETURNING parentid;`;
 

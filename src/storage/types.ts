@@ -67,6 +67,7 @@ export const TABLES: {[table: string]: any} = {
             "difficulty smallint NOT NULL",
             "transienthash bytea NOT NULL",
             "storagetime bigint NOT NULL",
+            "updatetime bigint NOT NULL",
             "trailupdatetime bigint NOT NULL",
 
             /** This UNIQUE index MUST be defined here on the column and not below as a seperate index declaration 
@@ -80,6 +81,10 @@ export const TABLES: {[table: string]: any} = {
         indexes: {
             "idx_universe_nodes_creationtime": {
                 columns: ["creationtime"],
+                unique: false,
+            },
+            "idx_universe_nodes_storagetime": {
+                columns: ["storagetime"],
                 unique: false,
             },
             "idx_universe_nodes_id2": {

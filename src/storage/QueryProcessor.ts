@@ -82,6 +82,7 @@ type NodeRow = {
     difficulty: number,
     image: Buffer,
     storagetime: number,
+    updatetime: number,
     trailupdatetime: number,
 };
 
@@ -99,6 +100,7 @@ type Obj1 = {
     restrictiveManager: {[id1: string]: boolean},
     trailUpdateTime: number,
     storageTime: number,
+    updateTime: number,
     discard: boolean,
     bottom: boolean,
     matchIndexes: number[],
@@ -263,6 +265,7 @@ export class QueryProcessor {
                             restrictiveManager: {},
                             trailUpdateTime: 0,
                             storageTime: 0,
+                            updateTime: 0,
                             discard: false,
                             bottom: false,
                             matchIndexes: [],
@@ -351,7 +354,7 @@ export class QueryProcessor {
         const nodesLength = nodes.length;
         for (let i=0; i<nodesLength; i++) {
             const node = nodes[i];
-            this.addAlreadyProcessed(node, this.now, this.now);
+            this.addAlreadyProcessed(node, this.now, this.now, this.now);
         }
     }
 
@@ -372,7 +375,7 @@ export class QueryProcessor {
             let passed = true;
 
             if (this.keepTrackOfProcessed) {
-                passed = this.addAlreadyProcessed(node, row.storagetime, row.trailupdatetime);
+                passed = this.addAlreadyProcessed(node, row.storagetime, row.updatetime, row.trailupdatetime);
             }
 
             // Always run this to not miss flipping the cursorPassed flag.
@@ -403,7 +406,7 @@ export class QueryProcessor {
     /**
      * @returns false if not allowed.
      */
-    protected addAlreadyProcessed(node: NodeInterface, storageTime: number, trailUpdateTime: number): boolean {
+    protected addAlreadyProcessed(node: NodeInterface, storageTime: number, updateTime: number, trailUpdateTime: number): boolean {
         const idStr = (node.getId() as Buffer).toString("hex");
         const id1Str = (node.getId1() as Buffer).toString("hex");
         const parentIdStr = (node.getParentId() as Buffer).toString("hex");
@@ -440,6 +443,7 @@ export class QueryProcessor {
                 restrictiveManager: {},
                 trailUpdateTime,
                 storageTime,
+                updateTime,
                 discard: false,  // Will be set later.
                 bottom: false,   // Will be set later.
                 matchIndexes: [],
@@ -594,7 +598,7 @@ export class QueryProcessor {
                             return true;
                         }
 
-                        if (!obj1.discard && obj1.storageTime >= this.fetchQuery.cutoffTime) {
+                        if (!obj1.discard && obj1.updateTime >= this.fetchQuery.cutoffTime) {
                             return true;
                         }
 
@@ -649,7 +653,7 @@ export class QueryProcessor {
 
             obj1.passed = true;
 
-            if (!obj1.discard && obj1.storageTime >= this.fetchQuery.cutoffTime) {
+            if (!obj1.discard && obj1.updateTime >= this.fetchQuery.cutoffTime) {
                 if (!obj1.flushed) {
                     nodes.push(node);
                     maxNodesLeft--;
@@ -836,7 +840,7 @@ export class QueryProcessor {
 
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
                 owner, dynamic, active, ispublic, difficulty, transienthash, sharedhash, image,
-                storagetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
+                storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM universe_nodes
                 WHERE parentid IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
                 ${ignoreInactive} ${ignoreOwn} ${region} ${jurisdiction}
@@ -845,7 +849,7 @@ export class QueryProcessor {
         else if (this.reverseFetch === ReverseFetch.ALL_PARENTS) {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
                 owner, dynamic, active, ispublic, difficulty, transienthash, sharedhash, image,
-                storagetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
+                storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM universe_nodes
                 WHERE id IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
                 AND isleaf = 0
@@ -854,7 +858,7 @@ export class QueryProcessor {
         else if (this.reverseFetch === ReverseFetch.ONLY_LICENSED) {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
                 owner, dynamic, active, ispublic, difficulty, transienthash, sharedhash, image,
-                storagetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
+                storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM universe_nodes
                 WHERE id IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
                 AND islicensed = 1 AND disallowparentlicensing = 0 AND isleaf = 0

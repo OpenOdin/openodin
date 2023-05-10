@@ -1597,7 +1597,7 @@ function setupTests(config: any) {
         assert(same);
     });
 
-    it("#run storagetime/trailupdatetime", async function() {
+    it("#run updatetime/trailupdatetime", async function() {
         const driver = config.driver;
         const db = config.db;
 
@@ -3484,6 +3484,7 @@ function getProcessState(node: NodeInterface, qp: QueryProcessor, createCache: b
             restrictiveManager: {},
             trailUpdateTime: 0,
             storageTime: 0,
+            updateTime: 0,
             discard: false,
             bottom: false,
             matchIndexes: [],
