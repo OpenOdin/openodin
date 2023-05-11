@@ -60,38 +60,32 @@ export class BlobStreamReader extends AbstractStreamReader {
             throw new Error("Reader is closed");
         }
 
-        return new Promise<void>( async (resolve, reject) => {
-            let lastError: string | undefined;
-            while (true) {
-                if (!this.peer) {
-                    reject("All peers to read blob from are offline");
-                    return;
-                }
-                try {
-                    await this.readBlobFromPeer(this.peer);
-                    resolve();
-                    return;
-                }
-                catch(e) {
-                    const error = e as {message: string, error: ReadError};
-                    lastError = error.message;
-                    if (error.error === ReadError.UNRECOVERABLE) {
-                        // Unrecoverable
-                        reject(`Unrecoverable error reading blob: ${lastError}`);
-                        return;
-                    }
-
-                    // Try next peer
-                    this.peer = this.peers.shift();
-                    if (!this.peer) {
-                        reject(lastError);
-                        return;
-                    }
-
-                    // Fall through
-                }
+        let lastError: string | undefined;
+        while (true) {
+            if (!this.peer) {
+                throw new Error("All peers to read blob from are offline");
             }
-        });
+            try {
+                await this.readBlobFromPeer(this.peer);
+                return;
+            }
+            catch(e) {
+                const error = e as {message: string, error: ReadError};
+                lastError = error.message;
+                if (error.error === ReadError.UNRECOVERABLE) {
+                    // Unrecoverable
+                    throw new Error(`Unrecoverable error reading blob: ${lastError}`);
+                }
+
+                // Try next peer
+                this.peer = this.peers.shift();
+                if (!this.peer) {
+                    throw new Error(lastError);
+                }
+
+                // Fall through
+            }
+        }
     }
 
     protected readBlobFromPeer(peer: P2PClient): Promise<void> {

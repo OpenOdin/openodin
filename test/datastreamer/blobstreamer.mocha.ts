@@ -233,7 +233,7 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
         writeFileStreamer.close();
 
         assert(error);
-        assert(error.message === "read blob failed: Error: node not found or not allowed");
+        assert(error.message === "Error: read blob failed: Error: node not found or not allowed");
 
 
         // Store license
