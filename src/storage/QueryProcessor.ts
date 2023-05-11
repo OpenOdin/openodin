@@ -799,6 +799,8 @@ export class QueryProcessor {
 
         const ph = this.db.generatePlaceholders(currentIds.length);
 
+        const orderByColumn = this.fetchQuery.orderByStorageTime ? "storagetime" : "creationtime";
+
         let sql: string;
 
         if (this.reverseFetch === ReverseFetch.OFF) {
@@ -844,7 +846,7 @@ export class QueryProcessor {
                 FROM universe_nodes
                 WHERE parentid IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
                 ${ignoreInactive} ${ignoreOwn} ${region} ${jurisdiction}
-                ORDER BY creationtime ${ordering}, parentid, id1 LIMIT ${limit} OFFSET ${offset};`;
+                ORDER BY ${orderByColumn} ${ordering}, parentid, id1 LIMIT ${limit} OFFSET ${offset};`;
         }
         else if (this.reverseFetch === ReverseFetch.ALL_PARENTS) {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
@@ -853,7 +855,7 @@ export class QueryProcessor {
                 FROM universe_nodes
                 WHERE id IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
                 AND isleaf = 0
-                ORDER BY creationtime, id1 LIMIT ${limit} OFFSET ${offset};`;
+                ORDER BY ${orderByColumn}, id1 LIMIT ${limit} OFFSET ${offset};`;
         }
         else if (this.reverseFetch === ReverseFetch.ONLY_LICENSED) {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
@@ -862,7 +864,7 @@ export class QueryProcessor {
                 FROM universe_nodes
                 WHERE id IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
                 AND islicensed = 1 AND disallowparentlicensing = 0 AND isleaf = 0
-                ORDER BY creationtime, id1 LIMIT ${limit} OFFSET ${offset};`;
+                ORDER BY ${orderByColumn}, id1 LIMIT ${limit} OFFSET ${offset};`;
         }
         else {
             throw new Error("misconfiguration on reverseFetch");

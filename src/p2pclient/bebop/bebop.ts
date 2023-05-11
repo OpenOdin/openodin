@@ -287,6 +287,7 @@ export interface IFetchQuery {
   discardRoot: boolean;
   embed: Array<IAllowEmbed>;
   descending: boolean;
+  orderByStorageTime: boolean;
   ignoreInactive: boolean;
   ignoreOwn: boolean;
   preserveTransient: boolean;
@@ -329,6 +330,7 @@ export const FetchQuery = {
         }
       }
       view.writeByte(Number(message.descending));
+      view.writeByte(Number(message.orderByStorageTime));
       view.writeByte(Number(message.ignoreInactive));
       view.writeByte(Number(message.ignoreOwn));
       view.writeByte(Number(message.preserveTransient));
@@ -393,10 +395,12 @@ export const FetchQuery = {
     field14 = !!view.readByte();
     let field15: boolean;
     field15 = !!view.readByte();
-    let field16: string;
-    field16 = view.readString();
+    let field16: boolean;
+    field16 = !!view.readByte();
     let field17: string;
     field17 = view.readString();
+    let field18: string;
+    field18 = view.readString();
     let message: IFetchQuery = {
       depth: field0,
       limit: field1,
@@ -411,11 +415,12 @@ export const FetchQuery = {
       discardRoot: field10,
       embed: field11,
       descending: field12,
-      ignoreInactive: field13,
-      ignoreOwn: field14,
-      preserveTransient: field15,
-      region: field16,
-      jurisdiction: field17,
+      orderByStorageTime: field13,
+      ignoreInactive: field14,
+      ignoreOwn: field15,
+      preserveTransient: field16,
+      region: field17,
+      jurisdiction: field18,
     };
     return message;
   },

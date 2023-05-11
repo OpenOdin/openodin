@@ -48,6 +48,7 @@ struct FetchQuery {
     bool discardRoot;
     AllowEmbed[] embed;
     bool descending;
+    bool orderByStorageTime;
     bool ignoreInactive;
     bool ignoreOwn;
     bool preserveTransient;

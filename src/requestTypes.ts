@@ -206,10 +206,25 @@ export type FetchQuery = {
     onlyTrigger: boolean,
 
     /**
-     * Nodes per level are by default sorted ascending (oldest first), set this to true to reverse order.
-     * Note that the ordering is only applied per level of the fetch, not for the full fetch.
+     * Nodes per level are by default sorted ascending (oldest first) on creationTime,
+     * set this to true to reverse the order.
+     * Note that the ordering is only applied per level of the fetch, not for the full fetch
+     * and not per parent, but per all children per all parents on the same level.
+     *
+     * If orderByStorageTime is set then order by node storageTime instead of creationTime.
      */
     descending: boolean,
+
+    /**
+     * If set then order by storageTime instead of by creationTime.
+     * This means that ordering is by when the node was first stored in the particular storage
+     * instead of when it was created.
+     * This will naturally yield different orderings between different storages since the storage
+     * timestamp will most often differ.
+     * This feature can be useful for presenting nodes in the order they were first seen instead
+     * of the creationTime which the creator can set arbitrarely.
+     */
+    orderByStorageTime: boolean,
 
     /** Set to true to not include inactive dynamic nodes in result. Default is to include inactive nodes in resultset. */
     ignoreInactive: boolean,

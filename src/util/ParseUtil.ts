@@ -558,6 +558,7 @@ export class ParseUtil {
         const rootNodeId1 = ParseUtil.ParseVariable("query rootNodeId1 must be hex-string or Buffer, if set", query.rootNodeId1, "hex", true) ?? Buffer.alloc(0);
         const parentId = ParseUtil.ParseVariable("query parentId must be hex-string or Buffer, if set", query.parentId, "hex", true) ?? Buffer.alloc(0);
         const descending = ParseUtil.ParseVariable("query descending must be boolean, if set", query.descending, "boolean", true) ?? false;
+        const orderByStorageTime = ParseUtil.ParseVariable("query orderByStorageTime must be boolean, if set", query.orderByStorageTime, "boolean", true) ?? false;
         const discardRoot = ParseUtil.ParseVariable("query discardRoot must be boolean, if set", query.discardRoot, "boolean", true) ?? false;
         const preserveTransient = ParseUtil.ParseVariable("query preserveTransient must be boolean, if set", query.preserveTransient, "boolean", true) ?? false;
         const ignoreOwn = ParseUtil.ParseVariable("query ignoreOwn must be boolean, if set", query.ignoreOwn, "boolean", true) ?? false;
@@ -595,6 +596,7 @@ export class ParseUtil {
             rootNodeId1,
             parentId,
             descending,
+            orderByStorageTime,
             discardRoot,
             preserveTransient,
             ignoreOwn,
