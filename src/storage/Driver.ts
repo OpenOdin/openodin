@@ -29,6 +29,7 @@ import {
     InsertDestroyHash,
     InsertFriendCert,
     MIN_DIFFICULTY_TOTAL_DESTRUCTION,
+    MAX_BATCH_SIZE,
 } from "./types";
 
 import {
@@ -326,12 +327,16 @@ export class Driver implements DriverInterface {
      * This can happen for concurrent transaction between processes.
      */
     public async store(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<[Buffer[], Buffer[]]> {
-        if (nodes.length > 1000) {
-            throw new Error(`Calling store with too many (${nodes.length} nodes), maximum allowed is 1000.`);
+        if (nodes.length > MAX_BATCH_SIZE) {
+            throw new Error(`Calling store with too many (${nodes.length} nodes), maximum allowed is ${MAX_BATCH_SIZE}.`);
         }
 
         if (!Number.isInteger(now)) {
             throw new Error("now not integer");
+        }
+
+        if (nodes.length === 0) {
+            return [[], []];
         }
 
         await this.db.exec("BEGIN;");
@@ -535,7 +540,7 @@ export class Driver implements DriverInterface {
         }
 
         while (licenseHashes.length > 0) {
-            const hashes = licenseHashes.splice(0, 1000);
+            const hashes = licenseHashes.splice(0, MAX_BATCH_SIZE);
 
             const ph = this.db.generatePlaceholders(hashes.length);
 

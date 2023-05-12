@@ -37,6 +37,7 @@ import {
     LicenseNodeEntry,
     SelectFriendCertPair,
     FetchReplyData,
+    MAX_BATCH_SIZE,
 } from "./types";
 
 import {
@@ -290,7 +291,7 @@ export class QueryProcessor {
 
             // Process the current level.
             while (!this.error() && !this.done() && !this.levelDone() && this.hasCurrentIds()) {
-                const currentIds = this.currentIds.splice(0, 1000);
+                const currentIds = this.currentIds.splice(0, MAX_BATCH_SIZE);
 
                 // Process the current batch on the current level.
                 let offset = 0;
@@ -554,7 +555,7 @@ export class QueryProcessor {
 
     /**
      * Flush out the data which the caller has rights to.
-     * Flushes are batched by the 1000.
+     * Flushes are batched by MAX_BATCH_SIZE.
      */
     protected async flush() {
         if (this.isFlushing) {
@@ -566,7 +567,7 @@ export class QueryProcessor {
 
         this.isFlushing = true;
 
-        const currentRows = this.currentRows.splice(0, 1000);
+        const currentRows = this.currentRows.splice(0, MAX_BATCH_SIZE);
 
         const embed: NodeInterface[] = [];
         let nodesToFlush: NodeInterface[] = [];
@@ -786,6 +787,10 @@ export class QueryProcessor {
 
         if (!Number.isInteger(offset)) {
             throw new Error("offset not integer");
+        }
+
+        if (currentIds.length > MAX_BATCH_SIZE) {
+            throw "Max batch size overflow";
         }
 
         // Calculate a reasonable batch size.
@@ -1262,7 +1267,7 @@ export class QueryProcessor {
         }
 
         while (licenseOwners.length > 0) {
-            const friendAPublicKeys = licenseOwners.splice(0, 1000);
+            const friendAPublicKeys = licenseOwners.splice(0, MAX_BATCH_SIZE);
 
             const params: Buffer[] = [];
 
@@ -1874,7 +1879,7 @@ export class QueryProcessor {
         }
 
         while (licenseHashes.length > 0) {
-            const hashes = licenseHashes.splice(0, 1000);
+            const hashes = licenseHashes.splice(0, MAX_BATCH_SIZE);
 
             const ph = this.db.generatePlaceholders(hashes.length);
 
@@ -2014,6 +2019,10 @@ export class QueryProcessor {
      * @param id1s the ID1s of the nodes.
      */
     protected async getNodesById1(id1s: Buffer[]): Promise<NodeInterface[]> {
+        if (id1s.length > MAX_BATCH_SIZE) {
+            throw new Error("Overflow in batch size of id1s");
+        }
+
         const ph = this.db.generatePlaceholders(id1s.length);
 
         const now = this.now;

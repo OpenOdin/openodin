@@ -13,6 +13,13 @@ import {
     Transformer,
 } from "./transformer";
 
+
+/**
+ * Limit the number of parameters passed to `IN` in queries.
+ * Queries for more than this value will be processed in chunks.
+ */
+export const MAX_BATCH_SIZE         = 100;
+
 /**
  * The maximum nr of nodes allowed to be returned for a single query.
  */
@@ -407,7 +414,7 @@ export type DriverInterface = {
      * @returns tuple of inserted node id1s and their parentIds.
      * @throws
      */
-    store(nodes: NodeInterface[], now: number, preserveTransient: boolean):
+    store(nodes: NodeInterface[], now: number, preserveTransient?: boolean):
         Promise<[Buffer[], Buffer[]]>;
 
     /**
