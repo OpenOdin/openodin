@@ -483,11 +483,16 @@ export class Driver implements DriverInterface {
         const id1s: {[id1: string]: Buffer} = {};
 
         const handleFetchReplyData: HandleFetchReplyData = (fetchReplyData: FetchReplyData) => {
-            (fetchReplyData.nodes ?? []).forEach( node => {
+            const nodes = fetchReplyData.nodes ?? [];
+
+            const nodesLength = nodes.length;
+            for (let i=0; i<nodesLength; i++) {
+                const node = nodes[i];
+
                 const id1 = node.getId1() as Buffer;
                 const id1Str = id1.toString("hex");
                 id1s[id1Str] = id1;
-            });
+            }
         };
 
         const nodeIdsLength = parentIds.length;

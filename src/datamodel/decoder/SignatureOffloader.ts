@@ -120,7 +120,10 @@ export class SignatureOffloader {
      */
     public async sign(datamodels: DataModelInterface[], keyPair: KeyPair, deepValidate: boolean = true) {
         const toBeSigned: ToBeSigned[] = [];
-        datamodels.forEach( (datamodel, index) => {
+        const datamodelsLength = datamodels.length;
+        for (let index=0; index<datamodelsLength; index++) {
+            const datamodel = datamodels[index];
+
             const val = datamodel.validate(deepValidate ? 2 : 0);
             if (!val[0]) {
                 throw new Error(`A datamodel did not validate prior to signing: ${val[1]}`);
@@ -129,7 +132,7 @@ export class SignatureOffloader {
             // Might throw
             datamodel.enforceSigningKey(keyPair.publicKey);
             toBeSigned.push({index, message: datamodel.hash(), keyPair, crypto: datamodel.getCrypto()});
-        });
+        }
 
         // Might throw
         const signatures: SignedResult[] = await this.signer(toBeSigned);
@@ -159,27 +162,33 @@ export class SignatureOffloader {
         const verifiedNodes: DataModelInterface[] = [];
         // Extract all signatures from the node, also including from embedded nodes and certs.
         const signaturesList: SignaturesCollection[] = [];
-        datamodels.forEach( (datamodel, index) => {
+
+        const datamodelsLength = datamodels.length;
+        for (let index=0; index<datamodelsLength; index++) {
+            const datamodel = datamodels[index];
             try {
                 signaturesList.push({index, signatures: datamodel.extractSignatures()});
             }
             catch(e) {
                 // Deep unpacking not available on model, skip this model.
-                return;
+                // Do nothing.
             }
-        });
+        }
 
         // Cryptographically verify in separate threads all the signatures extracted
         // Will throw on threading failure.
         const verifiedIndexes = await this.signatureVerifyer(signaturesList);
 
-        verifiedIndexes.forEach( index => {
+        const verifiedIndexesLength = verifiedIndexes.length;
+        for (let i=0; i<verifiedIndexesLength; i++) {
+            const index = verifiedIndexes[i];
+
             const datamodel = datamodels[index];
 
             if (datamodel.validate(1)[0]) {
                 verifiedNodes.push(datamodel);
             }
-        });
+        }
 
         return verifiedNodes;
     }
@@ -219,9 +228,17 @@ export class SignatureOffloader {
 
             Promise.all(promises).then( (values: number[][]) => {
                 const verifiedList: number[] = [];
-                values.forEach( value => {
-                    verifiedList.push(...value);
-                });
+
+                const valuesLength = values.length;
+                for (let i=0; i<valuesLength; i++) {
+                    const valueList = values[i];
+                    const valueLength = valueList.length;
+                    for (let i=0; i<valueLength; i++) {
+                        const value = valueList[i];
+                        verifiedList.push(value);
+                    }
+                }
+
                 resolve(verifiedList);
             });
         });
@@ -262,9 +279,16 @@ export class SignatureOffloader {
 
             Promise.all(promises).then( (values: SignedResult[][]) => {
                 const signedResults: SignedResult[] = [];
-                values.forEach( (value: SignedResult[]) => {
-                    signedResults.push(...value);
-                });
+                const valuesLength = values.length;
+                for (let i=0; i<valuesLength; i++) {
+                    const valueList = values[i];
+                    const valueLength = valueList.length;
+                    for (let i=0; i<valueLength; i++) {
+                        const value = valueList[i];
+                        signedResults.push(value);
+                    }
+                }
+
                 resolve(signedResults);
             });
         });
