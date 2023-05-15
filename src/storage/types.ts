@@ -13,6 +13,10 @@ import {
     Transformer,
 } from "./transformer";
 
+//import {
+    //DynamicStatus,
+//} from "./plugin/types";
+//
 
 /**
  * Limit the number of parameters passed to `IN` in queries.
@@ -92,6 +96,14 @@ export const TABLES: {[table: string]: any} = {
             },
             "idx_universe_nodes_storagetime": {
                 columns: ["storagetime"],
+                unique: false,
+            },
+            "idx_universe_nodes_trailupdatetime": {
+                columns: ["trailupdatetime"],
+                unique: false,
+            },
+            "idx_universe_nodes_expiretime": {
+                columns: ["expiretime"],
                 unique: false,
             },
             "idx_universe_nodes_id2": {
@@ -501,3 +513,5 @@ export type Trigger = {
     /** Set when the query has been fetched the first time. This is imporant if using this trigger with transformers. */
     hasFetched: boolean,
 };
+
+//export type DynamicObserverEventHandler = (nodeId1: Buffer, dynamicId: Buffer, updatedStatus: DynamicStatus) => void;

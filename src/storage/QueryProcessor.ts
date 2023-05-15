@@ -300,7 +300,8 @@ export class QueryProcessor {
                         await sleep(100);
                     }
 
-                    const [sql, limit, params] = this.prepareSQL(currentIds, offset);
+                    const [sql, limit, params] = this.prepareSQL(currentIds, offset,
+                        this.level === 1 ? Number(this.fetchQuery.cutoffTime) : 0);
 
                     if (limit <= 0) {
                         // There is nothing more to fetch for this current batch.
@@ -669,7 +670,8 @@ export class QueryProcessor {
                     if (!node.isLeaf() &&
                         (!node.hasDynamicSelf() || node.isDynamicSelfActive())) {
 
-                        this.nextLevelIds[(node.getId() as Buffer).toString("hex")] = node.getId() as Buffer;
+                        this.nextLevelIds[(node.getId() as Buffer).toString("hex")] =
+                            node.getId() as Buffer;
                     }
                 }
             }
@@ -778,7 +780,7 @@ export class QueryProcessor {
         return Object.keys(this.nextLevelIds).length > 0;
     }
 
-    protected prepareSQL(currentIds: Buffer[], offset: number): [string, number, any[]] {
+    protected prepareSQL(currentIds: Buffer[], offset: number, cutoffTime: number = 0): [string, number, any[]] {
         const now = this.now;
 
         if (!Number.isInteger(now)) {
@@ -845,12 +847,17 @@ export class QueryProcessor {
                 jurisdiction = this.fetchQuery.jurisdiction ? `AND (jurisdiction IS NULL OR jurisdiction IN ${ph})` : "";
             }
 
+            let cutoff = "";
+            if (cutoffTime > 0) {
+                cutoff = `AND ${cutoffTime} <= trailupdatetime`;
+            }
+
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
                 owner, dynamic, active, ispublic, difficulty, transienthash, sharedhash, image,
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM universe_nodes
                 WHERE parentid IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
-                ${ignoreInactive} ${ignoreOwn} ${region} ${jurisdiction}
+                ${cutoff} ${ignoreInactive} ${ignoreOwn} ${region} ${jurisdiction}
                 ORDER BY ${orderByColumn} ${ordering}, parentid, id1 LIMIT ${limit} OFFSET ${offset};`;
         }
         else if (this.reverseFetch === ReverseFetch.ALL_PARENTS) {
