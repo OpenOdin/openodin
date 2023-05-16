@@ -145,8 +145,7 @@ export class Storage {
 
     protected triggerTimeoutInterval = 10000;
 
-    protected lockWriteQueue: (() => void)[] = [];
-    protected lockReadQueue: (() => void)[] = [];
+    protected lockQueue: (() => void)[] = [];
 
     /**
      * @param p2pClient the connection to the client.
@@ -227,8 +226,8 @@ export class Storage {
 
         try {
             const p = PromiseCallback();
-            this.lockWriteQueue.push(p.cb);
-            if (this.lockWriteQueue.length > 1) {
+            this.lockQueue.push(p.cb);
+            if (this.lockQueue.length > 1) {
                 await p.promise;
             }
 
@@ -356,9 +355,9 @@ export class Storage {
                 this.timeFreeze.unfreeze(ts);
             }
 
-            this.lockWriteQueue.shift();
+            this.lockQueue.shift();
 
-            const cb = this.lockWriteQueue[0];
+            const cb = this.lockQueue[0];
             if (cb) {
                 cb();
             }
@@ -400,8 +399,8 @@ export class Storage {
 
         try {
             const p = PromiseCallback();
-            this.lockReadQueue.push(p.cb);
-            if (this.lockReadQueue.length > 1) {
+            this.lockQueue.push(p.cb);
+            if (this.lockQueue.length > 1) {
                 await p.promise;
             }
 
@@ -525,9 +524,9 @@ export class Storage {
             sendResponse(errorFetchResponse);
         }
         finally {
-            this.lockReadQueue.shift();
+            this.lockQueue.shift();
 
-            const cb = this.lockReadQueue[0];
+            const cb = this.lockQueue[0];
             if (cb) {
                 cb();
             }
@@ -615,8 +614,8 @@ export class Storage {
 
         try {
             const p = PromiseCallback();
-            this.lockReadQueue.push(p.cb);
-            if (this.lockReadQueue.length > 1) {
+            this.lockQueue.push(p.cb);
+            if (this.lockQueue.length > 1) {
                 await p.promise;
             }
 
@@ -628,9 +627,9 @@ export class Storage {
             return 3;
         }
         finally {
-            this.lockReadQueue.shift();
+            this.lockQueue.shift();
 
-            const cb = this.lockReadQueue[0];
+            const cb = this.lockQueue[0];
             if (cb) {
                 cb();
             }
@@ -857,8 +856,8 @@ export class Storage {
 
         try {
             const p = PromiseCallback();
-            this.lockWriteQueue.push(p.cb);
-            if (this.lockWriteQueue.length > 1) {
+            this.lockQueue.push(p.cb);
+            if (this.lockQueue.length > 1) {
                 await p.promise;
             }
 
@@ -1109,9 +1108,9 @@ export class Storage {
             }
         }
         finally {
-            this.lockWriteQueue.shift();
+            this.lockQueue.shift();
 
-            const cb = this.lockWriteQueue[0];
+            const cb = this.lockQueue[0];
             if (cb) {
                 cb();
             }
@@ -1127,8 +1126,8 @@ export class Storage {
 
         try {
             const p = PromiseCallback();
-            this.lockReadQueue.push(p.cb);
-            if (this.lockReadQueue.length > 1) {
+            this.lockQueue.push(p.cb);
+            if (this.lockQueue.length > 1) {
                 await p.promise;
             }
 
@@ -1217,9 +1216,9 @@ export class Storage {
             sendResponse(errorReadBlobResponse);
         }
         finally {
-            this.lockReadQueue.shift();
+            this.lockQueue.shift();
 
-            const cb = this.lockReadQueue[0];
+            const cb = this.lockQueue[0];
             if (cb) {
                 cb();
             }
