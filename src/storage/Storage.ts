@@ -145,7 +145,8 @@ export class Storage {
 
     protected triggerTimeoutInterval = 10000;
 
-    protected lockQueue: (() => void)[] = [];
+    protected lockWriteQueue: (() => void)[] = [];
+    protected lockReadQueue: (() => void)[] = [];
 
     /**
      * @param p2pClient the connection to the client.
@@ -225,6 +226,12 @@ export class Storage {
         let ts: number | undefined;
 
         try {
+            const p = PromiseCallback();
+            this.lockWriteQueue.push(p.cb);
+            if (this.lockWriteQueue.length > 1) {
+                await p.promise;
+            }
+
             if (storeRequest.clientPublicKey.length === 0) {
                 storeRequest.clientPublicKey = CopyBuffer(this.clientPublicKey);
             }
@@ -282,12 +289,6 @@ export class Storage {
 
             // Cryptographically verify all nodes.
             const verifiedNodes = await this.signatureOffloader.verify(decodedNodes) as NodeInterface[];
-
-            const p = PromiseCallback();
-            this.lockQueue.push(p.cb);
-            if (this.lockQueue.length > 1) {
-                await p.promise;
-            }
 
             ts = this.timeFreeze.freeze();
 
@@ -355,9 +356,9 @@ export class Storage {
                 this.timeFreeze.unfreeze(ts);
             }
 
-            this.lockQueue.shift();
+            this.lockWriteQueue.shift();
 
-            const cb = this.lockQueue.shift();
+            const cb = this.lockWriteQueue[0];
             if (cb) {
                 cb();
             }
@@ -398,6 +399,12 @@ export class Storage {
         let status: Status | undefined;
 
         try {
+            const p = PromiseCallback();
+            this.lockReadQueue.push(p.cb);
+            if (this.lockReadQueue.length > 1) {
+                await p.promise;
+            }
+
             // Deep copy the fetch request object since we will update its cutoffTime property.
             const fetchRequestCopy = DeepCopy(fetchRequest) as FetchRequest;
 
@@ -517,6 +524,14 @@ export class Storage {
 
             sendResponse(errorFetchResponse);
         }
+        finally {
+            this.lockReadQueue.shift();
+
+            const cb = this.lockReadQueue[0];
+            if (cb) {
+                cb();
+            }
+        }
     };
 
 
@@ -599,12 +614,26 @@ export class Storage {
         const now = this.timeFreeze.read();
 
         try {
+            const p = PromiseCallback();
+            this.lockReadQueue.push(p.cb);
+            if (this.lockReadQueue.length > 1) {
+                await p.promise;
+            }
+
             await this.driver.fetch(trigger.fetchRequest.query, now, trigger.handleFetchReplyData);
         }
         catch(e) {
             // Note that error response has already been sent by the QueryProcessor.
             this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.clientPublicKey);
             return 3;
+        }
+        finally {
+            this.lockReadQueue.shift();
+
+            const cb = this.lockReadQueue[0];
+            if (cb) {
+                cb();
+            }
         }
 
         trigger.isRunning = false;
@@ -827,6 +856,12 @@ export class Storage {
         let status: Status | undefined;
 
         try {
+            const p = PromiseCallback();
+            this.lockWriteQueue.push(p.cb);
+            if (this.lockWriteQueue.length > 1) {
+                await p.promise;
+            }
+
             if (!this.blobDriver) {
                 throw new Error("Blob driver is not configured");
             }
@@ -900,12 +935,6 @@ export class Storage {
                 }
 
                 return;
-            }
-
-            const p = PromiseCallback();
-            this.lockQueue.push(p.cb);
-            if (this.lockQueue.length > 1) {
-                await p.promise;
             }
 
             if (writeBlobRequest.copyFromId1.length > 0) {
@@ -1080,9 +1109,9 @@ export class Storage {
             }
         }
         finally {
-            this.lockQueue.shift();
+            this.lockWriteQueue.shift();
 
-            const cb = this.lockQueue.shift();
+            const cb = this.lockWriteQueue[0];
             if (cb) {
                 cb();
             }
@@ -1097,6 +1126,12 @@ export class Storage {
         let status: Status | undefined;
 
         try {
+            const p = PromiseCallback();
+            this.lockReadQueue.push(p.cb);
+            if (this.lockReadQueue.length > 1) {
+                await p.promise;
+            }
+
             if (!this.blobDriver) {
                 throw new Error("Blob driver is not configured");
             }
@@ -1180,6 +1215,14 @@ export class Storage {
             };
 
             sendResponse(errorReadBlobResponse);
+        }
+        finally {
+            this.lockReadQueue.shift();
+
+            const cb = this.lockReadQueue[0];
+            if (cb) {
+                cb();
+            }
         }
     };
 
