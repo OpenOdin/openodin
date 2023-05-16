@@ -1119,6 +1119,7 @@ export class Driver implements DriverInterface {
             ON CONFLICT (id1) DO UPDATE SET
             transienthash=excluded.transienthash,
             updatetime=excluded.updatetime,
+            trailupdatetime=excluded.trailupdatetime,
             active=excluded.active,
             image=excluded.image;`
         }

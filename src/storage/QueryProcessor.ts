@@ -190,6 +190,10 @@ export class QueryProcessor {
 
     protected _error: Error | undefined;
 
+    /**
+     * @now now timestamp used to compare against expireTime of nodes.
+     * expireTime must be less than now to be existing.
+     */
     constructor(
         protected readonly db: DBClient,
         protected readonly fetchQuery: FetchQuery,

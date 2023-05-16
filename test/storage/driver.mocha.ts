@@ -1290,7 +1290,7 @@ function setupDriverTests(config: any) {
         assert(nodes.length === 0);
 
 
-        nodeA.setDynamicSelfActive();
+        nodeA.setDynamicSelfActive();  // Change transient state so we can restore node.
         [id1s, parentIds] = await driver.store([nodeA], now + 1, true);
         assert(id1s.length === 1);
 
