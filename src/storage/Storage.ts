@@ -146,12 +146,13 @@ export class Storage {
     protected triggerTimeoutInterval = 10000;
 
     protected lockQueue: (() => void)[] = [];
+    protected lockBlobQueue: (() => void)[] = [];
 
     /**
      * @param p2pClient the connection to the client.
      * @param signatureOffloader
      * @param driver
-     * @param blobDriver
+     * @param blobDriver if provided it must not use the same underlaying connection as the driver.
      * @param allowPreserveTransient set to true to allow store requests to also store the transient values of the nodes.
      * @param maxTransformerLength set to the maximum allowed transformer internal length. Default is 100000.
      * @throws on misconfiguration
@@ -856,8 +857,8 @@ export class Storage {
 
         try {
             const p = PromiseCallback();
-            this.lockQueue.push(p.cb);
-            if (this.lockQueue.length > 1) {
+            this.lockBlobQueue.push(p.cb);
+            if (this.lockBlobQueue.length > 1) {
                 await p.promise;
             }
 
@@ -1108,9 +1109,9 @@ export class Storage {
             }
         }
         finally {
-            this.lockQueue.shift();
+            this.lockBlobQueue.shift();
 
-            const cb = this.lockQueue[0];
+            const cb = this.lockBlobQueue[0];
             if (cb) {
                 cb();
             }
@@ -1126,8 +1127,8 @@ export class Storage {
 
         try {
             const p = PromiseCallback();
-            this.lockQueue.push(p.cb);
-            if (this.lockQueue.length > 1) {
+            this.lockBlobQueue.push(p.cb);
+            if (this.lockBlobQueue.length > 1) {
                 await p.promise;
             }
 
@@ -1216,9 +1217,9 @@ export class Storage {
             sendResponse(errorReadBlobResponse);
         }
         finally {
-            this.lockQueue.shift();
+            this.lockBlobQueue.shift();
 
-            const cb = this.lockQueue[0];
+            const cb = this.lockBlobQueue[0];
             if (cb) {
                 cb();
             }
