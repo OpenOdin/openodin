@@ -115,30 +115,60 @@ export class ParseUtil {
      *  driver?: DriverConfig,
      *  blobDriver?: DriverConfig,
      * }
-     * @returns LocalStorage
+     * @returns LocalStorageConfig
      * @throws if malconfigured
      */
     public static ParseConfigLocalStorage(obj: any): LocalStorageConfig {
         const permissions = ParseUtil.ParseP2PClientPermissions(obj.permissions);
 
-        const driver: DriverConfig = {
+        let driver: DriverConfig = {
             sqlite: ":memory:",
         };
 
+        let blobDriver: DriverConfig | undefined;
+
         if (obj.driver) {
             const sqlite = ParseUtil.ParseVariable("local storage config driver.sqlite must be string, if set", obj.driver.sqlite, "string", true);
+            const pg = ParseUtil.ParseVariable("local storage config driver.pg must be string, if set", obj.driver.pg, "string", true);
+            const reconnectDelay = ParseUtil.ParseVariable("local storage config driver.reconnectDelay must be number, if set", obj.driver.reconnectDelay, "number", true);
+
+            if (sqlite && pg) {
+                throw new Error("local storage driver cannot have both 'sqlite' and 'pg' set");
+            }
+
             if (sqlite) {
-                driver.sqlite = sqlite;
+                driver = {
+                    sqlite,
+                    reconnectDelay,
+                };
+            }
+            else if (pg) {
+                driver = {
+                    pg,
+                    reconnectDelay,
+                };
             }
         }
 
-        let blobDriver: DriverConfig | undefined;
-
         if (obj.blobDriver) {
             const sqlite = ParseUtil.ParseVariable("local storage config blobDriver.sqlite must be string, if set", obj.blobDriver.sqlite, "string", true);
+            const pg = ParseUtil.ParseVariable("local storage config blobDriver.pg must be string, if set", obj.blobDriver.pg, "string", true);
+            const reconnectDelay = ParseUtil.ParseVariable("local storage config blobDriver.reconnectDelay must be number, if set", obj.blobDriver.reconnectDelay, "number", true);
+
+            if (sqlite && pg) {
+                throw new Error("local storage blobDriver cannot have both 'sqlite' and 'pg' set");
+            }
+
             if (sqlite) {
                 blobDriver = {
                     sqlite,
+                    reconnectDelay,
+                };
+            }
+            else if (pg) {
+                blobDriver = {
+                    pg,
+                    reconnectDelay,
                 };
             }
         }

@@ -41,6 +41,10 @@ async function main(config: object) {
         console.aced("Connected to storage");
     });
 
+    service.onStorageClose( () => {
+        console.error("Disconnected from storage");
+    });
+
     service.onConnectionConnect( (e: {p2pClient: P2PClient}) => {
         const pubKey = e.p2pClient.getRemotePublicKey();
         console.info(`Peer just connected to service, peer's publicKey is ${pubKey.toString("hex")}`);

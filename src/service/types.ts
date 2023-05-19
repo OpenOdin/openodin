@@ -36,6 +36,12 @@ export type DriverConfig = {
      * Mutually exclusive to sqlite config.
      */
     pg?: string,
+
+    /**
+     * If set >0 then retry failed connection after x seconds.
+     *
+     */
+    reconnectDelay?: number,
 };
 
 export type LocalStorageConfig = {

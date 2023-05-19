@@ -392,7 +392,7 @@ export class DBClient {
             const db = this.db as Connection;
 
             if (event === "close") {
-                db.on("end", fn);
+                db.on("close", fn);
             }
             else if (event === "error") {
                 db.on("error", fn);

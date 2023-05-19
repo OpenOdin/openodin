@@ -81,6 +81,7 @@ import {
     DeepCopy,
     DeepEquals,
     sleep,
+    PromiseCallback,
 } from "../util/common";
 
 import {
@@ -180,6 +181,12 @@ type ServiceState = {
      * Matches config.connectionConfigs on index.
      */
     connectionFactories: HandshakeFactory[],
+
+    /**
+     * Initially this value gtes copied from localStorage.driver.reconnectDelay.
+     * If it is set to 0 or undefined then reconnect is cancelled.
+     */
+    localDatabaseReconnectDelay?: number,
 };
 
 /**
@@ -348,6 +355,7 @@ export class Service {
             extenderServers: [],
             storageConnectionFactories: [],
             connectionFactories: [],
+            localDatabaseReconnectDelay: undefined,
         };
     }
 
@@ -421,6 +429,8 @@ export class Service {
         });
 
         this.state.storageConnectionFactories = [];
+
+        this.state.localDatabaseReconnectDelay = undefined;
 
         this.state.storageClient?.close();
         this.state.externalStorageClient?.close();
@@ -710,7 +720,10 @@ export class Service {
         if (this._isRunning) {
             throw new Error("Cannot set local storage while running.");
         }
+
         this.config.localStorage = localStorage;
+
+        this.state.localDatabaseReconnectDelay = this.config.localStorage?.driver.reconnectDelay;
     }
 
     /** If set then a storage is exposed to be available for a local app. */
@@ -928,20 +941,6 @@ export class Service {
      * @throws on error.
      */
     protected async initLocalStorage(localStorage: LocalStorageConfig) {
-        // Create virtual paired sockets.
-        const [socket1, socket2] = CreatePair();
-        const messaging1 = new Messaging(socket1, 0);
-        const messaging2 = new Messaging(socket2, 0);
-
-        // The PeerProps which the Storage sees as the this side.
-        // The publicKey set here is what dictatates the permissions we have in the Storage.
-        const localProps = this.makePeerProps(ConnectionType.STORAGE_CLIENT);
-
-        // The PeerProps of the Storage "sent" to this side in the handshake.
-        // When using a local storage the storage uses the same keys for identity as the client side.
-        const remoteProps = this.makePeerProps(ConnectionType.STORAGE_SERVER);
-
-
         if (!localStorage.driver.sqlite && !localStorage.driver.pg) {
             throw new Error("Driver not properly configured. Expecting localStorage.driver.sqlite/pg to be set.");
         }
@@ -954,86 +953,147 @@ export class Service {
             throw new Error("Driver not properly configured. Expecting maxium one of localStorage.driver.sqlite/pg to be set.");
         }
 
+        // The PeerProps which the Storage sees as the this side.
+        // The publicKey set here is what dictatates the permissions we have in the Storage.
+        const localProps = this.makePeerProps(ConnectionType.STORAGE_CLIENT);
+
+        // The PeerProps of the Storage "sent" to this side in the handshake.
+        // When using a local storage the storage uses the same keys for identity as the client side.
+        const remoteProps = this.makePeerProps(ConnectionType.STORAGE_SERVER);
+
+        while (true) {
+            const [driver, blobDriver] = await this.connectToDatabase(localStorage);
+
+            if (driver) {
+                // Create virtual paired sockets.
+                const [socket1, socket2] = CreatePair();
+                const messaging1 = new Messaging(socket1, 0);
+                const messaging2 = new Messaging(socket2, 0);
+
+                const p2pStorage = new P2PClient(messaging1, remoteProps, localProps, localStorage.permissions);
+
+                const storage = new Storage(p2pStorage, this.signatureOffloader, driver, blobDriver);
+
+                storage.onClose( () => {
+                    // We need to explicitly close the Driver instance.
+                    driver?.close();
+                    blobDriver?.close();
+                });
+
+                storage.init();
+
+                const internalStorageClient = new P2PClient(messaging2, localProps, remoteProps);
+
+                messaging1.open();
+                messaging2.open();
+
+                let externalStorageClient: P2PClient | undefined;
+                const exposeStorageToApp = this.getExposeStorageToApp();
+
+                if (exposeStorageToApp) {
+                    // Create virtual paired sockets.
+                    const [socket3, socket4] = CreatePair();
+                    const messaging3 = new Messaging(socket3, 0);
+                    const messaging4 = new Messaging(socket4, 0);
+
+                    // Set permissions on this to limit the local app's access to the storage.
+                    const intermediaryStorageClient =
+                        new P2PClient(messaging3, this.makePeerProps(ConnectionType.STORAGE_CLIENT),
+                            this.makePeerProps(ConnectionType.STORAGE_SERVER), exposeStorageToApp.permissions);
+
+                    // This client only initiates requests and does not need any permissions to it.
+                    externalStorageClient =
+                        new P2PClient(messaging4, this.makePeerProps(ConnectionType.STORAGE_CLIENT),
+                        this.makePeerProps(ConnectionType.STORAGE_SERVER));
+
+                    new P2PClientForwarder(intermediaryStorageClient, internalStorageClient);
+
+                    messaging3.open();
+                    messaging4.open();
+                }
+
+                const closePromise = PromiseCallback();
+
+                internalStorageClient.onClose( (peer: P2PClient) => {
+                    closePromise.cb();
+                });
+
+                this.storageConnected(internalStorageClient, externalStorageClient);
+
+                await closePromise.promise;
+
+                console.error("Database connection closed");
+            }
+
+            if (!this.state.localDatabaseReconnectDelay) {
+                break;
+            }
+
+            console.debug(`Sleep ${this.state.localDatabaseReconnectDelay} second(s) before reconnecting`);
+
+            await sleep(this.state.localDatabaseReconnectDelay * 1000);
+        }
+    }
+
+    protected async connectToDatabase(localStorage: LocalStorageConfig): Promise<[DriverInterface | undefined, BlobDriverInterface | undefined]> {
         let driver: DriverInterface | undefined;
         let blobDriver: BlobDriverInterface | undefined;
 
-        if (localStorage.driver.sqlite) {
-            const db = isBrowser ?
-                await DatabaseUtil.OpenSQLiteJS() :
-                await DatabaseUtil.OpenSQLite(localStorage.driver.sqlite);
-            driver = new Driver(new DBClient(db));
+        try {
+            if (localStorage.driver.sqlite) {
+                const db = isBrowser ?
+                    await DatabaseUtil.OpenSQLiteJS() :
+                    await DatabaseUtil.OpenSQLite(localStorage.driver.sqlite);
+                driver = new Driver(new DBClient(db));
+            }
+            else if (localStorage.driver.pg) {
+                const connection = await DatabaseUtil.OpenPG(localStorage.driver.pg);
+                driver = new Driver(new DBClient(connection));
+            }
+
+            if (localStorage.blobDriver?.sqlite) {
+                const db = isBrowser ?
+                    await DatabaseUtil.OpenSQLiteJS(false) :
+                    await DatabaseUtil.OpenSQLite(localStorage.blobDriver.sqlite, false);
+                blobDriver = new BlobDriver(new DBClient(db));
+            }
+            else if (localStorage.blobDriver?.pg) {
+                const connection = await DatabaseUtil.OpenPG(localStorage.blobDriver.pg, false);
+                blobDriver = new BlobDriver(new DBClient(connection));
+            }
         }
-        else if (localStorage.driver.pg) {
-            const connection = await DatabaseUtil.OpenPG(localStorage.driver.pg);
-            driver = new Driver(new DBClient(connection));
+        catch(e) {
+            console.warn(`Database connection error`, (e as Error).message);
+
+            return [undefined, undefined];
         }
 
-        if (localStorage.blobDriver?.sqlite) {
-            const db = isBrowser ?
-                await DatabaseUtil.OpenSQLiteJS(false) :
-                await DatabaseUtil.OpenSQLite(localStorage.blobDriver.sqlite, false);
-            blobDriver = new BlobDriver(new DBClient(db));
+        if (!driver) {
+            return [undefined, undefined];
         }
-        else if (localStorage.blobDriver?.pg) {
-            const connection = await DatabaseUtil.OpenPG(localStorage.blobDriver.pg, false);
-            blobDriver = new BlobDriver(new DBClient(connection));
-        }
-
-        assert(driver, "driver expected to be set");
 
         await driver.init();
+
         if (await driver.createTables()) {
-            console.info("Database tables created or already existing");
+            console.debug("Database tables created or already existing");
         }
         else {
-            console.info("Database tables creation could not proceed due to inconsistent state");
+            throw new Error("Database tables creation could not proceed due to inconsistent state");
         }
 
         if (blobDriver) {
             await blobDriver.init();
+
             if (await blobDriver.createTables()) {
-                console.info("Database blob tables created or already existing");
+                console.debug("Database blob tables created or already existing");
             }
             else {
-                console.info("Database blob tables creation could not proceed due to inconsistent state");
+                driver?.close();
+                throw new Error("Database blob tables creation could not proceed due to inconsistent state");
             }
         }
 
-        const p2pStorage = new P2PClient(messaging1, remoteProps, localProps, localStorage.permissions);
-        const storage = new Storage(p2pStorage, this.signatureOffloader, driver, blobDriver);
-        storage.onClose( () => {
-            // We need to explicitly close the Driver instance.
-            driver?.close();
-            blobDriver?.close();
-        });
-        storage.init();
-
-        const internalStorageClient = new P2PClient(messaging2, localProps, remoteProps);
-
-        messaging1.open();
-        messaging2.open();
-
-        let externalStorageClient: P2PClient | undefined;
-        const exposeStorageToApp = this.getExposeStorageToApp();
-        if (exposeStorageToApp) {
-            // Create virtual paired sockets.
-            const [socket3, socket4] = CreatePair();
-            const messaging3 = new Messaging(socket3, 0);
-            const messaging4 = new Messaging(socket4, 0);
-
-            // Set permissions on this to limit the local app's access to the storage.
-            const intermediaryStorageClient = new P2PClient(messaging3, this.makePeerProps(ConnectionType.STORAGE_CLIENT), this.makePeerProps(ConnectionType.STORAGE_SERVER), exposeStorageToApp.permissions);
-
-            // This client only initiates requests and does not need any permissions to it.
-            externalStorageClient = new P2PClient(messaging4, this.makePeerProps(ConnectionType.STORAGE_CLIENT), this.makePeerProps(ConnectionType.STORAGE_SERVER));
-
-            new P2PClientForwarder(intermediaryStorageClient, internalStorageClient);
-
-            messaging3.open();
-            messaging4.open();
-        }
-
-        this.storageConnected(internalStorageClient, externalStorageClient);
+        return [driver, blobDriver];
     }
 
     /**
@@ -1516,6 +1576,7 @@ export class Service {
             localProps.clock = Date.now();
             return PeerDataUtil.PropsToPeerData(localProps).export();
         };
+
         return handshakeFactoryConfig2;
     }
 
