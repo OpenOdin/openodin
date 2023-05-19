@@ -204,7 +204,6 @@ export class QueryProcessor {
         protected allowLicensed: boolean = true,
         protected allowEmbed: boolean = true,
         protected queryBatchLimit: number = 5000,
-        protected keepTrackOfProcessed: boolean = true,
     ) {
         if (!Number.isInteger(this.now)) {
             throw new Error("now not integer");
@@ -236,49 +235,47 @@ export class QueryProcessor {
         this.nextLevelIds[parentIdStr] = this.parentId;
 
         if (this.rootNode) {
-            if (this.keepTrackOfProcessed) {
-                const parentIdStr = (this.rootNode.getParentId() ?? Buffer.alloc(0)).toString("hex");
-                const idStr = (this.rootNode.getId() as Buffer).toString("hex");
-                const id1Str = (this.rootNode.getId1() as Buffer).toString("hex");
-                const owner = this.rootNode.getOwner() as Buffer;
-                const childMinDifficulty = this.rootNode.getChildMinDifficulty() ?? 0;
-                const disallowPublicChildren = this.rootNode.disallowPublicChildren();
-                const onlyOwnChildren = this.rootNode.onlyOwnChildren();
+            const parentIdStr = (this.rootNode.getParentId() ?? Buffer.alloc(0)).toString("hex");
+            const idStr = (this.rootNode.getId() as Buffer).toString("hex");
+            const id1Str = (this.rootNode.getId1() as Buffer).toString("hex");
+            const owner = this.rootNode.getOwner() as Buffer;
+            const childMinDifficulty = this.rootNode.getChildMinDifficulty() ?? 0;
+            const disallowPublicChildren = this.rootNode.disallowPublicChildren();
+            const onlyOwnChildren = this.rootNode.onlyOwnChildren();
 
-                if (this.alreadyProcessedNodes[idStr]) {
-                    // Already processed
-                    this.flushCount++;
-                    this.handleFetchReplyData({
-                        status: Status.RESULT, rowCount: 0, now: this.now, isFirst: true, isLast: true});
-                    return;
-                }
-
-                this.alreadyProcessedNodes[idStr] = {
-                    matched: [],
-                    id1s: {
-                        [id1Str]: {
-                            owner,
-                            parentId: parentIdStr,
-                            childMinDifficulty,
-                            disallowPublicChildren,
-                            onlyOwnChildren,
-                            beginRestrictiveWriterMode: false,
-                            endRestrictiveWriterMode: false,
-                            flushed: false,
-                            passed: true,
-                            restrictiveNodes: [],
-                            restrictiveManager: {},
-                            trailUpdateTime: 0,
-                            storageTime: 0,
-                            updateTime: 0,
-                            discard: false,
-                            bottom: false,
-                            matchIndexes: [],
-                            node: this.rootNode,
-                        }
-                    }
-                };
+            if (this.alreadyProcessedNodes[idStr]) {
+                // Already processed
+                this.flushCount++;
+                this.handleFetchReplyData({
+                    status: Status.RESULT, rowCount: 0, now: this.now, isFirst: true, isLast: true});
+                return;
             }
+
+            this.alreadyProcessedNodes[idStr] = {
+                matched: [],
+                id1s: {
+                    [id1Str]: {
+                        owner,
+                        parentId: parentIdStr,
+                        childMinDifficulty,
+                        disallowPublicChildren,
+                        onlyOwnChildren,
+                        beginRestrictiveWriterMode: false,
+                        endRestrictiveWriterMode: false,
+                        flushed: false,
+                        passed: true,
+                        restrictiveNodes: [],
+                        restrictiveManager: {},
+                        trailUpdateTime: 0,
+                        storageTime: 0,
+                        updateTime: 0,
+                        discard: false,
+                        bottom: false,
+                        matchIndexes: [],
+                        node: this.rootNode,
+                    }
+                }
+            };
 
             if ((this.fetchQuery.limit === -1 || this.fetchQuery.limit > 0) &&
                 !this.fetchQuery.discardRoot) {
@@ -378,11 +375,7 @@ export class QueryProcessor {
         try {
             const node = Decoder.DecodeNode(row.image, true);
 
-            let passed = true;
-
-            if (this.keepTrackOfProcessed) {
-                passed = this.addAlreadyProcessed(node, row.storagetime, row.updatetime, row.trailupdatetime);
-            }
+            const passed = this.addAlreadyProcessed(node, row.storagetime, row.updatetime, row.trailupdatetime);
 
             // Always run this to not miss flipping the cursorPassed flag.
             const passed2 = this.matchFirst(node, this.currentLevelMatches);
