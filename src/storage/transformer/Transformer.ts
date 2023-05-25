@@ -54,7 +54,7 @@ export class Transformer {
                 if (previousAlgo) {
                     throw new Error("AlgoSorted does not support using a previous algo object.");
                 }
-                algo = new AlgoSorted(this.fetchRequest.transform.reverse, this.maxLength);
+                algo = new AlgoSorted(this.fetchRequest.transform.reverse, fetchRequest.query.orderByStorageTime, this.maxLength);
             }
             else if (algoId === AlgoRefId.GetId()) {
                 if (previousAlgo) {

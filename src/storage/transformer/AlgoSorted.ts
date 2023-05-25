@@ -8,17 +8,25 @@ import {
 } from "./types";
 
 /**
- * Sort nodes on creationTime and make sure there are no duplicate entries.
+ * Sort nodes on creationTime or storageTime and make sure there are no duplicate entries.
  */
 export class AlgoSorted implements AlgoInterface {
     protected reverse: boolean;
+    protected orderByStorageTime: boolean;
     protected nodeIndexById1: {[id1: string]: number};
     protected nodes: NodeInterface[];
     protected _isClosed: boolean;
     protected maxLength: number;
 
-    constructor(reverse: boolean = false, maxLength: number = 10000) {
+    /**
+     * @param reverse
+     * @param orderByStorageTime if true then order by storage time insteadof creationTime.
+     * @param maxLength
+     *
+     */
+    constructor(reverse: boolean = false, orderByStorageTime: boolean = false, maxLength: number = 10000) {
         this.reverse = reverse;
+        this.orderByStorageTime = orderByStorageTime;
         this.nodeIndexById1 = {};
         this.nodes = [];
         this._isClosed = true;
@@ -98,7 +106,20 @@ export class AlgoSorted implements AlgoInterface {
                     [a, b] = [b, a];
                 }
 
-                let diff = (a.getCreationTime() || 0) - (b.getCreationTime() || 0);
+                const diffCreationTime = (a.getCreationTime() ?? 0) - (b.getCreationTime() ?? 0);
+                const diffStorageTime = (a.getTransientStorageTime() ?? 0) - (b.getTransientStorageTime() ?? 0);
+
+                let diff = 0;
+
+                if (this.orderByStorageTime) {
+                    diff = diffStorageTime;
+                    if (diff === 0) {
+                        diff = diffCreationTime;
+                    }
+                }
+                else {
+                    diff = diffCreationTime;
+                }
 
                 if (diff === 0) {
                     const id1a = a.getId1();
