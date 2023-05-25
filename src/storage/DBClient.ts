@@ -30,10 +30,10 @@ export class DBClient {
     protected _closeEventHandlers: (() => void)[] = [];
 
     constructor(protected db: sqlite3.Database | Connection | SQLJSDatabase) {
-        if (db instanceof sqlite3.Database) {
+        if (sqlite3.Database && db instanceof sqlite3.Database) {
             this._sqlType = "sqlite";
         }
-        else if (db instanceof Connection) {
+        else if (Connection && db instanceof Connection) {
             this._sqlType = "pg";
         }
         else {
