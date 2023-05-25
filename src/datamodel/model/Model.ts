@@ -1181,53 +1181,67 @@ export class Model {
     }
 
     /**
-     * @param excludeFields: string[] array of field names to exclude from hashing.
-     * @returns header and all field values which are to be hashed, even undefined fields.
-     * Transient fields are not returned.
+     * Hash (non-transient) fields to get the complete hash of the node.
+     * This hash is equal to hashing the exported node binary data unless also transient fields are exported
+     * then its a bit more complicated to reproduce the hash.
+     *
+     * @param excludeFields: string[] array of (non transient) field names to exclude from hashing.
+     * @return hash
      */
-    public getHashable(excludeFields?: string[]): (Buffer | undefined)[] {
-        const buffers: (Buffer | undefined)[] = [];
+    public hash(excludeFields?: string[]): Buffer {
+        const buffers: Buffer[] = [];
+
         buffers.push(this.encodeHeader());
 
         const fields = this.getSortedFields();
 
-        fields.filter( field => (field.hash ?? true) && !field.transient ).forEach(field => {
-            if (excludeFields && excludeFields.some( fieldName => fieldName === field.name )) {
-                // exclude this field from hashing
-                return;
-            }
+        const fieldsLength = fields.length;
 
-            const value = this.data[field.name];
+        for (let i=0; i<fieldsLength; i++) {
+            const field = fields[i];
 
-            if (value === undefined) {
-                buffers.push(undefined);
-            }
-            else {
-                const data = this.packField(field, value);
-                buffers.push(data);
-            }
-        });
+            if ((field.hash ?? true) && !field.transient) {
+                if (excludeFields && excludeFields.some( fieldName => fieldName === field.name )) {
+                    // exclude this field from hashing
+                    continue;
+                }
 
-        return buffers;
+                const value = this.data[field.name];
+
+                if (value !== undefined) {
+                    const data = this.packField(field, value);
+                    buffers.push(data);
+                }
+            }
+        }
+
+        const binary = Buffer.concat(buffers);
+
+        return Hash(binary);
     }
 
-    public getTransientHashable(): (Buffer | undefined)[] {
-        const buffers: (Buffer | undefined)[] = [];
+    public hashTransient(): Buffer {
+        const buffers: Buffer[] = [];
 
         const fields = this.getSortedFields();
 
-        fields.filter( field => (field.hash ?? true) && field.transient ).forEach(field => {
-            const value = this.data[field.name];
+        const fieldsLength = fields.length;
 
-            if (value === undefined) {
-                buffers.push(undefined);
-            }
-            else {
-                const data = this.packField(field, value);
-                buffers.push(data);
-            }
-        });
+        for (let i=0; i<fieldsLength; i++) {
+            const field = fields[i];
 
-        return buffers;
+            if ((field.hash ?? true) && field.transient) {
+                const value = this.data[field.name];
+
+                if (value !== undefined) {
+                    const data = this.packField(field, value);
+                    buffers.push(data);
+                }
+            }
+        }
+
+        const binary = Buffer.concat(buffers);
+
+        return Hash(binary);
     }
 }

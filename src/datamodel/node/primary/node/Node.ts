@@ -937,7 +937,7 @@ export abstract class Node implements NodeInterface {
             this.setEmbedded(this.cachedEmbeddedObject.export());
         }
 
-        return Hash(this.model.getHashable());
+        return this.model.hash();
     }
 
     /**
@@ -2182,7 +2182,7 @@ export abstract class Node implements NodeInterface {
      * @returns hash
      */
     public hashTransient(): Buffer {
-        return Hash(this.model.getTransientHashable());
+        return this.model.hashTransient();
     }
 
     /**

@@ -1288,7 +1288,7 @@ export class License extends Node implements LicenseInterface {
      * @returns hash
      */
     public hashShared(): Buffer {
-        return Hash(this.model.getHashable(["creationTime"]));
+        return this.model.hash(["creationTime"]);
     }
 
     /**

@@ -525,7 +525,7 @@ export abstract class BaseCert implements BaseCertInterface {
             this.setCert(this.cachedCertObject.export());
         }
 
-        return Hash(this.model.getHashable());
+        return this.model.hash();
     }
 
     /**

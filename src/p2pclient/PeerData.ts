@@ -92,7 +92,7 @@ export class PeerData {
      * @returns hash of the model
      **/
     public hash(): Buffer {
-        return Hash(this.model.getHashable());
+        return this.model.hash();
     }
 
     public setVersion(version: Buffer | undefined) {
