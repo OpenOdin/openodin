@@ -472,7 +472,7 @@ export class Storage {
                 handleFetchReplyData = trigger.handleFetchReplyData;
             }
             else {
-                const handleFetchReplyData0 = this.handleFetchReplyDataFactory(sendResponse);
+                const handleFetchReplyData0 = this.handleFetchReplyDataFactory(sendResponse, undefined, fetchRequest.query.preserveTransient);
 
                 handleFetchReplyData = transformer ?
                     transformer.handleFetchReplyDataFactory(handleFetchReplyData0) : handleFetchReplyData0;
@@ -584,7 +584,7 @@ export class Storage {
         triggers.push(trigger);
         this.triggers[idStr] = triggers;
 
-        const handleFetchReplyData0 = this.handleFetchReplyDataFactory(sendResponse, trigger);
+        const handleFetchReplyData0 = this.handleFetchReplyDataFactory(sendResponse, trigger, fetchRequest.query.preserveTransient);
 
         const handleFetchReplyData = transformer ?
             transformer.handleFetchReplyDataFactory(handleFetchReplyData0) : handleFetchReplyData0;
@@ -682,11 +682,11 @@ export class Storage {
         this.triggerTimeout = setTimeout( this.triggersTimeout, this.triggerTimeoutInterval );
     };
 
-    protected handleFetchReplyDataFactory(sendResponse: SendResponseFn<FetchResponse>, trigger?: Trigger): HandleFetchReplyData {
+    protected handleFetchReplyDataFactory(sendResponse: SendResponseFn<FetchResponse>, trigger?: Trigger, preserveTransient: boolean = false): HandleFetchReplyData {
         let seq = 1;
 
         return (fetchReplyData: FetchReplyData) => {
-            const fetchResponses = this.chunkFetchResponse(fetchReplyData, seq);
+            const fetchResponses = this.chunkFetchResponse(fetchReplyData, seq, preserveTransient);
 
             if (fetchResponses.length === 0) {
                 return;
@@ -704,7 +704,7 @@ export class Storage {
         };
     }
 
-    protected chunkFetchResponse(fetchReplyData: FetchReplyData, seq: number): FetchResponse[] {
+    protected chunkFetchResponse(fetchReplyData: FetchReplyData, seq: number, preserveTransient: boolean): FetchResponse[] {
         const fetchResponses: FetchResponse[] = [];
 
         const status                = fetchReplyData.status ?? Status.RESULT;
@@ -736,7 +736,7 @@ export class Storage {
 
                     const node = nodes.shift();
                     if (node) {
-                        const image = node.export();
+                        const image = node.export(preserveTransient, preserveTransient);
                         images.push(image);
                         responseSize += image.length + 4;
                         continue;
@@ -744,7 +744,7 @@ export class Storage {
 
                     const nodeEmbed = embed.shift();
                     if (nodeEmbed) {
-                        const image = nodeEmbed.export();
+                        const image = nodeEmbed.export(preserveTransient, preserveTransient);
                         imagesToEmbed.push(image);
                         responseSize += image.length + 4;
                         continue;
@@ -1239,7 +1239,7 @@ export class Storage {
             const transformer = this.getReadyTransformer(fetchRequest);
 
             if (transformer) {
-                const handleFetchReplyData = this.handleFetchReplyDataFactory(sendResponse);
+                const handleFetchReplyData = this.handleFetchReplyDataFactory(sendResponse, undefined, fetchRequest.query.preserveTransient);
 
                 const result = transformer.get(fetchRequest.transform.cursorId1,
                     fetchRequest.transform.head, fetchRequest.transform.tail);
@@ -1273,7 +1273,7 @@ export class Storage {
                 error: "Out of memory to create transformer",
             };
 
-            const handleFetchReplyData = this.handleFetchReplyDataFactory(sendResponse);
+            const handleFetchReplyData = this.handleFetchReplyDataFactory(sendResponse, undefined, fetchRequest.query.preserveTransient);
             handleFetchReplyData(fetchReplyData);
 
             return undefined;

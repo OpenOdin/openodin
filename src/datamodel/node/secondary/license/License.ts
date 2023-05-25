@@ -1292,15 +1292,6 @@ export class License extends Node implements LicenseInterface {
     }
 
     /**
-     * Hash the license's transient values so they can be compared.
-     * @returns hash
-     */
-    public hashTransient(): Buffer {
-        const hash = super.hashTransient();
-        return Hash([this.getLicenseTransientConfig(), hash]);
-    }
-
-    /**
      * Enforces so that licenses only can be sent embedded to targetPublicKey if the clientPublicKey (sender) is the current license target.
      *
      * @param clientPublicKey the public key embedding, signing and sending the node.

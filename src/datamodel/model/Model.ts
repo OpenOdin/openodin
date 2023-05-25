@@ -625,23 +625,31 @@ export class Model {
      * Fields with undefined values are not exported.
      * Transient fields are only export if requested.
      *
-     * @param exportTransient if true then also export fields marked as transient.
+     * @param exportTransient if true then also export fields marked as transient (not including non hashable fields).
+     * @param exportTransientNonHashable if true then also export transient non hashable fields (requires exportTransient is true).
      * @returns the exported data composed of header and all non-empty fields in packed format.
      *
      * @throws an error message when unable to pack any of the existing fields.
      */
-    public export(exportTransient: boolean = false): Buffer {
+    public export(exportTransient: boolean = false, exportTransientNonHashable: boolean = false): Buffer {
         const header = this.encodeHeader();
         const packedFields = [];
         const fields = this.getSortedFields();
+
         for (let index=0; index<fields.length; index++) {
             const field = fields[index];
             if (field.transient && !exportTransient) {
                 continue;
             }
+
+            if (field.transient && !(field.hash ?? true) && !exportTransientNonHashable) {
+                continue;
+            }
+
             if (this.data[field.name] === undefined) {
                 continue;
             }
+
             try {
                 const packedField = this.packField(field, this.data[field.name]);
                 packedFields.push(packedField);
@@ -1173,10 +1181,10 @@ export class Model {
     }
 
     /**
-    * @param excludeFields: string[] array of field names to exclude from hashing.
-    * @returns header and all field values which are to be hashed, even undefined fields.
-    * Transient fields are not returned.
-    */
+     * @param excludeFields: string[] array of field names to exclude from hashing.
+     * @returns header and all field values which are to be hashed, even undefined fields.
+     * Transient fields are not returned.
+     */
     public getHashable(excludeFields?: string[]): (Buffer | undefined)[] {
         const buffers: (Buffer | undefined)[] = [];
         buffers.push(this.encodeHeader());
@@ -1188,7 +1196,9 @@ export class Model {
                 // exclude this field from hashing
                 return;
             }
+
             const value = this.data[field.name];
+
             if (value === undefined) {
                 buffers.push(undefined);
             }
@@ -1197,6 +1207,27 @@ export class Model {
                 buffers.push(data);
             }
         });
+
+        return buffers;
+    }
+
+    public getTransientHashable(): (Buffer | undefined)[] {
+        const buffers: (Buffer | undefined)[] = [];
+
+        const fields = this.getSortedFields();
+
+        fields.filter( field => (field.hash ?? true) && field.transient ).forEach(field => {
+            const value = this.data[field.name];
+
+            if (value === undefined) {
+                buffers.push(undefined);
+            }
+            else {
+                const data = this.packField(field, value);
+                buffers.push(data);
+            }
+        });
+
         return buffers;
     }
 }

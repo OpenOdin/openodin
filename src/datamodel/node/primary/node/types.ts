@@ -57,6 +57,7 @@ export type NodeParams = {
     licenseMinDistance?: number,
     licenseMaxDistance?: number,
     transientConfig?: number,
+    transientStorageTime?: number,
     isLeaf?: boolean,
     hasDynamicSelf?: boolean,
     hasDynamicCert?: boolean,

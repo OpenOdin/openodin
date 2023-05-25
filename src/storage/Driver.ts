@@ -305,13 +305,15 @@ export class Driver implements DriverInterface {
             throw new Error("now not integer");
         }
 
-        const sql = `SELECT image FROM universe_nodes
+        const sql = `SELECT image, storagetime FROM universe_nodes
             WHERE id1=${ph} AND (expiretime IS NULL OR expiretime>${now}) LIMIT 1;`;
 
         const row = await this.db.get(sql, [nodeId1]);
 
         if (row) {
-            return Decoder.DecodeNode(row.image, true);
+            const node = Decoder.DecodeNode(row.image, true);
+            node.setTransientStorageTime(row.storagetime);
+            return node;
         }
 
         return undefined;

@@ -81,7 +81,7 @@ class StorageWrapper extends Storage {
     }
 
     public chunkFetchResponse(fetchReplyData: FetchReplyData, seq: number): FetchResponse[] {
-        return super.chunkFetchResponse(fetchReplyData, seq);
+        return super.chunkFetchResponse(fetchReplyData, seq, false);
     }
 
     public async handleStoreWrapped(peer: P2PClient, storeRequest: StoreRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) {

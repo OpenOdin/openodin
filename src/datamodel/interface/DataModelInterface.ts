@@ -8,7 +8,7 @@ import {
  */
 export interface DataModelInterface {
     load(image: Buffer, preserveTransient: boolean): void;
-    export(exportTransient?: boolean): Buffer;
+    export(exportTransient?: boolean, exportTransientNonHashable?: boolean): Buffer;
     validate(deepValidate?: number, timeMS?: number): [boolean, string];
     sign(keyPair: KeyPair, deepValidate?: boolean): void;
     enforceSigningKey(publicKey: Buffer): void;

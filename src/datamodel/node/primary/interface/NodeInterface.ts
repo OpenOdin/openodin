@@ -122,4 +122,6 @@ export interface NodeInterface extends DataModelInterface {
     setRegion(region: string | undefined): void;
     getJurisdiction(): string | undefined;
     setJurisdiction(region: string | undefined): void;
+    setTransientStorageTime(transientStorageTime: number | undefined): void;
+    getTransientStorageTime(): number | undefined;
 }

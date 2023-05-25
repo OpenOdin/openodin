@@ -200,6 +200,13 @@ const FIELDS: Fields = {
         maxSize: 2,
         index: 24,
     },
+    transientStorageTime: {
+        name: "transientStorageTime",
+        type: FieldType.UINT48BE,
+        index: 25,
+        transient: true,
+        hash: false,
+    },
 };
 
 /**
@@ -837,18 +844,19 @@ export abstract class Node implements NodeInterface {
 
     /**
      * @param exportTransient if true then also export fields marked as transient.
+     * @param exportTransientNonHashable if true then also export transient non hashable fields (requires exportTransient is true).
      * @returns exported data Buffer
      *
      * @throws a string containing a message error when unable to export the data model or any ambedded data model.
      */
-    public export(exportTransient: boolean = false): Buffer {
+    public export(exportTransient: boolean = false, exportTransientNonHashable: boolean = false): Buffer {
         if (this.cachedCertObject) {
             this.setCert(this.cachedCertObject.export());
         }
         if (this.cachedEmbeddedObject) {
             this.setEmbedded(this.cachedEmbeddedObject.export());
         }
-        return this.model.export(exportTransient);
+        return this.model.export(exportTransient, exportTransientNonHashable);
     }
 
     /**
@@ -1794,6 +1802,22 @@ export abstract class Node implements NodeInterface {
     }
 
     /**
+     * @param transientStorageTime unix time in milliseconds.
+     */
+    public setTransientStorageTime(transientStorageTime: number | undefined) {
+        this.model.setNumber("transientStorageTime", transientStorageTime);
+    }
+
+    /**
+     * This is the timestamp of when the node got stored in the particular storage.
+     *
+     * @returns the node storage timestamp in unix time milliseconds.
+     */
+    public getTransientStorageTime(): number | undefined {
+        return this.model.getNumber("transientStorageTime");
+    }
+
+    /**
      * @param expireTime UNIX time in milliseconds when this node expires and is no longer valid. Note that the node stops being valid on this time.
      */
     public setExpireTime(expireTime: number | undefined) {
@@ -2158,7 +2182,7 @@ export abstract class Node implements NodeInterface {
      * @returns hash
      */
     public hashTransient(): Buffer {
-        return Hash([this.getTransientConfig()]);
+        return Hash(this.model.getTransientHashable());
     }
 
     /**
@@ -2448,6 +2472,9 @@ export abstract class Node implements NodeInterface {
         if (params.transientConfig !== undefined) {
             this.setTransientConfig(params.transientConfig);
         }
+        if (params.transientStorageTime !== undefined) {
+            this.setTransientStorageTime(params.transientStorageTime);
+        }
         if (params.isLeaf !== undefined) {
             this.setLeaf(params.isLeaf);
         }
@@ -2542,6 +2569,7 @@ export abstract class Node implements NodeInterface {
         const licenseMinDistance = this.getLicenseMinDistance();
         const licenseMaxDistance = this.getLicenseMaxDistance();
         const transientConfig = this.getTransientConfig();
+        const transientStorageTime = this.getTransientStorageTime();
         const isLeaf = this.isLeaf();
         const hasDynamicSelf = this.hasDynamicSelf();
         const hasDynamicCert = this.hasDynamicCert();
@@ -2588,6 +2616,7 @@ export abstract class Node implements NodeInterface {
             licenseMinDistance,
             licenseMaxDistance,
             transientConfig,
+            transientStorageTime,
             isLeaf,
             hasDynamicSelf,
             hasDynamicCert,

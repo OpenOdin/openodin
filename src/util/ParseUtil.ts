@@ -878,6 +878,7 @@ export class ParseUtil {
      *  licenseMinDistance?: number,
      *  licenseMaxDistance?: number,
      *  transientConfig?: number,
+     *  transientStorageTime?: number,
      *  isLeaf?: boolean,
      *  hasDynamicSelf?: boolean,
      *  hasDynamicCert?: boolean,
@@ -927,6 +928,7 @@ export class ParseUtil {
         const licenseMinDistance = ParseUtil.ParseVariable("licenseMinDistance must be number, if set", params.licenseMinDistance, "number", true);
         const licenseMaxDistance = ParseUtil.ParseVariable("licenseMaxDistance must be number, if set", params.licenseMaxDistance, "number", true);
         const transientConfig = ParseUtil.ParseVariable("transientConfig must be number, if set", params.transientConfig, "number", true);
+        const transientStorageTime = ParseUtil.ParseVariable("transientStorageTime must be number, if set", params.transientStorageTime, "number", true);
         const isLeaf = ParseUtil.ParseVariable("isLeaf must be boolean, if set", params.isLeaf, "boolean", true);
         const hasDynamicSelf = ParseUtil.ParseVariable("hasDynamicSelf must be boolean, if set", params.hasDynamicSelf, "boolean", true);
         const hasDynamicCert = ParseUtil.ParseVariable("hasDynamicCert must be boolean, if set", params.hasDynamicCert, "boolean", true);
@@ -969,6 +971,7 @@ export class ParseUtil {
             licenseMinDistance,
             licenseMaxDistance,
             transientConfig,
+            transientStorageTime,
             isLeaf,
             hasDynamicSelf,
             hasDynamicCert,

@@ -374,6 +374,7 @@ export class QueryProcessor {
 
         try {
             const node = Decoder.DecodeNode(row.image, true);
+            node.setTransientStorageTime(row.storagetime);
 
             const passed = this.addAlreadyProcessed(node, row.storagetime, row.updatetime, row.trailupdatetime);
 
@@ -2035,7 +2036,7 @@ export class QueryProcessor {
             throw new Error("now not integer");
         }
 
-        const sql = `SELECT image FROM universe_nodes WHERE id1 IN ${ph}
+        const sql = `SELECT image, storagetime FROM universe_nodes WHERE id1 IN ${ph}
             AND (expiretime IS NULL OR expiretime > ${now});`;
 
         const rows = await this.db.all(sql, id1s);
@@ -2046,6 +2047,7 @@ export class QueryProcessor {
         for (let index=0; index<rowsLength; index++) {
             try {
                 const node = Decoder.DecodeNode(rows[index].image, true);
+                node.setTransientStorageTime(rows[index].storagetime);
                 nodes.push(node);
             }
             catch(e) {
