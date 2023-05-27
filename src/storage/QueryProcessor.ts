@@ -7,6 +7,7 @@ import {
 import {
     RegionUtil,
     StorageUtil,
+    DeepCopy,
 } from "../util";
 
 import {
@@ -730,6 +731,17 @@ export class QueryProcessor {
 
         this.fetchQuery.match.forEach( match => {
             if (match.level.length === 0 || match.level.includes(level)) {
+
+                match = DeepCopy(match);
+
+                const filtersLength = match.filters.length;
+                for (let i=0; i<filtersLength; i++) {
+                    const filter = match.filters[i];
+                    if (filter.field === "creationTime" && typeof filter.value === "number" && filter.value < 0) {
+                        filter.value = Date.now() + filter.value;
+                    }
+                }
+
                 matches.push([match, {
                     counter: 0,
                     cursorPassed: false,
