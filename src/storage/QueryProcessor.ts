@@ -76,8 +76,8 @@ type NodeRow = {
     region?: string,
     jurisdiction?: string,
     owner: Buffer,
-    dynamic: number,
-    active: number,
+    isdynamic: number,
+    isactive: number,
     transienthash: Buffer,
     sharedhash: Buffer,
     ispublic: number,
@@ -823,7 +823,7 @@ export class QueryProcessor {
         if (this.reverseFetch === ReverseFetch.OFF) {
             const ordering = this.fetchQuery.descending ? "DESC" : "ASC";
 
-            const ignoreInactive = this.fetchQuery.ignoreInactive ? `AND (dynamic = 0 OR active = 1)` : "";
+            const ignoreInactive = this.fetchQuery.ignoreInactive ? `AND (isdynamic = 0 OR isactive = 1)` : "";
 
             const ownKey = this.fetchQuery.targetPublicKey.length > 0 ?
                 this.fetchQuery.targetPublicKey : this.fetchQuery.clientPublicKey;
@@ -863,7 +863,7 @@ export class QueryProcessor {
             }
 
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
-                owner, dynamic, active, ispublic, difficulty, transienthash, sharedhash, image,
+                owner, isdynamic, isactive, ispublic, difficulty, transienthash, sharedhash, image,
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM universe_nodes
                 WHERE parentid IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
@@ -872,7 +872,7 @@ export class QueryProcessor {
         }
         else if (this.reverseFetch === ReverseFetch.ALL_PARENTS) {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
-                owner, dynamic, active, ispublic, difficulty, transienthash, sharedhash, image,
+                owner, isdynamic, isactive, ispublic, difficulty, transienthash, sharedhash, image,
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM universe_nodes
                 WHERE id IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
@@ -881,7 +881,7 @@ export class QueryProcessor {
         }
         else if (this.reverseFetch === ReverseFetch.ONLY_LICENSED) {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
-                owner, dynamic, active, ispublic, difficulty, transienthash, sharedhash, image,
+                owner, isdynamic, isactive, ispublic, difficulty, transienthash, sharedhash, image,
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM universe_nodes
                 WHERE id IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})

@@ -1114,21 +1114,21 @@ export class Driver implements DriverInterface {
 
         if (preserveTransient) {
             sql = `INSERT INTO universe_nodes
-            (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner, dynamic,
-            active, ispublic, islicensed, disallowparentlicensing, isleaf,
+            (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner, isdynamic,
+            isactive, ispublic, islicensed, disallowparentlicensing, isleaf,
             difficulty, sharedhash, transienthash, storagetime, updatetime, trailupdatetime, bumphash, image)
             VALUES ${ph}
             ON CONFLICT (id1) DO UPDATE SET
             transienthash=excluded.transienthash,
             updatetime=excluded.updatetime,
             trailupdatetime=excluded.trailupdatetime,
-            active=excluded.active,
+            isactive=excluded.isactive,
             image=excluded.image;`
         }
         else {
             sql = `INSERT INTO universe_nodes
-            (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner, dynamic,
-            active, ispublic, islicensed, disallowparentlicensing, isleaf,
+            (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner, isdynamic,
+            isactive, ispublic, islicensed, disallowparentlicensing, isleaf,
             difficulty, sharedhash, transienthash, storagetime, updatetime, trailupdatetime, bumphash, image)
             VALUES ${ph}
             ON CONFLICT (id1) DO NOTHING;`

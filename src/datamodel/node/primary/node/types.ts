@@ -183,7 +183,7 @@ export enum TransientConfig {
     DYNAMIC_EMBEDDING_ACTIVE        = 2,
 
     /**
-     * Set to true on dynamic nodes if the node if self or any of their dynamic embeddings or certs have been permanently invalidated (transient value not stored)
+     * Set to true on dynamic nodes if the node it self or any of their dynamic embeddings or certs have been permanently invalidated (transient value not stored)
      */
     DYNAMIC_DESTROYED               = 3,
 }
