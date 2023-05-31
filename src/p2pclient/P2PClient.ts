@@ -248,7 +248,7 @@ export class P2PClient {
         try {
             switch(routeEvent.target) {
                 case RouteAction.STORE:
-                    this.route<StoreRequest, StoreResponse>(RouteAction.STORE, routeEvent, this.handlerStore, this.limitStoreRequest, this.deserialize.StoreRequest, this.serialize.StoreResponse, this.deserialize.StoreResponse, {storedId1: [], status: Status.ERROR, error: ""});
+                    this.route<StoreRequest, StoreResponse>(RouteAction.STORE, routeEvent, this.handlerStore, this.limitStoreRequest, this.deserialize.StoreRequest, this.serialize.StoreResponse, this.deserialize.StoreResponse, {storedId1s: [], status: Status.ERROR, error: ""});
                     break;
                 case RouteAction.FETCH:
                     this.route<FetchRequest, FetchResponse>(RouteAction.FETCH, routeEvent, this.handlerFetch, this.limitFetchRequest, this.deserialize.FetchRequest, this.serialize.FetchResponse, this.deserialize.FetchResponse, {seq: 0, endSeq: 0, result: {nodes: [], embed: [], cutoffTime: 0n}, transformResult: {deletedNodesId1: [], indexes: [], extra: ""}, status: Status.ERROR, error: "", rowCount: 0});
@@ -461,7 +461,7 @@ export class P2PClient {
             if (sendResponse) {
                 const storeResponse: StoreResponse = {
                     status: Status.ERROR,
-                    storedId1: [],
+                    storedId1s: [],
                     error: "Store not allowed",
                 };
 

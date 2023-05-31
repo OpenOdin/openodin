@@ -26,6 +26,7 @@ import {
     FetchResponse,
     UnsubscribeResponse,
     GenericMessageResponse,
+    Status,
 } from "../../types";
 
 import {
@@ -104,8 +105,14 @@ export class BebopDeserialize {
      */
     public StoreResponse(data: Buffer): StoreResponse {
         const obj = BopStoreResponse.decode(data);
-        obj.storedId1 = (obj.storedId1 || []).map( MakeIntoBuffer );
-        return obj as unknown as StoreResponse;
+
+        const storeResponse: StoreResponse = {
+            error: obj.error as string,
+            status: obj.status as Status,
+            storedId1s: (obj.storedId1S || []).map( MakeIntoBuffer ),
+        };
+
+        return storeResponse;
     }
 
     /**

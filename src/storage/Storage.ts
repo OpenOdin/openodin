@@ -245,7 +245,7 @@ export class Storage {
                     const error = "StoreRequest not allowed to use preserveTransient for this connection.";
                     const errorStoreResponse: StoreResponse = {
                         status: Status.MALFORMED,
-                        storedId1: [],
+                        storedId1s: [],
                         error,
                     };
 
@@ -313,7 +313,7 @@ export class Storage {
             let storeResponse: StoreResponse;
 
             if (result) {
-                const [storedId1, parentIds] = result;
+                const [storedId1s, parentIds] = result;
 
                 if (parentIds.length > 0) {
                     setImmediate( () => this.emitInsertEvent(parentIds, storeRequest.muteMsgIds) );
@@ -321,7 +321,7 @@ export class Storage {
 
                 storeResponse = {
                     status: Status.RESULT,
-                    storedId1,
+                    storedId1s,
                     error: "",
                 };
             }
@@ -329,7 +329,7 @@ export class Storage {
                 console.debug("Database BUSY, all retries failed.");
                 storeResponse = {
                     status: Status.STORE_FAILED,
-                    storedId1: [],
+                    storedId1s: [],
                     error: "Failed storing nodes, database busy.",
                 };
             }
@@ -344,7 +344,7 @@ export class Storage {
                 const error = `store failed: ${e}`;
                 const errorStoreResponse: StoreResponse = {
                     status: Status.ERROR,
-                    storedId1: [],
+                    storedId1s: [],
                     error,
                 };
 

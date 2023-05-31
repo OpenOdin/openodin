@@ -116,7 +116,13 @@ export class BebopSerialize {
     }
 
     public StoreResponse(storeResponse: StoreResponse): Buffer {
-        return CopyToBuffer(BopStoreResponse.encode(storeResponse));
+        const obj = {
+            status: storeResponse.status,
+            error: storeResponse.error,
+            storedId1S: storeResponse.storedId1s,
+        };
+
+        return CopyToBuffer(BopStoreResponse.encode(obj));
     }
 
     public UnsubscribeResponse(unsubscribeResponse: UnsubscribeResponse): Buffer {

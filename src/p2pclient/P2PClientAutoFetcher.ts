@@ -172,7 +172,7 @@ export class P2PClientAutoFetcher {
 
         this.busyProcessing = true;
 
-        const storedId1: Buffer[] = [];  // id1 of all nodes which just got stored.
+        const storedId1s: Buffer[] = [];  // id1 of all nodes which just got stored.
 
         while (this.queuedImageChunks.length > 0) {
             const images = this.queuedImageChunks.shift();
@@ -205,7 +205,7 @@ export class P2PClientAutoFetcher {
             }
 
             // The IDs of stored nodes we can trust have now been cryptographically verified by the Storage.
-            storedId1.push(...anyData.response.storedId1);
+            storedId1s.push(...anyData.response.storedId1s);
         }
 
         // We reset this in the case the iteration was breaked.
@@ -220,15 +220,7 @@ export class P2PClientAutoFetcher {
                     const node = Decoder.DecodeNode(images[index2]);
                     if (node.hasBlob()) {
                         const id1 = node.getId1();
-                        if (id1 && storedId1.findIndex( (id1b => id1b && id1b.equals(id1)) ) > -1) {
-                            try {
-                                if (!node.verify()) {
-                                    continue;
-                                }
-                            }
-                            catch(e) {
-                                continue;
-                            }
+                        if (id1 && storedId1s.findIndex( (id1b => id1b && id1b.equals(id1)) ) > -1) {
                             blobsToDownload.push(id1);
                         }
                     }

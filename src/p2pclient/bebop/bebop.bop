@@ -120,7 +120,7 @@ message BopStoreRequest {
 
 message BopStoreResponse {
     1 -> Status status;
-    2 -> byte[][] storedId1;
+    2 -> byte[][] storedId1S;
     3 -> string error;
 }
 

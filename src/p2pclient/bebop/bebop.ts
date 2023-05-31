@@ -971,7 +971,7 @@ export const BopStoreRequest = {
 
 export interface IBopStoreResponse {
   status?: Status;
-  storedId1?: Array<Uint8Array>;
+  storedId1S?: Array<Uint8Array>;
   error?: string;
 }
 
@@ -991,13 +991,13 @@ export const BopStoreResponse = {
         view.writeByte(1);
         view.writeUint32(message.status);
       }
-      if (message.storedId1 != null) {
+      if (message.storedId1S != null) {
         view.writeByte(2);
         {
-        const length0 = message.storedId1.length;
+        const length0 = message.storedId1S.length;
         view.writeUint32(length0);
         for (let i0 = 0; i0 < length0; i0++) {
-          view.writeBytes(message.storedId1[i0]);
+          view.writeBytes(message.storedId1S[i0]);
         }
       }
       }
@@ -1034,11 +1034,11 @@ export const BopStoreResponse = {
         case 2:
           {
         let length0 = view.readUint32();
-        message.storedId1 = new Array<Uint8Array>(length0);
+        message.storedId1S = new Array<Uint8Array>(length0);
         for (let i0 = 0; i0 < length0; i0++) {
           let x0: Uint8Array;
           x0 = view.readBytes();
-          message.storedId1[i0] = x0;
+          message.storedId1S[i0] = x0;
         }
       }
           break;

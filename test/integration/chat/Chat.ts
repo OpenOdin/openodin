@@ -61,7 +61,7 @@ class Chat extends App {
         }
 
         getResponse.onReply( async (peer: P2PClient, storeResponse: StoreResponse) => {
-            if (storeResponse.status !== Status.RESULT || storeResponse.storedId1.length < 2) {
+            if (storeResponse.status !== Status.RESULT || storeResponse.storedId1s.length < 2) {
                 throw new Error(`Unexpected result on store: ${storeResponse.error}`);
             }
         });
@@ -73,8 +73,8 @@ class Chat extends App {
         }
 
         const fetchRequest = StorageUtil.CreateFetchRequest({query: {
-            parentId: Buffer.alloc(32),fill(0),
-            triggerNodeId: Buffer.alloc(32),fill(0),
+            parentId: Buffer.alloc(32).fill(0),
+            triggerNodeId: Buffer.alloc(32).fill(0),
             discardRoot: true,
             match: [
                 {nodeType: DATANODE_TYPE},

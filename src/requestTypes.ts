@@ -535,7 +535,7 @@ export type StoreResponse = {
     /**
      * Node ID1s of all nodes which got stored.
      */
-    storedId1: Buffer[],
+    storedId1s: Buffer[],
 
     /**
      * If there was an error reported in Status an error message could be provided.

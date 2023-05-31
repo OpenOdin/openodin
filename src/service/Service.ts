@@ -1338,7 +1338,7 @@ export class Service {
         if (anyData.type === EventType.REPLY) {
             const storeResponse = anyData.response;
             if (storeResponse?.status === Status.RESULT) {
-                if (storeResponse.storedId1.length === 1) {
+                if (storeResponse.storedId1s.length === 1) {
                     return true;
                 }
             }
