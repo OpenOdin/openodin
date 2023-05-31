@@ -136,6 +136,10 @@ export class ParseUtil {
                 throw new Error("local storage driver cannot have both 'sqlite' and 'pg' set");
             }
 
+            if (!sqlite && !pg) {
+                throw new Error("local storage driver must have either 'sqlite' or 'pg' set");
+            }
+
             if (sqlite) {
                 driver = {
                     sqlite,
@@ -157,6 +161,10 @@ export class ParseUtil {
 
             if (sqlite && pg) {
                 throw new Error("local storage blobDriver cannot have both 'sqlite' and 'pg' set");
+            }
+
+            if (!sqlite && !pg) {
+                throw new Error("local storage blobDriver must have either 'sqlite' or 'pg' set");
             }
 
             if (sqlite) {

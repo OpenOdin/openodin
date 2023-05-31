@@ -851,7 +851,7 @@ export class Service {
             throw new Error("KeyPair must be set before initializing storage.");
         }
         if (this.config.localStorage) {
-            await this.initLocalStorage(this.config.localStorage);
+            this.initLocalStorage(this.config.localStorage);
         }
         else if (this.config.storageConnectionConfigs.length > 0) {
             this.initStorageFactories();
@@ -940,7 +940,7 @@ export class Service {
      * Create Storage.
      * @throws on error.
      */
-    protected async initLocalStorage(localStorage: LocalStorageConfig) {
+    protected initLocalStorage(localStorage: LocalStorageConfig) {
         if (!localStorage.driver.sqlite && !localStorage.driver.pg) {
             throw new Error("Driver not properly configured. Expecting localStorage.driver.sqlite/pg to be set.");
         }
@@ -953,6 +953,15 @@ export class Service {
             throw new Error("Driver not properly configured. Expecting maxium one of localStorage.driver.sqlite/pg to be set.");
         }
 
+        // Do not await this.
+        this.connectLocalStorage(localStorage);
+    }
+
+    /**
+     * This function does not return unless disconnected and not supposed to reconnect.
+     *
+     */
+    protected async connectLocalStorage(localStorage: LocalStorageConfig) {
         // The PeerProps which the Storage sees as the this side.
         // The publicKey set here is what dictatates the permissions we have in the Storage.
         const localProps = this.makePeerProps(ConnectionType.STORAGE_CLIENT);
@@ -1022,7 +1031,7 @@ export class Service {
 
                 await closePromise.promise;
 
-                console.error("Database connection closed");
+                console.info("Database connection closed");
             }
 
             if (!this.state.localDatabaseReconnectDelay) {
