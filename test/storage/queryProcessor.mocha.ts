@@ -1426,6 +1426,59 @@ function setupTests(config: any) {
         let same = diffNodes([lvl1[2], lvl2[2]], nodes2);
         assert(same);
     });
+
+    it("#run basic query sorted on storageTime", async function() {
+        const driver = config.driver;
+        const db = config.db;
+
+        assert(driver);
+        assert(db);
+
+        const nodeUtil = new NodeUtil();
+        const now = Date.now();
+
+        let rootNode = undefined;
+
+        let owner = Buffer.alloc(32).fill(0x10);
+        let parentId = Buffer.alloc(32).fill(0x01);
+
+        const lvl1 = await createNodes(3, {parentId, owner, isPublic: true}, now, "lvl1");
+
+        const parentId1a = lvl1[2].getId1();
+
+        const lvl2 = await createNodes(3, {parentId: parentId1a, owner}, now, "lvl2a");
+
+        await driver.storeNodes([...lvl1], now);
+
+        await driver.storeNodes([lvl2[0]], now + 1);
+        await driver.storeNodes([lvl2[1]], now + 3);
+        await driver.storeNodes([lvl2[2]], now + 2);
+
+        const fetchRequest = StorageUtil.CreateFetchRequest({query: {
+            parentId,
+            clientPublicKey: owner,
+            targetPublicKey: owner,
+            orderByStorageTime: true,
+            match: [
+                {
+                    nodeType: Data.GetType(),
+                    filters: []
+                }
+            ]
+        }});
+
+        let nodes2 = await fetch(db, fetchRequest, now, rootNode);
+
+        let same = diffNodes([...lvl1, lvl2[0], lvl2[2], lvl2[1]], nodes2);
+        assert(same);
+
+        fetchRequest.query.descending = true;
+
+        nodes2 = await fetch(db, fetchRequest, now, rootNode);
+        same = diffNodes([...lvl1.slice().reverse(), lvl2[1], lvl2[2], lvl2[0]], nodes2);
+        assert(same);
+    });
+
     it("#run depth, disallowPublicChildren, childMinDifficulty, onlyOwnChildren, rootNode, discardRoot", async function() {
         const driver = config.driver;
         const db = config.db;

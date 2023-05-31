@@ -560,6 +560,7 @@ export class ParseUtil {
      *  rootNodeId1?: hexstring | Buffer,
      *  parentId?: hexstring | Buffer,
      *  descending?: boolean,
+     *  orderByStorageTime?: boolean,
      *  discardRoot?: boolean,
      *  preserveTransient?: boolean,
      *  ignoreOwn?: boolean,

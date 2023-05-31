@@ -42,6 +42,7 @@ export type FetchRequestQueryParams = {
     triggerInterval?: number,
     onlyTrigger?: boolean,
     descending?: boolean,
+    orderByStorageTime?: boolean,
     targetPublicKey?: Buffer,
     clientPublicKey?: Buffer,
     discardRoot?: boolean,

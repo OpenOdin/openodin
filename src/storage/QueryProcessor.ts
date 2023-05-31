@@ -823,6 +823,7 @@ export class QueryProcessor {
         if (this.reverseFetch === ReverseFetch.OFF) {
             const ordering = this.fetchQuery.descending ? "DESC" : "ASC";
 
+            const secondaryOrdering = this.fetchQuery.orderByStorageTime ? `,creationTime ${ordering}` : "";
 
             const ignoreInactive = this.fetchQuery.ignoreInactive ? `AND (isdynamic = 0 OR isactive = 1)` : "";
 
@@ -869,7 +870,7 @@ export class QueryProcessor {
                 FROM universe_nodes
                 WHERE parentid IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
                 ${cutoff} ${ignoreInactive} ${ignoreOwn} ${region} ${jurisdiction}
-                ORDER BY ${orderByColumn} ${ordering}, parentid, id1 LIMIT ${limit} OFFSET ${offset};`;
+                ORDER BY ${orderByColumn} ${ordering}${secondaryOrdering}, parentid, id1 LIMIT ${limit} OFFSET ${offset};`;
         }
         else if (this.reverseFetch === ReverseFetch.ALL_PARENTS) {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
