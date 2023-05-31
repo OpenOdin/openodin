@@ -768,7 +768,7 @@ function setupDriverTests(config: any) {
         assert(rows.length === 0);
     });
 
-    it("#getNodeById1", async function() {
+    it.only("#getNodeById1 also with transient values", async function() {
         const driver = config.driver;
         const db = config.db;
 
@@ -796,13 +796,18 @@ function setupDriverTests(config: any) {
 
         // Store
         //
-        await driver.storeNodes([node0], now);
+        let result = await driver.store([node0], now);
+        assert(result[0].length === 1);
+        assert(result[1].length === 1);
+        assert(result[0][0].equals(node0.getId1()));
+        assert(result[1][0].equals(node0.getParentId()));
 
         let ph = db.generatePlaceholders(1);
         let rows = await db.all(`SELECT * FROM universe_nodes WHERE id1=${ph}`, [node0.getId1()]);
         assert(rows.length === 1);
         assert(rows[0].image.equals(node0.export()));
         assert(rows[0].transienthash.equals(oldTransientHash));
+        assert(rows[0].storagetime === now);
 
         // getNodeById1
         //
@@ -812,6 +817,7 @@ function setupDriverTests(config: any) {
         assert(node !== node0);
         assert(node.getId1().equals(node0.getId1()));
         assert(node.hashTransient().equals(node0.hashTransient()));
+        assert(!node.isDynamicSelfActive());
 
 
         // update transient values, store again, expect no changes.
@@ -819,7 +825,8 @@ function setupDriverTests(config: any) {
         node0.setDynamicSelfActive();
         assert(!node.hashTransient().equals(node0.hashTransient()));
 
-        await driver.storeNodes([node0], now);
+        result = await driver.store([node0], now + 1);
+        assert(result[0].length === 0);
 
         ph = db.generatePlaceholders(1);
         rows = await db.all(`SELECT * FROM universe_nodes WHERE id1=${ph}`, [node0.getId1()]);
@@ -835,10 +842,17 @@ function setupDriverTests(config: any) {
         assert(node.getId1().equals(node0.getId1()));
         assert(!node.hashTransient().equals(node0.hashTransient()));
         assert(node.hashTransient().equals(oldTransientHash));
+        assert(node.getTransientStorageTime() === now);
+        assert(!node.isDynamicSelfActive());
 
         // Store and update transient hash
         //
-        await driver.storeNodes([node0], now, true);
+        result = await driver.store([node0], now + 1, true);
+        assert(result[0].length === 1);
+        assert(result[1].length === 1);
+        assert(result[0][0].equals(node0.getId1()));
+        assert(result[1][0].equals(node0.getParentId()));
+
 
         ph = db.generatePlaceholders(1);
         rows = await db.all(`SELECT * FROM universe_nodes WHERE id1=${ph}`, [node0.getId1()]);
@@ -853,6 +867,8 @@ function setupDriverTests(config: any) {
         assert(node.getId1().equals(node0.getId1()));
         assert(node.hashTransient().equals(node0.hashTransient()));
         assert(!node.hashTransient().equals(oldTransientHash));
+        assert(node.getTransientStorageTime() === now);
+        assert(node.isDynamicSelfActive());
     });
 
     it("#getRootNode", async function() {
