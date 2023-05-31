@@ -738,7 +738,7 @@ export class QueryProcessor {
                 for (let i=0; i<filtersLength; i++) {
                     const filter = match.filters[i];
                     if (filter.field === "creationTime" && typeof filter.value === "number" && filter.value < 0) {
-                        filter.value = Date.now() + filter.value;
+                        filter.value = this.now + filter.value;
                     }
                 }
 
@@ -822,6 +822,7 @@ export class QueryProcessor {
 
         if (this.reverseFetch === ReverseFetch.OFF) {
             const ordering = this.fetchQuery.descending ? "DESC" : "ASC";
+
 
             const ignoreInactive = this.fetchQuery.ignoreInactive ? `AND (isdynamic = 0 OR isactive = 1)` : "";
 

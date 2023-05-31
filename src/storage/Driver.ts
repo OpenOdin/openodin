@@ -370,7 +370,7 @@ export class Driver implements DriverInterface {
             // Find all bottom nodes, those are nodes who are never referred to as parentId.
             // These nodes are the basis of updating the cache timestamp of the graph upwards.
             //
-            // Also filter out all license nodes so we can bump related nodes.
+            // Also take not of all license nodes so we can bump related nodes.
             //
             const bottomNodeParentIds: {[parentId: string]: Buffer} = {};
             const licenseNodes: License[] = [];

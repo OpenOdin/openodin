@@ -1376,6 +1376,56 @@ function setupTests(config: any) {
         assert(nodes2.length = lvl1.length - 1);
     });
 
+    it("#run basic query sorted on negative creationTime (sliding window)", async function() {
+        const driver = config.driver;
+        const db = config.db;
+
+        assert(driver);
+        assert(db);
+
+        const nodeUtil = new NodeUtil();
+        const now = Date.now();
+
+        let rootNode = undefined;
+
+        let owner = Buffer.alloc(32).fill(0x10);
+        let parentId = Buffer.alloc(32).fill(0x01);
+
+        const lvl1 = await createNodes(3, {parentId, owner, isPublic: true}, now, "lvl1");
+
+        const parentId1a = lvl1[2].getId1();
+
+        const lvl2 = await createNodes(3, {parentId: parentId1a, owner}, now, "lvl2a");
+
+        await driver.storeNodes([...lvl1], now);
+
+        await driver.storeNodes([lvl2[0]], now);
+        await driver.storeNodes([lvl2[1]], now);
+        await driver.storeNodes([lvl2[2]], now);
+
+        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+            parentId,
+            clientPublicKey: owner,
+            targetPublicKey: owner,
+            match: [
+                {
+                    nodeType: Data.GetType(),
+                    filters: [
+                        {
+                            field: "creationTime",
+                            value: -10,
+                            cmp: CMP.GT,
+                        }
+                    ]
+                }
+            ]
+        }});
+
+        let nodes2 = await fetch(db, fetchRequest, now + 11, rootNode);
+
+        let same = diffNodes([lvl1[2], lvl2[2]], nodes2);
+        assert(same);
+    });
     it("#run depth, disallowPublicChildren, childMinDifficulty, onlyOwnChildren, rootNode, discardRoot", async function() {
         const driver = config.driver;
         const db = config.db;
