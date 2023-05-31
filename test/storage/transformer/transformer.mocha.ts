@@ -112,6 +112,74 @@ describe("Transformer AlgoSorted", function() {
     it("should sort nodes as expected", async function() {
         await testSorted(new AlgoSorted());
     });
+
+    it("should be able to sort on storageTime instead of creationTime", async function() {
+        const nodeUtil = new NodeUtil();
+
+        const keyPair = Node.GenKeyPair();
+
+        const node1 = await nodeUtil.createDataNode({
+            id1: Buffer.alloc(32).fill(0x01),
+            creationTime: 10,
+            parentId: Buffer.alloc(32).fill(0x01),
+            transientStorageTime: 2,
+        });
+
+        const node2 = await nodeUtil.createDataNode({
+            id1: Buffer.alloc(32).fill(0x02),
+            creationTime: 11,
+            parentId: Buffer.alloc(32).fill(0x02),
+            transientStorageTime: 1,
+        });
+
+        const node3 = await nodeUtil.createDataNode({
+            id1: Buffer.alloc(32).fill(0x03),
+            creationTime: 10,
+            parentId: Buffer.alloc(32).fill(0x00),
+            transientStorageTime: 1,
+        });
+
+        const node4 = await nodeUtil.createDataNode({
+            id1: Buffer.alloc(32).fill(0x04),
+            creationTime: 10,
+            parentId: Buffer.alloc(32).fill(0x00),
+            transientStorageTime: 1,
+        });
+
+        let algoSorted = new AlgoSorted(false, false);
+        algoSorted.add([node2, node1, node3]);
+        let indexes = algoSorted.getIndexes([node1, node2, node3]);
+        assert(indexes.length === 3);
+        assert(indexes[0] === 0);
+        assert(indexes[1] === 2);
+        assert(indexes[2] === 1);
+
+        algoSorted = new AlgoSorted(true, false);
+        algoSorted.add([node2, node1, node3]);
+        indexes = algoSorted.getIndexes([node1, node2, node3]);
+        assert(indexes.length === 3);
+        assert(indexes[0] === 2);
+        assert(indexes[1] === 0);
+        assert(indexes[2] === 1);
+
+        algoSorted = new AlgoSorted(false, true);
+        algoSorted.add([node2, node1, node3, node4]);
+        indexes = algoSorted.getIndexes([node1, node2, node3, node4]);
+        assert(indexes.length === 4);
+        assert(indexes[0] === 3);
+        assert(indexes[1] === 2);
+        assert(indexes[2] === 0);
+        assert(indexes[3] === 1);
+
+        algoSorted = new AlgoSorted(true, true);
+        algoSorted.add([node2, node1, node3, node4]);
+        indexes = algoSorted.getIndexes([node1, node2, node3, node4]);
+        assert(indexes.length === 4);
+        assert(indexes[0] === 0);
+        assert(indexes[1] === 1);
+        assert(indexes[2] === 3);
+        assert(indexes[3] === 2);
+    });
 });
 
 describe("Transformer AlgoRefId", function() {

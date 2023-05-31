@@ -768,7 +768,7 @@ function setupDriverTests(config: any) {
         assert(rows.length === 0);
     });
 
-    it.only("#getNodeById1 also with transient values", async function() {
+    it("#getNodeById1 also with transient values", async function() {
         const driver = config.driver;
         const db = config.db;
 
