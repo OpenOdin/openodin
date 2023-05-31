@@ -870,7 +870,7 @@ export class QueryProcessor {
                 FROM universe_nodes
                 WHERE parentid IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
                 ${cutoff} ${ignoreInactive} ${ignoreOwn} ${region} ${jurisdiction}
-                ORDER BY ${orderByColumn} ${ordering}${secondaryOrdering}, parentid, id1 LIMIT ${limit} OFFSET ${offset};`;
+                ORDER BY ${orderByColumn} ${ordering} ${secondaryOrdering}, id1 ${ordering} LIMIT ${limit} OFFSET ${offset};`;
         }
         else if (this.reverseFetch === ReverseFetch.ALL_PARENTS) {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
