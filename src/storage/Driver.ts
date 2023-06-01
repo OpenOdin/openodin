@@ -328,7 +328,7 @@ export class Driver implements DriverInterface {
      * If the exception indicates a BUSY error then the caller should retry the store.
      * This can happen for concurrent transaction between processes.
      */
-    public async store(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<[Buffer[], Buffer[]]> {
+    public async store(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<[Buffer[], Buffer[], Buffer[]]> {
         if (nodes.length > MAX_BATCH_SIZE) {
             throw new Error(`Calling store with too many (${nodes.length} nodes), maximum allowed is ${MAX_BATCH_SIZE}.`);
         }
@@ -338,20 +338,25 @@ export class Driver implements DriverInterface {
         }
 
         if (nodes.length === 0) {
-            return [[], []];
+            return [[], [], []];
         }
 
         await this.db.exec("BEGIN;");
 
         try {
-            const nodesToStore = await this.filterDestroyed(
-                await this.filterUnique(
-                    await this.filterExisting(nodes, preserveTransient)));
+            const nonDestroyedNodes = await this.filterDestroyed(nodes);
+
+            const nodesToStoreMaybe =
+                await this.filterUnique(nonDestroyedNodes);
+
+            const nodesToStore =
+                await this.filterExisting(nodesToStoreMaybe, preserveTransient);
 
             // Extract all node Id1s and parentIds of those inserted.
             //
             const id1Map: {[id1: string]: Buffer} = {};
             const parentIdMap: {[parentId: string]: Buffer} = {};
+            const blobId1sMap: {[id1: string]: Buffer} = {};
 
             const nodesToStoreLength = nodesToStore.length;
             for (let index=0; index<nodesToStoreLength; index++) {
@@ -365,6 +370,16 @@ export class Driver implements DriverInterface {
 
                 id1Map[id1.toString("hex")] = id1;
                 parentIdMap[parentId.toString("hex")] = parentId;
+            }
+
+            const nodesToStoreMaybeLength = nodesToStoreMaybe.length;
+            for (let i=0; i<nodesToStoreMaybeLength; i++) {
+                const node = nodesToStoreMaybe[i];
+                const id1 = node.getId1();
+
+                if (id1 && node.hasBlob()) {
+                    blobId1sMap[id1.toString("hex")] = id1;
+                }
             }
 
             // Find all bottom nodes, those are nodes who are never referred to as parentId.
@@ -417,12 +432,43 @@ export class Driver implements DriverInterface {
 
             await this.db.exec("COMMIT;");
 
-            return [Object.values(id1Map), Object.values(parentIdMap)];
+            return [
+                Object.values(id1Map),
+                Object.values(parentIdMap),
+                Object.values(blobId1sMap)
+            ];
         }
         catch(e) {
             await this.db.exec("ROLLBACK;");
             throw e;
         }
+    }
+
+    /**
+     * Bump a data node carrying a blob.
+     * Call this when the blob has finalized and exists to trigger peers to download the blob.
+     */
+    public async bumpBlobNode(node: NodeInterface, now: number) {
+        if (!Number.isInteger(now)) {
+            throw new Error("now not integer");
+        }
+
+        const id1 = node.getId1();
+        const parentId = node.getParentId();
+
+        if (!id1 || !parentId) {
+            return;
+        }
+
+        const ph = this.db.generatePlaceholders(1);
+
+        const sql = `UPDATE universe_nodes
+            SET updatetime=${now}, trailupdatetime=${now}
+            WHERE id1=${ph};`;
+
+        await this.db.run(sql, [id1]);
+
+        await this.freshenParentTrail([parentId], now);
     }
 
     /**
@@ -625,7 +671,7 @@ export class Driver implements DriverInterface {
      *  if their transient hashes differ from the stored nodes transient hashes.
      *  This is to allow updating of nodes transient hashes even if the node it self already exists.
      *
-     * @return list of nodes not existing in the database (incl w/ different transient hash).
+     * @return list of nodes not existing in the database (incl. w/ different transient hash).
      *
      * @throws on error.
      */

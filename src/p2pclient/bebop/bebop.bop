@@ -121,7 +121,8 @@ message BopStoreRequest {
 message BopStoreResponse {
     1 -> Status status;
     2 -> byte[][] storedId1S;
-    3 -> string error;
+    3 -> byte[][] missingBlobId1S;
+    4 -> string error;
 }
 
 message BopUnsubscribeRequest {
@@ -140,6 +141,7 @@ message BopWriteBlobRequest {
     3 -> byte[] data;
     4 -> uint64 pos;
     5 -> byte[] copyFromId1;
+    6 -> byte[][] muteMsgIds;
 }
 
 message BopWriteBlobResponse {

@@ -173,6 +173,7 @@ export class P2PClientAutoFetcher {
         this.busyProcessing = true;
 
         const storedId1s: Buffer[] = [];  // id1 of all nodes which just got stored.
+        const missingBlobId1s: Buffer[] = [];
 
         while (this.queuedImageChunks.length > 0) {
             const images = this.queuedImageChunks.shift();
@@ -206,6 +207,8 @@ export class P2PClientAutoFetcher {
 
             // The IDs of stored nodes we can trust have now been cryptographically verified by the Storage.
             storedId1s.push(...anyData.response.storedId1s);
+
+            missingBlobId1s.push(...anyData.response.missingBlobId1s);
         }
 
         // We reset this in the case the iteration was breaked.
@@ -214,23 +217,7 @@ export class P2PClientAutoFetcher {
 
         // When getting nodes from the peer we can also download blob data, if any.
         if (syncBlobs) {
-            const blobsToDownload: Buffer[] = [];
-            for (let index2=0; index2<images.length; index2++) {
-                try {
-                    const node = Decoder.DecodeNode(images[index2]);
-                    if (node.hasBlob()) {
-                        const id1 = node.getId1();
-                        if (id1 && storedId1s.findIndex( (id1b => id1b && id1b.equals(id1)) ) > -1) {
-                            blobsToDownload.push(id1);
-                        }
-                    }
-                }
-                catch(e) {
-                    continue;
-                }
-            }
-
-            this.downloadBlobs(blobsToDownload);
+            this.downloadBlobs(missingBlobId1s);
         }
     }
 
@@ -257,7 +244,14 @@ export class P2PClientAutoFetcher {
                 this.emitBlobEvent({nodeId1});
             }
             catch(blobEvent) {
-                console.error("Could not download/write blob:", blobEvent);
+                // NOTE: this is not beyond beautiful since we are parsing the error string,
+                // we should add an error code.
+                if ((blobEvent as any).error?.message?.indexOf("finalized") > -1) {
+                    console.debug("Could not read blob:", blobEvent);
+                }
+                else {
+                    console.error("Could not download/write blob:", blobEvent);
+                }
                 this.emitBlobEvent(blobEvent as any as BlobEvent);
             }
         }
@@ -277,7 +271,7 @@ export class P2PClientAutoFetcher {
         promise = new Promise<void>( (resolve, reject) => {
             try {
                 const blobReader = new BlobStreamReader(nodeId1, [this.serverClient]);
-                const blobWriter = new BlobStreamWriter(nodeId1, blobReader, this.storageClient, /*allowResume=*/true);
+                const blobWriter = new BlobStreamWriter(nodeId1, blobReader, this.storageClient, /*allowResume=*/true, this.muteMsgIds);
 
                 blobWriter.run().then( () => {
                     delete this.downloadingBlobs[nodeId1Str];

@@ -362,6 +362,13 @@ export type BlobDriverInterface = {
     deleteBlobs(nodeId1: Buffer[]): Promise<void>;
 
     /**
+     * Check which blobs do exist.
+     * @param nodeId1s list of node ID1s to check if their blobs exist.
+     * @return list of node ID1s of blobs who do exist.
+     */
+    blobExists(nodeId1s: Buffer[]): Promise<Buffer[]>;
+
+    /**
      * Event hook for when the blob driver closes.
      * @throws if blob db not available.
      */
@@ -423,11 +430,11 @@ export type DriverInterface = {
      * transient values are different from the incoming nodes transient values. Storing a node
      * again will trigger listeners.
      *
-     * @returns tuple of inserted node id1s and their parentIds.
+     * @returns triple of inserted node id1s and their parentIds, also list of node ID1s of nodes who are configured with blobs.
      * @throws
      */
     store(nodes: NodeInterface[], now: number, preserveTransient?: boolean):
-        Promise<[Buffer[], Buffer[]]>;
+        Promise<[Buffer[], Buffer[], Buffer[]]>;
 
     /**
      * Automatically wraps the deletion in a transaction and rollbacks on error.
@@ -435,6 +442,13 @@ export type DriverInterface = {
      * @throws on error (already rollbacked).
      */
     deleteNodes(id1s: Buffer[]): void;
+
+    /**
+     * Bumps a specific node and the parent trail upwards.
+     * Call this when the blob has finalized and exists to trigger peers to download the blob.
+     * This function is not meant to bump license nodes.
+     */
+    bumpBlobNode(node: NodeInterface, now: number): Promise<void>;
 
     onClose(fn: ()=>void): void;
 

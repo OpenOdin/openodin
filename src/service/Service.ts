@@ -1466,10 +1466,17 @@ export class Service {
 
     protected onBlobHandler = (blobEvent: BlobEvent /*, autoFetcher: P2PClientAutoFetcher*/) => {
         if (blobEvent.error) {
-            if (blobEvent.error.isRead) {
-                console.error(`Error fetching blob with nodeId1: ${blobEvent.nodeId1.toString("hex")}, ${blobEvent.error.message}`);
+            if (blobEvent.error.errorOnRead) {
+                // NOTE: this is not beyond beautiful since we are parsing the error string,
+                // we should add an error code.
+                if ((blobEvent as any).error?.message?.indexOf("finalized") > -1) {
+                    console.debug(`Error fetching blob with nodeId1: ${blobEvent.nodeId1.toString("hex")}, ${blobEvent.error.message}`);
+                }
+                else {
+                    console.error(`Error fetching blob with nodeId1: ${blobEvent.nodeId1.toString("hex")}, ${blobEvent.error.message}`);
+                }
             }
-            else if (blobEvent.error.isRead === false) {
+            else if (blobEvent.error.errorOnRead === false) {
                 console.error(`Error storing blob with nodeId1: ${blobEvent.nodeId1.toString("hex")}, ${blobEvent.error.message}`);
             }
             else {

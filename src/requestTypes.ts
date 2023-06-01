@@ -538,6 +538,12 @@ export type StoreResponse = {
     storedId1s: Buffer[],
 
     /**
+     * Node ID1s of all nodes in StoreRequest which are missing blobs.
+     * Use this to know what blobs to download from the peer.
+     */
+    missingBlobId1s: Buffer[],
+
+    /**
      * If there was an error reported in Status an error message could be provided.
      */
     error: string,
@@ -606,6 +612,11 @@ export type WriteBlobRequest = {
      * identical to when completing a write of the full blob.
      */
     copyFromId1: Buffer,
+
+    /**
+     * Same as for StoreRequest.
+     */
+    muteMsgIds: Buffer[],
 };
 
 /** Struct used for responding to write blob requests. */
@@ -615,7 +626,7 @@ export type WriteBlobResponse = {
      * Status.ERROR some error occurred
      * Status.NOT_ALLOWED if access to node is not allowed, node not found or if allowWriteBlob is set to false.
      * Status.MALFORMED if input values are wrong or if node is not configured for blob.
-     * Status.EXISTS if the blob already exists or if the blob just got finalized to exist from this write action
+     * Status.EXISTS if the blob already exists or if the blob just got finalized to exist from this write or copy action
      * Status.STORE_FAILED if data could not be written or finalized. Database could be busy.
      * Status.MISMATCH if hash does not compute after all data is written.
      * Status.RESULT on successful write, currentLength is set to the size of the written data so far.

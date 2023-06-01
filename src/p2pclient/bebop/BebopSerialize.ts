@@ -120,6 +120,7 @@ export class BebopSerialize {
             status: storeResponse.status,
             error: storeResponse.error,
             storedId1S: storeResponse.storedId1s,
+            missingBlobId1S: storeResponse.missingBlobId1s,
         };
 
         return CopyToBuffer(BopStoreResponse.encode(obj));

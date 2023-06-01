@@ -16,6 +16,8 @@ import {
     FetchRequest,
     FetchResponse,
     LimitField,
+    WriteBlobRequest,
+    ReadBlobRequest,
 } from "../requestTypes";
 
 export type FetchRequestQueryParams = {
@@ -79,6 +81,23 @@ export type StoreRequestParams = {
     preserveTransient?: boolean,
 };
 
+export type WriteBlobRequestParams = {
+    clientPublicKey?: Buffer,
+    copyFromId1?: Buffer,
+    nodeId1: Buffer,
+    data: Buffer,
+    pos?: bigint,
+    muteMsgIds?: Buffer[],
+};
+
+export type ReadBlobRequestParams = {
+    clientPublicKey?: Buffer,
+    targetPublicKey?: Buffer,
+    nodeId1: Buffer,
+    length: number,
+    pos?: bigint,
+};
+
 export class StorageUtil {
 
     /**
@@ -97,6 +116,41 @@ export class StorageUtil {
         }
 
         return storeRequest;
+    }
+
+    /**
+     * Create a WriteBlobRequest.
+     * @param writeBlobRequestParams
+     * @returns WriteBlobRequest
+     */
+    public static CreateWriteBlobRequest(writeBlobRequestParams: WriteBlobRequestParams): WriteBlobRequest {
+        const writeBlobRequest: WriteBlobRequest = {
+            clientPublicKey: writeBlobRequestParams.clientPublicKey ?? Buffer.alloc(0),
+            copyFromId1: writeBlobRequestParams.copyFromId1 ?? Buffer.alloc(0),
+            nodeId1: writeBlobRequestParams.nodeId1,
+            data: writeBlobRequestParams.data,
+            pos: writeBlobRequestParams.pos ?? 0n,
+            muteMsgIds: writeBlobRequestParams.muteMsgIds ?? [],
+        };
+
+        return writeBlobRequest;
+    }
+
+    /**
+     * Create a ReadBlobRequest.
+     * @param readBlobRequestParams
+     * @returns ReadBlobRequest
+     */
+    public static CreateReadBlobRequest(readBlobRequestParams: ReadBlobRequestParams): ReadBlobRequest {
+        const readBlobRequest: ReadBlobRequest = {
+            clientPublicKey: readBlobRequestParams.clientPublicKey ?? Buffer.alloc(0),
+            targetPublicKey: readBlobRequestParams.targetPublicKey ?? Buffer.alloc(0),
+            nodeId1: readBlobRequestParams.nodeId1,
+            pos: readBlobRequestParams.pos ?? 0n,
+            length: readBlobRequestParams.length,
+        };
+
+        return readBlobRequest;
     }
 
     /**

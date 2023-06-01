@@ -500,6 +500,29 @@ export class BlobDriver implements BlobDriverInterface {
         return true;
     }
 
+    /**
+     * @see BlobDriverInterface.
+     */
+    public async blobExists(nodeId1s: Buffer[]): Promise<Buffer[]> {
+        assert(this.blobDb, "Blob driver is not available");
+
+        const ph = this.blobDb.generatePlaceholders(nodeId1s.length);
+
+        const sql = `SELECT node_id1 FROM universe_blob WHERE node_id1 IN ${ph};`;
+
+        const rows = await this.blobDb.all(sql, nodeId1s);
+
+        const id1s: Buffer[] = [];
+
+        const rowsLength = rows.length;
+        for (let i=0; i<rowsLength; i++) {
+            const row = rows[i];
+            id1s.push(row.node_id1);
+        }
+
+        return id1s;
+    }
+
     public close() {
         this.blobDb?.close();
     }

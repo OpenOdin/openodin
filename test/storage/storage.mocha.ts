@@ -1132,6 +1132,7 @@ function setupTests(config: any) {
             nodeId1,
             data,
             pos,
+            muteMsgIds: [],
         };
 
         await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
@@ -1151,6 +1152,7 @@ function setupTests(config: any) {
             nodeId1,
             data,
             pos,
+            muteMsgIds: [],
         };
 
         response = undefined;
@@ -1178,16 +1180,50 @@ function setupTests(config: any) {
             blobLength,
         }, keyPair1);
 
+        const node3 = await nodeUtil.createDataNode({
+            parentId,
+            expireTime: now + 10005,
+            creationTime: now,
+            isPublic: true,
+            blobHash,
+            blobLength,
+        }, keyPair1);
+
         let storeRequest = {
             clientPublicKey,
             sourcePublicKey,
             targetPublicKey,
             preserveTransient: false,
-            nodes: [node1.export(), node2.export()],
+            nodes: [node1.export(), node2.export(), node3.export()],
             muteMsgIds: [],
         };
 
         await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+
+        // We need to decouple the flow to not get triggered by the store event since
+        // the emitting is done in setImmediate.
+        await sleep(1);
+
+        const fetchRequest = StorageUtil.CreateFetchRequest({query: {
+            parentId: node2.getParentId(),
+            clientPublicKey,
+            targetPublicKey,
+            triggerNodeId: node2.getParentId(),
+            onlyTrigger: true,
+            match: [
+                {
+                    nodeType: Data.GetType(),
+                    filters: []
+                }
+            ]
+        }});
+
+        const fetchedNodes: Buffer[] = [];
+        const sendResponse2: any = (obj: any) => {
+            fetchedNodes.push(...(obj.result?.nodes ?? []));
+        };
+
+        await storage.handleFetchWrapped(p2pClient, fetchRequest, fromMsgId, expectingReply, sendResponse2);
 
         writeBlobRequest = {
             clientPublicKey,
@@ -1195,6 +1231,7 @@ function setupTests(config: any) {
             nodeId1: node1.getId1() as Buffer,
             data,
             pos,
+            muteMsgIds: [],
         };
 
 
@@ -1213,6 +1250,7 @@ function setupTests(config: any) {
             nodeId1: node2.getId1() as Buffer,
             data: data.slice(0,6),
             pos,
+            muteMsgIds: [],
         };
 
         response = undefined;
@@ -1248,16 +1286,10 @@ function setupTests(config: any) {
             nodeId1: node2.getId1() as Buffer,
             data: data.slice(6),
             pos: 6n,
+            muteMsgIds: [],
         };
 
-        response = undefined;
-        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
-            expectingReply, sendResponse);
-
-        assert(response);
-        assert(response.status === Status.RESULT);
-        assert(response.error === "");
-        assert(response.currentLength === blobLength);
+        assert(fetchedNodes.length === 0);
 
         response = undefined;
         await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
@@ -1267,6 +1299,56 @@ function setupTests(config: any) {
         assert(response.status === Status.EXISTS);
         assert(response.error === "");
         assert(response.currentLength === blobLength);
+
+        // Sleep so the trigger events can run.
+        await sleep(100);
+
+        //console.warn(fetchedNodes.length);
+        //@ts-ignore
+        assert(fetchedNodes.length === 3);
+
+        fetchedNodes.length = 0;
+
+        response = undefined;
+        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.EXISTS);
+        assert(response.error === "");
+        assert(response.currentLength === blobLength);
+
+        // Sleep so the trigger events can run.
+        await sleep(1);
+
+        assert(fetchedNodes.length === 0);
+
+        // Copy blob and see that it also triggers.
+        writeBlobRequest = {
+            clientPublicKey,
+            copyFromId1: node2.getId1() as Buffer,
+            nodeId1: node3.getId1() as Buffer,
+            data: Buffer.alloc(0),
+            pos: 0n,
+            muteMsgIds: [],
+        };
+
+        fetchedNodes.length = 0;
+
+        response = undefined;
+        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.EXISTS);
+        assert(response.error === "");
+        assert(response.currentLength === blobLength);
+
+        // Sleep so the trigger events can run.
+        await sleep(100);
+
+        assert(fetchedNodes.length === 1);
+        assert(fetchedNodes[0].equals(node3.export()));
     });
 
     it("#handleWriteBlob, #readBlobRequest with permissions", async function() {
@@ -1353,6 +1435,7 @@ function setupTests(config: any) {
             nodeId1: node1.getId1() as Buffer,
             data,
             pos,
+            muteMsgIds: [],
         };
 
         await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
@@ -1368,13 +1451,14 @@ function setupTests(config: any) {
             nodeId1: node1.getId1() as Buffer,
             data,
             pos,
+            muteMsgIds: [],
         };
 
         await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.RESULT);
+        assert(response.status === Status.EXISTS);
         assert(response.error === "");
 
 
@@ -1385,6 +1469,7 @@ function setupTests(config: any) {
             copyFromId1: node1.getId1() as Buffer,
             data,
             pos,
+            muteMsgIds: [],
         };
 
         await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
@@ -1401,6 +1486,7 @@ function setupTests(config: any) {
             copyFromId1: node1.getId1() as Buffer,
             data,
             pos,
+            muteMsgIds: [],
         };
 
         await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
@@ -1430,7 +1516,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.RESULT);
+        assert(response.status === Status.EXISTS);
 
         // Read node2's blob failing due to lacking license.
         //

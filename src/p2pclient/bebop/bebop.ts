@@ -972,6 +972,7 @@ export const BopStoreRequest = {
 export interface IBopStoreResponse {
   status?: Status;
   storedId1S?: Array<Uint8Array>;
+  missingBlobId1S?: Array<Uint8Array>;
   error?: string;
 }
 
@@ -1001,8 +1002,18 @@ export const BopStoreResponse = {
         }
       }
       }
-      if (message.error != null) {
+      if (message.missingBlobId1S != null) {
         view.writeByte(3);
+        {
+        const length0 = message.missingBlobId1S.length;
+        view.writeUint32(length0);
+        for (let i0 = 0; i0 < length0; i0++) {
+          view.writeBytes(message.missingBlobId1S[i0]);
+        }
+      }
+      }
+      if (message.error != null) {
+        view.writeByte(4);
         view.writeString(message.error);
       }
       view.writeByte(0);
@@ -1044,6 +1055,18 @@ export const BopStoreResponse = {
           break;
 
         case 3:
+          {
+        let length0 = view.readUint32();
+        message.missingBlobId1S = new Array<Uint8Array>(length0);
+        for (let i0 = 0; i0 < length0; i0++) {
+          let x0: Uint8Array;
+          x0 = view.readBytes();
+          message.missingBlobId1S[i0] = x0;
+        }
+      }
+          break;
+
+        case 4:
           message.error = view.readString();
           break;
 
@@ -1187,6 +1210,7 @@ export interface IBopWriteBlobRequest {
   data?: Uint8Array;
   pos?: bigint;
   copyFromId1?: Uint8Array;
+  muteMsgIds?: Array<Uint8Array>;
 }
 
 export const BopWriteBlobRequest = {
@@ -1220,6 +1244,16 @@ export const BopWriteBlobRequest = {
       if (message.copyFromId1 != null) {
         view.writeByte(5);
         view.writeBytes(message.copyFromId1);
+      }
+      if (message.muteMsgIds != null) {
+        view.writeByte(6);
+        {
+        const length0 = message.muteMsgIds.length;
+        view.writeUint32(length0);
+        for (let i0 = 0; i0 < length0; i0++) {
+          view.writeBytes(message.muteMsgIds[i0]);
+        }
+      }
       }
       view.writeByte(0);
       const end = view.length;
@@ -1261,6 +1295,18 @@ export const BopWriteBlobRequest = {
 
         case 5:
           message.copyFromId1 = view.readBytes();
+          break;
+
+        case 6:
+          {
+        let length0 = view.readUint32();
+        message.muteMsgIds = new Array<Uint8Array>(length0);
+        for (let i0 = 0; i0 < length0; i0++) {
+          let x0: Uint8Array;
+          x0 = view.readBytes();
+          message.muteMsgIds[i0] = x0;
+        }
+      }
           break;
 
         default:

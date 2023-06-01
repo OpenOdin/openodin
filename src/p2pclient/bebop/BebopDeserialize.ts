@@ -110,6 +110,7 @@ export class BebopDeserialize {
             error: obj.error as string,
             status: obj.status as Status,
             storedId1s: (obj.storedId1S || []).map( MakeIntoBuffer ),
+            missingBlobId1s: (obj.missingBlobId1S || []).map( MakeIntoBuffer ),
         };
 
         return storeResponse;
@@ -142,6 +143,7 @@ export class BebopDeserialize {
         obj.data = MakeIntoBuffer(obj.data);
         obj.clientPublicKey = MakeIntoBuffer(obj.clientPublicKey);
         obj.copyFromId1 = MakeIntoBuffer(obj.copyFromId1);
+        obj.muteMsgIds = (obj.muteMsgIds || []).map( MakeIntoBuffer );
         return obj as unknown as WriteBlobRequest;
     }
 

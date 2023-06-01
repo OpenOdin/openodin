@@ -1,3 +1,5 @@
+import { strict as assert } from "assert";
+
 import {
     ExpectingReply,
 } from "pocket-messaging";
@@ -246,6 +248,7 @@ export class Storage {
                     const errorStoreResponse: StoreResponse = {
                         status: Status.MALFORMED,
                         storedId1s: [],
+                        missingBlobId1s: [],
                         error,
                     };
 
@@ -313,7 +316,32 @@ export class Storage {
             let storeResponse: StoreResponse;
 
             if (result) {
-                const [storedId1s, parentIds] = result;
+                const [storedId1s, parentIds, blobId1s] = result;
+
+                let missingBlobId1s: Buffer[] = [];
+
+                if (blobId1s.length > 0 && this.blobDriver) {
+                    const existingBlobId1s = await this.blobDriver.blobExists(blobId1s);
+
+                    const existingMap: {[id1: string]: boolean} = {};
+
+                    const existingBlobId1sLength = existingBlobId1s.length;
+                    for (let i=0; i<existingBlobId1sLength; i++) {
+                        const existingBlobId1 = existingBlobId1s[i];
+                        existingMap[existingBlobId1.toString("hex")] = true;
+                    }
+
+                    const blobId1sLength = blobId1s.length;
+                    for (let i=0; i<blobId1sLength; i++) {
+                        const blobId1 = blobId1s[i];
+                        if (!existingMap[blobId1.toString("hex")]) {
+                            missingBlobId1s.push(blobId1);
+                        }
+                    }
+                }
+                else {
+                    missingBlobId1s = blobId1s;
+                }
 
                 if (parentIds.length > 0) {
                     setImmediate( () => this.emitInsertEvent(parentIds, storeRequest.muteMsgIds) );
@@ -322,6 +350,7 @@ export class Storage {
                 storeResponse = {
                     status: Status.RESULT,
                     storedId1s,
+                    missingBlobId1s,
                     error: "",
                 };
             }
@@ -330,6 +359,7 @@ export class Storage {
                 storeResponse = {
                     status: Status.STORE_FAILED,
                     storedId1s: [],
+                    missingBlobId1s: [],
                     error: "Failed storing nodes, database busy.",
                 };
             }
@@ -345,6 +375,7 @@ export class Storage {
                 const errorStoreResponse: StoreResponse = {
                     status: Status.ERROR,
                     storedId1s: [],
+                    missingBlobId1s: [],
                     error,
                 };
 
@@ -1004,12 +1035,20 @@ export class Storage {
 
                 if (sendResponse) {
                     const writeBlobResponse = {
-                        status: Status.RESULT,
+                        status: Status.EXISTS,
                         currentLength: blobLengthn,
                         error: "",
                     };
 
+                    const parentId = node.getParentId();
+
+                    assert(parentId);
+
+                    await this.driver.bumpBlobNode(node, now);
+
                     sendResponse(writeBlobResponse);
+
+                    setImmediate( () => this.emitInsertEvent([parentId], writeBlobRequest.muteMsgIds) );
                 }
 
                 return;
@@ -1081,19 +1120,38 @@ export class Storage {
                     status = Status.STORE_FAILED;
                     throw new Error("Database BUSY, all retries failed.");
                 }
-            }
 
-            if (!sendResponse) {
+                if (sendResponse) {
+                    const writeBlobResponse = {
+                        status: Status.EXISTS,
+                        currentLength: blobLengthn,
+                        error: "",
+                    };
+
+                    const parentId = node.getParentId();
+
+                    assert(parentId);
+
+                    await this.driver.bumpBlobNode(node, now);
+
+                    sendResponse(writeBlobResponse);
+
+                    setImmediate( () => this.emitInsertEvent([parentId], writeBlobRequest.muteMsgIds) );
+                }
+
                 return;
             }
 
-            const writeBlobResponse = {
-                status: Status.RESULT,
-                currentLength: BigInt(currentLength),
-                error: "",
-            };
+            if (sendResponse) {
+                const writeBlobResponse = {
+                    status: Status.RESULT,
+                    currentLength: BigInt(currentLength),
+                    error: "",
+                };
 
-            sendResponse(writeBlobResponse);
+                sendResponse(writeBlobResponse);
+            }
+
         }
         catch(e) {
             console.debug("handleWriteBlob", e);

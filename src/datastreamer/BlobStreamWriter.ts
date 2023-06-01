@@ -28,17 +28,20 @@ export class BlobStreamWriter extends AbstractStreamWriter {
     protected nodeId1: Buffer;
     protected peer: P2PClient;
     protected retries: number;
+    protected muteMsgIds: Buffer[];
 
     /**
      * @param nodeId1 the node's ID1 to write blob data for.
      * @param streamReader the reader to consume data from.
      * @param peer the (storage) peer to write data to.
      * @param allowResume if set then see if there already is data written to append.
+     * @param muteMsgIds optional list of msg IDs to be muted from triggering when blob has finalized writing (same as StoreRequest).
      */
-    constructor(nodeId1: Buffer, streamReader: StreamReaderInterface, peer: P2PClient, allowResume: boolean = true) {
+    constructor(nodeId1: Buffer, streamReader: StreamReaderInterface, peer: P2PClient, allowResume: boolean = true, muteMsgIds?: Buffer[]) {
         super(streamReader, allowResume);
         this.nodeId1 = nodeId1;
         this.peer = peer;
+        this.muteMsgIds = muteMsgIds ?? [];
         this.retries = 0;
     }
 
@@ -57,6 +60,7 @@ export class BlobStreamWriter extends AbstractStreamWriter {
             data,
             clientPublicKey: this.peer.getLocalPublicKey(),
             copyFromId1: Buffer.alloc(0),
+            muteMsgIds: this.muteMsgIds,
         };
 
         const {getResponse} = this.peer.writeBlob(writeBlobRequest);

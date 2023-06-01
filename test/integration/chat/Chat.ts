@@ -1,7 +1,11 @@
+import { strict as assert } from "assert";
+
 import {
     P2PClient,
     FetchResponse,
     StoreResponse,
+    WriteBlobResponse,
+    ReadBlobResponse,
     DATANODE_TYPE,
     DataInterface,
     NodeInterface,
@@ -10,6 +14,8 @@ import {
     App,
     SignatureOffloader,
     sleep,
+    Hash,
+    BlobEvent,
 } from "../../../";
 
 import {
@@ -24,17 +30,25 @@ import {
 class Chat extends App {
     protected console: any;
     protected onMessage: Function;
+    protected onBlob?: Function;
 
-    constructor(signatureOffloader: SignatureOffloader, console: any, onMessage: Function) {
+    constructor(signatureOffloader: SignatureOffloader, console: any, onMessage: Function, onBlob?: Function) {
         super(signatureOffloader);
         this.console = console;
         this.onMessage = onMessage;
+        this.onBlob = onBlob;
     }
+
+    protected onBlobHandler = (blobEvent: BlobEvent) => {
+        if (this.onBlob) {
+            this.onBlob(blobEvent);
+        }
+    };
 
     /**
      * @throws on signing failure.
      */
-    public async sendMessage(message: string) {
+    public async sendMessage(message: string, data?: Buffer) {
         const keyPair = this.getKeyPair();
         const publicKey = this.getPublicKey();
         if (!this.isConnected() || !keyPair || !publicKey) {
@@ -42,9 +56,17 @@ class Chat extends App {
             return;
         }
 
+        let blobLength: bigint | undefined;
+        let blobHash: Buffer | undefined;
+
+        if (data) {
+            blobLength = BigInt(data.length);
+            blobHash = Hash(data);
+        }
+
         const nodeCerts = this.getNodeCerts();
 
-        const node = await this.nodeUtil.createDataNode({owner: publicKey, isLicensed: true, data: Buffer.from(message)}, keyPair, nodeCerts);
+        const node = await this.nodeUtil.createDataNode({owner: publicKey, isLicensed: true, data: Buffer.from(message), blobHash, blobLength}, keyPair, nodeCerts);
         const license = await this.nodeUtil.createLicenseNode({nodeId1: node.getId1(), owner: publicKey, extensions: 2, targetPublicKey: publicKey}, keyPair, nodeCerts);
         const storeRequest = StorageUtil.CreateStoreRequest({nodes: [node.export(), license.export()]});
         const storageClient = this.getStorageClient();
@@ -65,6 +87,29 @@ class Chat extends App {
                 throw new Error(`Unexpected result on store: ${storeResponse.error}`);
             }
         });
+
+        if (data) {
+            // Upload blob with a delay to make sure that the trigger works.
+            setTimeout( () => {
+                console.info("Start uploading blob");
+
+                const writeBlobRequest = StorageUtil.CreateWriteBlobRequest({nodeId1: node.getId1()!, data});
+
+                const {getResponse} = storageClient.writeBlob(writeBlobRequest);
+
+                if (!getResponse) {
+                    throw new Error("Could not write blob.");
+                }
+
+                getResponse.onReply( async (peer: P2PClient, writeBlobResponse: WriteBlobResponse) => {
+                    if (writeBlobResponse.status !== Status.EXISTS) {
+                        throw new Error(`Unexpected result on write blob: ${writeBlobResponse.error}`);
+                    }
+                });
+
+            }, 500);
+
+        }
     }
 
     public setupAppFetch() {
@@ -150,7 +195,7 @@ async function main() {
 
     const checkToQuit = () => {
         messageCounter++;
-        if (messageCounter === 4) {
+        if (messageCounter === 5) {
             clearTimeout(abortTimeout);
             consoleMain.aced("All messages transferred, closing Server and Client");
             setTimeout( () => {
@@ -160,12 +205,51 @@ async function main() {
         }
     };
 
+    let blobResolve: Function | undefined;
+
+    const blobPromise = new Promise( (resolve, reject) => {
+        blobResolve = resolve;
+    });
+
     consoleMain.info("Init Chat Server");
+
     const consoleServer = PocketConsole({module: "Server"});
+
     const chatServer = new Chat(signatureOffloader, consoleServer, (message: string) => {
         consoleServer.info(message);
         checkToQuit();
+    }, async (blobEvent: BlobEvent) => {
+        if (blobEvent.nodeId1 && !blobEvent.error) {
+
+            const readBlobRequest = StorageUtil.CreateReadBlobRequest({
+                nodeId1: blobEvent.nodeId1!,
+                length: 2048,
+            });
+
+            const storageClient = chatServer.getStorageClient();
+
+            assert(storageClient);
+
+            const {getResponse} = storageClient.readBlob(readBlobRequest);
+
+            if (!getResponse) {
+                throw new Error("Could not read blob.");
+            }
+
+            getResponse.onReply( async (peer: P2PClient, readBlobResponse: ReadBlobResponse) => {
+                if (readBlobResponse.status !== Status.RESULT) {
+                    throw new Error(`Unexpected result on read blob: ${readBlobResponse.error}`);
+                }
+
+                assert(readBlobResponse.data.length === 1024);
+
+                if (blobResolve) {
+                    blobResolve();
+                }
+            });
+        }
     });
+
     chatServer.onConnectionError( (e) => {
         consoleMain.error("Connection error in server", e);
         process.exit(1);
@@ -204,7 +288,7 @@ async function main() {
     chatClient.onConnectionConnect( () => {
         // Here we send when peer (server) is connected.
         consoleMain.info("Connection connected to client, send message from Client side");
-        chatClient.sendMessage("Hello from Client");
+        chatClient.sendMessage("Hello from Client", Buffer.alloc(1024).fill(0xa0));
     });
     [status, err] = await chatClient.parseConfig(clientConfig);
     if (!status) {
@@ -219,6 +303,10 @@ async function main() {
     chatClient.onStop( () => {
         signatureOffloader.close();
     });
+
+    await blobPromise;
+    consoleServer.info("Downloaded blob");
+    checkToQuit();
 }
 
 main();
