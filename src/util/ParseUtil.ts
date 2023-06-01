@@ -123,9 +123,13 @@ export class ParseUtil {
 
         let driver: DriverConfig = {
             sqlite: ":memory:",
+            reconnectDelay: 3,
         };
 
-        let blobDriver: DriverConfig | undefined;
+        let blobDriver: DriverConfig | undefined = {
+            sqlite: ":memory:",
+            reconnectDelay: 3,
+        };
 
         if (obj.driver) {
             const sqlite = ParseUtil.ParseVariable("local storage config driver.sqlite must be string, if set", obj.driver.sqlite, "string", true);
@@ -163,10 +167,6 @@ export class ParseUtil {
                 throw new Error("local storage blobDriver cannot have both 'sqlite' and 'pg' set");
             }
 
-            if (!sqlite && !pg) {
-                throw new Error("local storage blobDriver must have either 'sqlite' or 'pg' set");
-            }
-
             if (sqlite) {
                 blobDriver = {
                     sqlite,
@@ -178,6 +178,9 @@ export class ParseUtil {
                     pg,
                     reconnectDelay,
                 };
+            }
+            else {
+                blobDriver = undefined;
             }
         }
 
