@@ -3,8 +3,6 @@ import { strict as assert } from "assert";
 import {
     P2PClient,
     FetchResponse,
-    StoreResponse,
-    WriteBlobResponse,
     ReadBlobResponse,
     DATANODE_TYPE,
     DataInterface,
@@ -48,68 +46,45 @@ class Chat extends App {
     /**
      * @throws on signing failure.
      */
-    public async sendMessage(message: string, data?: Buffer) {
+    public async sendMessage(message: string, blobData?: Buffer) {
         const keyPair = this.getKeyPair();
         const publicKey = this.getPublicKey();
-        if (!this.isConnected() || !keyPair || !publicKey) {
-            this.console.error("App not connected to storage, cannot send message");
-            return;
+
+        if (!keyPair || !publicKey) {
+            throw new Error("App not configured, cannot send message");
         }
 
         let blobLength: bigint | undefined;
         let blobHash: Buffer | undefined;
 
-        if (data) {
-            blobLength = BigInt(data.length);
-            blobHash = Hash(data);
+        if (blobData) {
+            blobLength = BigInt(blobData.length);
+            blobHash = Hash(blobData);
         }
 
         const nodeCerts = this.getNodeCerts();
 
-        const node = await this.nodeUtil.createDataNode({owner: publicKey, isLicensed: true, data: Buffer.from(message), blobHash, blobLength}, keyPair, nodeCerts);
-        const license = await this.nodeUtil.createLicenseNode({nodeId1: node.getId1(), owner: publicKey, extensions: 2, targetPublicKey: publicKey}, keyPair, nodeCerts);
-        const storeRequest = StorageUtil.CreateStoreRequest({nodes: [node.export(), license.export()]});
-        const storageClient = this.getStorageClient();
+        const dataNode = await this.nodeUtil.createDataNode({owner: publicKey, isLicensed: true, data: Buffer.from(message), blobHash, blobLength}, keyPair, nodeCerts);
+        const licenseNode = await this.nodeUtil.createLicenseNode({nodeId1: dataNode.getId1(), owner: publicKey, extensions: 2, targetPublicKey: publicKey}, keyPair, nodeCerts);
 
+        const nodes = [dataNode, licenseNode];
 
-        if (!storageClient) {
-            throw new Error("Missing storage client");
-        }
-
-        const {getResponse} = storageClient.store(storeRequest);
-
-        if (!getResponse) {
-            throw new Error("Could not store nodes.");
-        }
-
-        getResponse.onReply( async (peer: P2PClient, storeResponse: StoreResponse) => {
-            if (storeResponse.status !== Status.RESULT || storeResponse.storedId1s.length < 2) {
-                throw new Error(`Unexpected result on store: ${storeResponse.error}`);
+        this.storeNodes(nodes).then( (storedId1s: Buffer[]) => {
+            if (storedId1s.length !== nodes.length) {
+                throw new Error(`Expected to store ${nodes.length} nodes`);
             }
+
+            if (blobData) {
+                // Upload blob with a delay to test that the trigger works.
+                setTimeout( () => {
+
+                    this.storeBlob(dataNode.getId1()!, blobData);
+
+                }, 500);
+            }
+        }).catch( e => {
+            console.error("Could not store nodes", e);
         });
-
-        if (data) {
-            // Upload blob with a delay to make sure that the trigger works.
-            setTimeout( () => {
-                console.info("Start uploading blob");
-
-                const writeBlobRequest = StorageUtil.CreateWriteBlobRequest({nodeId1: node.getId1()!, data});
-
-                const {getResponse} = storageClient.writeBlob(writeBlobRequest);
-
-                if (!getResponse) {
-                    throw new Error("Could not write blob.");
-                }
-
-                getResponse.onReply( async (peer: P2PClient, writeBlobResponse: WriteBlobResponse) => {
-                    if (writeBlobResponse.status !== Status.EXISTS) {
-                        throw new Error(`Unexpected result on write blob: ${writeBlobResponse.error}`);
-                    }
-                });
-
-            }, 500);
-
-        }
     }
 
     public setupAppFetch() {
@@ -117,54 +92,32 @@ class Chat extends App {
             throw new Error("Not connected");
         }
 
-        const fetchRequest = StorageUtil.CreateFetchRequest({query: {
-            parentId: Buffer.alloc(32).fill(0),
-            triggerNodeId: Buffer.alloc(32).fill(0),
-            discardRoot: true,
-            match: [
-                {nodeType: DATANODE_TYPE},
-            ],
-        }});
+        const fetchRequest = StorageUtil.CreateFetchRequest({
+            query: {
+                parentId: Buffer.alloc(32).fill(0),
+                triggerNodeId: Buffer.alloc(32).fill(0),
+                discardRoot: true,
+                match: [
+                    {nodeType: DATANODE_TYPE},
+                ],
+            },
+            transform: {
+                algos: [2],
+                cacheId: 1,
+                tail: 30,
+                includeDeleted: true,
+            },
+        });
 
-        const storageClient = this.getStorageClient();
-        if (!storageClient) {
-            this.console.error("No storage. Could not setup fetch against storage. No data will flow.");
-            return;
-        }
-
-        const {getResponse} = storageClient.fetch(fetchRequest);
-        if (!getResponse) {
-            this.console.error("Could not setup fetch against storage. No data will flow.");
-            return;
-        }
-
-        // Keep 1000 last node IDs in a list to avoid event duplicates. Due to the nature of at-least-once delivery guarantees.
-        const cachedNodeIds1: Buffer[] = [];
-
-        getResponse.onReply( async (peer: P2PClient, fetchResponse: FetchResponse) => {
-            if (fetchResponse.status !== Status.RESULT) {
-                this.console.error(`Error code (${fetchResponse.status}) returned on fetch, error message: ${fetchResponse.error}`);
-                return;
-            }
-            // Data incoming from storage
-            // Transform and render
-            // Note that since we are fetching nodes from our Storage we opt to not verify them ourselves but trust the Storage.
-            const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse);
+        this.fetchNodes(fetchRequest, (nodes: NodeInterface[]) => {
             nodes.forEach( (node: NodeInterface) => {
-                const id1 = node.getId1();
-                if (!id1) {
-                    return;
-                }
-                if (!cachedNodeIds1.some( id1b => id1b.equals(id1) )) {
-                    if (node.getType().equals(DATANODE_TYPE)) {
-                        this.onMessage((node as DataInterface).getData()?.toString());
-                        cachedNodeIds1.unshift(id1);
-                        if (cachedNodeIds1.length > 1000) {
-                            cachedNodeIds1.length = 1000;
-                        }
-                    }
+                if (node.getType().equals(DATANODE_TYPE)) {
+                    this.onMessage((node as DataInterface).getData()?.toString());
                 }
             });
+        }).catch( e => {
+            console.error("Unexpected error occured when fetching nodes", e);
+            throw e;
         });
     }
 }
@@ -220,33 +173,13 @@ async function main() {
         checkToQuit();
     }, async (blobEvent: BlobEvent) => {
         if (blobEvent.nodeId1 && !blobEvent.error) {
+            const blobData = await chatServer.readBlob(blobEvent.nodeId1!);
 
-            const readBlobRequest = StorageUtil.CreateReadBlobRequest({
-                nodeId1: blobEvent.nodeId1!,
-                length: 2048,
-            });
+            assert(blobData.length === 1024 * 60);
 
-            const storageClient = chatServer.getStorageClient();
-
-            assert(storageClient);
-
-            const {getResponse} = storageClient.readBlob(readBlobRequest);
-
-            if (!getResponse) {
-                throw new Error("Could not read blob.");
+            if (blobResolve) {
+                blobResolve();
             }
-
-            getResponse.onReply( async (peer: P2PClient, readBlobResponse: ReadBlobResponse) => {
-                if (readBlobResponse.status !== Status.RESULT) {
-                    throw new Error(`Unexpected result on read blob: ${readBlobResponse.error}`);
-                }
-
-                assert(readBlobResponse.data.length === 1024);
-
-                if (blobResolve) {
-                    blobResolve();
-                }
-            });
         }
     });
 
@@ -288,7 +221,7 @@ async function main() {
     chatClient.onConnectionConnect( () => {
         // Here we send when peer (server) is connected.
         consoleMain.info("Connection connected to client, send message from Client side");
-        chatClient.sendMessage("Hello from Client", Buffer.alloc(1024).fill(0xa0));
+        chatClient.sendMessage("Hello from Client", Buffer.alloc(1024 * 60).fill(0xa0));
     });
     [status, err] = await chatClient.parseConfig(clientConfig);
     if (!status) {
