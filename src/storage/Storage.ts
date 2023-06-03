@@ -46,6 +46,7 @@ import {
     DriverInterface,
     BlobDriverInterface,
     Trigger,
+    MAX_READBLOB_LENGTH,
 } from "./types";
 
 import {
@@ -75,9 +76,6 @@ let osModule: any;
 if (typeof process !== "undefined" && process?.versions?.node) {
     osModule = require("os");
 }
-
-/** Max read length for a read blob request, any larger requests must be split into multiple requests. */
-const MAX_READBLOB_LENGTH = 1024 * 1024;
 
 /** When running in browser allow maximum amount of transformers. */
 const MAX_TRANSFORMERS_BROWSER = 20;

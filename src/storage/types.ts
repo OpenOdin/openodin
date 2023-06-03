@@ -18,6 +18,9 @@ import {
 //} from "./plugin/types";
 //
 
+/** Max read length for a read blob request, any larger requests must be split into multiple requests. */
+export const MAX_READBLOB_LENGTH = 1024 * 1024;
+
 /**
  * Limit the number of parameters passed to `IN` in queries.
  * Queries for more than this value will be processed in chunks.

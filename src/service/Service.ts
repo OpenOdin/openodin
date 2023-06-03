@@ -1484,7 +1484,7 @@ export class Service {
             }
         }
         else {
-            console.info(`Blob with nodeId1 ${blobEvent.nodeId1.toString("hex")} successfully downloaded.`);
+            console.info(`Blob with nodeId1 ${blobEvent.nodeId1.toString("hex")} successfully synced.`);
         }
     }
 
