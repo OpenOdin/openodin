@@ -1431,9 +1431,6 @@ export class Service {
         }
 
         p2pClient.onClose( () => {
-            autoFetcher?.close();
-            storageForwarder?.close();
-            storageExtender?.close();
             this.garbageCollectClients();
             this.triggerEvent(EVENTS.CONNECTION_CLOSE.name, {p2pClient});
         });

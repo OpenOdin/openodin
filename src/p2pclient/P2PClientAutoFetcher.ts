@@ -94,6 +94,9 @@ export class P2PClientAutoFetcher {
         this.queuedImageChunks = [];
         this.busyProcessing = false;
         this.blobHandlers = [];
+
+        this.serverClient.onClose( () => this.close() );
+        this.storageClient.onClose( () => this.close() );
     }
 
     /**
@@ -194,6 +197,7 @@ export class P2PClientAutoFetcher {
             const {getResponse} = this.storageClient.store(storeRequest);
 
             if (!getResponse) {
+                console.debug("Got no getResponse on store, socket is likely closed or not connected.");
                 break;
             }
 

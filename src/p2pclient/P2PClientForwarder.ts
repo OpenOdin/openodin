@@ -62,6 +62,9 @@ export class P2PClientForwarder {
         senderClient.onReadBlob( (...args) => this.handleReadBlob(...args) );
         senderClient.onWriteBlob( (...args) => this.handleWriteBlob(...args) );
         senderClient.onMessage( (...args) => this.handleMessage(...args) );
+
+        this.senderClient.onClose( () => this.close() );
+        this.targetClient.onClose( () => this.close() );
     }
 
     /**
