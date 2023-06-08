@@ -1,6 +1,7 @@
 import {
     Service,
-} from "../../../service/Service";
+    CreateHandshakeFactoryFactory,
+} from "../../../service";
 
 import {
     P2PClient,
@@ -9,6 +10,10 @@ import {
 import {
     JSONUtil,
 } from "../../../util/JSONUtil";
+
+import {
+    ParseUtil,
+} from "../../../util/ParseUtil";
 
 import {
     SignatureOffloader,
@@ -20,13 +25,20 @@ import {
 
 const console = PocketConsole({module: "Service", format: "%t %c[%L%l]%C "});
 
-async function main(config: object) {
+async function main(config: any) {
     console.info("Initializing...");
-    const signatureOffloader = new SignatureOffloader();
+    const keyPair = ParseUtil.ParseKeyPair(config.keyPair);
+
+    const handshakeFactoryFactory = CreateHandshakeFactoryFactory(keyPair);
+
+    const signatureOffloader = new SignatureOffloader(keyPair);
+
     await signatureOffloader.init();
 
-    const service = new Service(signatureOffloader);
+    const service = new Service(signatureOffloader, handshakeFactoryFactory);
+
     const [stat, err] = await service.parseConfig(config);
+
     if (!stat) {
         signatureOffloader.close();
         console.error("Could not parse config file", err);
@@ -53,6 +65,10 @@ async function main(config: object) {
     service.onConnectionClose( (e: {p2pClient: P2PClient}) => {
         const pubKey = e.p2pClient.getRemotePublicKey();
         console.info(`Peer disconnected, who has publicKey ${pubKey.toString("hex")}`);
+    });
+
+    service.onStop( () => {
+        signatureOffloader.close();
     });
 
     try {

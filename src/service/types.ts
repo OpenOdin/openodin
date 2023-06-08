@@ -1,5 +1,6 @@
 import {
     HandshakeFactoryConfig,
+    HandshakeFactory,
 } from "pocket-messaging";
 
 import {
@@ -54,3 +55,7 @@ export type LocalStorageConfig = {
     /** Optional. Must be set if accessing blob data. */
     blobDriver?: DriverConfig,
 };
+
+export interface HandshakeFactoryFactoryInterface {
+    (handshakeFactoryConfig: HandshakeFactoryConfig): HandshakeFactory;
+}

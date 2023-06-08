@@ -61,14 +61,30 @@ export class SignatureOffloader {
     protected maxWorkers: number;
     protected cryptoWorkerIndex: number;  // Round robin schema for applying workloads.
 
+    // If set then by default use this keypair to sign with.
+    protected defaultKeyPair?: KeyPair;
+
     /**
+     * @param keyPair if set then sign using this as default keypair.
      * @param workers is the number of worker threads to spawn.
      * Recommended is to set this to the same amount of actual cores in the system.
      */
-    constructor(workers: number = 4) {
+    constructor(keyPair?: KeyPair, workers: number = 4) {
         this.cryptoWorkers = [];
-        this.maxWorkers = workers;
+        this.maxWorkers = workers ?? 4;
         this.cryptoWorkerIndex = 0;
+
+        if (keyPair) {
+            this.setDefaultKeyPair(keyPair);
+        }
+    }
+
+    public setDefaultKeyPair(keyPair: KeyPair | undefined) {
+        this.defaultKeyPair = keyPair;
+    }
+
+    public getDefaultPublicKey(): Buffer | undefined {
+        return this.defaultKeyPair?.publicKey;
     }
 
     /**
@@ -111,14 +127,18 @@ export class SignatureOffloader {
      * function repeatedly with a single node to be signed (if there are multiple nodes to be signed).
      *
      * @param datamodels all data models to be signed in place.
-     * @param keyPair the key pair to be used for signing.
+     * @param keyPair the key pair to be used for signing, if unset then the default keypair must have been set.
      * @param deepValidate if true (default) then run a deep validation prior to signing,
      * if any datamodel does not validate then abort signing. Note that any signatures are not checked
      * as part of the validaton since this is prior to signing.
      *
      * @throws if threading is not available, validation fails or signing fails, in such case no datamodels will have been signed.
      */
-    public async sign(datamodels: DataModelInterface[], keyPair: KeyPair, deepValidate: boolean = true) {
+    public async sign(datamodels: DataModelInterface[], keyPair?: KeyPair, deepValidate: boolean = true) {
+        keyPair = keyPair ?? this.defaultKeyPair;
+
+        assert(keyPair, "expecting keypair to be set in SignatureOffloader");
+
         const toBeSigned: ToBeSigned[] = [];
         const datamodelsLength = datamodels.length;
         for (let index=0; index<datamodelsLength; index++) {

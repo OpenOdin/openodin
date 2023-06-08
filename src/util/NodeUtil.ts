@@ -67,13 +67,15 @@ export class NodeUtil {
 
         node.setParams(params);
 
+        const publicKey = keyPair?.publicKey ?? this.signatureOffloader?.getDefaultPublicKey();
+
         // Check if a signing cert is required.
-        if (keyPair && !params.owner?.equals(keyPair.publicKey)) {
+        if (publicKey && !params.owner?.equals(publicKey)) {
             if (!nodeCerts) {
                 throw new Error("Missing node certs.");
             }
 
-            const nodeCert = Decoder.MatchNodeCert(node, keyPair.publicKey, nodeCerts);
+            const nodeCert = Decoder.MatchNodeCert(node, publicKey, nodeCerts);
             if (!nodeCert) {
                 throw new Error("Could not find matching data node signing cert.");
             }
@@ -81,13 +83,11 @@ export class NodeUtil {
             node.setCertObject(nodeCert as DataCertInterface);
         }
 
-        if (keyPair) {
-            if (this.signatureOffloader) {
-                await this.signatureOffloader.sign([node], keyPair);
-            }
-            else {
-                node.sign(keyPair);
-            }
+        if (this.signatureOffloader) {
+            await this.signatureOffloader.sign([node], keyPair);
+        }
+        else if (keyPair) {
+            node.sign(keyPair);
         }
 
         return node;
@@ -121,25 +121,25 @@ export class NodeUtil {
 
         license.setParams(params);
 
+        const publicKey = keyPair?.publicKey ?? this.signatureOffloader?.getDefaultPublicKey();
+
         // Check if a signing cert is required.
-        if (keyPair && !params.owner?.equals(keyPair.publicKey)) {
+        if (publicKey && !params.owner?.equals(publicKey)) {
             if (!nodeCerts) {
                 throw new Error("Missing node certs");
             }
-            const nodeCert = Decoder.MatchNodeCert(license, keyPair.publicKey, nodeCerts);
+            const nodeCert = Decoder.MatchNodeCert(license, publicKey, nodeCerts);
             if (!nodeCert) {
                 throw new Error("Could not find matching license node signing cert");
             }
             license.setCertObject(nodeCert as LicenseCertInterface);
         }
 
-        if (keyPair) {
-            if (this.signatureOffloader) {
-                await this.signatureOffloader.sign([license], keyPair);
-            }
-            else {
-                license.sign(keyPair);
-            }
+        if (this.signatureOffloader) {
+            await this.signatureOffloader.sign([license], keyPair);
+        }
+        else if (keyPair) {
+            license.sign(keyPair);
         }
 
         return license;

@@ -184,7 +184,7 @@ export class CertUtil {
      * Do run a verifyAuthCert afterwards unless all embedded nodes and certs are already verified.
      *
      * @param authCertParams the params to populate the cert with.
-     * @param keyPair must be set if signature is not set in authCertParams.
+     * @param keyPair must be set if signature is not set in authCertParams and if signatureOffloader is not set with default keyPair.
      * @returns auth cert, not deep verified.
      * @throws if could not be signed, lacking keyPair when needing to sign.
      */
@@ -192,18 +192,20 @@ export class CertUtil {
         const authCert = new AuthCert();
         authCert.setParams(authCertParams);
 
-        if (keyPair) {
+        const publicKey = keyPair?.publicKey ?? this.signatureOffloader?.getDefaultPublicKey();
+
+        if (publicKey) {
             if (authCert.getOwner() === undefined) {
                 if (!authCertParams.cert) {
                     // If no cert is used then automatically set owner.
-                    authCert.setOwner(keyPair.publicKey);
+                    authCert.setOwner(publicKey);
                 }
             }
 
             if (this.signatureOffloader) {
                 await this.signatureOffloader.sign([authCert], keyPair);
             }
-            else {
+            else if (keyPair) {
                 authCert.sign(keyPair);
             }
         }
@@ -218,7 +220,7 @@ export class CertUtil {
      * For multisig certs feed the returned cert back as params with the next keyPair.
      *
      * @param chainCertParams the params to populate the cert with.
-     * @param keyPair must be set if a signature should be added.
+     * @param keyPair must be set if a signature should be added and if signatureOffloader is not set with default keyPair.
      * @returns chain cert, not deep verified, possibly signed.
      * @throws if signing fails.
      */
@@ -226,18 +228,20 @@ export class CertUtil {
         const chainCert = new ChainCert();
         chainCert.setParams(chainCertParams);
 
-        if (keyPair) {
+        const publicKey = keyPair?.publicKey ?? this.signatureOffloader?.getDefaultPublicKey();
+
+        if (publicKey) {
             if (chainCert.getOwner() === undefined) {
                 if (!chainCertParams.cert) {
                     // If no cert is used then automatically set owner.
-                    chainCert.setOwner(keyPair.publicKey);
+                    chainCert.setOwner(publicKey);
                 }
             }
 
             if (this.signatureOffloader) {
                 await this.signatureOffloader.sign([chainCert], keyPair);
             }
-            else {
+            else if (keyPair) {
                 chainCert.sign(keyPair);
             }
         }
@@ -250,7 +254,7 @@ export class CertUtil {
      * Do run a verifyFriendCert afterwards unless all embedded nodes and certs are already verified.
      *
      * @param friendCertParams the params to populate the cert with.
-     * @param keyPair must be set if signature is not set in friendCertParams.
+     * @param keyPair must be set if signature is not set in friendCertParams and if signatureOffloader is not set with default keyPair.
      * @returns friend cert, not deep verified.
      * @throws if could not be signed, lacking keyPair when needing to sign.
      */
@@ -258,18 +262,20 @@ export class CertUtil {
         const friendCert = new FriendCert();
         friendCert.setParams(friendCertParams);
 
-        if (keyPair) {
+        const publicKey = keyPair?.publicKey ?? this.signatureOffloader?.getDefaultPublicKey();
+
+        if (publicKey) {
             if (friendCert.getOwner() === undefined) {
                 if (!friendCertParams.cert) {
                     // If no cert is used then automatically set owner.
-                    friendCert.setOwner(keyPair.publicKey);
+                    friendCert.setOwner(publicKey);
                 }
             }
 
             if (this.signatureOffloader) {
                 await this.signatureOffloader.sign([friendCert], keyPair);
             }
-            else {
+            else if (keyPair) {
                 friendCert.sign(keyPair);
             }
         }
@@ -282,7 +288,7 @@ export class CertUtil {
      * Do run a verifyDataCert afterwards unless all embedded nodes and certs are already verified.
      *
      * @param dataCertParams the params to populate the cert with.
-     * @param keyPair must be set if signature is not set in dataCertParams.
+     * @param keyPair must be set if signature is not set in dataCertParams and if signatureOffloader is not set with default keyPair.
      * @returns data cert, not deep verified.
      * @throws if could not be signed, lacking keyPair when needing to sign.
      */
@@ -290,18 +296,20 @@ export class CertUtil {
         const dataCert = new DataCert();
         dataCert.setParams(dataCertParams);
 
-        if (keyPair) {
+        const publicKey = keyPair?.publicKey ?? this.signatureOffloader?.getDefaultPublicKey();
+
+        if (publicKey) {
             if (dataCert.getOwner() === undefined) {
                 if (!dataCertParams.cert) {
                     // If no cert is used then automatically set owner.
-                    dataCert.setOwner(keyPair.publicKey);
+                    dataCert.setOwner(publicKey);
                 }
             }
 
             if (this.signatureOffloader) {
                 await this.signatureOffloader.sign([dataCert], keyPair);
             }
-            else {
+            else if (keyPair) {
                 dataCert.sign(keyPair);
             }
         }
@@ -314,7 +322,7 @@ export class CertUtil {
      * Do run a verifyLicenseCert afterwards unless all embedded nodes and certs are already verified.
      *
      * @param licenseCertParams the params to populate the cert with.
-     * @param keyPair must be set if signature is not set in licenseCertParams.
+     * @param keyPair must be set if signature is not set in licenseCertParams and if signatureOffloader is not set with default keyPair.
      * @returns license cert, not deep verified.
      * @throws if could not be signed, lacking keyPair when needing to sign.
      */
@@ -322,18 +330,20 @@ export class CertUtil {
         const licenseCert = new LicenseCert();
         licenseCert.setParams(licenseCertParams);
 
-        if (keyPair) {
+        const publicKey = keyPair?.publicKey ?? this.signatureOffloader?.getDefaultPublicKey();
+
+        if (publicKey) {
             if (licenseCert.getOwner() === undefined) {
                 if (!licenseCertParams.cert) {
                     // If no cert is used then automatically set owner.
-                    licenseCert.setOwner(keyPair.publicKey);
+                    licenseCert.setOwner(publicKey);
                 }
             }
 
             if (this.signatureOffloader) {
                 await this.signatureOffloader.sign([licenseCert], keyPair);
             }
-            else {
+            else if (keyPair) {
                 licenseCert.sign(keyPair);
             }
         }

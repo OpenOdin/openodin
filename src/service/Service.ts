@@ -42,7 +42,6 @@ import {
 } from "../storage";
 
 import {
-    KeyPair,
     PrimaryNodeCertInterface,
     AuthCertInterface,
     DataInterface,
@@ -69,6 +68,7 @@ import {
     LocalStorageConfig,
     ConnectionConfig,
     ExposeStorageToApp,
+    HandshakeFactoryFactoryInterface,
 } from "./types";
 
 import {
@@ -120,9 +120,6 @@ const console = PocketConsole({module: "Service"});
  * however when in the running state they might not be modifiable.
  */
 export type ServiceConfig = {
-    /** The cryptographic KeyPair of this side. It is used for handshaking and signing. */
-    keyPair?: KeyPair,
-
     /** Optional AuthCert of this side. It is used to authenticate as another public key. */
     authCert?: AuthCertInterface,
 
@@ -326,6 +323,8 @@ export class Service {
 
     protected signatureOffloader: SignatureOffloader;
 
+    protected handshakeFactoryFactory: HandshakeFactoryFactoryInterface;
+
     protected nodeUtil: NodeUtil;
 
     /** Storage connection factories share socket stats to not make redundant connections. */
@@ -335,10 +334,11 @@ export class Service {
      * @param signatureOffloader already initiated, needed to sign and verify signatures.
      * @param config optional initial config.
      */
-    constructor(signatureOffloader: SignatureOffloader, config?: ServiceConfig) {
+    constructor(signatureOffloader: SignatureOffloader, handshakeFactoryFactory: HandshakeFactoryFactoryInterface, config?: ServiceConfig) {
         this._isRunning = false;
         this.handlers = {};
         this.signatureOffloader = signatureOffloader;
+        this.handshakeFactoryFactory = handshakeFactoryFactory;
         this.nodeUtil = new NodeUtil(this.signatureOffloader);
         this.sharedStorageFactoriesSocketFactoryStats = {counters: {}};
         this.config = config ?? {
@@ -473,13 +473,8 @@ export class Service {
     public async parseConfig(obj: any): Promise<[boolean, string | undefined]> {
         try {
             const autoStartConnections = ParseUtil.ParseVariable("autoStartConnections must be boolean, if set", obj.autoStartConnections, "boolean", true) ?? true;
+
             this.setAutoStartConnections(autoStartConnections);
-            if (obj.keyPair) {
-                const keyPair = ParseUtil.ParseKeyPair(obj.keyPair);
-                if (keyPair) {
-                    this.setKeyPair(keyPair);
-                }
-            }
 
             if (obj.authCert) {
                 const authCert = await ParseUtil.ParseConfigAuthCert(obj.authCert);
@@ -601,30 +596,17 @@ export class Service {
     }
 
     /**
-     * @throws
-     */
-    public setKeyPair(keyPair: KeyPair | undefined) {
-        if (this._isRunning) {
-            throw new Error("Cannot set key pair while running.");
-        }
-        this.config.keyPair = keyPair;
-    }
-
-    public getKeyPair(): KeyPair | undefined {
-        return this.config.keyPair;
-    }
-
-    /**
      * Return the public key of this side.
-     * First the root issuer public key from the Auth Cert,
-     * secondly the public key from the keyPair.
-     * @returns publicKey from authCert or keyPair.
+     * Primarily return the root issuer public key from the Auth Cert,
+     * secondary return the public key from the SignatureOffloader.
+     * @returns publicKey from authCert or SignatureOffloader.
      */
     public getPublicKey(): Buffer | undefined {
         if (this.config.authCert) {
             return this.config.authCert.getIssuerPublicKey();
         }
-        return this.config.keyPair?.publicKey;
+
+        return this.signatureOffloader.getDefaultPublicKey();
     }
 
     /**
@@ -742,8 +724,7 @@ export class Service {
     /**
      * Add connection configuration.
      *
-     * The HandshakeFactoryConfig in the ConnectionConfig will be complemented with keyPair and peerData upon connecting.
-     * KeyPair is configured seperately from connections.
+     * The HandshakeFactoryConfig in the ConnectionConfig will be complemented with peerData upon connecting.
      *
      * If existing storage client and autoStartConnections is true then immediately init the connection factory.
      * @param connectionConfig object
@@ -773,8 +754,7 @@ export class Service {
     /**
      * Add Remote Storage connection configuration.
      *
-     * The HandshakeFactoryConfig in the ConnectionConfig will be complemented with keyPair and peerData upon connecting.
-     * KeyPair is configured seperately from connections.
+     * The HandshakeFactoryConfig in the ConnectionConfig will be complemented with peerData upon connecting.
      *
      * If existing storage client and autoStartConnections is true then immediately init the connection factory.
      * @param connectionConfig object
@@ -847,9 +827,6 @@ export class Service {
      * @throws
      */
     protected async initStorage() {
-        if (!this.config.keyPair) {
-            throw new Error("KeyPair must be set before initializing storage.");
-        }
         if (this.config.localStorage) {
             this.initLocalStorage(this.config.localStorage);
         }
@@ -886,7 +863,7 @@ export class Service {
 
         let remoteProps: PeerProps | undefined;
 
-        const handshakeFactory = new HandshakeFactory(this.makeHandshakeFactoryConfig(config.handshakeFactoryConfig, localProps));
+        const handshakeFactory = this.handshakeFactoryFactory(this.makeHandshakeFactoryConfig(config.handshakeFactoryConfig, localProps));
         this.triggerEvent(EVENTS.CONNECTION_FACTORY_CREATE.name, {handshakeFactory});
         handshakeFactory.onHandshake( async (e: {messaging: Messaging, isServer: boolean, handshakeResult: HandshakeResult}) => {
             try {
@@ -1127,7 +1104,7 @@ export class Service {
         let remoteProps: PeerProps | undefined;
 
         config.handshakeFactoryConfig.socketFactoryConfig.maxConnections = 1;  // Force this for storage connection factories.
-        const handshakeFactory = new HandshakeFactory(this.makeHandshakeFactoryConfig(config.handshakeFactoryConfig, localProps));
+        const handshakeFactory = this.handshakeFactoryFactory(this.makeHandshakeFactoryConfig(config.handshakeFactoryConfig, localProps));
         this.triggerEvent(EVENTS.STORAGE_FACTORY_CREATE.name, {handshakeFactory});
         handshakeFactory.onHandshake( async (e: {messaging: Messaging, isServer: boolean, handshakeResult: HandshakeResult}) => {
             try {
@@ -1334,7 +1311,7 @@ export class Service {
                 embedded: exportedAuthCert,
                 contentType: SPECIAL_NODES.AUTHCERT,
                 refId,
-            }, this.config.keyPair, this.config.nodeCerts);
+            }, undefined, this.config.nodeCerts);
 
         const storeRequest = StorageUtil.CreateStoreRequest({nodes: [dataNode.export()]});
 
@@ -1361,7 +1338,7 @@ export class Service {
      * @param p2pClient
      */
     protected connected(p2pClient: P2PClient) {
-        if (!this.state.storageClient || !this.config.keyPair) {
+        if (!this.state.storageClient) {
             console.debug("Storage not setup properly, closing incoming socket.");
             p2pClient.close();
             return;
@@ -1440,7 +1417,7 @@ export class Service {
         else if (remoteClientType === ConnectionType.EXTENDER_CLIENT) {
             if ((localServerType & ConnectionType.EXTENDER_SERVER) === ConnectionType.EXTENDER_SERVER) {
                 storageExtender = new P2PClientExtender(p2pClient, this.state.storageClient,
-                                                              this.config.keyPair, this.config.nodeCerts,
+                                                              this.config.nodeCerts,
                                                               this.signatureOffloader, muteMsgIds);
                 this.state.extenderServers.push(storageExtender);
                 console.debug("Spawn Extender server.");
@@ -1547,7 +1524,6 @@ export class Service {
 
     /**
      * Create a PeerProps object for this side.
-     * this.config.keyPair is expected to have been set.
      * @param connectionType must be set to the expected and supported connection type(s).
      * @param region set if applicable
      * @param jurisdiction set if applicable
@@ -1559,7 +1535,7 @@ export class Service {
             connectionType,
             version: P2PClient.Version,
             serializeFormat: P2PClient.Formats[0],
-            handshakedPublicKey: this.config.keyPair ? this.config.keyPair.publicKey : Buffer.alloc(0),
+            handshakedPublicKey: this.signatureOffloader.getDefaultPublicKey() ?? Buffer.alloc(0),
             authCert: this.config.authCert,
             authCertPublicKey: this.config.authCert ? this.config.authCert.getIssuerPublicKey() : undefined,
             clock: Date.now(),
@@ -1571,19 +1547,14 @@ export class Service {
 
     /**
      * Create a HandshakeFactoryConfig from a template, ready to be used.
-     * Expects that config.keyPair is set.
      * @param handshakeFactoryConfig the template to complement
      * @param localProps
-     * @returns handshakeFactoryConfig with keyPair and peerData properties set.
+     * @returns handshakeFactoryConfig with peerData properties set.
      * @throws
      */
     protected makeHandshakeFactoryConfig(handshakeFactoryConfig: HandshakeFactoryConfig, localProps: PeerProps): HandshakeFactoryConfig {
-        if (!this.config.keyPair) {
-            throw new Error("KeyPair must be set to create handshake factory config.");
-        }
         // Copy the config to not alter the template object.
         const handshakeFactoryConfig2 = DeepCopy(handshakeFactoryConfig) as HandshakeFactoryConfig;
-        handshakeFactoryConfig2.keyPair = this.config.keyPair;
         handshakeFactoryConfig2.peerData = (/*isServer: boolean*/) => {
             // We need to get a fresh timestamp of when entering the handshake.
             // This is important for the calculated clock skew to be correct.

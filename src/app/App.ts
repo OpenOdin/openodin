@@ -4,6 +4,10 @@ import {
 } from "../service/Service";
 
 import {
+    HandshakeFactoryFactoryInterface,
+} from "../service/types";
+
+import {
     AnyData,
 } from "../p2pclient";
 
@@ -50,8 +54,8 @@ const console = PocketConsole({module: "App"});
 export class App extends Service {
     protected appNodeId1: Buffer | undefined;
 
-    constructor(signatureOffloader: SignatureOffloader, config?: ServiceConfig, appNodeId1?: Buffer) {
-        super(signatureOffloader, config);
+    constructor(signatureOffloader: SignatureOffloader, handshakeFactoryFactory: HandshakeFactoryFactoryInterface, config?: ServiceConfig, appNodeId1?: Buffer) {
+        super(signatureOffloader, handshakeFactoryFactory, config);
         this.appNodeId1 = appNodeId1;
     }
 
