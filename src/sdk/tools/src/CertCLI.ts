@@ -246,27 +246,27 @@ export class CertCLI {
             if (modelType.equals(AuthCert.GetType())) {
                 const authCertParams = ParseUtil.ParseAuthCertParams(paramsObject);
                 console.debug("Parsed AuthCertParams", authCertParams);
-                cert = await certUtil.createAuthCert(authCertParams, keyPair);
+                cert = await certUtil.createAuthCert(authCertParams, keyPair?.publicKey, keyPair?.secretKey);
             }
             else if (modelType.equals(ChainCert.GetType())) {
                 const chainCertParams = ParseUtil.ParseChainCertParams(paramsObject);
                 console.debug("Parsed ChainCertParams", chainCertParams);
-                cert = await certUtil.createChainCert(chainCertParams, keyPair);
+                cert = await certUtil.createChainCert(chainCertParams, keyPair?.publicKey, keyPair?.secretKey);
             }
             else if (modelType.equals(FriendCert.GetType())) {
                 const friendCertParams = ParseUtil.ParseFriendCertParams(paramsObject);
                 console.debug("Parsed FriendCertParams", friendCertParams);
-                cert = await certUtil.createFriendCert(friendCertParams, keyPair);
+                cert = await certUtil.createFriendCert(friendCertParams, keyPair?.publicKey, keyPair?.secretKey);
             }
             else if (modelType.equals(DataCert.GetType())) {
                 const dataCertParams = ParseUtil.ParseDataCertParams(paramsObject);
                 console.debug("Parsed DataCertParams", dataCertParams);
-                cert = await certUtil.createDataCert(dataCertParams, keyPair);
+                cert = await certUtil.createDataCert(dataCertParams, keyPair?.publicKey, keyPair?.secretKey);
             }
             else if (modelType.equals(LicenseCert.GetType())) {
                 const licenseCertParams = ParseUtil.ParseLicenseCertParams(paramsObject);
                 console.debug("Parsed LicenseCertParams", licenseCertParams);
-                cert = await certUtil.createLicenseCert(licenseCertParams, keyPair);
+                cert = await certUtil.createLicenseCert(licenseCertParams, keyPair?.publicKey, keyPair?.secretKey);
             }
             else {
                 throw new Error(`Cannot handle cert of modelType ${modelTypeHex}.`);

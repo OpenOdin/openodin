@@ -13,6 +13,10 @@ import {
     PocketConsole,
 } from "pocket-console";
 
+import {
+    CopyBuffer,
+} from "../../util/common";
+
 const console = PocketConsole({module: "SignatureOffloader"});
 
 type SignaturesCollection = {
@@ -23,8 +27,12 @@ type SignaturesCollection = {
 type ToBeSigned = {
     index: number,
     message: Buffer,
-    keyPair: KeyPair,
+    publicKey: Buffer,
     crypto: string,
+};
+
+type AddKeyPair = {
+    keyPair: KeyPair;
 };
 
 type SignedResult = {
@@ -61,30 +69,30 @@ export class SignatureOffloader {
     protected maxWorkers: number;
     protected cryptoWorkerIndex: number;  // Round robin schema for applying workloads.
 
-    // If set then by default use this keypair to sign with.
-    protected defaultKeyPair?: KeyPair;
+    // Keeping track of the public keys of the keypairs added.
+    protected publicKeys: Buffer[] = [];
 
     /**
-     * @param keyPair if set then sign using this as default keypair.
      * @param workers is the number of worker threads to spawn.
      * Recommended is to set this to the same amount of actual cores in the system.
      */
-    constructor(keyPair?: KeyPair, workers: number = 4) {
+    constructor(workers: number = 4) {
         this.cryptoWorkers = [];
         this.maxWorkers = workers ?? 4;
         this.cryptoWorkerIndex = 0;
-
-        if (keyPair) {
-            this.setDefaultKeyPair(keyPair);
-        }
     }
 
-    public setDefaultKeyPair(keyPair: KeyPair | undefined) {
-        this.defaultKeyPair = keyPair;
+    public async addKeyPair(keyPair: KeyPair): Promise<void> {
+        this.publicKeys.push(CopyBuffer(keyPair.publicKey));
+
+        const promises = this.cryptoWorkers.map( worker => worker.addKeyPair(keyPair) );
+
+        Promise.all(promises);
     }
 
-    public getDefaultPublicKey(): Buffer | undefined {
-        return this.defaultKeyPair?.publicKey;
+    public getPublicKeys(): Buffer[] {
+        // copy
+        return this.publicKeys.map( publicKey => CopyBuffer(publicKey) );
     }
 
     /**
@@ -117,7 +125,7 @@ export class SignatureOffloader {
      * Close must be called when shutting down so threads are terminated.
      */
     public close() {
-        this.cryptoWorkers.forEach( verifier => verifier.close() );
+        this.cryptoWorkers.forEach( worker => worker.close() );
         this.cryptoWorkers = [];
     }
 
@@ -127,17 +135,17 @@ export class SignatureOffloader {
      * function repeatedly with a single node to be signed (if there are multiple nodes to be signed).
      *
      * @param datamodels all data models to be signed in place.
-     * @param keyPair the key pair to be used for signing, if unset then the default keypair must have been set.
+     * @param publicKey the public key used for signing. The key pair must already have been added.
      * @param deepValidate if true (default) then run a deep validation prior to signing,
      * if any datamodel does not validate then abort signing. Note that any signatures are not checked
      * as part of the validaton since this is prior to signing.
      *
      * @throws if threading is not available, validation fails or signing fails, in such case no datamodels will have been signed.
      */
-    public async sign(datamodels: DataModelInterface[], keyPair?: KeyPair, deepValidate: boolean = true) {
-        keyPair = keyPair ?? this.defaultKeyPair;
-
-        assert(keyPair, "expecting keypair to be set in SignatureOffloader");
+    public async sign(datamodels: DataModelInterface[], publicKey: Buffer, deepValidate: boolean = true) {
+        if (!this.publicKeys.some( publicKey2 => publicKey2.equals(publicKey))) {
+            assert(false, "expecting keypair to have been added to SignatureOffloader");
+        }
 
         const toBeSigned: ToBeSigned[] = [];
         const datamodelsLength = datamodels.length;
@@ -150,8 +158,8 @@ export class SignatureOffloader {
             }
 
             // Might throw
-            datamodel.enforceSigningKey(keyPair.publicKey);
-            toBeSigned.push({index, message: datamodel.hash(), keyPair, crypto: datamodel.getCrypto()});
+            datamodel.enforceSigningKey(publicKey);
+            toBeSigned.push({index, message: datamodel.hash(), publicKey, crypto: datamodel.getCrypto()});
         }
 
         // Might throw
@@ -164,7 +172,7 @@ export class SignatureOffloader {
         for (let i=0; i<signatures.length; i++) {
             const {index, signature} = signatures[i];
             const datamodel = datamodels[index];
-            datamodel.addSignature(Buffer.from(signature), keyPair.publicKey);
+            datamodel.addSignature(Buffer.from(signature), publicKey);
             datamodel.setId1(datamodel.calcId1());
         }
     }
@@ -319,10 +327,11 @@ interface CryptoWorkerInterface {
     verify(signaturesCollection: SignaturesCollection[]): Promise<number[]>;
     sign(toBeSigned: ToBeSigned[]): Promise<{index: number, signature: Buffer}[]>;
     close(): void;
+    addKeyPair(keyPair: KeyPair): Promise<void>;
 }
 
 class CryptoWorker implements CryptoWorkerInterface {
-    protected queue: Array<{resolve: (data: any) => void, message: {action: string, data?: SignaturesCollection[] | ToBeSigned[]}}>;
+    protected queue: Array<{resolve: (data: any) => void, message: {action: string, data?: SignaturesCollection[] | ToBeSigned[] | AddKeyPair}}>;
     protected isBusy: boolean;
     protected workerThread?: any;
 
@@ -373,8 +382,16 @@ class CryptoWorker implements CryptoWorkerInterface {
     }
 
     public async sign(toBeSigned: ToBeSigned[]): Promise<SignedResult[]> {
+
         return new Promise( resolve => {
             this.queue.push({resolve, message: {data: toBeSigned, action: "sign"}});
+            this.sendNext();
+        });
+    }
+
+    public async addKeyPair(keyPair: KeyPair): Promise<void> {
+        return new Promise( resolve => {
+            this.queue.push({resolve, message: {data: {keyPair}, action: "addKeyPair"}});
             this.sendNext();
         });
     }

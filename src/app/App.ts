@@ -54,8 +54,8 @@ const console = PocketConsole({module: "App"});
 export class App extends Service {
     protected appNodeId1: Buffer | undefined;
 
-    constructor(signatureOffloader: SignatureOffloader, handshakeFactoryFactory: HandshakeFactoryFactoryInterface, config?: ServiceConfig, appNodeId1?: Buffer) {
-        super(signatureOffloader, handshakeFactoryFactory, config);
+    constructor(publicKey: Buffer, signatureOffloader: SignatureOffloader, handshakeFactoryFactory: HandshakeFactoryFactoryInterface, config?: ServiceConfig, appNodeId1?: Buffer) {
+        super(publicKey, signatureOffloader, handshakeFactoryFactory, config);
         this.appNodeId1 = appNodeId1;
     }
 

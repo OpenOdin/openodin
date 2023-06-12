@@ -29,7 +29,7 @@ describe("certs", function() {
         const creationTime = Date.now();
         const expireTime = creationTime + 1000;
 
-        const certObject = await certUtil.createDataCert({creationTime, expireTime, targetPublicKeys: [keyPair1.publicKey]}, keyPair2);
+        const certObject = await certUtil.createDataCert({creationTime, expireTime, targetPublicKeys: [keyPair1.publicKey]}, keyPair2.publicKey, keyPair2.secretKey);
 
         let val = certObject.validate();
         assert(val[0]);
@@ -44,7 +44,7 @@ describe("certs", function() {
         assert(verified.length === 1);
 
         const parentId = Buffer.alloc(32);
-        const dataNode = await nodeUtil.createDataNode({creationTime, expireTime, parentId, data: Buffer.from("Hello"), owner: keyPair2.publicKey, cert: certObject.export()}, keyPair1, [certObject]);
+        const dataNode = await nodeUtil.createDataNode({creationTime, expireTime, parentId, data: Buffer.from("Hello"), owner: keyPair2.publicKey, cert: certObject.export()}, keyPair1.publicKey, keyPair1.secretKey, [certObject]);
 
         val = dataNode.validate();
         assert(val[0]);
@@ -65,9 +65,9 @@ describe("certs", function() {
         const creationTime = Date.now();
         const expireTime = creationTime + 1000;
 
-        const chainCert1 = await certUtil.createChainCert({creationTime, expireTime, targetPublicKeys: [keyPair1.publicKey], maxChainLength: 2}, keyPair2);
+        const chainCert1 = await certUtil.createChainCert({creationTime, expireTime, targetPublicKeys: [keyPair1.publicKey], maxChainLength: 2}, keyPair2.publicKey, keyPair2.secretKey);
 
-        const dataCert2 = await certUtil.createDataCert({creationTime, expireTime, targetPublicKeys: [keyPair1.publicKey], cert: chainCert1.export(), maxChainLength: 1}, keyPair1);
+        const dataCert2 = await certUtil.createDataCert({creationTime, expireTime, targetPublicKeys: [keyPair1.publicKey], cert: chainCert1.export(), maxChainLength: 1}, keyPair1.publicKey, keyPair1.secretKey);
 
         let val = chainCert1.validate();
         assert(val[0]);
@@ -94,7 +94,7 @@ describe("certs", function() {
         assert(verified.length === 1);
 
         const parentId = Buffer.alloc(32);
-        const dataNode = await nodeUtil.createDataNode({creationTime, expireTime, parentId, data: Buffer.from("Hello"), cert: dataCert2.export(), owner: keyPair2.publicKey}, keyPair1, [dataCert2]);
+        const dataNode = await nodeUtil.createDataNode({creationTime, expireTime, parentId, data: Buffer.from("Hello"), cert: dataCert2.export(), owner: keyPair2.publicKey}, keyPair1.publicKey, keyPair1.secretKey, [dataCert2]);
 
         val = dataNode.validate();
         assert(val[0]);
@@ -118,7 +118,7 @@ describe("certs", function() {
         const keyPair1b = Node.GenKeyPair();
         const keyPair1c = Node.GenKeyPair();
 
-        const chainCert1 = await certUtil.createChainCert({creationTime, expireTime, targetPublicKeys: [keyPair1.publicKey], maxChainLength: 2}, keyPair2);
+        const chainCert1 = await certUtil.createChainCert({creationTime, expireTime, targetPublicKeys: [keyPair1.publicKey], maxChainLength: 2}, keyPair2.publicKey, keyPair2.secretKey);
 
         let val = chainCert1.validate();
         assert(val[0]);
@@ -126,10 +126,10 @@ describe("certs", function() {
         let status = chainCert1.verify();
         assert(status);
 
-        const dataCert2 = await certUtil.createDataCert({creationTime, expireTime, targetPublicKeys: [keyPair1b.publicKey, keyPair1c.publicKey], cert: chainCert1.export(), maxChainLength: 1, multiSigThreshold: 2}, keyPair1);
+        const dataCert2 = await certUtil.createDataCert({creationTime, expireTime, targetPublicKeys: [keyPair1b.publicKey, keyPair1c.publicKey], cert: chainCert1.export(), maxChainLength: 1, multiSigThreshold: 2}, keyPair1.publicKey, keyPair1.secretKey);
 
         const parentId = Buffer.alloc(32);
-        const dataNode = await nodeUtil.createDataNode({creationTime, expireTime, parentId, data: Buffer.from("Hello"), cert: dataCert2.export(), owner: keyPair2.publicKey});
+        const dataNode = await nodeUtil.createDataNode({creationTime, expireTime, parentId, data: Buffer.from("Hello"), cert: dataCert2.export(), owner: keyPair2.publicKey}, keyPair2.publicKey);
 
         let publicKeys = dataNode.getEligibleSigningPublicKeys(true);
         assert(publicKeys.length === 2);

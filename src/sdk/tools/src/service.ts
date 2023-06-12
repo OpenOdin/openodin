@@ -31,11 +31,13 @@ async function main(config: any) {
 
     const handshakeFactoryFactory = CreateHandshakeFactoryFactory(keyPair);
 
-    const signatureOffloader = new SignatureOffloader(keyPair);
+    const signatureOffloader = new SignatureOffloader();
 
     await signatureOffloader.init();
 
-    const service = new Service(signatureOffloader, handshakeFactoryFactory);
+    await signatureOffloader.addKeyPair(keyPair);
+
+    const service = new Service(keyPair.publicKey, signatureOffloader, handshakeFactoryFactory);
 
     const [stat, err] = await service.parseConfig(config);
 

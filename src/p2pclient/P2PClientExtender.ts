@@ -42,13 +42,15 @@ const console = PocketConsole({module: "P2PClientExtender"});
 export class P2PClientExtender extends P2PClientForwarder {
     protected nodeCerts: PrimaryNodeCertInterface[];
     protected signatureOffloader: SignatureOffloader;
+    protected publicKey: Buffer;
 
     /**
      * @param signatureOffloader is required to have a default keypair set for signing nodes.
      */
-    constructor(senderClient: P2PClient, targetClient: P2PClient, nodeCerts: PrimaryNodeCertInterface[], signatureOffloader: SignatureOffloader, muteMsgIds?: Buffer[]) {
+    constructor(senderClient: P2PClient, targetClient: P2PClient, publicKey: Buffer, nodeCerts: PrimaryNodeCertInterface[], signatureOffloader: SignatureOffloader, muteMsgIds?: Buffer[]) {
         super(senderClient, targetClient, muteMsgIds);
 
+        this.publicKey = publicKey;
         this.nodeCerts = [];
         this.setNodeCerts(nodeCerts);
         this.signatureOffloader = signatureOffloader;
@@ -147,15 +149,13 @@ export class P2PClientExtender extends P2PClientForwarder {
                     continue;
                 }
 
-                const publicKey = this.signatureOffloader.getDefaultPublicKey();
-
-                if (publicKey && !clientPublicKey.equals(publicKey) && embeddingNode.getOwner()?.equals(clientPublicKey)) {
+                if (!clientPublicKey.equals(this.publicKey) && embeddingNode.getOwner()?.equals(clientPublicKey)) {
                     // We need to sign using a cert
                     if (!this.nodeCerts) {
                         // No certs provided, we can't sign
                         continue;
                     }
-                    const cert = Decoder.MatchNodeCert(embeddingNode, publicKey, this.nodeCerts);
+                    const cert = Decoder.MatchNodeCert(embeddingNode, this.publicKey, this.nodeCerts);
                     if (!cert) {
                         // No matching cert to sign it
                         continue;
@@ -166,7 +166,7 @@ export class P2PClientExtender extends P2PClientForwarder {
 
                 // We sign the new node, but we do not deep verify the stack of nodes at this point
                 // because we trust the storage has already done that.
-                await this.signatureOffloader.sign([embeddingNode]);
+                await this.signatureOffloader.sign([embeddingNode], this.publicKey);
 
                 const image = embeddingNode.export();
 

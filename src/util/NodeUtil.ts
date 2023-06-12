@@ -17,6 +17,10 @@ import {
     PRIMARY_INTERFACE_NODE_ID,
 } from "../datamodel";
 
+import {
+    CopyBuffer,
+} from "./common";
+
 export class NodeUtil {
     protected signatureOffloader?: SignatureOffloader;
 
@@ -48,11 +52,12 @@ export class NodeUtil {
      * Note that if using embedded nodes or certs those are expected to already have been verified at this point,
      * to make sure run a verify on the returned node.
      * @param params object of data attributes to set on the Data Node.
-     * @param keyPair if provided then sign using this key pair.
+     * @param publicKey signer. Key pair should have been added to SignatureOffloader.
+     * @param secretKey if provided then sign directly using this key pair instead of using SignatureOffloader.
      * @returns new data node as DataInterface.
      * @throws on malformed data or if signing fails.
      */
-    public async createDataNode(params: DataParams, keyPair?: KeyPair, nodeCerts?: PrimaryNodeCertInterface[]): Promise<DataInterface> {
+    public async createDataNode(params: DataParams, publicKey?: Buffer, secretKey?: Buffer, nodeCerts?: PrimaryNodeCertInterface[]): Promise<DataInterface> {
         // Set some defaults
         params.creationTime = params.creationTime ?? Date.now();
         if (params.parentId === undefined) {
@@ -61,33 +66,33 @@ export class NodeUtil {
 
         const node = new Data();
 
-        if (!params.owner && keyPair) {
-            params.owner = keyPair.publicKey;
+        if (publicKey && !params.owner) {
+            params.owner = CopyBuffer(publicKey);
         }
 
         node.setParams(params);
 
-        const publicKey = keyPair?.publicKey ?? this.signatureOffloader?.getDefaultPublicKey();
+        if (publicKey) {
+            // Check if a signing cert is required.
+            if (!params.owner?.equals(publicKey)) {
+                if (!nodeCerts) {
+                    throw new Error("Missing node certs.");
+                }
 
-        // Check if a signing cert is required.
-        if (publicKey && !params.owner?.equals(publicKey)) {
-            if (!nodeCerts) {
-                throw new Error("Missing node certs.");
+                const nodeCert = Decoder.MatchNodeCert(node, publicKey, nodeCerts);
+                if (!nodeCert) {
+                    throw new Error("Could not find matching data node signing cert.");
+                }
+
+                node.setCertObject(nodeCert as DataCertInterface);
             }
 
-            const nodeCert = Decoder.MatchNodeCert(node, publicKey, nodeCerts);
-            if (!nodeCert) {
-                throw new Error("Could not find matching data node signing cert.");
+            if (secretKey) {
+                node.sign({publicKey, secretKey});
             }
-
-            node.setCertObject(nodeCert as DataCertInterface);
-        }
-
-        if (this.signatureOffloader) {
-            await this.signatureOffloader.sign([node], keyPair);
-        }
-        else if (keyPair) {
-            node.sign(keyPair);
+            else if (this.signatureOffloader) {
+                await this.signatureOffloader.sign([node], publicKey);
+            }
         }
 
         return node;
@@ -101,11 +106,12 @@ export class NodeUtil {
      * Note that if using embedded nodes or certs those are expected to have been verified at this point,
      * to make sure run a verify on the returned node.
      * @param params object of data attributes to set on the License Node.
-     * @param keyPair if provided then sign using this key pair.
+     * @param publicKey signer. Key pair should have been added to SignatureOffloader.
+     * @param secretKey if provided then sign directly using this key pair instead of using SignatureOffloader.
      * @returns signed license node interface.
-     * @throws on malformed data of if signing fails.
+     * @throws on malformed data or if signing fails.
      */
-    public async createLicenseNode(params: LicenseParams, keyPair?: KeyPair, nodeCerts?: PrimaryNodeCertInterface[]): Promise<LicenseInterface> {
+    public async createLicenseNode(params: LicenseParams, publicKey?: Buffer, secretKey?: Buffer, nodeCerts?: PrimaryNodeCertInterface[]): Promise<LicenseInterface> {
         // Set some defaults
         params.creationTime = params.creationTime ?? Date.now();
         params.expireTime = params.expireTime ?? params.creationTime + 3600 * 1000;
@@ -115,31 +121,31 @@ export class NodeUtil {
 
         const license = new License();
 
-        if (!params.owner && keyPair) {
-            params.owner = keyPair.publicKey;
+        if (publicKey && !params.owner) {
+            params.owner = CopyBuffer(publicKey);
         }
 
         license.setParams(params);
 
-        const publicKey = keyPair?.publicKey ?? this.signatureOffloader?.getDefaultPublicKey();
-
-        // Check if a signing cert is required.
-        if (publicKey && !params.owner?.equals(publicKey)) {
-            if (!nodeCerts) {
-                throw new Error("Missing node certs");
+        if (publicKey) {
+            // Check if a signing cert is required.
+            if (!params.owner?.equals(publicKey)) {
+                if (!nodeCerts) {
+                    throw new Error("Missing node certs");
+                }
+                const nodeCert = Decoder.MatchNodeCert(license, publicKey, nodeCerts);
+                if (!nodeCert) {
+                    throw new Error("Could not find matching license node signing cert");
+                }
+                license.setCertObject(nodeCert as LicenseCertInterface);
             }
-            const nodeCert = Decoder.MatchNodeCert(license, publicKey, nodeCerts);
-            if (!nodeCert) {
-                throw new Error("Could not find matching license node signing cert");
-            }
-            license.setCertObject(nodeCert as LicenseCertInterface);
-        }
 
-        if (this.signatureOffloader) {
-            await this.signatureOffloader.sign([license], keyPair);
-        }
-        else if (keyPair) {
-            license.sign(keyPair);
+            if (secretKey) {
+                license.sign({publicKey, secretKey});
+            }
+            else if (this.signatureOffloader) {
+                await this.signatureOffloader.sign([license], publicKey);
+            }
         }
 
         return license;

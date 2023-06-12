@@ -184,15 +184,14 @@ export class CertUtil {
      * Do run a verifyAuthCert afterwards unless all embedded nodes and certs are already verified.
      *
      * @param authCertParams the params to populate the cert with.
-     * @param keyPair must be set if signature is not set in authCertParams and if signatureOffloader is not set with default keyPair.
+     * @param publicKey signer. Key pair should have been added to SignatureOffloader.
+     * @param secretKey if provided then sign directly using this key pair instead of using SignatureOffloader.
      * @returns auth cert, not deep verified.
-     * @throws if could not be signed, lacking keyPair when needing to sign.
+     * @throws if could not be signed
      */
-    public async createAuthCert(authCertParams: AuthCertParams, keyPair?: KeyPair): Promise<AuthCert> {
+    public async createAuthCert(authCertParams: AuthCertParams, publicKey?: Buffer, secretKey?: Buffer): Promise<AuthCert> {
         const authCert = new AuthCert();
         authCert.setParams(authCertParams);
-
-        const publicKey = keyPair?.publicKey ?? this.signatureOffloader?.getDefaultPublicKey();
 
         if (publicKey) {
             if (authCert.getOwner() === undefined) {
@@ -202,11 +201,11 @@ export class CertUtil {
                 }
             }
 
-            if (this.signatureOffloader) {
-                await this.signatureOffloader.sign([authCert], keyPair);
+            if (secretKey) {
+                authCert.sign({publicKey, secretKey});
             }
-            else if (keyPair) {
-                authCert.sign(keyPair);
+            else if (this.signatureOffloader) {
+                await this.signatureOffloader.sign([authCert], publicKey);
             }
         }
 
@@ -216,19 +215,18 @@ export class CertUtil {
     /**
      * Create and populate ChainCert with given parameters, optionally sign it.
      * Do run a verifyChainCert afterwards unless all embedded nodes and certs are already verified.
-     * Note that not fully signed certs can be returned if not providing keyPair.
-     * For multisig certs feed the returned cert back as params with the next keyPair.
+     * Note that not fully signed certs can be returned if not providing publicKey.
+     * For multisig certs feed the returned cert back as params with the next publicKey.
      *
      * @param chainCertParams the params to populate the cert with.
-     * @param keyPair must be set if a signature should be added and if signatureOffloader is not set with default keyPair.
+     * @param publicKey signer. Key pair should have been added to SignatureOffloader.
+     * @param secretKey if provided then sign directly using this key pair instead of using SignatureOffloader.
      * @returns chain cert, not deep verified, possibly signed.
-     * @throws if signing fails.
+     * @throws if could not be signed
      */
-    public async createChainCert(chainCertParams: ChainCertParams, keyPair?: KeyPair): Promise<ChainCert> {
+    public async createChainCert(chainCertParams: ChainCertParams, publicKey?: Buffer, secretKey?: Buffer): Promise<ChainCert> {
         const chainCert = new ChainCert();
         chainCert.setParams(chainCertParams);
-
-        const publicKey = keyPair?.publicKey ?? this.signatureOffloader?.getDefaultPublicKey();
 
         if (publicKey) {
             if (chainCert.getOwner() === undefined) {
@@ -238,11 +236,11 @@ export class CertUtil {
                 }
             }
 
-            if (this.signatureOffloader) {
-                await this.signatureOffloader.sign([chainCert], keyPair);
+            if (secretKey) {
+                chainCert.sign({publicKey, secretKey});
             }
-            else if (keyPair) {
-                chainCert.sign(keyPair);
+            else if (this.signatureOffloader) {
+                await this.signatureOffloader.sign([chainCert], publicKey);
             }
         }
 
@@ -254,15 +252,14 @@ export class CertUtil {
      * Do run a verifyFriendCert afterwards unless all embedded nodes and certs are already verified.
      *
      * @param friendCertParams the params to populate the cert with.
-     * @param keyPair must be set if signature is not set in friendCertParams and if signatureOffloader is not set with default keyPair.
+     * @param publicKey signer. Key pair should have been added to SignatureOffloader.
+     * @param secretKey if provided then sign directly using this key pair instead of using SignatureOffloader.
      * @returns friend cert, not deep verified.
-     * @throws if could not be signed, lacking keyPair when needing to sign.
+     * @throws if could not be signed
      */
-    public async createFriendCert(friendCertParams: FriendCertParams, keyPair?: KeyPair): Promise<FriendCert> {
+    public async createFriendCert(friendCertParams: FriendCertParams, publicKey?: Buffer, secretKey?: Buffer): Promise<FriendCert> {
         const friendCert = new FriendCert();
         friendCert.setParams(friendCertParams);
-
-        const publicKey = keyPair?.publicKey ?? this.signatureOffloader?.getDefaultPublicKey();
 
         if (publicKey) {
             if (friendCert.getOwner() === undefined) {
@@ -272,11 +269,11 @@ export class CertUtil {
                 }
             }
 
-            if (this.signatureOffloader) {
-                await this.signatureOffloader.sign([friendCert], keyPair);
+            if (secretKey) {
+                friendCert.sign({publicKey, secretKey});
             }
-            else if (keyPair) {
-                friendCert.sign(keyPair);
+            else if (this.signatureOffloader) {
+                await this.signatureOffloader.sign([friendCert], publicKey);
             }
         }
 
@@ -288,15 +285,14 @@ export class CertUtil {
      * Do run a verifyDataCert afterwards unless all embedded nodes and certs are already verified.
      *
      * @param dataCertParams the params to populate the cert with.
-     * @param keyPair must be set if signature is not set in dataCertParams and if signatureOffloader is not set with default keyPair.
+     * @param publicKey signer. Key pair should have been added to SignatureOffloader.
+     * @param secretKey if provided then sign directly using this key pair instead of using SignatureOffloader.
      * @returns data cert, not deep verified.
-     * @throws if could not be signed, lacking keyPair when needing to sign.
+     * @throws if could not be signed
      */
-    public async createDataCert(dataCertParams: DataCertParams, keyPair?: KeyPair): Promise<DataCert> {
+    public async createDataCert(dataCertParams: DataCertParams, publicKey?: Buffer, secretKey?: Buffer): Promise<DataCert> {
         const dataCert = new DataCert();
         dataCert.setParams(dataCertParams);
-
-        const publicKey = keyPair?.publicKey ?? this.signatureOffloader?.getDefaultPublicKey();
 
         if (publicKey) {
             if (dataCert.getOwner() === undefined) {
@@ -306,11 +302,11 @@ export class CertUtil {
                 }
             }
 
-            if (this.signatureOffloader) {
-                await this.signatureOffloader.sign([dataCert], keyPair);
+            if (secretKey) {
+                dataCert.sign({publicKey, secretKey});
             }
-            else if (keyPair) {
-                dataCert.sign(keyPair);
+            else if (this.signatureOffloader) {
+                await this.signatureOffloader.sign([dataCert], publicKey);
             }
         }
 
@@ -322,15 +318,14 @@ export class CertUtil {
      * Do run a verifyLicenseCert afterwards unless all embedded nodes and certs are already verified.
      *
      * @param licenseCertParams the params to populate the cert with.
-     * @param keyPair must be set if signature is not set in licenseCertParams and if signatureOffloader is not set with default keyPair.
+     * @param publicKey signer. Key pair should have been added to SignatureOffloader.
+     * @param secretKey if provided then sign directly using this key pair instead of using SignatureOffloader.
      * @returns license cert, not deep verified.
-     * @throws if could not be signed, lacking keyPair when needing to sign.
+     * @throws if could not be signed
      */
-    public async createLicenseCert(licenseCertParams: LicenseCertParams, keyPair?: KeyPair): Promise<LicenseCert> {
+    public async createLicenseCert(licenseCertParams: LicenseCertParams, publicKey?: Buffer, secretKey?: Buffer): Promise<LicenseCert> {
         const licenseCert = new LicenseCert();
         licenseCert.setParams(licenseCertParams);
-
-        const publicKey = keyPair?.publicKey ?? this.signatureOffloader?.getDefaultPublicKey();
 
         if (publicKey) {
             if (licenseCert.getOwner() === undefined) {
@@ -340,11 +335,11 @@ export class CertUtil {
                 }
             }
 
-            if (this.signatureOffloader) {
-                await this.signatureOffloader.sign([licenseCert], keyPair);
+            if (secretKey) {
+                licenseCert.sign({publicKey, secretKey});
             }
-            else if (keyPair) {
-                licenseCert.sign(keyPair);
+            else if (this.signatureOffloader) {
+                await this.signatureOffloader.sign([licenseCert], publicKey);
             }
         }
 

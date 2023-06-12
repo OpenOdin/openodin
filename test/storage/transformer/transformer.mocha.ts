@@ -18,8 +18,8 @@ async function testSorted(algoSorted: AlgoInterface) {
 
     const keyPair = Node.GenKeyPair();
 
-    const node1 = await nodeUtil.createDataNode({creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair);
-    const node1copy = await nodeUtil.createDataNode({creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair);
+    const node1 = await nodeUtil.createDataNode({creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+    const node1copy = await nodeUtil.createDataNode({creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
     node1copy.setDynamicSelfActive();
 
     let [addedNodes, transientNodes] = algoSorted.add([node1]);
@@ -41,7 +41,7 @@ async function testSorted(algoSorted: AlgoInterface) {
 
 
 
-    const node2 = await nodeUtil.createDataNode({creationTime: 11, parentId: Buffer.alloc(32).fill(1)}, keyPair);
+    const node2 = await nodeUtil.createDataNode({creationTime: 11, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
 
     [addedNodes, transientNodes] = algoSorted.add([node2]);
     assert(addedNodes.length === 1);
@@ -56,7 +56,7 @@ async function testSorted(algoSorted: AlgoInterface) {
 
     assert.throws( () => algoSorted.getIndexes([node2, node1copy]) );
 
-    const node3 = await nodeUtil.createDataNode({creationTime: 12, parentId: Buffer.alloc(32).fill(1)}, keyPair);
+    const node3 = await nodeUtil.createDataNode({creationTime: 12, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
     [addedNodes, transientNodes] = algoSorted.add([node3, node1]);
     assert(addedNodes.length === 2);
     assert(transientNodes.length === 0);
@@ -194,9 +194,9 @@ describe("Transformer AlgoRefId", function() {
 
         const keyPair = Node.GenKeyPair();
 
-        const node1 = await nodeUtil.createDataNode({creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair);
-        const node1_1 = await nodeUtil.createDataNode({creationTime: 9, refId: node1.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair);
-        const node1_1_1 = await nodeUtil.createDataNode({creationTime: 0, refId: node1_1.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair);
+        const node1 = await nodeUtil.createDataNode({creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+        const node1_1 = await nodeUtil.createDataNode({creationTime: 9, refId: node1.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+        const node1_1_1 = await nodeUtil.createDataNode({creationTime: 0, refId: node1_1.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
 
         let [addedNodes, transientNodes] = algo.add([node1, node1_1, node1_1_1]);
         assert(addedNodes.length === 3);
@@ -209,8 +209,8 @@ describe("Transformer AlgoRefId", function() {
         assert(indexes[2] === 2);
 
 
-        const node0 = await nodeUtil.createDataNode({creationTime: 9, parentId: Buffer.alloc(32).fill(1)}, keyPair);
-        const node0_1 = await nodeUtil.createDataNode({creationTime: 120, refId: node0.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair);
+        const node0 = await nodeUtil.createDataNode({creationTime: 9, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+        const node0_1 = await nodeUtil.createDataNode({creationTime: 120, refId: node0.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
 
 
         // Insert orphan

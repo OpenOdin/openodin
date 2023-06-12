@@ -784,7 +784,7 @@ function setupTests(config: any) {
             parentId,
             expireTime: now + 10000,
             creationTime: now,
-        }, keyPair1);
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         assert(node1.getSignature());
 
@@ -792,21 +792,21 @@ function setupTests(config: any) {
             parentId,
             expireTime: now + 10000,
             creationTime: now,
-        }, keyPair2);
+        }, keyPair2.publicKey, keyPair2.secretKey);
 
         const node2b = await nodeUtil.createDataNode({
             parentId,
             expireTime: now - 100,
             creationTime: now - 1000,
             isPublic: true,
-        }, keyPair2);
+        }, keyPair2.publicKey, keyPair2.secretKey);
 
         const node2c = await nodeUtil.createDataNode({
             parentId,
             expireTime: now + 10000,
             creationTime: now + 1,
             isPublic: true,
-        }, keyPair2);
+        }, keyPair2.publicKey, keyPair2.secretKey);
 
         nodes.push(node1.export(), node2.export(), node2b.export(), node2c.export());
 
@@ -922,7 +922,7 @@ function setupTests(config: any) {
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
-        }, keyPair2);
+        }, keyPair2.publicKey, keyPair2.secretKey);
 
         nodes.push(node2.export());
 
@@ -946,7 +946,7 @@ function setupTests(config: any) {
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
-        }, keyPair2);
+        }, keyPair2.publicKey, keyPair2.secretKey);
 
         nodes.length = 0;
         nodes.push(node2b.export());
@@ -976,7 +976,7 @@ function setupTests(config: any) {
             expireTime: now + 10002,
             creationTime: now,
             isPublic: true,
-        }, keyPair2);
+        }, keyPair2.publicKey, keyPair2.secretKey);
 
         nodes.push(node3.export());
 
@@ -1003,7 +1003,7 @@ function setupTests(config: any) {
             expireTime: now + 10001,
             creationTime: now + 1,
             isPublic: true,
-        }, keyPair2);
+        }, keyPair2.publicKey, keyPair2.secretKey);
 
         nodes.length = 0;
         nodes.push(node2c.export());
@@ -1035,7 +1035,7 @@ function setupTests(config: any) {
             expireTime: now + 10003,
             creationTime: now,
             isPublic: true,
-        }, keyPair2);
+        }, keyPair2.publicKey, keyPair2.secretKey);
 
         nodes.push(node2d.export());
 
@@ -1073,7 +1073,7 @@ function setupTests(config: any) {
             expireTime: now + 10004,
             creationTime: now,
             isPublic: true,
-        }, keyPair2);
+        }, keyPair2.publicKey, keyPair2.secretKey);
 
         nodes.push(node2e.export());
 
@@ -1169,7 +1169,7 @@ function setupTests(config: any) {
             expireTime: now + 10004,
             creationTime: now,
             isPublic: true,
-        }, keyPair1);
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         const node2 = await nodeUtil.createDataNode({
             parentId,
@@ -1178,7 +1178,7 @@ function setupTests(config: any) {
             isPublic: true,
             blobHash,
             blobLength,
-        }, keyPair1);
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         const node3 = await nodeUtil.createDataNode({
             parentId,
@@ -1187,7 +1187,7 @@ function setupTests(config: any) {
             isPublic: true,
             blobHash,
             blobLength,
-        }, keyPair1);
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         let storeRequest = {
             clientPublicKey,
@@ -1385,7 +1385,7 @@ function setupTests(config: any) {
             isLicensed: true,
             blobHash,
             blobLength,
-        }, keyPair1);
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         const license1 = await nodeUtil.createLicenseNode({
             parentId,
@@ -1393,7 +1393,7 @@ function setupTests(config: any) {
             targetPublicKey: keyPair2.publicKey,
             expireTime: now + 10000,
             creationTime: now,
-        }, keyPair1);
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
 
         const node2 = await nodeUtil.createDataNode({
@@ -1403,7 +1403,7 @@ function setupTests(config: any) {
             isLicensed: true,
             blobHash,
             blobLength,
-        }, keyPair2);
+        }, keyPair2.publicKey, keyPair2.secretKey);
 
         const license2 = await nodeUtil.createLicenseNode({
             parentId,
@@ -1411,7 +1411,7 @@ function setupTests(config: any) {
             targetPublicKey: keyPair1.publicKey,
             expireTime: now + 10000,
             creationTime: now,
-        }, keyPair2);
+        }, keyPair2.publicKey, keyPair2.secretKey);
 
 
         assert(license1.isLicenseTo(node1, keyPair1.publicKey, keyPair2.publicKey));

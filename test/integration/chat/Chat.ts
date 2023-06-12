@@ -33,11 +33,11 @@ class Chat extends App {
     protected onMessage: Function;
     protected onBlob?: Function;
 
-    constructor(signatureOffloader: SignatureOffloader,
+    constructor(publicKey: Buffer, signatureOffloader: SignatureOffloader,
         handshakeFactoryFactory: HandshakeFactoryFactoryInterface,
         console: any, onMessage: Function, onBlob?: Function) {
 
-        super(signatureOffloader, handshakeFactoryFactory);
+        super(publicKey, signatureOffloader, handshakeFactoryFactory);
 
         this.console = console;
         this.onMessage = onMessage;
@@ -70,8 +70,8 @@ class Chat extends App {
 
         const nodeCerts = this.getNodeCerts();
 
-        const dataNode = await this.nodeUtil.createDataNode({owner: publicKey, isLicensed: true, data: Buffer.from(message), blobHash, blobLength}, undefined, nodeCerts);
-        const licenseNode = await this.nodeUtil.createLicenseNode({nodeId1: dataNode.getId1(), owner: publicKey, extensions: 2, targetPublicKey: publicKey}, undefined, nodeCerts);
+        const dataNode = await this.nodeUtil.createDataNode({owner: publicKey, isLicensed: true, data: Buffer.from(message), blobHash, blobLength}, publicKey, undefined, nodeCerts);
+        const licenseNode = await this.nodeUtil.createLicenseNode({nodeId1: dataNode.getId1(), owner: publicKey, extensions: 2, targetPublicKey: publicKey}, publicKey, undefined, nodeCerts);
 
         const nodes = [dataNode, licenseNode];
 
@@ -145,11 +145,13 @@ async function main() {
     const keyPair1 = ParseUtil.ParseKeyPair(serverConfig.keyPair);
     const keyPair2 = ParseUtil.ParseKeyPair(clientConfig.keyPair);
 
-    const signatureOffloader1 = new SignatureOffloader(keyPair1);
+    const signatureOffloader1 = new SignatureOffloader();
     await signatureOffloader1.init();
+    await signatureOffloader1.addKeyPair(keyPair1);
 
-    const signatureOffloader2 = new SignatureOffloader(keyPair2);
+    const signatureOffloader2 = new SignatureOffloader();
     await signatureOffloader2.init();
+    await signatureOffloader2.addKeyPair(keyPair2);
 
     const handshakeFactoryFactory1 = CreateHandshakeFactoryFactory(keyPair1);
     const handshakeFactoryFactory2 = CreateHandshakeFactoryFactory(keyPair2);
@@ -183,7 +185,7 @@ async function main() {
 
     const consoleServer = PocketConsole({module: "Server"});
 
-    const chatServer = new Chat(signatureOffloader1, handshakeFactoryFactory1, consoleServer, (message: string) => {
+    const chatServer = new Chat(keyPair1.publicKey, signatureOffloader1, handshakeFactoryFactory1, consoleServer, (message: string) => {
         consoleServer.info(message);
         checkToQuit();
     }, async (blobEvent: BlobEvent) => {
@@ -236,7 +238,7 @@ async function main() {
     consoleMain.info("Init Chat Client");
     const consoleClient = PocketConsole({module: "Client"});
 
-    const chatClient = new Chat(signatureOffloader2, handshakeFactoryFactory2, consoleClient, (message: string) => {
+    const chatClient = new Chat(keyPair2.publicKey, signatureOffloader2, handshakeFactoryFactory2, consoleClient, (message: string) => {
         consoleClient.info(message);
         checkToQuit();
     });

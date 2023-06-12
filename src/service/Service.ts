@@ -82,6 +82,7 @@ import {
     DeepEquals,
     sleep,
     PromiseCallback,
+    CopyBuffer,
 } from "../util/common";
 
 import {
@@ -331,12 +332,20 @@ export class Service {
     protected sharedStorageFactoriesSocketFactoryStats: SocketFactoryStats;
 
     /**
+     * The cryptographic public key of the user running the Service.
+     * The key pair must have been added to the SignatureOffloader.
+     */
+    protected publicKey: Buffer;
+
+    /**
+     * @param publicKey the key used to sign. The matching keypair must alreadey have been added to the SignatureOffloader.
      * @param signatureOffloader already initiated, needed to sign and verify signatures.
      * @param config optional initial config.
      */
-    constructor(signatureOffloader: SignatureOffloader, handshakeFactoryFactory: HandshakeFactoryFactoryInterface, config?: ServiceConfig) {
+    constructor(publicKey: Buffer, signatureOffloader: SignatureOffloader, handshakeFactoryFactory: HandshakeFactoryFactoryInterface, config?: ServiceConfig) {
         this._isRunning = false;
         this.handlers = {};
+        this.publicKey = CopyBuffer(publicKey);
         this.signatureOffloader = signatureOffloader;
         this.handshakeFactoryFactory = handshakeFactoryFactory;
         this.nodeUtil = new NodeUtil(this.signatureOffloader);
@@ -606,7 +615,7 @@ export class Service {
             return this.config.authCert.getIssuerPublicKey();
         }
 
-        return this.signatureOffloader.getDefaultPublicKey();
+        return CopyBuffer(this.publicKey);
     }
 
     /**
@@ -1311,7 +1320,7 @@ export class Service {
                 embedded: exportedAuthCert,
                 contentType: SPECIAL_NODES.AUTHCERT,
                 refId,
-            }, undefined, this.config.nodeCerts);
+            }, this.publicKey, undefined, this.config.nodeCerts);
 
         const storeRequest = StorageUtil.CreateStoreRequest({nodes: [dataNode.export()]});
 
@@ -1416,7 +1425,7 @@ export class Service {
         }
         else if (remoteClientType === ConnectionType.EXTENDER_CLIENT) {
             if ((localServerType & ConnectionType.EXTENDER_SERVER) === ConnectionType.EXTENDER_SERVER) {
-                storageExtender = new P2PClientExtender(p2pClient, this.state.storageClient,
+                storageExtender = new P2PClientExtender(p2pClient, this.state.storageClient, this.publicKey,
                                                               this.config.nodeCerts,
                                                               this.signatureOffloader, muteMsgIds);
                 this.state.extenderServers.push(storageExtender);
@@ -1532,7 +1541,7 @@ export class Service {
             connectionType,
             version: P2PClient.Version,
             serializeFormat: P2PClient.Formats[0],
-            handshakedPublicKey: this.signatureOffloader.getDefaultPublicKey() ?? Buffer.alloc(0),
+            handshakedPublicKey: CopyBuffer(this.publicKey ?? Buffer.alloc(0)),
             authCert: this.config.authCert,
             authCertPublicKey: this.config.authCert ? this.config.authCert.getIssuerPublicKey() : undefined,
             clock: Date.now(),

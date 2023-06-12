@@ -181,7 +181,7 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
             isLicensed: true,
             blobHash,
             blobLength,
-        }, keyPair1);
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         let storeRequest: StoreRequest = {
             clientPublicKey: keyPair1.publicKey,
@@ -244,7 +244,7 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
             targetPublicKey: keyPair1.publicKey,
             expireTime: now + 10000,
             creationTime: now,
-        }, keyPair1);
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         storeRequest = {
             clientPublicKey: keyPair1.publicKey,
