@@ -48,6 +48,7 @@ import {
 import {
     CopyBuffer,
     DeepHash,
+    DeepCopy,
 } from "../util/common";
 
 import {
@@ -167,11 +168,11 @@ export class P2PClient {
             throw new Error(`Peer clock is too much off relatively to our clock. Our clock=${localProps.clock}, remote clock=${remoteProps.clock}, skew=${clockSkew} ms`);
         }
 
-        this.localProps = localProps;
-        this.remoteProps = remoteProps;
+        this.localProps = DeepCopy(localProps);
+        this.remoteProps = DeepCopy(remoteProps);
 
         // Default permissions are locked down.
-        this.permissions = permissions ?? LOCKED_PERMISSIONS;
+        this.permissions = DeepCopy(permissions ?? LOCKED_PERMISSIONS);
 
         const eventEmitter = this.messaging.getEventEmitter();
         eventEmitter.on(EventType.CLOSE, this.close);

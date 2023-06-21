@@ -872,8 +872,16 @@ export class Service {
 
         let remoteProps: PeerProps | undefined;
 
-        const handshakeFactory = this.handshakeFactoryFactory(this.makeHandshakeFactoryConfig(config.handshakeFactoryConfig, localProps));
+        const handshakeFactory = this.handshakeFactoryFactory(
+            this.makeHandshakeFactoryConfig(config.handshakeFactoryConfig, localProps));
+
         this.triggerEvent(EVENTS.CONNECTION_FACTORY_CREATE.name, {handshakeFactory});
+
+        handshakeFactory.onConnect( () => {
+            // Update the timestamp for each beginning handshake.
+            localProps.clock = Date.now();
+        });
+
         handshakeFactory.onHandshake( async (e: {messaging: Messaging, isServer: boolean, handshakeResult: HandshakeResult}) => {
             try {
                 if (!this.state.storageClient) {
@@ -1113,8 +1121,17 @@ export class Service {
         let remoteProps: PeerProps | undefined;
 
         config.handshakeFactoryConfig.socketFactoryConfig.maxConnections = 1;  // Force this for storage connection factories.
-        const handshakeFactory = this.handshakeFactoryFactory(this.makeHandshakeFactoryConfig(config.handshakeFactoryConfig, localProps));
+
+        const handshakeFactory = this.handshakeFactoryFactory(
+            this.makeHandshakeFactoryConfig(config.handshakeFactoryConfig, localProps));
+
         this.triggerEvent(EVENTS.STORAGE_FACTORY_CREATE.name, {handshakeFactory});
+
+        handshakeFactory.onConnect( () => {
+            // Update the timestamp for each beginning handshake.
+            localProps.clock = Date.now();
+        });
+
         handshakeFactory.onHandshake( async (e: {messaging: Messaging, isServer: boolean, handshakeResult: HandshakeResult}) => {
             try {
                 if (this.state.storageClient) {
@@ -1148,6 +1165,7 @@ export class Service {
                 e.messaging.close();
             }
         });
+
         handshakeFactory.onError( (e: {subEvent: string, e: object}) => {
             this.triggerEvent(EVENTS.STORAGE_ERROR.name, e);
         });
@@ -1561,11 +1579,11 @@ export class Service {
     protected makeHandshakeFactoryConfig(handshakeFactoryConfig: HandshakeFactoryConfig, localProps: PeerProps): HandshakeFactoryConfig {
         // Copy the config to not alter the template object.
         const handshakeFactoryConfig2 = DeepCopy(handshakeFactoryConfig) as HandshakeFactoryConfig;
+        localProps = DeepCopy(localProps);
+
         handshakeFactoryConfig2.peerData = (/*isServer: boolean*/) => {
             // We need to get a fresh timestamp of when entering the handshake.
             // This is important for the calculated clock skew to be correct.
-            // Note that this mutates the localProps object which is the same object
-            // used after handshake when instantiating the P2PClient.
             localProps.clock = Date.now();
             return PeerDataUtil.PropsToPeerData(localProps).export();
         };
