@@ -16,7 +16,7 @@ import {
 } from "../util/StorageUtil";
 
 import {
-    SignatureOffloader,
+    SignatureOffloaderInterface,
     DataInterface,
     Data,
     CMP,
@@ -54,7 +54,7 @@ const console = PocketConsole({module: "App"});
 export class App extends Service {
     protected appNodeId1: Buffer | undefined;
 
-    constructor(publicKey: Buffer, signatureOffloader: SignatureOffloader, handshakeFactoryFactory: HandshakeFactoryFactoryInterface, config?: ServiceConfig, appNodeId1?: Buffer) {
+    constructor(publicKey: Buffer, signatureOffloader: SignatureOffloaderInterface, handshakeFactoryFactory: HandshakeFactoryFactoryInterface, config?: ServiceConfig, appNodeId1?: Buffer) {
         super(publicKey, signatureOffloader, handshakeFactoryFactory, config);
         this.appNodeId1 = appNodeId1;
     }

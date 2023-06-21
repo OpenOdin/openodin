@@ -1,6 +1,6 @@
 import {
     Decoder,
-    SignatureOffloader,
+    SignatureOffloaderInterface,
 } from "../datamodel/decoder";
 
 import {
@@ -46,12 +46,12 @@ export const ModelTypeToNameMap: {[modelType: string]: string | undefined} = {
  * This helper creates, manages and dissects all types of certs.
  */
 export class CertUtil {
-    protected signatureOffloader?: SignatureOffloader;
+    protected signatureOffloader?: SignatureOffloaderInterface;
 
     /**
      * @param signatureOffloader if provided then signing and verifying will be threaded. Must already have been initialized.
      */
-    constructor(signatureOffloader?: SignatureOffloader) {
+    constructor(signatureOffloader?: SignatureOffloaderInterface) {
         this.signatureOffloader = signatureOffloader;
     }
 

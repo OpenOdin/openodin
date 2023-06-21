@@ -17,7 +17,7 @@ import {
 
 import {
     Decoder,
-    SignatureOffloader,
+    SignatureOffloaderInterface,
 } from "../datamodel/decoder";
 
 /**
@@ -30,7 +30,7 @@ export class PeerDataUtil {
      * Will cryptographically verify any auth cert but will not check it online for validity.
      * @throws
      */
-    public static async HandshakeResultToProps(handshakeResult: HandshakeResult, localProps: PeerProps, signatureOffloader: SignatureOffloader): Promise<PeerProps> {
+    public static async HandshakeResultToProps(handshakeResult: HandshakeResult, localProps: PeerProps, signatureOffloader: SignatureOffloaderInterface): Promise<PeerProps> {
         const peerData = new PeerData();
         peerData.load(handshakeResult.peerData);
         const version = peerData.getVersion();

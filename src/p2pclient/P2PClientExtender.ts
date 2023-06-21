@@ -18,7 +18,7 @@ import {
     NodeInterface,
     KeyPair,
     PrimaryNodeCertInterface,
-    SignatureOffloader,
+    SignatureOffloaderInterface,
     Decoder,
     License,
 } from "../datamodel";
@@ -41,13 +41,13 @@ const console = PocketConsole({module: "P2PClientExtender"});
 
 export class P2PClientExtender extends P2PClientForwarder {
     protected nodeCerts: PrimaryNodeCertInterface[];
-    protected signatureOffloader: SignatureOffloader;
+    protected signatureOffloader: SignatureOffloaderInterface;
     protected publicKey: Buffer;
 
     /**
      * @param signatureOffloader is required to have a default keypair set for signing nodes.
      */
-    constructor(senderClient: P2PClient, targetClient: P2PClient, publicKey: Buffer, nodeCerts: PrimaryNodeCertInterface[], signatureOffloader: SignatureOffloader, muteMsgIds?: Buffer[]) {
+    constructor(senderClient: P2PClient, targetClient: P2PClient, publicKey: Buffer, nodeCerts: PrimaryNodeCertInterface[], signatureOffloader: SignatureOffloaderInterface, muteMsgIds?: Buffer[]) {
         super(senderClient, targetClient, muteMsgIds);
 
         this.publicKey = publicKey;

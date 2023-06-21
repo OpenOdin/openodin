@@ -16,7 +16,7 @@ import {
 import {EVENTS as HANDSHAKEFACTORY_EVENTS} from "pocket-messaging";
 
 import {
-    SignatureOffloader,
+    SignatureOffloaderInterface,
 } from "../datamodel/decoder";
 
 import {
@@ -322,7 +322,7 @@ export class Service {
     /** The current running state. */
     protected state: ServiceState;
 
-    protected signatureOffloader: SignatureOffloader;
+    protected signatureOffloader: SignatureOffloaderInterface;
 
     protected handshakeFactoryFactory: HandshakeFactoryFactoryInterface;
 
@@ -342,7 +342,7 @@ export class Service {
      * @param signatureOffloader already initiated, needed to sign and verify signatures.
      * @param config optional initial config.
      */
-    constructor(publicKey: Buffer, signatureOffloader: SignatureOffloader, handshakeFactoryFactory: HandshakeFactoryFactoryInterface, config?: ServiceConfig) {
+    constructor(publicKey: Buffer, signatureOffloader: SignatureOffloaderInterface, handshakeFactoryFactory: HandshakeFactoryFactoryInterface, config?: ServiceConfig) {
         this._isRunning = false;
         this.handlers = {};
         this.publicKey = CopyBuffer(publicKey);

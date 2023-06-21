@@ -13,8 +13,8 @@ import {
 import {TimeFreeze} from "./TimeFreeze";
 
 import {
-    SignatureOffloader,
-} from "../datamodel/decoder/SignatureOffloader";
+    SignatureOffloaderInterface,
+} from "../datamodel/decoder/types";
 
 import {
     Decoder,
@@ -131,7 +131,7 @@ export class Storage {
 
     protected triggerTimeout: ReturnType<typeof setTimeout> | undefined;
 
-    protected signatureOffloader: SignatureOffloader;
+    protected signatureOffloader: SignatureOffloaderInterface;
 
     protected triggers: {[parentId: string]: Trigger[]} = {};
 
@@ -159,7 +159,7 @@ export class Storage {
      */
     constructor(
         p2pClient: P2PClient,
-        signatureOffloader: SignatureOffloader,
+        signatureOffloader: SignatureOffloaderInterface,
         driver: DriverInterface,
         blobDriver?: BlobDriverInterface,
         allowPreserveTransient: boolean = false,

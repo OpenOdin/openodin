@@ -1,5 +1,4 @@
 import {
-    Signature,
     KeyPair,
 } from "../node";
 
@@ -17,27 +16,17 @@ import {
     CopyBuffer,
 } from "../../util/common";
 
+import {
+    ToBeSigned,
+    SignaturesCollection,
+    SignatureOffloaderInterface,
+    SignedResult,
+} from "./types";
+
 const console = PocketConsole({module: "SignatureOffloader"});
-
-type SignaturesCollection = {
-    index: number,
-    signatures: Signature[],
-};
-
-type ToBeSigned = {
-    index: number,
-    message: Buffer,
-    publicKey: Buffer,
-    crypto: string,
-};
 
 type AddKeyPair = {
     keyPair: KeyPair;
-};
-
-type SignedResult = {
-    index: number,
-    signature: Buffer,
 };
 
 declare const window: any;
@@ -64,9 +53,9 @@ if(isBrowser) {
  *  using threads to verify signatures in nodes (recursively for embedded nodes and certs),
  *  using threads to sign nodes (not recursive).
  */
-export class SignatureOffloader {
+export class SignatureOffloader implements SignatureOffloaderInterface {
     protected cryptoWorkers: CryptoWorkerInterface[];
-    protected maxWorkers: number;
+    protected nrOfWorkers: number;
     protected cryptoWorkerIndex: number;  // Round robin schema for applying workloads.
 
     // Keeping track of the public keys of the keypairs added.
@@ -78,7 +67,7 @@ export class SignatureOffloader {
      */
     constructor(workers: number = 4) {
         this.cryptoWorkers = [];
-        this.maxWorkers = workers ?? 4;
+        this.nrOfWorkers = workers ?? 4;
         this.cryptoWorkerIndex = 0;
     }
 
@@ -90,41 +79,34 @@ export class SignatureOffloader {
         Promise.all(promises);
     }
 
-    public getPublicKeys(): Buffer[] {
+    public async getPublicKeys(): Promise<Buffer[]> {
         // copy
         return this.publicKeys.map( publicKey => CopyBuffer(publicKey) );
     }
 
     /**
-     * Set the desiered nr of workers to be available.
-     * If scaling up then after calling this function call init() again to spawn more workers.
-     * Note that it is not possible to scale down without closing and re-initing again.
-     */
-    public setMaxWorkers(maxWorkers: number) {
-        this.maxWorkers = maxWorkers;
-    }
-
-    /**
      * Init all worker threads.
      */
-    public async init() {
-        const toSpawn = this.maxWorkers - this.cryptoWorkers.length;
+    public async init(): Promise<void> {
+        if (this.cryptoWorkers.length > 0) {
+            return;
+        }
 
-        for (let i=0; i<toSpawn; i++) {
-            const verifier = new CryptoWorker();
-            await verifier.init();
-            this.cryptoWorkers.push(verifier);
+        for (let i=0; i<this.nrOfWorkers; i++) {
+            const worker = new CryptoWorker();
+            this.cryptoWorkers.push(worker);
+            await worker.init();
         }
     }
 
-    public countWorkers(): number {
+    public async countWorkers(): Promise<number> {
         return this.cryptoWorkers.length;
     }
 
     /**
      * Close must be called when shutting down so threads are terminated.
      */
-    public close() {
+    public async close(): Promise<void> {
         this.cryptoWorkers.forEach( worker => worker.close() );
         this.cryptoWorkers = [];
     }
@@ -142,7 +124,7 @@ export class SignatureOffloader {
      *
      * @throws if threading is not available, validation fails or signing fails, in such case no datamodels will have been signed.
      */
-    public async sign(datamodels: DataModelInterface[], publicKey: Buffer, deepValidate: boolean = true) {
+    public async sign(datamodels: DataModelInterface[], publicKey: Buffer, deepValidate: boolean = true): Promise<void> {
         if (!this.publicKeys.some( publicKey2 => publicKey2.equals(publicKey))) {
             assert(false, "expecting keypair to have been added to SignatureOffloader");
         }
@@ -205,7 +187,7 @@ export class SignatureOffloader {
 
         // Cryptographically verify in separate threads all the signatures extracted
         // Will throw on threading failure.
-        const verifiedIndexes = await this.signatureVerifyer(signaturesList);
+        const verifiedIndexes = await this.verifier(signaturesList);
 
         const verifiedIndexesLength = verifiedIndexes.length;
         for (let i=0; i<verifiedIndexesLength; i++) {
@@ -221,7 +203,7 @@ export class SignatureOffloader {
         return verifiedNodes;
     }
 
-    protected async signatureVerifyer(signaturesCollections: SignaturesCollection[]): Promise<number[]> {
+    protected async verifier(signaturesCollections: SignaturesCollection[]): Promise<number[]> {
         return new Promise( (resolve, reject) => {
             if (this.cryptoWorkers.length === 0) {
                 reject("No cryptoWorkers available for signature verification.");
@@ -236,20 +218,20 @@ export class SignatureOffloader {
                     this.cryptoWorkerIndex = 0;
                 }
 
-                const verifier = this.cryptoWorkers[this.cryptoWorkerIndex];
+                const worker = this.cryptoWorkers[this.cryptoWorkerIndex];
 
-                if (!verifier && this.cryptoWorkerIndex === 0) {
+                if (!worker && this.cryptoWorkerIndex === 0) {
                     reject("No cryptoWorkers available for signature verification.");
                     return;
                 }
-                else if (!verifier) {
+                else if (!worker) {
                     this.cryptoWorkerIndex = 0;
                     continue;
                 }
 
                 this.cryptoWorkerIndex++;
 
-                const p = verifier.verify(signaturesCollections.splice(0, n));
+                const p = worker.verify(signaturesCollections.splice(0, n));
 
                 promises.push(p);
             }
@@ -287,20 +269,20 @@ export class SignatureOffloader {
                     this.cryptoWorkerIndex = 0;
                 }
 
-                const verifier = this.cryptoWorkers[this.cryptoWorkerIndex];
+                const worker = this.cryptoWorkers[this.cryptoWorkerIndex];
 
-                if (!verifier && this.cryptoWorkerIndex === 0) {
+                if (!worker && this.cryptoWorkerIndex === 0) {
                     reject("No cryptoWorkers available for signing.");
                     return;
                 }
-                else if (!verifier) {
+                else if (!worker) {
                     this.cryptoWorkerIndex = 0;
                     continue;
                 }
 
                 this.cryptoWorkerIndex++;
 
-                const p = verifier.sign(toBeSigned.splice(0, n));
+                const p = worker.sign(toBeSigned.splice(0, n));
 
                 promises.push(p);
             }

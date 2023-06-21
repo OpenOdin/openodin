@@ -273,7 +273,7 @@ export class ParseUtil {
      * @throws if malconfigured
      */
     public static ParseHandshakeFactory(obj: any): HandshakeFactoryConfig {
-        const discriminator = Buffer.from(ParseUtil.ParseVariable("connection network must be string", obj.network, "string"));
+        const discriminator = Buffer.from(ParseUtil.ParseVariable("connection network must be string", obj.network, "string"));  // NOTE: we refer to the discriminator at "network" in this context.
         const maxConnections = ParseUtil.ParseVariable("connection maxConnections must be number, if set", obj.maxConnections, "number", true);
         const maxConnectionsPerIp = ParseUtil.ParseVariable("connection maxConnectionsPerIp must be number, if set", obj.maxConnectionsPerIp, "number", true);
         const maxConnectionsPerClient = ParseUtil.ParseVariable("connection maxConnectionsPerClient must be number, if set", obj.maxConnectionsPerClient, "number", true);

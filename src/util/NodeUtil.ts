@@ -1,6 +1,6 @@
 import {
     Decoder,
-    SignatureOffloader,
+    SignatureOffloaderInterface,
 } from "../datamodel/decoder";
 
 import {
@@ -22,12 +22,12 @@ import {
 } from "./common";
 
 export class NodeUtil {
-    protected signatureOffloader?: SignatureOffloader;
+    protected signatureOffloader?: SignatureOffloaderInterface;
 
     /**
      * @param signatureOffloader if provided then signing will be threaded. Must already have been initialized.
      */
-    constructor(signatureOffloader?: SignatureOffloader) {
+    constructor(signatureOffloader?: SignatureOffloaderInterface) {
         this.signatureOffloader = signatureOffloader;
     }
 
