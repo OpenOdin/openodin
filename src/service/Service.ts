@@ -906,7 +906,10 @@ export class Service {
                     e.messaging.close();
                     return;
                 }
-                e.messaging.open();
+
+                // Open after all hooks have been set.
+                setImmediate( () => e.messaging.open() );
+
                 this.connected(p2pClient);
             }
             catch (error) {
@@ -1156,7 +1159,10 @@ export class Service {
                     e.messaging.close();
                     return;
                 }
-                e.messaging.open();
+
+                // Open after all hooks have been set.
+                setImmediate( () => e.messaging.open() );
+
                 this.storageConnected(p2pClient, p2pClient);
             }
             catch (error) {
