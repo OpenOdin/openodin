@@ -1,7 +1,11 @@
 import {
     HandshakeFactoryConfig,
-    HandshakeFactory,
+    HandshakeFactoryInterface,
 } from "pocket-messaging";
+
+import {
+    PeerProps,
+} from "../p2pclient";
 
 import {
     P2PClientPermissions,
@@ -57,5 +61,5 @@ export type LocalStorageConfig = {
 };
 
 export interface HandshakeFactoryFactoryInterface {
-    (handshakeFactoryConfig: HandshakeFactoryConfig): HandshakeFactory;
+    (handshakeFactoryConfig: HandshakeFactoryConfig, peerProps: PeerProps): Promise<HandshakeFactoryInterface>;
 }

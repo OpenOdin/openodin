@@ -7,7 +7,7 @@ import {
 
 import {
     Messaging,
-    HandshakeFactory,
+    HandshakeFactoryInterface,
     HandshakeFactoryConfig,
     HandshakeResult,
     EventType,
@@ -172,13 +172,13 @@ type ServiceState = {
      * The connections factories instantiated from the storageConnectionConfigs.
      * Matches config.storageConnectionConfigs on index.
      */
-    storageConnectionFactories: HandshakeFactory[],
+    storageConnectionFactories: HandshakeFactoryInterface[],
 
     /**
      * The connections factories instantiated from the connectionConfigs.
      * Matches config.connectionConfigs on index.
      */
-    connectionFactories: HandshakeFactory[],
+    connectionFactories: HandshakeFactoryInterface[],
 
     /**
      * Initially this value gtes copied from localStorage.driver.reconnectDelay.
@@ -283,7 +283,7 @@ export type ConnectionConnectCallback = (e: {p2pClient: P2PClient}) => void;
  * This factory can be used to more closely monitor events directly on the factory,
  * and also to tune and set parameters such as blocked IP addresses.
  */
-export type ConnectionFactoryCreateCallback = (e: {handshakeFactory: HandshakeFactory}) => void;
+export type ConnectionFactoryCreateCallback = (e: {handshakeFactory: HandshakeFactoryInterface}) => void;
 
 export type ConnectionParseErrorCallback = (e: {error: Error, localProps: PeerProps, remoteProps: PeerProps}) => void;
 export type ConnectionAuthCertErrorCallback = (e: {p2pClient: P2PClient}) => void;
@@ -305,7 +305,7 @@ export type StorageConnectCallback = (e: {p2pClient: P2PClient}) => void;
  * Event emitted when the handshake factory for storage connections has been setup.
  * This factory can be used to more closely monitor events directly on the factory.
  */
-export type StorageFactoryCreateCallback = (e: {handshakeFactory: HandshakeFactory}) => void;
+export type StorageFactoryCreateCallback = (e: {handshakeFactory: HandshakeFactoryInterface}) => void;
 
 export type StorageParseErrorCallback = (e: {error: Error, localProps: PeerProps, remoteProps: PeerProps}) => void;
 export type StorageAuthCertErrorCallback = (e: {p2pClient: P2PClient}) => void;
@@ -433,7 +433,7 @@ export class Service {
         });
         this.state.autoFetchers = [];
 
-        this.state.storageConnectionFactories.forEach( (factory: HandshakeFactory) => {
+        this.state.storageConnectionFactories.forEach( (factory: HandshakeFactoryInterface) => {
             factory.close();
         });
 
@@ -840,7 +840,7 @@ export class Service {
             this.initLocalStorage(this.config.localStorage);
         }
         else if (this.config.storageConnectionConfigs.length > 0) {
-            this.initStorageFactories();
+            await this.initStorageFactories();
         }
         else {
             throw new Error("No storage configured.");
@@ -851,29 +851,31 @@ export class Service {
      * Create and start any peer connection factory yet not started.
      * Idempotent function, can be run again after a new peer config has been added to connect to that peer.
      */
-    public initConnectionFactories() {
+    public async initConnectionFactories() {
         if (!this.state.storageClient) {
             throw new Error("Cannot init peer connection factories unless connected to storage.");
         }
 
         const configsToInit = this.config.connectionConfigs.slice(this.state.connectionFactories.length);
-        configsToInit.forEach( (config: ConnectionConfig) => {
-            const handshakeFactory = this.initConnectionFactory(config);
+
+        const configsToInitLength = configsToInit.length;
+        for (let i=0; i<configsToInitLength; i++) {
+            const configToInit = configsToInit[i];
+            const handshakeFactory = await this.initConnectionFactory(configToInit);
             this.state.connectionFactories.push(handshakeFactory);
             handshakeFactory.init();
-        });
+        }
     }
 
     /**
      * Setup and initiate a peer connection factory.
      */
-    protected initConnectionFactory(config: ConnectionConfig): HandshakeFactory {
+    protected async initConnectionFactory(config: ConnectionConfig): Promise<HandshakeFactoryInterface> {
         const localProps = this.makePeerProps(config.connectionType, config.region, config.jurisdiction);
 
         let remoteProps: PeerProps | undefined;
 
-        const handshakeFactory = this.handshakeFactoryFactory(
-            this.makeHandshakeFactoryConfig(config.handshakeFactoryConfig, localProps));
+        const handshakeFactory = await this.handshakeFactoryFactory(config.handshakeFactoryConfig, localProps);
 
         this.triggerEvent(EVENTS.CONNECTION_FACTORY_CREATE.name, {handshakeFactory});
 
@@ -926,7 +928,7 @@ export class Service {
     }
 
     protected closeConnectionFactories() {
-        this.state.connectionFactories.forEach( (factory?: HandshakeFactory) => {
+        this.state.connectionFactories.forEach( (factory?: HandshakeFactoryInterface) => {
             factory?.close();
         });
 
@@ -1024,7 +1026,7 @@ export class Service {
                     closePromise.cb();
                 });
 
-                this.storageConnected(internalStorageClient, externalStorageClient);
+                await this.storageConnected(internalStorageClient, externalStorageClient);
 
                 await closePromise.promise;
 
@@ -1106,27 +1108,29 @@ export class Service {
      * Setup and initiate a factory connection factory.
      * @throws
      */
-    protected initStorageFactories() {
+    protected async initStorageFactories() {
         const configsToInit = this.config.storageConnectionConfigs.slice(this.state.storageConnectionFactories.length);
-        configsToInit.forEach( (config: ConnectionConfig) => {
-            const handshakeFactory = this.initStorageConnectionFactory(config);
+        const configsToInitLength = configsToInit.length;
+
+        for (let i=0; i<configsToInitLength; i++) {
+            const configToInit = configsToInit[i];
+            const handshakeFactory = await this.initStorageConnectionFactory(configToInit);
             this.state.storageConnectionFactories.push(handshakeFactory);
             handshakeFactory.init();
-        });
+        }
     }
 
     /**
      * Init a handshake factory for connecting with remote storage.
      */
-    protected initStorageConnectionFactory(config: ConnectionConfig): HandshakeFactory {
+    protected async initStorageConnectionFactory(config: ConnectionConfig): Promise<HandshakeFactoryInterface> {
         const localProps = this.makePeerProps(config.connectionType, config.region, config.jurisdiction);
 
         let remoteProps: PeerProps | undefined;
 
         config.handshakeFactoryConfig.socketFactoryConfig.maxConnections = 1;  // Force this for storage connection factories.
 
-        const handshakeFactory = this.handshakeFactoryFactory(
-            this.makeHandshakeFactoryConfig(config.handshakeFactoryConfig, localProps));
+        const handshakeFactory = await this.handshakeFactoryFactory(config.handshakeFactoryConfig, localProps);
 
         this.triggerEvent(EVENTS.STORAGE_FACTORY_CREATE.name, {handshakeFactory});
 
@@ -1163,7 +1167,7 @@ export class Service {
                 // Open after all hooks have been set.
                 setImmediate( () => e.messaging.open() );
 
-                this.storageConnected(p2pClient, p2pClient);
+                await this.storageConnected(p2pClient, p2pClient);
             }
             catch (error) {
                 this.triggerEvent(EVENTS.STORAGE_PARSE_ERROR.name, {error, localProps, remoteProps});
@@ -1499,7 +1503,7 @@ export class Service {
      * Called when a storage connection has been setup, either locally or to a remote.
      * @param p2pClient
      */
-    protected storageConnected(internalStorageClient: P2PClient, externalStorageClient?: P2PClient) {
+    protected async storageConnected(internalStorageClient: P2PClient, externalStorageClient?: P2PClient) {
         if (this.state.storageClient) {
             console.warn("Storage already connected.");
             internalStorageClient.close();
@@ -1546,7 +1550,7 @@ export class Service {
         });
 
         if (this.config.autoStartConnections) {
-            this.initConnectionFactories();
+            await this.initConnectionFactories();
         }
 
         this.triggerEvent(EVENTS.STORAGE_CONNECT.name, {p2pClient: externalStorageClient});
@@ -1575,33 +1579,11 @@ export class Service {
         };
     }
 
-    /**
-     * Create a HandshakeFactoryConfig from a template, ready to be used.
-     * @param handshakeFactoryConfig the template to complement
-     * @param localProps
-     * @returns handshakeFactoryConfig with peerData properties set.
-     * @throws
-     */
-    protected makeHandshakeFactoryConfig(handshakeFactoryConfig: HandshakeFactoryConfig, localProps: PeerProps): HandshakeFactoryConfig {
-        // Copy the config to not alter the template object.
-        const handshakeFactoryConfig2 = DeepCopy(handshakeFactoryConfig) as HandshakeFactoryConfig;
-        localProps = DeepCopy(localProps);
-
-        handshakeFactoryConfig2.peerData = (/*isServer: boolean*/) => {
-            // We need to get a fresh timestamp of when entering the handshake.
-            // This is important for the calculated clock skew to be correct.
-            localProps.clock = Date.now();
-            return PeerDataUtil.PropsToPeerData(localProps).export();
-        };
-
-        return handshakeFactoryConfig2;
-    }
-
-    public getStorageConnectionFactories(): HandshakeFactory[] | undefined {
+    public getStorageConnectionFactories(): HandshakeFactoryInterface[] | undefined {
         return this.state.storageConnectionFactories;
     }
 
-    public getConnectionFactories(): HandshakeFactory[] {
+    public getConnectionFactories(): HandshakeFactoryInterface[] {
         return this.state.connectionFactories;
     }
 
