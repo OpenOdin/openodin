@@ -11,6 +11,7 @@ import {
     StorageUtil,
     App,
     SignatureOffloader,
+    SignatureOffloaderInterface,
     HandshakeFactoryFactoryInterface,
     CreateHandshakeFactoryFactory,
     sleep,
@@ -18,6 +19,12 @@ import {
     BlobEvent,
     ParseUtil,
 } from "../../../";
+
+import {
+    KeyManager,
+    Universe,
+    RPC,
+} from "../../../src/keymanager";
 
 import {
     JSONUtil,
@@ -28,12 +35,16 @@ import {
     PocketConsole,
 } from "pocket-console";
 
+const BLOB_DATA = Buffer.concat([Buffer.alloc(1024 * 20).fill(0xa0),
+    Buffer.alloc(1024 * 20).fill(0xb0),
+    Buffer.alloc(1024 * 20).fill(0xc0)]);
+
 class Chat extends App {
     protected console: any;
     protected onMessage: Function;
     protected onBlob?: Function;
 
-    constructor(publicKey: Buffer, signatureOffloader: SignatureOffloader,
+    constructor(publicKey: Buffer, signatureOffloader: SignatureOffloaderInterface,
         handshakeFactoryFactory: HandshakeFactoryFactoryInterface,
         console: any, onMessage: Function, onBlob?: Function) {
 
@@ -142,19 +153,87 @@ async function main() {
         process.exit(1);
     }
 
+    // -----------------------------------------------------------------------
+
+    // This is how to config it for the app to manage its own private keys.
+    //
+    //const keyPair1 = ParseUtil.ParseKeyPair(serverConfig.keyPair);
+    //const keyPair2 = ParseUtil.ParseKeyPair(clientConfig.keyPair);
+    //
+    //const signatureOffloader1 = new SignatureOffloader();
+    //await signatureOffloader1.init();
+    //await signatureOffloader1.addKeyPair(keyPair1);
+
+    //const signatureOffloader2 = new SignatureOffloader();
+    //await signatureOffloader2.init();
+    //await signatureOffloader2.addKeyPair(keyPair2);
+
+    //const handshakeFactoryFactory1 = CreateHandshakeFactoryFactory(keyPair1);
+    //const handshakeFactoryFactory2 = CreateHandshakeFactoryFactory(keyPair2);
+
+    // -----------------------------------------------------------------------
+
+    //
+    // This is how to config it for the app to not manage its own private keys,
+    // but use the KeyManager instead.
+    //
+    // We extract and reset the keyPairs to show that it is the KeyManager who is managing the keys from here on.
+    //
     const keyPair1 = ParseUtil.ParseKeyPair(serverConfig.keyPair);
     const keyPair2 = ParseUtil.ParseKeyPair(clientConfig.keyPair);
 
-    const signatureOffloader1 = new SignatureOffloader();
-    await signatureOffloader1.init();
-    await signatureOffloader1.addKeyPair(keyPair1);
+    serverConfig.keyPair = {
+        publicKey: Buffer.alloc(0),
+        secretKey: Buffer.alloc(0),
+    };
 
-    const signatureOffloader2 = new SignatureOffloader();
-    await signatureOffloader2.init();
-    await signatureOffloader2.addKeyPair(keyPair2);
+    clientConfig.keyPair = {
+        publicKey: Buffer.alloc(0),
+        secretKey: Buffer.alloc(0),
+    };
 
-    const handshakeFactoryFactory1 = CreateHandshakeFactoryFactory(keyPair1);
-    const handshakeFactoryFactory2 = CreateHandshakeFactoryFactory(keyPair2);
+    //
+    // This part sets up the communication between the isolated parts of the code.
+    //
+    const callbacks1: Function[] = [];
+    const callbacks2: Function[] = [];
+
+    const postMessage1 = (message: any) => {
+        callbacks2.forEach( cb => cb(message) );
+    };
+
+    const listenMessage1 = ( cb: (message: any) => void) => {
+        callbacks1.push(cb);
+
+    };
+
+    const postMessage2 = (message: any) => {
+        callbacks1.forEach( cb => cb(message) );
+    };
+
+    const listenMessage2 = ( cb: (message: any) => void) => {
+        callbacks2.push(cb);
+    };
+
+    const keyManager1 = new KeyManager(postMessage1, listenMessage1, [keyPair1]);
+    const keyManager2 = new KeyManager(postMessage1, listenMessage1, [keyPair2]);
+
+    //
+    // In a browser context the 'universe' object would be provided as window.universe,
+    // but here we create two of our own (this test app is running double clients).
+    //
+    const universe1 = new Universe(postMessage2, listenMessage2, keyManager1.getRPCId());
+    const rpcClients1 = await universe1.auth();
+    const signatureOffloader1 = rpcClients1.signatureOffloader;
+    const handshakeFactoryFactory1 = rpcClients1.handshakeFactoryFactory;
+
+    const universe2 = new Universe(postMessage2, listenMessage2, keyManager2.getRPCId());
+    const rpcClients2 = await universe2.auth();
+    const signatureOffloader2 = rpcClients2.signatureOffloader;
+    const handshakeFactoryFactory2 = rpcClients2.handshakeFactoryFactory;
+
+    //
+    // -----------------------------------------------------------------------
 
     let abortTimeout = setTimeout( () => {
         consoleMain.error("Messages not transferred within timeout, aborting.");
@@ -192,10 +271,8 @@ async function main() {
         if (blobEvent.nodeId1 && !blobEvent.error) {
             const blobData = await chatServer.readBlob(blobEvent.nodeId1!);
 
-            assert(blobData.length === 1024 * 60);
-
             if (blobResolve) {
-                blobResolve();
+                blobResolve(blobData);
             }
         }
     });
@@ -251,7 +328,7 @@ async function main() {
     chatClient.onConnectionConnect( () => {
         // Here we send when peer (server) is connected.
         consoleMain.info("Connection connected to client, send message from Client side");
-        chatClient.sendMessage("Hello from Client", Buffer.alloc(1024 * 60).fill(0xa0));
+        chatClient.sendMessage("Hello from Client", BLOB_DATA);
     });
 
     [status, err] = await chatClient.parseConfig(clientConfig);
@@ -271,7 +348,9 @@ async function main() {
 
     await chatClient.start();
 
-    await blobPromise;
+    const blobData = await blobPromise as Buffer;
+    assert(blobData.equals(BLOB_DATA));
+
     consoleServer.info("Downloaded blob");
     checkToQuit();
 }
