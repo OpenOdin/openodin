@@ -28,7 +28,7 @@ function main (self) {
                 publicKey: Buffer.from(message.data.keyPair.publicKey),
                 secretKey: Buffer.from(message.data.keyPair.secretKey),
             });
-            postMessage();
+            postMessage([]);
         }
         else if (message.action === "verify") {
             const nodeSignaturesCollections = message.data; // as SignaturesCollection[];
@@ -73,10 +73,12 @@ function main (self) {
 
                 const {index, message, publicKey, crypto} = toBeSigned[j];
 
+                const publicKey2 = Buffer.from(publicKey);
+
                 const keyPairsLength = keyPairs.length;
                 for (let i=0; i<keyPairsLength; i++) {
                     const keyPair = keyPairs[i];
-                    if (keyPair.publicKey.equals(publicKey)) {
+                    if (keyPair.publicKey.equals(publicKey2)) {
                         secretKey = keyPair.secretKey;
                     }
                 }
