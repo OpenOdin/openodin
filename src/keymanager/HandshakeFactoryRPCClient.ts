@@ -123,7 +123,8 @@ export class HandshakeFactoryRPCClient implements HandshakeFactoryInterface {
                 hadError,
             };
 
-            this.removeSocketRPCClient(clientId);
+            // Clean up with a delay since onHandshakeError needs to find the client.
+            setTimeout( () => this.removeSocketRPCClient(clientId), 10000 );
 
             this.triggerEvent("close", e);
         });

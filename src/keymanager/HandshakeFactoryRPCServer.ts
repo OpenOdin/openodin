@@ -74,10 +74,6 @@ export class HandshakeFactoryRPCServer extends HandshakeFactory {
 
             const socket = this.getRPCServerByClient(encryptedClient.getClient());
 
-            if (!socket) {
-                throw new Error("Expecting RPCServer");
-            }
-
             const clientId = socket.clientConfig.clientId;
             const rpcServer = new SocketRPCServer(this.rpc, encryptedClient, clientId);
             socket.rpcServer = rpcServer;
@@ -142,7 +138,8 @@ export class HandshakeFactoryRPCServer extends HandshakeFactory {
 
             const clientId = socket.clientConfig.clientId;
 
-            this.removeRPCServer(clientId);
+            // Clean up with a delay since onHandshakeError needs to find the client.
+            setTimeout( () => this.removeRPCServer(clientId), 10000 );
 
             this.rpc.call("onClose", [clientId, e.isServer, e.hadError]);
         });

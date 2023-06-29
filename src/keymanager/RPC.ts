@@ -36,8 +36,6 @@ export class RPC {
     public call(name: string, parameters?: any[]): Promise<any> {
         parameters = parameters ?? [];
 
-        //console.error("RPC CALL", name);
-
         const messageId = Buffer.from(crypto.randomBytes(8)).toString("hex");
 
         const message: RPCMessage = {
