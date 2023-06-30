@@ -67,5 +67,8 @@
         "sqlite3": "^5.1.5",
         "tweetnacl": "^1.0.3",
         "web-worker": "^1.2.0"
+    },
+    "overrides": {
+      "make-dir": "^4.0.0"
     }
 }
