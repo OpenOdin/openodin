@@ -1402,10 +1402,10 @@ export class Service {
         if (localClientType === ConnectionType.STORAGE_CLIENT) {
             if ((remoteServerType & ConnectionType.STORAGE_SERVER) === ConnectionType.STORAGE_SERVER) {
                 autoFetcher = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds);
-                autoFetcher.onBlob(this.onBlobHandler);
+                autoFetcher.onBlob( (blobEvent: BlobEvent) => this.onBlobHandler(blobEvent) );
 
                 autoFetcherReverse = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds, true);
-                autoFetcherReverse.onBlob(this.onBlobHandler);
+                autoFetcherReverse.onBlob( (blobEvent: BlobEvent) => this.onBlobHandler(blobEvent) );
 
                 autoFetcher.addFetch(this.config.autoFetch);
                 autoFetcherReverse.addFetch(this.config.autoFetch);
@@ -1421,10 +1421,10 @@ export class Service {
         else if (localClientType === ConnectionType.EXTENDER_CLIENT) {
             if ((remoteServerType & ConnectionType.EXTENDER_SERVER) === ConnectionType.EXTENDER_SERVER) {
                 autoFetcher = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds);
-                autoFetcher.onBlob(this.onBlobHandler);
+                autoFetcher.onBlob( (blobEvent: BlobEvent) => this.onBlobHandler(blobEvent) );
 
                 autoFetcherReverse = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds, true);
-                autoFetcherReverse.onBlob(this.onBlobHandler);
+                autoFetcherReverse.onBlob( (blobEvent: BlobEvent) => this.onBlobHandler(blobEvent) );
 
                 autoFetcher.addFetch(this.config.autoFetch);
                 autoFetcherReverse.addFetch(this.config.autoFetch);
@@ -1475,7 +1475,7 @@ export class Service {
         this.triggerEvent(EVENTS.CONNECTION_CONNECT.name, {p2pClient});
     }
 
-    protected onBlobHandler = (blobEvent: BlobEvent /*, autoFetcher: P2PClientAutoFetcher*/) => {
+    protected onBlobHandler(blobEvent: BlobEvent /*, autoFetcher: P2PClientAutoFetcher*/) {
         if (blobEvent.error) {
             if (blobEvent.error.errorOnRead) {
                 // NOTE: this is not beyond beautiful since we are parsing the error string,
