@@ -215,8 +215,16 @@ async function main() {
         callbacks2.push(cb);
     };
 
-    const keyManager1 = new KeyManager(postMessage1, listenMessage1, [keyPair1]);
-    const keyManager2 = new KeyManager(postMessage1, listenMessage1, [keyPair2]);
+    const keyManager1 = new KeyManager(postMessage1, listenMessage1);
+    const keyManager2 = new KeyManager(postMessage1, listenMessage1);
+
+    keyManager1.onAuth( async () => {
+        return [keyPair1];
+    });
+
+    keyManager2.onAuth( async () => {
+        return [keyPair2];
+    });
 
     //
     // In a browser context the 'universe' object would be provided as window.universe,
