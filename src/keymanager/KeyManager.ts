@@ -16,13 +16,18 @@ import {
     RPC,
 } from "./RPC";
 
+import {
+    AuthResponse,
+    AuthResponse2,
+} from "./types";
+
 export class KeyManager {
     protected rpcId: string;
     protected rpc: RPC;
     protected postMessage: (message: any) => void;
     protected listenMessage: ( (message: any) => void);
 
-    protected triggerOnAuth?: (rpcId1: string, rpcId2: string) => Promise<KeyPair[]>;
+    protected triggerOnAuth?: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>;
 
     constructor(postMessage: (message: any) => void, listenMessage: ( (message: any) => void)) {
 
@@ -36,7 +41,7 @@ export class KeyManager {
         this.rpc.onCall("auth", this.auth);
     }
 
-    public onAuth(fn: (rpcId1: string, rpcId2: string) => Promise<KeyPair[]>) {
+    public onAuth(fn: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>) {
         this.triggerOnAuth = fn;
     }
 
@@ -49,27 +54,30 @@ export class KeyManager {
 
     /**
      * The application is requesting to be authorized.
-     * @returns [rpcId1: string, rpcId2: string]
-     * where rpcId1 is the RPC for signing using SignatureOffloader,
-     * and rpcId2 us the RPC for connecting and handshaking.
+     * @returns AuthResponse.
      */
-    protected auth = async (): Promise<[string?, string?]> => {
-        const rpcId1 = Buffer.from(crypto.randomBytes(8)).toString("hex");
-        const rpcId2 = Buffer.from(crypto.randomBytes(8)).toString("hex");
+    protected auth = async (): Promise<AuthResponse> => {
+        const signatureOffloaderRPCId = Buffer.from(crypto.randomBytes(8)).toString("hex");
+        const handshakeRPCId = Buffer.from(crypto.randomBytes(8)).toString("hex");
 
         if (!this.triggerOnAuth) {
-            console.debug("No auth callback defined in KeyManager.");
-            return [];
+            return {
+                error: "No auth callback defined in KeyManager",
+            };
         }
 
-        const keyPairs = await this.triggerOnAuth(rpcId1, rpcId2);
+        const authResponse2 = await this.triggerOnAuth(signatureOffloaderRPCId, handshakeRPCId);
 
-        if (!keyPairs || keyPairs.length === 0) {
-            return [];
+        const keyPairs = authResponse2.keyPairs ?? [];
+
+        if (authResponse2.error || keyPairs.length === 0) {
+            return {
+                error: authResponse2.error ?? "No keys provided",
+            };
         }
 
-        const rpc1 = new RPC(this.postMessage, this.listenMessage, rpcId1);
-        const rpc2 = new RPC(this.postMessage, this.listenMessage, rpcId2);
+        const rpc1 = new RPC(this.postMessage, this.listenMessage, signatureOffloaderRPCId);
+        const rpc2 = new RPC(this.postMessage, this.listenMessage, handshakeRPCId);
 
         // TODO: keep track of browser's tab close event to close and remove objects.
 
@@ -84,7 +92,10 @@ export class KeyManager {
 
         const handshakeFactoryFactoryRPCCserver = new HandshakeFactoryFactoryRPCServer(rpc2, keyPairs);
 
-        return [rpcId1, rpcId2];
+        return {
+            signatureOffloaderRPCId,
+            handshakeRPCId,
+        };
     }
 
     public getRPCId(): string {

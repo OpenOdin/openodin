@@ -219,11 +219,15 @@ async function main() {
     const keyManager2 = new KeyManager(postMessage1, listenMessage1);
 
     keyManager1.onAuth( async () => {
-        return [keyPair1];
+        return {
+            keyPairs: [keyPair1],
+        };
     });
 
     keyManager2.onAuth( async () => {
-        return [keyPair2];
+        return {
+            keyPairs: [keyPair2],
+        };
     });
 
     //
@@ -232,11 +236,21 @@ async function main() {
     //
     const universe1 = new Universe(postMessage2, listenMessage2, keyManager1.getRPCId());
     const rpcClients1 = await universe1.auth();
+    if (rpcClients1.error || !rpcClients1.signatureOffloader || !rpcClients1.handshakeFactoryFactory) {
+        console.error('Error in auth: ${rpcClients1.error}');
+        process.exit(1);
+        return;
+    }
     const signatureOffloader1 = rpcClients1.signatureOffloader;
     const handshakeFactoryFactory1 = rpcClients1.handshakeFactoryFactory;
 
     const universe2 = new Universe(postMessage2, listenMessage2, keyManager2.getRPCId());
     const rpcClients2 = await universe2.auth();
+    if (rpcClients2.error || !rpcClients2.signatureOffloader || !rpcClients2.handshakeFactoryFactory) {
+        console.error('Error in auth: ${rpcClients2.error}');
+        process.exit(1);
+        return;
+    }
     const signatureOffloader2 = rpcClients2.signatureOffloader;
     const handshakeFactoryFactory2 = rpcClients2.handshakeFactoryFactory;
 

@@ -18,6 +18,10 @@ import {
     HandshakeFactoryFactoryInterface,
 } from "../service/types";
 
+import {
+    AuthResponse,
+} from "./types";
+
 export class Universe {
     protected postMessage: (message: any) => void;
     protected listenMessage: ( (message: any) => void);
@@ -33,20 +37,23 @@ export class Universe {
     }
 
     public async auth(): Promise<{
-        signatureOffloader: SignatureOffloaderInterface,
-        handshakeFactoryFactory: HandshakeFactoryFactoryInterface,
+        signatureOffloader?: SignatureOffloaderInterface,
+        handshakeFactoryFactory?: HandshakeFactoryFactoryInterface,
+        error?: string,
     }> {
 
-        const [rpcId1, rpcId2] = await this.mainRPC.call("auth");
+        const authResponse = await this.mainRPC.call("auth") as AuthResponse;
 
-        if (!rpcId1) {
-            throw new Error("Auth failed");
+        if (authResponse.error || !authResponse.signatureOffloaderRPCId || !authResponse.handshakeRPCId) {
+            return {
+                error: authResponse.error ?? "Unknown error",
+            };
         }
 
-        const rpc1 = new RPC(this.postMessage, this.listenMessage, rpcId1);
+        const rpc1 = new RPC(this.postMessage, this.listenMessage, authResponse.signatureOffloaderRPCId);
         const signatureOffloader = new SignatureOffloaderRPCClient(rpc1);
 
-        const rpc2 = new RPC(this.postMessage, this.listenMessage, rpcId2);
+        const rpc2 = new RPC(this.postMessage, this.listenMessage, authResponse.handshakeRPCId);
         const handshakeFactoryFactory = CreateHandshakeFactoryFactoryRPCClient(rpc2);
 
         return {

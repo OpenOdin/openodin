@@ -1,3 +1,7 @@
+import {
+    KeyPair,
+} from "../datamodel";
+
 export type ClientConfig = {
     clientId: string,
     localAddress?: string,
@@ -39,4 +43,15 @@ export type RPCMessage = {
 
     /** Unique identifier for this channel. */
     rpcId: string,
+};
+
+export type AuthResponse = {
+    error?: string,
+    signatureOffloaderRPCId?: string,
+    handshakeRPCId?: string,
+};
+
+export type AuthResponse2 = {
+    error?: string,
+    keyPairs?: KeyPair[],
 };
