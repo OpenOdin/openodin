@@ -60,17 +60,19 @@ npx ts-node ./test/integration/chat/Chat.ts
 
 Expected output:
 ```
-[Main  ]  Init Chat Server
-[Main  ]  Init Chat Client
-[Main  ]  Send message from Server side
-[Main  ]  Send message from Client side
-[Server]  Peer connected.
-[Client]  Peer connected.
-[Server]  Hello from Server
-[Client]  Hello from Client
-[Client]  Hello from Server
-[Server]  Hello from Client
-[Main  ]  Closing Server and Client
+2023-07-24T17:24:29 [ℹ INFO ] [Main  ] Init Chat Server
+2023-07-24T17:24:29 [ℹ INFO ] [Main  ] Storage connected, send message from Server side
+2023-07-24T17:24:30 [ℹ INFO ] [Main  ] Init Chat Client
+2023-07-24T17:24:30 [ℹ INFO ] [Main  ] Connection connected to server
+2023-07-24T17:24:30 [ℹ INFO ] [Main  ] Connection connected to client, send message from Client side
+2023-07-24T17:24:30 [ℹ INFO ] [Server] Hello from Server
+2023-07-24T17:24:30 [ℹ INFO ] [Client] Hello from Client
+2023-07-24T17:24:30 [ℹ INFO ] [Client] Hello from Server
+2023-07-24T17:24:31 [ℹ INFO ] [Server] Hello from Client
+2023-07-24T17:24:31 [ℹ INFO ] [Server] Downloaded blob
+2023-07-24T17:24:31 [✓ ACED ] [Main  ] All messages transferred, closing Server and Client
+2023-07-24T17:24:31 [ℹ INFO ] [Service] Database connection closed
+2023-07-24T17:24:31 [ℹ INFO ] [Service] Database connection closed
 ```
 
 ### Browser
@@ -89,15 +91,17 @@ Double click index.html to run it locally.
 
 Expected output:
 ```
-[Main  ]  Init Chat Server
-[Main  ]  Init Chat Client
-[Main  ]  Send message from Server side
-[Main  ]  Send message from Client side
-[Server]  Peer connected.
-[Client]  Peer connected.
-[Server]  Hello from Server
-[Client]  Hello from Client
-[Client]  Hello from Server
-[Server]  Hello from Client
-[Main  ]  Closing Server and Client
+2023-07-24T17:24:29 [ℹ INFO ] [Main  ] Init Chat Server
+2023-07-24T17:24:29 [ℹ INFO ] [Main  ] Storage connected, send message from Server side
+2023-07-24T17:24:30 [ℹ INFO ] [Main  ] Init Chat Client
+2023-07-24T17:24:30 [ℹ INFO ] [Main  ] Connection connected to server
+2023-07-24T17:24:30 [ℹ INFO ] [Main  ] Connection connected to client, send message from Client side
+2023-07-24T17:24:30 [ℹ INFO ] [Server] Hello from Server
+2023-07-24T17:24:30 [ℹ INFO ] [Client] Hello from Client
+2023-07-24T17:24:30 [ℹ INFO ] [Client] Hello from Server
+2023-07-24T17:24:31 [ℹ INFO ] [Server] Hello from Client
+2023-07-24T17:24:31 [ℹ INFO ] [Server] Downloaded blob
+2023-07-24T17:24:31 [✓ ACED ] [Main  ] All messages transferred, closing Server and Client
+2023-07-24T17:24:31 [ℹ INFO ] [Service] Database connection closed
+2023-07-24T17:24:31 [ℹ INFO ] [Service] Database connection closed
 ```
