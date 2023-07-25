@@ -21,8 +21,11 @@
     "engines": {
         "node": ">=16"
     },
+    "main": "./build/index.js",
+    "types": "./build/index.d.ts",
     "scripts": {
-        "c": "./node_modules/.bin/tsc",
+        "prepublishOnly": "npm run c",
+        "c": "npx tsc && cp ./src/datamodel/decoder/thread.js ./build/src/datamodel/decoder/.",
         "c-sdk": "./node_modules/.bin/tsc -p ./tsconfig-sdk.json",
         "pkg-sdk": "npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/cert ./build-sdk/sdk/tools/src/CertCLI.js && npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/keygen ./build-sdk/sdk/tools/src/keygen.js && npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/service ./build-sdk/sdk/tools/src/service.js",
         "test": "./node_modules/.bin/mocha -r ts-node/register --timeout 10000 'test/**/*.mocha.ts'",
@@ -32,7 +35,7 @@
         "lint": "npx eslint ./src"
     },
     "devDependencies": {
-        "@tsconfig/node14": "^1.0.1",
+        "@tsconfig/node12": "^1.0.1",
         "@types/blake2b": "^2.1.0",
         "@types/chai": "^4.3.1",
         "@types/libsodium-wrappers": "^0.7.9",
