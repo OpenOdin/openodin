@@ -32,7 +32,7 @@ export type RPCMessage = {
     /**
      * Set when returning exceptions.
      */
-    error?: Error,
+    error?: string,
 
     /**
      * Auto generated random string set when calling a function

@@ -1,5 +1,3 @@
-import crypto from "crypto";
-
 import {
     RPCMessage,
 } from "./types";
@@ -9,13 +7,13 @@ export class RPC {
     protected postMessage: Function;
     protected listenMessage: Function;
     protected rpcId: string;
-
-    protected promises: {[rpcId: string]: [Function, Function]} = {};
+    protected promises: {[messageId: string]: [Function, Function]} = {};
+    protected messageCounter = 0;
 
     /**
      * @param postMessage to send to the RPC server.
      */
-    constructor(postMessage: Function, listenMessage: Function, rpcId: string) {
+    constructor(postMessage: Function, listenMessage: Function, rpcId: string = "") {
         this.postMessage = postMessage;
         this.listenMessage = listenMessage;
         this.rpcId = rpcId;
@@ -36,7 +34,11 @@ export class RPC {
     public call(name: string, parameters?: any[]): Promise<any> {
         parameters = parameters ?? [];
 
-        const messageId = Buffer.from(crypto.randomBytes(8)).toString("hex");
+        if (!Array.isArray(parameters)) {
+            throw new Error("Parameters to call function must be inside array.");
+        }
+
+        const messageId = `${this.rpcId}_${this.messageCounter++}`;
 
         const message: RPCMessage = {
             name,
@@ -75,14 +77,20 @@ export class RPC {
         }
         else {
             // A function call
-            const fn = this.eventHandlers[message.name];
+            let useCatchAll = false;
+            let fn = this.eventHandlers[message.name];
+
+            if (!fn) {
+                fn = this.eventHandlers["*"];
+                useCatchAll = true;
+            }
 
             if (!fn) {
                 throw new Error(`Function: ${message.name} is not registered.`);
             }
 
             try {
-                const response = await fn(...(message.parameters ?? []));
+                const response = await (useCatchAll ? fn(message.name, ...(message.parameters ?? [])) : fn(...(message.parameters ?? [])));
 
                 const returnResponse: RPCMessage = {
                     response,
@@ -94,7 +102,7 @@ export class RPC {
             }
             catch(error) {
                 const errorResponse: RPCMessage = {
-                    error: error as Error,
+                    error: `${error}`,
                     messageId: message.messageId,
                     rpcId: this.rpcId,
                 };

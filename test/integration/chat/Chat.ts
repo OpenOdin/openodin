@@ -23,7 +23,6 @@ import {
 import {
     KeyManager,
     Universe,
-    RPC,
 } from "../../../src/keymanager";
 
 import {
