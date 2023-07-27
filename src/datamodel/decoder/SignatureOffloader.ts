@@ -25,10 +25,6 @@ import {
 
 const console = PocketConsole({module: "SignatureOffloader"});
 
-type AddKeyPair = {
-    keyPair: KeyPair;
-};
-
 declare const window: any;
 
 // Check current environment: Node.js or Browser ?
@@ -40,12 +36,6 @@ if (!isNode) {
     if(!isBrowser) {
         assert(false, "Unexpected error: current environment is neither Node.js or Browser");
     }
-}
-
-// Add webworkify dependency only if Browser
-let work: any;
-if(isBrowser) {
-    work = require("webworkify");
 }
 
 /**
@@ -71,19 +61,6 @@ export class SignatureOffloader implements SignatureOffloaderInterface {
         this.cryptoWorkerIndex = 0;
     }
 
-    public async addKeyPair(keyPair: KeyPair): Promise<void> {
-        this.publicKeys.push(CopyBuffer(keyPair.publicKey));
-
-        const promises = this.cryptoWorkers.map( worker => worker.addKeyPair(keyPair) );
-
-        Promise.all(promises);
-    }
-
-    public async getPublicKeys(): Promise<Buffer[]> {
-        // copy
-        return this.publicKeys.map( publicKey => CopyBuffer(publicKey) );
-    }
-
     /**
      * Init all worker threads.
      */
@@ -97,6 +74,23 @@ export class SignatureOffloader implements SignatureOffloaderInterface {
             this.cryptoWorkers.push(worker);
             await worker.init();
         }
+    }
+
+    /**
+     * Always call this after init().
+     *
+     */
+    public async addKeyPair(keyPair: KeyPair): Promise<void> {
+        this.publicKeys.push(CopyBuffer(keyPair.publicKey));
+
+        const promises = this.cryptoWorkers.map( worker => worker.addKeyPair(keyPair) );
+
+        Promise.all(promises);
+    }
+
+    public async getPublicKeys(): Promise<Buffer[]> {
+        // copy
+        return this.publicKeys.map( publicKey => CopyBuffer(publicKey) );
     }
 
     public async countWorkers(): Promise<number> {
@@ -313,9 +307,9 @@ interface CryptoWorkerInterface {
 }
 
 class CryptoWorker implements CryptoWorkerInterface {
-    protected queue: Array<{resolve: (data: any) => void, message: {action: string, data?: SignaturesCollection[] | ToBeSigned[] | AddKeyPair}}>;
+    protected queue: Array<{resolve: (data: any) => void, message: {action: string, data?: SignaturesCollection[] | ToBeSigned[] | KeyPair}}>;
     protected isBusy: boolean;
-    protected workerThread?: any;
+    protected workerThread?: Worker;
 
     constructor() {
         this.isBusy = false;
@@ -325,11 +319,21 @@ class CryptoWorker implements CryptoWorkerInterface {
     public async init() {
         try {
             if (isBrowser) {
-                this.workerThread = work(require("./thread.js"));  // eslint-disable-line @typescript-eslint/no-var-requires
+                this.workerThread = new Worker("thread-browser.js");
+
+                this.workerThread.onerror = (event: any) => {
+                    console.error("Error loading thread-browser.js", event);
+                };
             } else {
                 const dirname = __dirname;
+
                 const url = `${dirname}/thread.js`;
+
                 this.workerThread = new Worker(url);
+
+                this.workerThread.onerror = (error: ErrorEvent) => {
+                    console.error("Error loading thread.js", error);
+                };
             }
         }
         catch(e) {
@@ -339,7 +343,7 @@ class CryptoWorker implements CryptoWorkerInterface {
         this.workerThread?.addEventListener("message", (e: any)/*(e.data: Buffer[])*/ => {
             const obj = this.queue.shift();
             if (obj) {
-                obj.resolve(e.data);
+                obj.resolve(e.data as Buffer[]);
             }
             this.isBusy = false;
             this.sendNext();
@@ -373,7 +377,7 @@ class CryptoWorker implements CryptoWorkerInterface {
 
     public async addKeyPair(keyPair: KeyPair): Promise<void> {
         return new Promise( resolve => {
-            this.queue.push({resolve, message: {data: {keyPair}, action: "addKeyPair"}});
+            this.queue.push({resolve, message: {data: keyPair, action: "addKeyPair"}});
             this.sendNext();
         });
     }

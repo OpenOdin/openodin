@@ -24,14 +24,15 @@
     "main": "./build/index.js",
     "types": "./build/index.d.ts",
     "scripts": {
-        "prepublishOnly": "npm run c",
-        "c": "npx tsc && cp ./src/datamodel/decoder/thread.js ./build/src/datamodel/decoder/.",
+        "build": "./node_modules/.bin/bebopc && ./node_modules/.bin/tsc && ./node_modules/.bin/browserify -i ./build/src/datastreamer/FileStreamWriter.js -i ./build/src/datastreamer/FileStreamReader.js ./build/src/datamodel/decoder/thread.js -o ./build/src/datamodel/decoder/thread-browser.js && cp ./build/src/datamodel/decoder/thread.js ./src/datamodel/decoder/thread.js",
+        "tsc": "./node_modules/.bin/tsc",
+        "clean": "rm -rf ./build",
+        "prepublishOnly": "npm run build",
         "c-sdk": "./node_modules/.bin/tsc -p ./tsconfig-sdk.json",
         "pkg-sdk": "npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/cert ./build-sdk/sdk/tools/src/CertCLI.js && npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/keygen ./build-sdk/sdk/tools/src/keygen.js && npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/service ./build-sdk/sdk/tools/src/service.js",
         "test": "./node_modules/.bin/mocha -r ts-node/register --timeout 10000 'test/**/*.mocha.ts'",
         "docs": "./node_modules/.bin/typedoc --entryDocument Home.md --hideBreadcrumbs true --hideInPageTOC true --cleanOutputDir false ./src/*.ts",
         "bebop": "./node_modules/.bin/bebopc",
-        "browser": "./node_modules/.bin/browserify -i ./build/src/datastreamer/FileStreamWriter.js -i ./build/src/datastreamer/FileStreamReader.js ./build/test/integration/chat/Chat.js -o ./build/browser/Chat.js",
         "lint": "npx eslint ./src"
     },
     "devDependencies": {
@@ -54,8 +55,7 @@
         "ts-node": "^10.9.1",
         "typedoc": "~0.22.15",
         "typedoc-plugin-markdown": "~3.11.0",
-        "typescript": "4.4.3",
-        "webworkify": "^1.5.0"
+        "typescript": "4.4.3"
     },
     "dependencies": {
         "bebop": "2.4.10",
