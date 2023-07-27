@@ -12,5 +12,5 @@ jobs:
           node-version: "16"
       - run: npm audit
       - run: npm ci
-      - run: npm run c
+      - run: npm run build
       - run: npm test

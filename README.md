@@ -43,7 +43,7 @@ npm i
 
 ## Build
 ```
-npm run c
+npm run build
 ```
 
 ## Test
