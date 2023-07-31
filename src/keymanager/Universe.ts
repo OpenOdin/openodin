@@ -23,17 +23,11 @@ import {
 } from "./types";
 
 export class Universe {
-    protected postMessage: (message: any) => void;
-    protected listenMessage: ( (message: any) => void);
-    protected mainRPC: RPC;
+    protected rpc: RPC;
 
-    constructor(postMessage: (message: any) => void,
-        listenMessage: ( (message: any) => void), mainRPCId: string) {
+    constructor(rpc: RPC) {
 
-        this.postMessage = postMessage;
-        this.listenMessage = listenMessage;
-
-        this.mainRPC = new RPC(this.postMessage, this.listenMessage, mainRPCId);
+        this.rpc = rpc;
     }
 
     public async auth(): Promise<{
@@ -42,7 +36,7 @@ export class Universe {
         error?: string,
     }> {
 
-        const authResponse = await this.mainRPC.call("auth") as AuthResponse;
+        const authResponse = await this.rpc.call("auth") as AuthResponse;
 
         if (authResponse.error || !authResponse.signatureOffloaderRPCId || !authResponse.handshakeRPCId) {
             return {
@@ -50,10 +44,10 @@ export class Universe {
             };
         }
 
-        const rpc1 = new RPC(this.postMessage, this.listenMessage, authResponse.signatureOffloaderRPCId);
+        const rpc1 = this.rpc.clone(authResponse.signatureOffloaderRPCId);
         const signatureOffloader = new SignatureOffloaderRPCClient(rpc1);
 
-        const rpc2 = new RPC(this.postMessage, this.listenMessage, authResponse.handshakeRPCId);
+        const rpc2 = this.rpc.clone(authResponse.handshakeRPCId);
         const handshakeFactoryFactory = CreateHandshakeFactoryFactoryRPCClient(rpc2);
 
         return {

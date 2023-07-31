@@ -28,6 +28,10 @@ export class RPC {
         return rpc;
     }
 
+    public getId(): string {
+        return this.rpcId;
+    }
+
     /**
      * Make a remote call.
      */
@@ -67,6 +71,10 @@ export class RPC {
             // A response
             const [resolve, reject] = this.promises[message.messageId] ?? [];
             delete this.promises[message.messageId];
+
+            if (!resolve || !reject) {
+                throw new Error(`RPC cannot handle response, rpcId: ${this.rpcId}, messageId: ${message.messageId}`);
+            }
 
             if (message.error) {
                 reject(message.error);

@@ -22,22 +22,11 @@ import {
 } from "./types";
 
 export class KeyManager {
-    protected rpcId: string;
     protected rpc: RPC;
-    protected postMessage: (message: any) => void;
-    protected listenMessage: ( (message: any) => void);
-
     protected triggerOnAuth?: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>;
 
-    constructor(postMessage: (message: any) => void, listenMessage: ( (message: any) => void)) {
-
-        this.postMessage = postMessage;
-        this.listenMessage = listenMessage;
-
-        this.rpcId = Buffer.from(crypto.randomBytes(8)).toString("hex");
-
-        this.rpc = new RPC(this.postMessage, this.listenMessage, this.rpcId);
-
+    constructor(rpc: RPC) {
+        this.rpc = rpc;
         this.rpc.onCall("auth", this.auth);
     }
 
@@ -76,8 +65,8 @@ export class KeyManager {
             };
         }
 
-        const rpc1 = new RPC(this.postMessage, this.listenMessage, signatureOffloaderRPCId);
-        const rpc2 = new RPC(this.postMessage, this.listenMessage, handshakeRPCId);
+        const rpc1 = this.rpc.clone(signatureOffloaderRPCId);
+        const rpc2 = this.rpc.clone(handshakeRPCId);
 
         // TODO: keep track of browser's tab close event to close and remove objects.
 
@@ -99,6 +88,6 @@ export class KeyManager {
     }
 
     public getRPCId(): string {
-        return this.rpcId;
+        return this.rpc.getId();
     }
 }

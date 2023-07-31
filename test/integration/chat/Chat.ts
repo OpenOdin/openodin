@@ -23,6 +23,7 @@ import {
 import {
     KeyManager,
     Universe,
+    RPC,
 } from "../../../src/keymanager";
 
 import {
@@ -214,8 +215,11 @@ async function main() {
         callbacks2.push(cb);
     };
 
-    const keyManager1 = new KeyManager(postMessage1, listenMessage1);
-    const keyManager2 = new KeyManager(postMessage1, listenMessage1);
+    const rpc1 = new RPC(postMessage1, listenMessage1, "rpc1");
+    const rpc2 = new RPC(postMessage1, listenMessage1, "rpc2");
+
+    const keyManager1 = new KeyManager(rpc1);
+    const keyManager2 = new KeyManager(rpc2);
 
     keyManager1.onAuth( async () => {
         return {
@@ -233,7 +237,8 @@ async function main() {
     // In a browser context the 'universe' object would be provided as window.universe,
     // but here we create two of our own (this test app is running double clients).
     //
-    const universe1 = new Universe(postMessage2, listenMessage2, keyManager1.getRPCId());
+    const rpc1b = new RPC(postMessage2, listenMessage2, "rpc1");
+    const universe1 = new Universe(rpc1b);
     const rpcClients1 = await universe1.auth();
     if (rpcClients1.error || !rpcClients1.signatureOffloader || !rpcClients1.handshakeFactoryFactory) {
         console.error('Error in auth: ${rpcClients1.error}');
@@ -243,7 +248,8 @@ async function main() {
     const signatureOffloader1 = rpcClients1.signatureOffloader;
     const handshakeFactoryFactory1 = rpcClients1.handshakeFactoryFactory;
 
-    const universe2 = new Universe(postMessage2, listenMessage2, keyManager2.getRPCId());
+    const rpc2b = new RPC(postMessage2, listenMessage2, "rpc2");
+    const universe2 = new Universe(rpc2b);
     const rpcClients2 = await universe2.auth();
     if (rpcClients2.error || !rpcClients2.signatureOffloader || !rpcClients2.handshakeFactoryFactory) {
         console.error('Error in auth: ${rpcClients2.error}');

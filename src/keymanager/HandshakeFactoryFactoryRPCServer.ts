@@ -43,31 +43,31 @@ export class HandshakeFactoryFactoryRPCServer {
             const rpcId2 = Buffer.from(crypto.randomBytes(8)).toString("hex");
             const rpc2 = this.rpc.clone(rpcId2);
 
-            const handshakeFactoryConfig2 = DeepCopy(userHandshakeFactoryConfig) as HandshakeFactoryConfig;
+            const userHandshakeFactoryConfig2 = DeepCopy(userHandshakeFactoryConfig) as HandshakeFactoryConfig;
             const props = DeepCopy(peerProps);
 
             // Override given userHandshakeFactoryConfig with the keymanager values.
             //
             let keyPair: KeyPair | undefined;
 
-            if (userHandshakeFactoryConfig.keyPair.publicKey.equals(Buffer.alloc(0)) ||
-                userHandshakeFactoryConfig.keyPair.publicKey.equals(Buffer.alloc(32))) {
+            if (userHandshakeFactoryConfig2.keyPair.publicKey.equals(Buffer.alloc(0)) ||
+                userHandshakeFactoryConfig2.keyPair.publicKey.equals(Buffer.alloc(32))) {
 
                 keyPair = this.keyPairs[0];
             }
             else {
                 keyPair = this.keyPairs.find( keyPair2 => keyPair2.publicKey.
-                    equals(userHandshakeFactoryConfig.keyPair.publicKey));
+                    equals(userHandshakeFactoryConfig2.keyPair.publicKey));
             }
 
             if (!keyPair) {
                 return undefined;
             }
 
-            handshakeFactoryConfig2.keyPair = keyPair;
+            userHandshakeFactoryConfig2.keyPair = keyPair;
 
 
-            handshakeFactoryConfig2.peerData = (/*isServer: boolean*/) => {
+            userHandshakeFactoryConfig2.peerData = (/*isServer: boolean*/) => {
                 // We need to get a fresh timestamp of when entering the handshake.
                 // This is important for the calculated clock skew to be correct.
                 props.clock = Date.now();
@@ -75,7 +75,7 @@ export class HandshakeFactoryFactoryRPCServer {
             };
 
             const handshakeFactoryRPCServer = new HandshakeFactoryRPCServer(rpc2,
-                handshakeFactoryConfig2);
+                userHandshakeFactoryConfig2);
 
             return rpcId2;
         });
