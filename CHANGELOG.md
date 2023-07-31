@@ -1,4 +1,4 @@
 # CHANGELOG: universeai
 
-## [0.6.0] - 20230731
+## [0.6.2] - 20230731
 First release.  
