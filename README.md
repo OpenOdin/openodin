@@ -28,6 +28,9 @@ Use this repo to:
 ## Roadmap
 This repo follows the semver versioning schema, however breaking changes are expected for any new version below 1.0.0.  
 
+## NPM
+This project is released on NPM as [https://www.npmjs.com/package/universeai](https://www.npmjs.com/package/universeai).  
+
 ## Test
 ```sh
 npm i
