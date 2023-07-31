@@ -4,7 +4,7 @@
 
 ![UniverseAI logo](https://universe.ai/logo4.svg)
 
-The UniverseAI protocol is a data sharing protocol used to share data between users and services but where each party keep the ownership over their own data.  
+The UniverseAI Protocol is an interoperable application and data sharing protocol where each party keep ownership and control over their data. The protocol and this implementation is developed by The UniverseAI Foundation.
 
 Users are not required to host their own data but can let services host data while users can at any time sync home their data, or sync their data to another service.  
 
