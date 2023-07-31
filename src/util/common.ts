@@ -86,6 +86,14 @@ export function DeepCopy(o: any): any {
         o.copy(o2);
         return o2;
     }
+    else if (type === "arraybuffer") {
+        const o2 = Buffer.alloc(o.length);
+        const l = o.length;
+        for (let i=0; i<l; i++) {
+            o2[i] = o[i];
+        }
+        return o2;
+    }
 
     throw new Error(`Type not recognized for ${o}`);
 }
@@ -95,7 +103,7 @@ export function DeepCopy(o: any): any {
  * @param o a scalar or object to determine type for.
  * @returns type as string or undefined if type could not be recognized.
  */
-export function GetType(o: any): "undefined" | "null" | "string" | "number" | "boolean" | "bigint" | "array" | "object" | "buffer"| undefined {
+export function GetType(o: any): "undefined" | "null" | "string" | "number" | "boolean" | "bigint" | "array" | "object" | "buffer" | "arraybuffer" | undefined {
     if (o === undefined) {
         return "undefined";
     }
@@ -122,6 +130,9 @@ export function GetType(o: any): "undefined" | "null" | "string" | "number" | "b
     }
     else if (Buffer.isBuffer(o)) {
         return "buffer";
+    }
+    else if (ArrayBuffer.isView(o)) {
+        return "arraybuffer";
     }
 
     return undefined;
