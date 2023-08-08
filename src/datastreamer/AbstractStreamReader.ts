@@ -27,6 +27,8 @@ export abstract class AbstractStreamReader implements StreamReaderInterface {
 
     /*
      * Read data from the source and adds to the `buffered` property.
+     * Add data to this.buffered.
+     * Must advance this.pos as it reads.
      * @throws on error
      */
     protected abstract read(): Promise<void>;
