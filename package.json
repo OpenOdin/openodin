@@ -1,6 +1,6 @@
 {
     "name": "universeai",
-    "version": "0.6.2",
+    "version": "0.6.3",
     "description": "The UniverseAI Protocol is a complete package to build decentralized applications with real data interoperability. It is a protocol specification and an implementation of the protocol bundled with an SDK.",
     "keywords": [
         "decentralized",
@@ -8,7 +8,7 @@
         "interoperability"
     ],
     "homepage": "https://universe.ai",
-    "author": "Thomas Backlund",
+    "author": "The UniverseAI Foundation",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/universe-ai/universe.git"
