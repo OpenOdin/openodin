@@ -600,7 +600,7 @@ export class Service {
                 if (typeof obj.app !== "object" || obj.app.constructor !== Object) {
                     throw new Error("app config must be object, if set.");
                 }
-                this.config.app = obj.app;
+                this.config.app = ParseUtil.ParseAppConfig(obj.app);
             }
         }
         catch(e) {
