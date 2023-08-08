@@ -93,6 +93,9 @@ export class GetResponse<ResponseDataType> {
     protected isStream: boolean;
     protected isMultipleStream: boolean;
 
+    /** Count the number of batches by remembering all endSeq numbers. */
+    protected endSeqs: {[endSeq: string]: boolean} = {};
+
     constructor(eventEmitter: EventEmitter, msgId: Buffer, serializeResponse: SerializeInterface<ResponseDataType> | undefined, deserializeResponse: DeserializeInterface<ResponseDataType>, p2pClient: P2PClient, isStream: boolean = false, isMultipleStream: boolean = false) {
         this.eventEmitter = eventEmitter;
         this.msgId = msgId;
@@ -110,6 +113,13 @@ export class GetResponse<ResponseDataType> {
         this.eventEmitter.on(EventType.REPLY, (replyEvent: ReplyEvent) => {
             try {
                 const response = this.decodeReplyEvent(replyEvent);
+
+                if (typeof((response as any).endSeq) === "number") {
+                    const endSeq = (response as any).endSeq as number;
+                    if (endSeq > 0) {
+                        this.endSeqs[endSeq] = true;
+                    }
+                }
 
                 if (this.isStream) {
                     // The message in reply is expecting streaming responses.
@@ -207,6 +217,10 @@ export class GetResponse<ResponseDataType> {
 
     protected decodeReplyEvent(replyEvent: ReplyEvent): ResponseDataType {
         return this.deserializeResponse(replyEvent.data);
+    }
+
+    public getBatchCount(): number {
+        return Object.keys(this.endSeqs).length;
     }
 
     /**
