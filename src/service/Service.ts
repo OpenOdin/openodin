@@ -196,6 +196,9 @@ export const EVENTS = {
     STOP: {
        name: "STOP",
     },
+    BLOB: {
+       name: "BLOB",
+    },
     STORAGE_CLOSE: {
        name: "STORAGE_CLOSE",
     },
@@ -309,6 +312,8 @@ export type StorageFactoryCreateCallback = (e: {handshakeFactory: HandshakeFacto
 
 export type StorageParseErrorCallback = (e: {error: Error, localProps: PeerProps, remoteProps: PeerProps}) => void;
 export type StorageAuthCertErrorCallback = (e: {p2pClient: P2PClient}) => void;
+
+export type BlobCallback = (blobEvent: BlobEvent) => void;
 
 /**
  */
@@ -610,11 +615,20 @@ export class Service {
      * secondary return the public key from the SignatureOffloader.
      * @returns publicKey from authCert or SignatureOffloader.
      */
-    public getPublicKey(): Buffer | undefined {
+    public getPublicKey(): Buffer {
         if (this.config.authCert) {
-            return this.config.authCert.getIssuerPublicKey();
+            const publicKey = this.config.authCert.getIssuerPublicKey();
+            assert(publicKey);
+            return publicKey;
         }
 
+        return this.getSignerPublicKey();
+    }
+
+    /**
+     * @returns the signer publicKey, regardless if using authCert.
+     */
+    public getSignerPublicKey(): Buffer {
         return CopyBuffer(this.publicKey);
     }
 
@@ -1402,10 +1416,10 @@ export class Service {
         if (localClientType === ConnectionType.STORAGE_CLIENT) {
             if ((remoteServerType & ConnectionType.STORAGE_SERVER) === ConnectionType.STORAGE_SERVER) {
                 autoFetcher = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds);
-                autoFetcher.onBlob( (blobEvent: BlobEvent) => this.onBlobHandler(blobEvent) );
+                autoFetcher.onBlob( (blobEvent: BlobEvent) => this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
 
                 autoFetcherReverse = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds, true);
-                autoFetcherReverse.onBlob( (blobEvent: BlobEvent) => this.onBlobHandler(blobEvent) );
+                autoFetcherReverse.onBlob( (blobEvent: BlobEvent) => this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
 
                 autoFetcher.addFetch(this.config.autoFetch);
                 autoFetcherReverse.addFetch(this.config.autoFetch);
@@ -1421,10 +1435,10 @@ export class Service {
         else if (localClientType === ConnectionType.EXTENDER_CLIENT) {
             if ((remoteServerType & ConnectionType.EXTENDER_SERVER) === ConnectionType.EXTENDER_SERVER) {
                 autoFetcher = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds);
-                autoFetcher.onBlob( (blobEvent: BlobEvent) => this.onBlobHandler(blobEvent) );
+                autoFetcher.onBlob( (blobEvent: BlobEvent) => this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
 
                 autoFetcherReverse = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds, true);
-                autoFetcherReverse.onBlob( (blobEvent: BlobEvent) => this.onBlobHandler(blobEvent) );
+                autoFetcherReverse.onBlob( (blobEvent: BlobEvent) => this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
 
                 autoFetcher.addFetch(this.config.autoFetch);
                 autoFetcherReverse.addFetch(this.config.autoFetch);
@@ -1473,30 +1487,6 @@ export class Service {
         });
 
         this.triggerEvent(EVENTS.CONNECTION_CONNECT.name, {p2pClient});
-    }
-
-    protected onBlobHandler(blobEvent: BlobEvent /*, autoFetcher: P2PClientAutoFetcher*/) {
-        if (blobEvent.error) {
-            if (blobEvent.error.errorOnRead) {
-                // NOTE: this is not beyond beautiful since we are parsing the error string,
-                // we should add an error code.
-                if ((blobEvent as any).error?.message?.indexOf("finalized") > -1) {
-                    console.debug(`Error fetching blob with nodeId1: ${blobEvent.nodeId1.toString("hex")}, ${blobEvent.error.message}`);
-                }
-                else {
-                    console.error(`Error fetching blob with nodeId1: ${blobEvent.nodeId1.toString("hex")}, ${blobEvent.error.message}`);
-                }
-            }
-            else if (blobEvent.error.errorOnRead === false) {
-                console.error(`Error storing blob with nodeId1: ${blobEvent.nodeId1.toString("hex")}, ${blobEvent.error.message}`);
-            }
-            else {
-                console.error(`Error fetching/writing blob with nodeId1: ${blobEvent.nodeId1.toString("hex")}, ${blobEvent.error.message}`);
-            }
-        }
-        else {
-            console.info(`Blob with nodeId1 ${blobEvent.nodeId1.toString("hex")} successfully synced.`);
-        }
     }
 
     /**
@@ -1675,6 +1665,10 @@ export class Service {
      */
     public onConnectionError(callback: ConnectionErrorCallback) {
         this.hookEvent(EVENTS.CONNECTION_ERROR.name, callback);
+    }
+
+    public onBlob(callback: BlobCallback) {
+        this.hookEvent(EVENTS.BLOB.name, callback);
     }
 
     /**
