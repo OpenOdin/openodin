@@ -49,7 +49,6 @@
                 "depth": -1,
                 "limit": -1,
                 "discardRoot": true,
-                "descending": false,
                 "match": [
                     {
                         "nodeType": "00040001"
@@ -67,5 +66,10 @@
             },
             "downloadBlobs": true
         }
-    ]
+    ],
+    "app": {
+        "licenseValidSeconds": 360000,
+        "licenseExtensions": 1,
+        "licenseTargets": ["!clientKeyfile.json:.keyPair.publicKey"]
+    }
 }

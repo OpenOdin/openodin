@@ -69,5 +69,10 @@
             },
             "downloadBlobs": true
         }
-    ]
+    ],
+    "app": {
+        "licenseValidSeconds": 360000,
+        "licenseExtensions": 1,
+        "licenseTargets": ["!serverKeyfile.json:.keyPair.publicKey"]
+    }
 }
