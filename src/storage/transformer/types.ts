@@ -16,3 +16,8 @@ export interface AlgoInterface {
     getIndexes(nodes: NodeInterface[]): number[];
     close(): void;
 }
+
+export type TransformerItem = {
+    index: number,
+    node: NodeInterface,
+};
