@@ -18,6 +18,7 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
     protected stats: WriteStats;
     protected statsFn?: OnStatsFn;
     protected pausedTime: number;
+    protected readChunkSize?: number;
 
     /**
      * @param streamReader the reader to consume data on
@@ -152,7 +153,7 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
                 let readData: ReadData | undefined;
 
                 try {
-                    readData = await this.streamReader.next();  // Throws on error
+                    readData = await this.streamReader.next(this.readChunkSize);  // Throws on error
 
                     if (!readData) {
                         // Reached EOL, but unexpectedly (which should not happen).
@@ -160,7 +161,6 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
                         reject({errorOnRead: true, message: "Stream reader reached EOL prematurely"});
                         return;
                     }
-
                 }
                 catch(e) {
                     this.stats.error = true;

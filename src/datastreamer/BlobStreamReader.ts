@@ -55,7 +55,7 @@ export class BlobStreamReader extends AbstractStreamReader {
      *
      * @throws on unrecoverable error
      */
-    protected async read(): Promise<void> {
+    protected async read(chunkSize?: number): Promise<void> {
         if (this.isClosed) {
             throw new Error("Reader is closed");
         }
@@ -66,7 +66,7 @@ export class BlobStreamReader extends AbstractStreamReader {
                 throw new Error("All peers to read blob from are offline");
             }
             try {
-                await this.readBlobFromPeer(this.peer);
+                await this.readBlobFromPeer(this.peer, chunkSize);
                 return;
             }
             catch(e) {
@@ -88,12 +88,14 @@ export class BlobStreamReader extends AbstractStreamReader {
         }
     }
 
-    protected readBlobFromPeer(peer: P2PClient): Promise<void> {
+    protected readBlobFromPeer(peer: P2PClient, chunkSize?: number): Promise<void> {
         return new Promise<void>( (resolve, reject) => {
+            chunkSize = chunkSize ?? this.chunkSize;
+
             const readBlobRequest: ReadBlobRequest = {
                 nodeId1: this.nodeId1,
                 pos: this.pos,
-                length: this.chunkSize,
+                length: chunkSize,
                 clientPublicKey: peer.getLocalPublicKey(),
                 targetPublicKey: peer.getLocalPublicKey(),
             };

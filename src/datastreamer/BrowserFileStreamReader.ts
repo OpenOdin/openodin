@@ -17,7 +17,7 @@ export class BrowserFileStreamReader extends AbstractStreamReader {
      * @param pos where in the stream to start reading.
      * @param chunkSize the chunk size in bytes to batch read.
      */
-    constructor(file: File, pos: bigint = 0n, chunkSize: number = 1024 * 1024) {
+    constructor(file: File, pos: bigint = 0n, chunkSize: number = 1024 * 60) {
         super(pos);
         this.file = file;
         this.chunkSize = chunkSize;
@@ -52,7 +52,7 @@ export class BrowserFileStreamReader extends AbstractStreamReader {
      * Attempts to read more data into the buffer.
      * @throws on unrecoverable error
      */
-    protected async read(): Promise<void> {
+    protected async read(chunkSize?: number): Promise<void> {
         if (this.isClosed) {
             throw new Error("Reader is closed");
         }
@@ -64,6 +64,8 @@ export class BrowserFileStreamReader extends AbstractStreamReader {
             return;
         }
 
+        chunkSize = chunkSize ?? this.chunkSize;
+
         try {
             // NOTE: FIXME: Is this performant?
             const dataRead = (await this.file.slice(Number(this.pos)).stream().getReader().read()).value;
@@ -73,8 +75,8 @@ export class BrowserFileStreamReader extends AbstractStreamReader {
             }
 
             // In the case the streamer returns alot of data at once we split it up into chunks.
-            for (let localPos=0; localPos<dataRead.length; localPos += this.chunkSize) {
-                const data = dataRead.slice(localPos, localPos + this.chunkSize);
+            for (let localPos=0; localPos<dataRead.length; localPos += chunkSize) {
+                const data = dataRead.slice(localPos, localPos + chunkSize);
                 this.buffered.push({size: this.size, data: Buffer.from(data), pos: this.pos});
 
                 this.pos = this.pos + BigInt(data.length);

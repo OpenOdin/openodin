@@ -1,5 +1,5 @@
 export interface StreamReaderInterface {
-    next: () => Promise<ReadData | undefined>;
+    next: (chunkSize?: number) => Promise<ReadData | undefined>;
     seek: (pos: bigint) => void;
     close: () => void;
 }

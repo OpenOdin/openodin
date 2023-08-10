@@ -43,6 +43,7 @@ export class BlobStreamWriter extends AbstractStreamWriter {
         this.peer = peer;
         this.muteMsgIds = muteMsgIds ?? [];
         this.retries = 0;
+        this.readChunkSize = 60*1024;
     }
 
     /**
@@ -53,6 +54,10 @@ export class BlobStreamWriter extends AbstractStreamWriter {
     protected async write(readData: ReadData): Promise<boolean> {
         const pos = readData.pos;
         const data = readData.data;
+
+        if (data.length > 60*1024) {
+            throw new Error("BlobStreamWriter fed too large data chunk. Maximum 60 KiB chunk size allowed.");
+        }
 
         const writeBlobRequest: WriteBlobRequest = {
             nodeId1: this.nodeId1,

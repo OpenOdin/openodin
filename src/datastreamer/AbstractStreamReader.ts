@@ -31,7 +31,7 @@ export abstract class AbstractStreamReader implements StreamReaderInterface {
      * Must advance this.pos as it reads.
      * @throws on error
      */
-    protected abstract read(): Promise<void>;
+    protected abstract read(chunkSize?: number): Promise<void>;
 
     /**
      * Closes all open file descriptions/resources.
@@ -45,7 +45,7 @@ export abstract class AbstractStreamReader implements StreamReaderInterface {
      * @returns Promise on ReadData or undefined if EOF reached.
      * @throws on error
      */
-    public async next(): Promise<ReadData | undefined> {
+    public async next(chunkSize?: number): Promise<ReadData | undefined> {
         if (this.isClosed) {
             throw new Error("StreamReader is closed");
         }
@@ -53,7 +53,7 @@ export abstract class AbstractStreamReader implements StreamReaderInterface {
         if (this.buffered.length === 0) {
             // Throws on error
             try {
-                await this.read();
+                await this.read(chunkSize);
             }
             catch(e) {
                 this.close();

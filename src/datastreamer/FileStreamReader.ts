@@ -73,7 +73,7 @@ export class FileStreamReader extends AbstractStreamReader {
      * Attempts to read more data into the buffer.
      * @throws on unrecoverable error
      */
-    protected async read(): Promise<void> {
+    protected async read(chunkSize?: number): Promise<void> {
         if (this.isClosed) {
             throw new Error("Reader is closed");
         }
@@ -91,8 +91,10 @@ export class FileStreamReader extends AbstractStreamReader {
             return;
         }
 
+        chunkSize = chunkSize ?? this.chunkSize;
+
         try {
-            const length = Math.min(this.chunkSize, Number(this.size - this.pos));
+            const length = Math.min(chunkSize, Number(this.size - this.pos));
 
             const data = Buffer.alloc(length);
 
