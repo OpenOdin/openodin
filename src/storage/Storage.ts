@@ -1243,6 +1243,20 @@ export class Storage {
 
             const data = await this.blobDriver.readBlob(nodeId1, pos, length);
 
+            if (data.length === 0) {
+                const readBlobResponse = {
+                    status: Status.RESULT,
+                    data: Buffer.alloc(0),
+                    seq: 1,
+                    endSeq: 1,
+                    blobLength: BigInt(blobLength),
+                    error: "",
+                };
+
+                sendResponse(readBlobResponse);
+                return;
+            }
+
             const endSeq = Math.ceil(data.length / MESSAGE_SPLIT_BYTES);
 
             for (let seq=1; seq<=endSeq; seq++) {

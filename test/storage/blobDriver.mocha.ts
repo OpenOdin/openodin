@@ -817,4 +817,35 @@ function setupBlobTests(config: any) {
         dataId2 = await driver.getBlobDataId(nodeId3);
         assert(!dataId2);
     });
+
+    it("#readBlob off boundary", async function() {
+        const driver = config.driver;
+
+        assert(driver);
+
+        const nodeId1 = Buffer.alloc(32).fill(0x01);
+        const clientPublicKey = Buffer.alloc(32).fill(0xa0);
+        const dataId = Hash([nodeId1, clientPublicKey]);
+
+        const data = Buffer.alloc(79931);
+        data[data.length-4096] = 98;
+        data[data.length-1] = 99;
+        const blobLength = data.length;
+        const blobHash = Hash(data);
+        const now = Date.now();
+
+        await driver.writeBlob(dataId, 0, data);
+
+        await driver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
+
+        let data2 = await driver.readBlob(nodeId1, 0, blobLength);
+        assert(data2.length === data.length);
+        assert(data2[data2.length-4096] === 98);
+        assert(data2[data2.length-1] === 99);
+
+        data2 = await driver.readBlob(nodeId1, 79931-4096, 4096);
+        assert(data2.length === 4096);
+        assert(data2[0] === 98);
+        assert(data2[data2.length-1] === 99);
+    });
 };

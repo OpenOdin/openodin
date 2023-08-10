@@ -201,24 +201,25 @@ export class BlobDriver implements BlobDriverInterface {
 
         let fragmentIndex = Math.floor(pos / BLOB_FRAGMENT_SIZE);
         const fragments: Buffer[] = [];
-        let l = 0;
-        let pos2 = pos;
+        let doneLength = 0;
+        let posInFragment = pos - fragmentIndex * BLOB_FRAGMENT_SIZE;
 
-        while (l < length) {
+        while (doneLength < length) {
             const fragment = await this.readBlobFragment(dataId, fragmentIndex, true);
 
             if (!fragment) {
                 break;
             }
 
-            const fragment2 = fragment.slice(pos2,pos2+length-l);
+            const fragment2 = fragment.slice(posInFragment, posInFragment + length - doneLength);
 
             fragments.push(fragment2);
 
-            l += fragment2.length;
+            doneLength += fragment2.length;
+
 
             fragmentIndex++;
-            pos2 = 0;
+            posInFragment = 0;
         }
 
         return Buffer.concat(fragments);
