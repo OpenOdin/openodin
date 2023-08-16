@@ -54,7 +54,12 @@ export class RPC {
         return new Promise<any>( (resolve, reject) => {
             this.promises[messageId] = [resolve, reject];
 
-            this.postMessage(message);
+            try {
+                this.postMessage(message);
+            }
+            catch(e) {
+                console.error("Could not invoke postMessage, error object in the message?", message);
+            }
         });
     }
 
@@ -106,7 +111,13 @@ export class RPC {
                     rpcId: this.rpcId,
                 };
 
-                this.postMessage(returnResponse);
+                try {
+                    this.postMessage(returnResponse);
+                }
+                catch(e) {
+                    console.error("Could not invoke postMessage, error object in the message?", returnResponse);
+                    throw e;
+                }
             }
             catch(error) {
                 const errorResponse: RPCMessage = {
