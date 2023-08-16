@@ -22,12 +22,41 @@ import {
     AuthResponse,
 } from "./types";
 
+declare const window: any;
+
 export class Universe {
     protected rpc: RPC;
+    protected _isActive: boolean = false;
+    protected _onActive?: () => void;
 
-    constructor(rpc: RPC) {
+    constructor(rpc?: RPC) {
+        if (!rpc) {
+            const postMessage = (message: any) => {
+                window.postMessage({message, direction: "from-page-script"}, "*");
+            };
 
-        this.rpc = rpc;
+            const listenMessage = (listener: any) => {
+                window.addEventListener("message", (event: any) => {
+                    if (event.source === window && event?.data?.direction === "from-content-script") {
+                        listener(event.data.message);
+                    }
+                });
+            };
+
+            this.rpc = new RPC(postMessage, listenMessage, "keyManager");
+        }
+        else {
+            this.rpc = rpc;
+        }
+
+        this.rpc.onCall("active", () => {
+            this._isActive = true;
+            this._onActive && this._onActive();
+        });
+    }
+
+    public isActive(): boolean {
+        return this._isActive;
     }
 
     public async auth(): Promise<{
@@ -54,5 +83,9 @@ export class Universe {
             signatureOffloader,
             handshakeFactoryFactory,
         };
+    }
+
+    public onActive( cb: () => void ) {
+        this._onActive = cb;
     }
 }
