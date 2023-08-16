@@ -28,6 +28,10 @@ export class SocketRPCClient implements ClientInterface {
         this.rpcPrefix = `${clientConfig.clientId}_`;
 
         this.rpc.onCall(this.rpcPrefix + "onData", (data: Buffer) => {
+            if (!Buffer.isBuffer(data)) {
+                data = Buffer.from(data);
+            }
+
             this.triggerEvent("data", data);
         });
 

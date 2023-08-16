@@ -46,6 +46,14 @@ export class HandshakeFactoryRPCClient implements HandshakeFactoryInterface {
         this.userHandshakeFactoryConfig = userHandshakeFactoryConfig;
 
         this.rpc.onCall("onHandshake", (clientId: string, peerData: Buffer, peerLongtermPk: Buffer, isServer: boolean) => {
+            if (!Buffer.isBuffer(peerData)) {
+                peerData = Buffer.from(peerData);
+            }
+
+            if (!Buffer.isBuffer(peerLongtermPk)) {
+                peerLongtermPk = Buffer.from(peerLongtermPk);
+            }
+
             const client = this.getSocketRPCClient(clientId);
 
             const messaging = new Messaging(client);
