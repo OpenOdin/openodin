@@ -22,13 +22,17 @@ import {
 } from "./common";
 
 export class NodeUtil {
-    protected signatureOffloader?: SignatureOffloaderInterface;
+    //protected signatureOffloader?: SignatureOffloaderInterface;
 
     /**
      * @param signatureOffloader if provided then signing will be threaded. Must already have been initialized.
+     * @param nodeCerts sign certs to use if needed when signing nodes on behalf of others.
      */
-    constructor(signatureOffloader?: SignatureOffloaderInterface) {
-        this.signatureOffloader = signatureOffloader;
+    constructor(protected signatureOffloader?: SignatureOffloaderInterface,
+        protected nodeCerts: PrimaryNodeCertInterface[] = []) {}
+
+    public setNodeCerts(nodeCerts: PrimaryNodeCertInterface[]) {
+        this.nodeCerts = nodeCerts.slice();
     }
 
     /**
@@ -57,7 +61,7 @@ export class NodeUtil {
      * @returns new data node as DataInterface.
      * @throws on malformed data or if signing fails.
      */
-    public async createDataNode(params: DataParams, publicKey?: Buffer, secretKey?: Buffer, nodeCerts?: PrimaryNodeCertInterface[]): Promise<DataInterface> {
+    public async createDataNode(params: DataParams, publicKey?: Buffer, secretKey?: Buffer): Promise<DataInterface> {
         // Set some defaults
         params.creationTime = params.creationTime ?? Date.now();
         if (params.parentId === undefined) {
@@ -75,11 +79,8 @@ export class NodeUtil {
         if (publicKey) {
             // Check if a signing cert is required.
             if (!params.owner?.equals(publicKey)) {
-                if (!nodeCerts) {
-                    throw new Error("Missing node certs.");
-                }
+                const nodeCert = Decoder.MatchNodeCert(node, publicKey, this.nodeCerts);
 
-                const nodeCert = Decoder.MatchNodeCert(node, publicKey, nodeCerts);
                 if (!nodeCert) {
                     throw new Error("Could not find matching data node signing cert.");
                 }
@@ -111,7 +112,7 @@ export class NodeUtil {
      * @returns signed license node interface.
      * @throws on malformed data or if signing fails.
      */
-    public async createLicenseNode(params: LicenseParams, publicKey?: Buffer, secretKey?: Buffer, nodeCerts?: PrimaryNodeCertInterface[]): Promise<LicenseInterface> {
+    public async createLicenseNode(params: LicenseParams, publicKey?: Buffer, secretKey?: Buffer): Promise<LicenseInterface> {
         // Set some defaults
         params.creationTime = params.creationTime ?? Date.now();
         params.expireTime = params.expireTime ?? params.creationTime + 3600 * 1000;
@@ -130,13 +131,12 @@ export class NodeUtil {
         if (publicKey) {
             // Check if a signing cert is required.
             if (!params.owner?.equals(publicKey)) {
-                if (!nodeCerts) {
-                    throw new Error("Missing node certs");
-                }
-                const nodeCert = Decoder.MatchNodeCert(license, publicKey, nodeCerts);
+                const nodeCert = Decoder.MatchNodeCert(license, publicKey, this.nodeCerts);
+
                 if (!nodeCert) {
                     throw new Error("Could not find matching license node signing cert");
                 }
+
                 license.setCertObject(nodeCert as LicenseCertInterface);
             }
 
