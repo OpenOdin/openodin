@@ -45,11 +45,11 @@ import {
     PrimaryNodeCertInterface,
     AuthCertInterface,
     DataInterface,
-    Data,
     DataConfig,
     SPECIAL_NODES,
     CMP,
     Hash,
+    DATANODE_TYPE,
 } from "../datamodel";
 
 import {
@@ -689,6 +689,9 @@ export class Service {
         this.state.extenderServers.forEach( (extender: P2PClientExtender) => {
             extender.setNodeCerts(this.config.nodeCerts);
         });
+
+        // hot-update the NodeUtil with new cert list.
+        this.nodeUtil.setNodeCerts(this.config.nodeCerts);
     }
 
     /**
@@ -700,10 +703,13 @@ export class Service {
             return !nodeCert.calcId1().equals(nodeCert2.calcId1());
         });
 
-        // hot-update the extenders with new list.
+        // hot-update the extenders with new cert list.
         this.state.extenderServers.forEach( (extender: P2PClientExtender) => {
             extender.setNodeCerts(this.config.nodeCerts);
         });
+
+        // hot-update the NodeUtil with new cert list.
+        this.nodeUtil.setNodeCerts(this.config.nodeCerts);
     }
 
     /**
@@ -1290,7 +1296,7 @@ export class Service {
             discardRoot: true,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: DATANODE_TYPE,
                     filters: [
                         {
                             field: "refId",
@@ -1359,7 +1365,7 @@ export class Service {
                 embedded: exportedAuthCert,
                 contentType: SPECIAL_NODES.AUTHCERT,
                 refId,
-            }, this.publicKey, undefined, this.config.nodeCerts);
+            }, this.publicKey);
 
         const storeRequest = StorageUtil.CreateStoreRequest({nodes: [dataNode.export()]});
 
