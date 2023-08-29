@@ -946,7 +946,7 @@ export class ParseUtil {
             throw new Error("Expecting params to be object.");
         }
 
-        const modelType = ParseUtil.ParseVariable("modelType must be hex-string or Buffer", params.modelType, "hex", true);
+        const modelType = ParseUtil.ParseVariable("modelType must be hex-string or Buffer, if set", params.modelType, "hex", true);
         const id1 = ParseUtil.ParseVariable("id1 must be hex-string or Buffer, if set", params.id1, "hex",true);
         const copiedId1 = ParseUtil.ParseVariable("copiedId1 must be hex-string or Buffer, if set", params.copiedId1, "hex",true);
         const id2 = ParseUtil.ParseVariable("id2 must be hex-string or Buffer, if set", params.id2, "hex",true);
@@ -984,9 +984,9 @@ export class ParseUtil {
         const isIndestructible = ParseUtil.ParseVariable("isIndestructible must be boolean, if set", params.isIndestructible, "boolean", true);
         const region = ParseUtil.ParseVariable("region must be string, if set", params.region, "string", true);
         const jurisdiction = ParseUtil.ParseVariable("jurisdiction must be string, if set", params.jurisdiction, "string", true);
-        const disallowParentLicensing = ParseUtil.ParseVariable("disallowParentLicensing must be boolean, if set", params.disallowParentLicensing, "boolean", false);
-        const onlyOwnChildren = ParseUtil.ParseVariable("onlyOwnChildren must be boolean, if set", params.onlyOwnChildren, "boolean", false);
-        const disallowPublicChildren = ParseUtil.ParseVariable("disallowPublicChildren must be boolean, if set", params.disallowPublicChildren, "boolean", false);
+        const disallowParentLicensing = ParseUtil.ParseVariable("disallowParentLicensing must be boolean, if set", params.disallowParentLicensing, "boolean", true) ?? false;
+        const onlyOwnChildren = ParseUtil.ParseVariable("onlyOwnChildren must be boolean, if set", params.onlyOwnChildren, "boolean", true) ?? false;
+        const disallowPublicChildren = ParseUtil.ParseVariable("disallowPublicChildren must be boolean, if set", params.disallowPublicChildren, "boolean", true) ?? false;
 
         return {
             modelType,
