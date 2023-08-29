@@ -532,10 +532,6 @@ export class Service {
                         throw new Error("storage.remote.connections is expected to be object[]");
                     }
 
-                    // If we have multiple factories we aim at having at most one connection live.
-                    // This is done by sharing stats between the connection factories.
-                    const sharedFactoryStats = {};
-
                     obj.storage.remote.connections.forEach( (config: any) => {
                         if (config.permissions !== undefined) {
                             throw new Error("permissions object must not be set on storage remote configs.");
@@ -550,10 +546,11 @@ export class Service {
                             throw new Error("Remote storage client must not have the serverType property set.");
                         }
 
-                        // We do not allow any incoming requests, so we lock it down.
+                        // We do not allow any incoming requests from the remote storage it self.
                         config.permissions = LOCKED_PERMISSIONS;
 
-                        const connectionConfig = ParseUtil.ParseConfigConnectionConfig(config, sharedFactoryStats);
+                        const connectionConfig = ParseUtil.ParseConfigConnectionConfig(config,
+                            this.sharedStorageFactoriesSocketFactoryStats);
 
                         this.addStorageConnectionConfig(connectionConfig);
                     });
