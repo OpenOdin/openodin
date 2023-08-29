@@ -99,6 +99,13 @@ import {
     PocketConsole,
 } from "pocket-console";
 
+import {
+    Thread,
+    ThreadTemplate,
+    ThreadTemplates,
+    ThreadDefaults,
+} from "../storage/thread";
+
 declare const window: any;
 
 const isNode = (typeof process !== "undefined" && process?.versions?.node);
@@ -339,6 +346,8 @@ export class Service {
      * The key pair must have been added to the SignatureOffloader.
      */
     protected publicKey: Buffer;
+
+    protected threadTemplates: ThreadTemplates = {};
 
     /**
      * @param publicKey the key used to sign. The matching keypair must alreadey have been added to the SignatureOffloader.
@@ -651,6 +660,10 @@ export class Service {
         return this.config.authCert;
     }
 
+    public addThreadTemplate(name: string, threadTemplate: ThreadTemplate) {
+        this.threadTemplates[name] = DeepCopy(threadTemplate);
+    }
+
     /**
      * Add NodeCert.
      * The cert will get cryptographically verified, but not online verified.
@@ -730,6 +743,23 @@ export class Service {
 
     public getAppConfig(): any {
         return this.config.app;
+    }
+
+    public makeThread(name: string, defaults: ThreadDefaults = {}): Thread {
+        const storageClient = this.getStorageClient();
+
+        if (!storageClient) {
+            throw new Error("Storage not connected or not exposed to app");
+        }
+
+        const threadTemplate = this.threadTemplates[name];
+
+        if (!threadTemplate) {
+            throw new Error(`Thread ${name} not existing`);
+        }
+
+        return new Thread(threadTemplate, defaults, storageClient, this.nodeUtil, this.getPublicKey(),
+            this.getSignerPublicKey());
     }
 
     /**

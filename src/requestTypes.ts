@@ -193,7 +193,7 @@ export type FetchQuery = {
      * Smallest interval is 60 seconds.
      *
      * When using a transformer with includeDeleted maximum interval allowed is 120 seconds.
-     * This is to be able to detect deleted nodes in a reasonable time window.
+     * This is to be able to detect deleted nodes within a reasonable time window.
      *
      * This can be set regardless if/not triggerNodeId is set and is unsubscribed in the same way.
      *
@@ -202,7 +202,10 @@ export type FetchQuery = {
      */
     triggerInterval: number,
 
-    /** Set to true to only query on trigger. */
+    /**
+     * Set to true to only query on trigger, meaning do not perform an initial fetch,
+     * but only fetch on triggerNodeId and/or triggerInterval.
+     */
     onlyTrigger: boolean,
 
     /**
