@@ -11,15 +11,53 @@ type ONCHANGE_CALLBACK = (transformerItem: TransformerItem, eventType: string) =
 
 export class TransformerCache {
     protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
-
     protected items: TransformerItem[] = [];
+    protected _isClosed: boolean = false;
+
+    public handleResponse(nodes: NodeInterface[], indexes: number[], onlySet: boolean) {
+        if (this._isClosed) {
+            return;
+        }
+
+        const nodesLength = nodes.length;
+
+        for (let i=0; i<nodesLength; i++) {
+            const node = nodes[i];
+            const index = indexes[i];
+
+            if (index < 0) {
+                // These events are subscription events of new nodes merging with the model,
+                // and trigger either "add" or "insert" events.
+                this.merge(node, index);
+            }
+            else {
+                if (onlySet) {
+                    // First result, just set the cache without triggering any events.
+                    this.set(node, index);
+                }
+                else {
+                    // Subscription events updates existing nodes and triggers "update" events.
+                    this.update(node, index);
+                }
+            }
+        }
+    }
 
     public close() {
-        this.items = [];
+        if (this._isClosed) {
+            return;
+        }
+
+        this._isClosed = true;
+
         this.triggerEvent("close");
     }
 
     public delete(indexes: number[]) {
+        if (this._isClosed) {
+            return;
+        }
+
         indexes = indexes.slice();
         // We want to delete from the end to not mess up indexes.
         indexes.sort().reverse();
@@ -42,6 +80,10 @@ export class TransformerCache {
      * Emit "update" event.
      */
     public update(node: NodeInterface, index: number) {
+        if (this._isClosed) {
+            return;
+        }
+
         if (index >= 0) {
             // For positive indexes these are updates and do not affect any other indexes.
 
@@ -64,6 +106,10 @@ export class TransformerCache {
      * @param index the unallocated index to set the item at.
      */
     public set(node: NodeInterface, index: number) {
+        if (this._isClosed) {
+            return;
+        }
+
         this.items[index] = {node, index};
     }
 
@@ -72,6 +118,10 @@ export class TransformerCache {
      * @param index is expected to be negative (signals an injection in the transformer model).
      */
     public merge(node: NodeInterface, index: number) {
+        if (this._isClosed) {
+            return;
+        }
+
         if (index < 0) {
             // For negative indexes these are inserts not updates.
             // An insert effects the indexes of all nodes after it.
