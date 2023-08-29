@@ -39,7 +39,6 @@ export class PeerDataUtil {
         const appVersion = peerData.getAppVersion();
         const jurisdiction = peerData.getJurisdiction();
         const region = peerData.getRegion();
-        const connectionType = peerData.getConnectionType();
 
         if (!version || serializeFormat === undefined || clock === undefined) {
             throw new Error("Missing required fields in handshakeResult.peerData");
@@ -58,7 +57,6 @@ export class PeerDataUtil {
                 expireTime: undefined,
                 jurisdiction: localProps.jurisdiction,
                 region: localProps.region,
-                connectionType: localProps.connectionType,
             };
             const val = authCert.validateAgainstTarget(authConstraintvalues);
             if (!val[0]) {
@@ -76,7 +74,6 @@ export class PeerDataUtil {
             clock,
             authCert,
             authCertPublicKey: authCert ? authCert.getIssuerPublicKey() : undefined,
-            connectionType,
         };
 
         return peerProps;
@@ -96,7 +93,6 @@ export class PeerDataUtil {
         peerData.setRegion(props.region);
         peerData.setClock(props.clock);
         peerData.setAuthCert(props.authCert ? props.authCert.export() : undefined);
-        peerData.setConnectionType(props.connectionType);
         return peerData;
     }
 }

@@ -46,11 +46,6 @@ const FIELDS: Fields = {
         maxSize: 2,
         index: 106,
     },
-    connectionType: {
-        name: "connectionType",
-        type: FieldType.UINT8,
-        index: 107,
-    },
 };
 
 /**
@@ -157,16 +152,5 @@ export class PeerData {
 
     public getRegion(): string | undefined {
         return this.model.getString("region");
-    }
-
-    /**
-     * A peer's supported connection type.
-     */
-    public setConnectionType(connectionType: number | undefined) {
-        this.model.setNumber("connectionType", connectionType);
-    }
-
-    public getConnectionType(): number | undefined {
-        return this.model.getNumber("connectionType");
     }
 }

@@ -23,8 +23,6 @@ import {
     P2PClient,
     PeerProps,
     PeerDataUtil,
-    ConnectionType,
-    ConnectionTypeName,
     AutoFetch,
     P2PClientForwarder,
     P2PClientExtender,
@@ -537,15 +535,6 @@ export class Service {
                             throw new Error("permissions object must not be set on storage remote configs.");
                         }
 
-                        if (config.connectionType === undefined) {
-                            config.connectionType = {
-                                clientType: ConnectionTypeName.STORAGE_CLIENT,
-                            };
-                        }
-                        else if (config.connectionType.serverType !== undefined) {
-                            throw new Error("Remote storage client must not have the serverType property set.");
-                        }
-
                         // We do not allow any incoming requests from the remote storage it self.
                         config.permissions = LOCKED_PERMISSIONS;
 
@@ -575,10 +564,6 @@ export class Service {
                     }
 
                     const connectionConfig = ParseUtil.ParseConfigConnectionConfig(config);
-
-                    if (connectionConfig.connectionType === undefined) {
-                        throw new Error(`connections[].connectionType must be "{clientType: ${ConnectionTypeName.STORAGE_CLIENT}" or "${ConnectionTypeName.EXTENDER_CLIENT}", serverType: "[${ConnectionTypeName.STORAGE_SERVER},]${ConnectionTypeName.EXTENDER_SERVER}"}`);
-                    }
 
                     this.addConnectionConfig(connectionConfig);
                 });
@@ -888,7 +873,7 @@ export class Service {
      * Setup and initiate a peer connection factory.
      */
     protected async initConnectionFactory(config: ConnectionConfig): Promise<HandshakeFactoryInterface> {
-        const localProps = this.makePeerProps(config.connectionType, config.region, config.jurisdiction);
+        const localProps = this.makePeerProps(config.region, config.jurisdiction);
 
         let remoteProps: PeerProps | undefined;
 
@@ -980,11 +965,11 @@ export class Service {
     protected async connectLocalStorage(localStorage: LocalStorageConfig) {
         // The PeerProps which the Storage sees as the this side.
         // The publicKey set here is what dictatates the permissions we have in the Storage.
-        const localProps = this.makePeerProps(ConnectionType.STORAGE_CLIENT);
+        const localProps = this.makePeerProps();
 
         // The PeerProps of the Storage "sent" to this side in the handshake.
         // When using a local storage the storage uses the same keys for identity as the client side.
-        const remoteProps = this.makePeerProps(ConnectionType.STORAGE_SERVER);
+        const remoteProps = this.makePeerProps();
 
         while (true) {
             const [driver, blobDriver] = await this.connectToDatabase(localStorage);
@@ -1023,13 +1008,12 @@ export class Service {
 
                     // Set permissions on this to limit the local app's access to the storage.
                     const intermediaryStorageClient =
-                        new P2PClient(messaging3, this.makePeerProps(ConnectionType.STORAGE_CLIENT),
-                            this.makePeerProps(ConnectionType.STORAGE_SERVER), exposeStorageToApp.permissions);
+                        new P2PClient(messaging3, this.makePeerProps(), this.makePeerProps(),
+                            exposeStorageToApp.permissions);
 
                     // This client only initiates requests and does not need any permissions to it.
                     externalStorageClient =
-                        new P2PClient(messaging4, this.makePeerProps(ConnectionType.STORAGE_CLIENT),
-                        this.makePeerProps(ConnectionType.STORAGE_SERVER));
+                        new P2PClient(messaging4, this.makePeerProps(), this.makePeerProps());
 
                     new P2PClientForwarder(intermediaryStorageClient, internalStorageClient);
 
@@ -1141,7 +1125,7 @@ export class Service {
      * Init a handshake factory for connecting with remote storage.
      */
     protected async initStorageConnectionFactory(config: ConnectionConfig): Promise<HandshakeFactoryInterface> {
-        const localProps = this.makePeerProps(config.connectionType, config.region, config.jurisdiction);
+        const localProps = this.makePeerProps(config.region, config.jurisdiction);
 
         let remoteProps: PeerProps | undefined;
 
@@ -1398,90 +1382,38 @@ export class Service {
             return;
         }
 
-        const localConnectionType = p2pClient.getLocalProps().connectionType ?? 0;
-        const remoteConnectionType = p2pClient.getRemoteProps().connectionType ?? 0;
-        const localClientType = localConnectionType & (ConnectionType.STORAGE_CLIENT | ConnectionType.EXTENDER_CLIENT);
-        const remoteClientType = remoteConnectionType & (ConnectionType.STORAGE_CLIENT | ConnectionType.EXTENDER_CLIENT);
-        const localServerType = localConnectionType & (ConnectionType.STORAGE_SERVER | ConnectionType.EXTENDER_SERVER);
-        const remoteServerType = remoteConnectionType & (ConnectionType.STORAGE_SERVER | ConnectionType.EXTENDER_SERVER);
-
-        // Shared across instances using the same underlaying P2PClient,
+        // These variables are shared across instances using the same underlaying P2PClient,
         // so that an AutoFetcher fetching from remote will not trigger the remotes
         // subscriptions it may have on on the storage the AutoFetcher it storing to.
         const muteMsgIds: Buffer[] = [];
         const reverseMuteMsgIds: Buffer[] = [];
 
-        let autoFetcher: P2PClientAutoFetcher | undefined;
-        let autoFetcherReverse: P2PClientAutoFetcher | undefined;
-        let storageForwarder: P2PClientForwarder | undefined;
-        let storageExtender: P2PClientExtender | undefined;
+        const autoFetcher = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds);
+        autoFetcher.onBlob( (blobEvent: BlobEvent) => this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
 
-        if (localClientType === ConnectionType.STORAGE_CLIENT) {
-            if ((remoteServerType & ConnectionType.STORAGE_SERVER) === ConnectionType.STORAGE_SERVER) {
-                autoFetcher = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds);
-                autoFetcher.onBlob( (blobEvent: BlobEvent) => this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
+        const autoFetcherReverse = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds, true);
+        autoFetcherReverse.onBlob( (blobEvent: BlobEvent) => this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
 
-                autoFetcherReverse = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds, true);
-                autoFetcherReverse.onBlob( (blobEvent: BlobEvent) => this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
+        autoFetcher.addFetch(this.config.autoFetch);
+        autoFetcherReverse.addFetch(this.config.autoFetch);
+        this.state.autoFetchers.push(autoFetcher, autoFetcherReverse);
 
-                autoFetcher.addFetch(this.config.autoFetch);
-                autoFetcherReverse.addFetch(this.config.autoFetch);
-                this.state.autoFetchers.push(autoFetcher, autoFetcherReverse);
-            }
-            else {
-                // Remote does not support Storage connections.
-                console.debug("Remote does not support Storage client to connect.");
-                p2pClient.close();
-                return;
-            }
+
+        const permissions = p2pClient.getPermissions();
+
+        if (permissions.fetchPermissions.allowEmbed.length > 0 || permissions.fetchPermissions.allowReadBlob) {
+            const storageExtender = new P2PClientExtender(p2pClient, this.state.storageClient, this.publicKey,
+                this.config.nodeCerts,
+                this.signatureOffloader, muteMsgIds);
+            this.state.extenderServers.push(storageExtender);
+            console.debug("Spawn Extender server.");
         }
-        else if (localClientType === ConnectionType.EXTENDER_CLIENT) {
-            if ((remoteServerType & ConnectionType.EXTENDER_SERVER) === ConnectionType.EXTENDER_SERVER) {
-                autoFetcher = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds);
-                autoFetcher.onBlob( (blobEvent: BlobEvent) => this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
+        else if (permissions.fetchPermissions.allowNodeTypes.length > 0 ||
+            permissions.storePermissions.allowStore || permissions.storePermissions.allowWriteBlob) {
 
-                autoFetcherReverse = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds, true);
-                autoFetcherReverse.onBlob( (blobEvent: BlobEvent) => this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
-
-                autoFetcher.addFetch(this.config.autoFetch);
-                autoFetcherReverse.addFetch(this.config.autoFetch);
-                this.state.autoFetchers.push(autoFetcher, autoFetcherReverse);
-            }
-            else {
-                // Remote does not support Extender connections.
-                console.debug("Remote does not support Extender client to connect.");
-                p2pClient.close();
-                return;
-            }
-        }
-
-        if (remoteClientType === ConnectionType.STORAGE_CLIENT) {
-            if ((localServerType & ConnectionType.STORAGE_SERVER) === ConnectionType.STORAGE_SERVER) {
-                storageForwarder = new P2PClientForwarder(p2pClient, this.state.storageClient, muteMsgIds);
-                this.state.storageServers.push(storageForwarder);
-                console.debug("Spawn Storage server forwarder.");
-            }
-            else {
-                // Local does not support Storage connections.
-                console.debug("Peer local side does not support remote peer to connect as Storage client.");
-                p2pClient.close();
-                return;
-            }
-        }
-        else if (remoteClientType === ConnectionType.EXTENDER_CLIENT) {
-            if ((localServerType & ConnectionType.EXTENDER_SERVER) === ConnectionType.EXTENDER_SERVER) {
-                storageExtender = new P2PClientExtender(p2pClient, this.state.storageClient, this.publicKey,
-                                                              this.config.nodeCerts,
-                                                              this.signatureOffloader, muteMsgIds);
-                this.state.extenderServers.push(storageExtender);
-                console.debug("Spawn Extender server.");
-            }
-            else {
-                // Local does not support Extender connections.
-                console.debug("Peer local side does not support remote peer to connect as Extender client.");
-                p2pClient.close();
-                return;
-            }
+            const storageForwarder = new P2PClientForwarder(p2pClient, this.state.storageClient, muteMsgIds);
+            this.state.storageServers.push(storageForwarder);
+            console.debug("Spawn Storage server forwarder.");
         }
 
         p2pClient.onClose( () => {
@@ -1499,31 +1431,6 @@ export class Service {
     protected async storageConnected(internalStorageClient: P2PClient, externalStorageClient?: P2PClient) {
         if (this.state.storageClient) {
             console.warn("Storage already connected.");
-            internalStorageClient.close();
-            return;
-        }
-
-        const localConnectionType = internalStorageClient.getLocalProps().connectionType ?? 0;
-        const remoteConnectionType = internalStorageClient.getRemoteProps().connectionType ?? 0;
-        const localClientType = localConnectionType & (ConnectionType.STORAGE_CLIENT | ConnectionType.EXTENDER_CLIENT);
-        const remoteServerType = remoteConnectionType & (ConnectionType.STORAGE_SERVER | ConnectionType.EXTENDER_SERVER);
-
-        if (localClientType === ConnectionType.STORAGE_CLIENT) {
-            if ((remoteServerType & ConnectionType.STORAGE_SERVER) !== ConnectionType.STORAGE_SERVER) {
-                console.error("Remote server is not storage server, as expected. Closing.");
-                internalStorageClient.close();
-                return;
-            }
-        }
-        else if (localClientType === ConnectionType.EXTENDER_CLIENT) {
-            if ((remoteServerType & ConnectionType.EXTENDER_SERVER) !== ConnectionType.EXTENDER_SERVER) {
-                console.error("Remote server is not extender server, as expected. Closing.");
-                internalStorageClient.close();
-                return;
-            }
-        }
-        else {
-            console.error("Local client type is unexpected. Closing.");
             internalStorageClient.close();
             return;
         }
@@ -1551,15 +1458,13 @@ export class Service {
 
     /**
      * Create a PeerProps object for this side.
-     * @param connectionType must be set to the expected and supported connection type(s).
      * @param region set if applicable
      * @param jurisdiction set if applicable
      * @param appVersion set if applicable
      * @returns localProps
      */
-    protected makePeerProps(connectionType: number, region?: string, jurisdiction?: string, appVersion?: Buffer): PeerProps {
+    protected makePeerProps(region?: string, jurisdiction?: string, appVersion?: Buffer): PeerProps {
         return {
-            connectionType,
             version: P2PClient.Version,
             serializeFormat: P2PClient.Formats[0],
             handshakedPublicKey: CopyBuffer(this.publicKey ?? Buffer.alloc(0)),

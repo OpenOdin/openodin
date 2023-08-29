@@ -13,7 +13,6 @@ import {
 
 export type ConnectionConfig = {
     handshakeFactoryConfig: HandshakeFactoryConfig,
-    connectionType: number,
     permissions: P2PClientPermissions,
     region?: string,
     jurisdiction?: string,

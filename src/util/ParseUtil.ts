@@ -41,8 +41,6 @@ import {
 } from "../types";
 
 import {
-    ConnectionType,
-    ConnectionTypeName,
     AutoFetch,
     P2PClientPermissions,
     P2PClientFetchPermissions,
@@ -226,7 +224,6 @@ export class ParseUtil {
      * @param obj object with properties:
      * {
      *  factory: HandshakeFactoryConfig,
-     *  connectionType: ConnectionType,
      *  region?: string,
      *  jurisdiction?: string,
      *  permissions: P2PClientPermissions,
@@ -249,16 +246,11 @@ export class ParseUtil {
         }
 
         const permissions = ParseUtil.ParseP2PClientPermissions(connectionConfig.permissions);
-        const connectionType = ParseUtil.ParseConnectionType(connectionConfig.connectionType);
-        if (connectionType === undefined) {
-            throw new Error("connectionConfig connectionType must be set.");
-        }
 
         handshakeFactoryConfig.socketFactoryStats = sharedFactoryStats;
 
         return {
             handshakeFactoryConfig,
-            connectionType,
             region,
             jurisdiction,
             permissions,
@@ -398,62 +390,6 @@ export class ParseUtil {
             pingInterval,
         };
         return template;
-    }
-
-    /**
-     * @param connectionType object
-     * {
-     *  clientType?: "storage" | "extender",
-     *  serverType?: "[storage,][extender]",
-     * }
-     * @param defaultConnectionType
-     * @returns connectionType value
-     * @throws if malconfigured
-     */
-    public static ParseConnectionType(connectionType: any, defaultConnectionType?: number): number | undefined {
-        if (connectionType) {
-            if (typeof connectionType !== "object" || connectionType.constructor !== Object) {
-                throw new Error("Expecting connectionType to be object, if set.");
-            }
-            if (connectionType.clientType === undefined && connectionType.serverType === undefined) {
-                return defaultConnectionType;
-            }
-            let parsedConnectionType = 0;
-            if (connectionType.clientType) {
-                if (typeof connectionType.clientType !== "string") {
-                    throw new Error("Expecting connectionType.clientType to be string, if set.");
-                }
-                if (connectionType.clientType.toLowerCase() === ConnectionTypeName.STORAGE_CLIENT) {
-                    parsedConnectionType = ConnectionType.STORAGE_CLIENT;
-                }
-                else if (connectionType.clientType.toLowerCase() === ConnectionTypeName.EXTENDER_CLIENT) {
-                    parsedConnectionType = ConnectionType.EXTENDER_CLIENT;
-                }
-                else {
-                    throw new Error(`Expecting connectionType.clientType to be "${ConnectionTypeName.STORAGE_CLIENT}" or "${ConnectionTypeName.EXTENDER_CLIENT}"`);
-                }
-            }
-            if (connectionType.serverType) {
-                if (typeof connectionType.serverType !== "string") {
-                    throw new Error("Expecting connectionType.serverType to be string, if set.");
-                }
-                const items = connectionType.serverType.toLowerCase().split(',').map( (s: string) => s.trim() );
-                if (items.includes(ConnectionTypeName.STORAGE_SERVER)) {
-                    parsedConnectionType |= ConnectionType.STORAGE_SERVER;
-                }
-                if (items.includes(ConnectionTypeName.EXTENDER_SERVER)) {
-                    parsedConnectionType |= ConnectionType.EXTENDER_SERVER;
-                }
-                if ((parsedConnectionType & (ConnectionType.STORAGE_SERVER | ConnectionType.EXTENDER_SERVER)) === 0) {
-                    throw new Error(`Expecting connectionType.serverType to be "[${ConnectionTypeName.STORAGE_SERVER},]${ConnectionTypeName.EXTENDER_SERVER}"`);
-                }
-            }
-
-            return parsedConnectionType;
-        }
-        else {
-            return defaultConnectionType;
-        }
     }
 
     /**

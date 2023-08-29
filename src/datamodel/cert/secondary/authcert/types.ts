@@ -21,7 +21,6 @@ export type AuthCertParams = BaseCertParams & {
     isLockedOnPublicKey?: boolean,
     isLockedOnRegion?: boolean,
     isLockedOnJurisdiction?: boolean,
-    isLockedOnConnectionType?: boolean,
 };
 
 /**
@@ -37,5 +36,4 @@ export enum AuthCertLockedConfig {
     IS_LOCKED_ON_PUBLICKEY          = 0,
     IS_LOCKED_ON_REGION             = 1,
     IS_LOCKED_ON_JURISDICTION       = 2,
-    IS_LOCKED_ON_CONNECTIONTYPE     = 3,
 }

@@ -40,12 +40,6 @@ export type AuthCertConstraintValues = {
      * Lockable constraint.
      */
     region?: string,
-
-    /**
-     * The local peer's connectionType.
-     * Lockable constraint.
-     */
-    connectionType?: number,
 }
 
 /**
@@ -58,8 +52,6 @@ export interface AuthCertInterface extends PrimaryDefaultCertInterface {
     isLockedOnRegion(): boolean | undefined;
     setLockedOnJurisdiction(locked: boolean): void;
     isLockedOnJurisdiction(): boolean | undefined;
-    setLockedOnConnectionType(locked: boolean): void;
-    isLockedOnConnectionType(): boolean | undefined;
     calcConstraintsOnTarget(constraintsValues: AuthCertConstraintValues): Buffer;
     validateAgainstTarget(constraintsValues: AuthCertConstraintValues, deepValidate?: number): [boolean, string];
     getParams(): AuthCertParams;

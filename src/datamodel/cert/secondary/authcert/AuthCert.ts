@@ -144,13 +144,6 @@ export class AuthCert extends PrimaryDefaultCert implements AuthCertInterface {
             values.push(undefined);
         }
 
-        if (this.isLockedOnConnectionType()) {
-            values.push(authConstraintValues.connectionType);
-        }
-        else {
-            values.push(undefined);
-        }
-
         return Hash(values);
     }
 
@@ -187,14 +180,6 @@ export class AuthCert extends PrimaryDefaultCert implements AuthCertInterface {
         return this.isLockedConfigBitSet(AuthCertLockedConfig.IS_LOCKED_ON_JURISDICTION);
     }
 
-    public setLockedOnConnectionType(locked: boolean = true) {
-        this.setLockedConfigBit(AuthCertLockedConfig.IS_LOCKED_ON_CONNECTIONTYPE, locked);
-    }
-
-    public isLockedOnConnectionType(): boolean | undefined {
-        return this.isLockedConfigBitSet(AuthCertLockedConfig.IS_LOCKED_ON_CONNECTIONTYPE);
-    }
-
     public setParams(params: AuthCertParams) {
         super.setParams(params);
         if (params.isLockedOnPublicKey !== undefined) {
@@ -206,23 +191,18 @@ export class AuthCert extends PrimaryDefaultCert implements AuthCertInterface {
         if (params.isLockedOnJurisdiction !== undefined) {
             this.setLockedOnJurisdiction(params.isLockedOnJurisdiction);
         }
-        if (params.isLockedOnConnectionType !== undefined) {
-            this.setLockedOnConnectionType(params.isLockedOnConnectionType);
-        }
     }
 
     public getParams(): AuthCertParams {
         const isLockedOnPublicKey = this.isLockedOnPublicKey();
         const isLockedOnRegion = this.isLockedOnRegion();
         const isLockedOnJurisdiction = this.isLockedOnJurisdiction();
-        const isLockedOnConnectionType = this.isLockedOnConnectionType();
 
         return {
             ...super.getParams(),
             isLockedOnPublicKey,
             isLockedOnRegion,
             isLockedOnJurisdiction,
-            isLockedOnConnectionType,
         };
     }
 

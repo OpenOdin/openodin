@@ -11,27 +11,6 @@ export type SerializeInterface<DataType> = (data: DataType) => Buffer;
 export type DeserializeInterface<DataType> = (serialized: Buffer) => DataType;
 
 /**
- * A peer connection can have one client type and simultanously both the two server types set.
- * This means both peers can be client and server on the same connection.
- * Each peer announces their supported ConnectionType in the handshake and both sides hook up
- * each side's P2PClient accordingly.
- */
-export const ConnectionType: {[key: string]: number} = {
-    NONE:            0,
-    STORAGE_CLIENT:  1,
-    EXTENDER_CLIENT: 2,
-    STORAGE_SERVER:  4,
-    EXTENDER_SERVER: 8,
-} as const;
-
-export const ConnectionTypeName: {[key: string]: string} = {
-    STORAGE_CLIENT:   "storage",
-    STORAGE_SERVER:   "storage",
-    EXTENDER_CLIENT:  "extender",
-    EXTENDER_SERVER:  "extender",
-} as const;
-
-/**
  * These are the unpacked properties of "peerData" exchanged on handshake.
  */
 export type PeerProps = {
@@ -78,11 +57,6 @@ export type PeerProps = {
      * The peer's jurisdiction.
      */
     jurisdiction?: string,
-
-    /**
-     * The peer's supported/expected connection type.
-     */
-    connectionType?: number,
 };
 
 /** Internally used struct for keeping track of subscriptions. */
@@ -134,6 +108,7 @@ export type P2PClientPermissions = {
      * does not have to be the same as the clientPublicKey property set in the request.
      * This feature is useful when chaining together P2PClients to tunnel requests unaltered,
      * but it comes with security implications if not used properly.
+     * Note that the behaviour of fetchPermissions and storePermissions stays unchanged if setting this.
      */
     allowUncheckedAccess: boolean,
 
