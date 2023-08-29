@@ -113,7 +113,7 @@ export class P2PClient {
     protected handlerGenericMessage?: HandlerFn<GenericMessageRequest, GenericMessageResponse>;
     protected localProps: PeerProps;
     protected remoteProps: PeerProps;
-    protected permissions: P2PClientPermissions;
+    protected readonly permissions: P2PClientPermissions;
     protected serialize: BebopSerialize;      // Note this should become an interface if we have more than one type of serializer.
     protected deserialize: BebopDeserialize;  // Note this should become an interface if we have more than one type of deserializer.
 
@@ -232,7 +232,7 @@ export class P2PClient {
     }
 
     public getPermissions(): P2PClientPermissions {
-        return this.permissions;
+        return DeepCopy(this.permissions) as P2PClientPermissions;
     }
 
 
