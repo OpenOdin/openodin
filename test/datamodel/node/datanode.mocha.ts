@@ -43,8 +43,9 @@ describe("certs", function() {
         let verified = await signatureOffloader.verify([certObject]);
         assert(verified.length === 1);
 
+        nodeUtil.setNodeCerts([certObject]);
         const parentId = Buffer.alloc(32);
-        const dataNode = await nodeUtil.createDataNode({creationTime, expireTime, parentId, data: Buffer.from("Hello"), owner: keyPair2.publicKey, cert: certObject.export()}, keyPair1.publicKey, keyPair1.secretKey, [certObject]);
+        const dataNode = await nodeUtil.createDataNode({creationTime, expireTime, parentId, data: Buffer.from("Hello"), owner: keyPair2.publicKey, cert: certObject.export()}, keyPair1.publicKey, keyPair1.secretKey);
 
         val = dataNode.validate();
         assert(val[0]);
@@ -93,8 +94,9 @@ describe("certs", function() {
         verified = await signatureOffloader.verify([dataCert2]);
         assert(verified.length === 1);
 
+        nodeUtil.setNodeCerts([dataCert2]);
         const parentId = Buffer.alloc(32);
-        const dataNode = await nodeUtil.createDataNode({creationTime, expireTime, parentId, data: Buffer.from("Hello"), cert: dataCert2.export(), owner: keyPair2.publicKey}, keyPair1.publicKey, keyPair1.secretKey, [dataCert2]);
+        const dataNode = await nodeUtil.createDataNode({creationTime, expireTime, parentId, data: Buffer.from("Hello"), cert: dataCert2.export(), owner: keyPair2.publicKey}, keyPair1.publicKey, keyPair1.secretKey);
 
         val = dataNode.validate();
         assert(val[0]);

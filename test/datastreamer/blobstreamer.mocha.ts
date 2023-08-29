@@ -28,7 +28,6 @@ import {
     BlobDriver,
     DBClient,
     SignatureOffloader,
-    ConnectionType,
     PeerProps,
     DatabaseUtil,
     Hash,
@@ -114,9 +113,9 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
         messaging1 = new Messaging(socket1, 0);
         messaging2 = new Messaging(socket2, 0);
 
-        const clientProps = makePeerProps(ConnectionType.STORAGE_CLIENT, keyPair1.publicKey);
+        const clientProps = makePeerProps(keyPair1.publicKey);
 
-        const serverProps = makePeerProps(ConnectionType.STORAGE_SERVER, keyPairServer.publicKey);
+        const serverProps = makePeerProps(keyPairServer.publicKey);
 
         serverP2pClient = new P2PClient(messaging1, serverProps, clientProps, PERMISSIVE_PERMISSIONS);
 
@@ -308,9 +307,8 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
     });
 });
 
-function makePeerProps(connectionType: number, publicKey: Buffer): PeerProps {
+function makePeerProps(publicKey: Buffer): PeerProps {
     return {
-        connectionType,
         version: P2PClient.Version,
         serializeFormat: P2PClient.Formats[0],
         handshakedPublicKey: publicKey,

@@ -20,7 +20,6 @@ import {
     Storage,
     P2PClient,
     PeerProps,
-    ConnectionType,
     SignatureOffloader,
     Driver,
     BlobDriver,
@@ -126,9 +125,9 @@ describe("Storage: triggers", function() {
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
 
-        const clientProps = makePeerProps(ConnectionType.STORAGE_CLIENT);
+        const clientProps = makePeerProps();
 
-        const serverProps = makePeerProps(ConnectionType.STORAGE_SERVER);
+        const serverProps = makePeerProps();
 
         p2pClient = new P2PClient(messaging1, serverProps, clientProps);
 
@@ -566,9 +565,9 @@ describe("Storage: SQLite WAL-mode", function() {
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
 
-        const clientProps = makePeerProps(ConnectionType.STORAGE_CLIENT);
+        const clientProps = makePeerProps();
 
-        const serverProps = makePeerProps(ConnectionType.STORAGE_SERVER);
+        const serverProps = makePeerProps();
 
         p2pClient = new P2PClient(messaging1, serverProps, clientProps);
 
@@ -642,9 +641,9 @@ describe("Storage: SQLiteJS WAL-mode", function() {
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
 
-        const clientProps = makePeerProps(ConnectionType.STORAGE_CLIENT);
+        const clientProps = makePeerProps();
 
-        const serverProps = makePeerProps(ConnectionType.STORAGE_SERVER);
+        const serverProps = makePeerProps();
 
         p2pClient = new P2PClient(messaging1, serverProps, clientProps);
 
@@ -726,9 +725,9 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
 
-        const clientProps = makePeerProps(ConnectionType.STORAGE_CLIENT);
+        const clientProps = makePeerProps();
 
-        const serverProps = makePeerProps(ConnectionType.STORAGE_SERVER);
+        const serverProps = makePeerProps();
 
         p2pClient = new P2PClient(messaging1, serverProps, clientProps);
 
@@ -1562,9 +1561,8 @@ function setupTests(config: any) {
     // test with transformers
 }
 
-function makePeerProps(connectionType: number): PeerProps {
+function makePeerProps(): PeerProps {
     return {
-        connectionType,
         version: P2PClient.Version,
         serializeFormat: P2PClient.Formats[0],
         handshakedPublicKey: Buffer.alloc(0),
