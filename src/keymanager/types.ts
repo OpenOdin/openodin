@@ -51,7 +51,13 @@ export type AuthResponse = {
     handshakeRPCId?: string,
 };
 
+export type WalletKeyPair = {
+    publicKey: number[],
+    secretKey: number[],
+    crypto: string,
+};
+
 export type AuthResponse2 = {
     error?: string,
-    keyPairs?: KeyPair[],
+    keyPairs?: WalletKeyPair[],
 };

@@ -22,7 +22,6 @@ export class RPC {
     }
 
     public clone(rpcId: string): RPC {
-
         const rpc = new RPC(this.postMessage, this.listenMessage, rpcId);
 
         return rpc;
@@ -58,7 +57,7 @@ export class RPC {
                 this.postMessage(message);
             }
             catch(e) {
-                console.error("Could not invoke postMessage, error object in the message?", message);
+                console.error("Could not invoke postMessage, error object in the message?", message, e);
             }
         });
     }
@@ -115,7 +114,7 @@ export class RPC {
                     this.postMessage(returnResponse);
                 }
                 catch(e) {
-                    console.error("Could not invoke postMessage, error object in the message?", returnResponse);
+                    console.error("Could not invoke postMessage, error object in the message?", returnResponse, e);
                     throw e;
                 }
             }

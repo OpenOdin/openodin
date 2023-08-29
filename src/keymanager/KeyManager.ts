@@ -73,13 +73,23 @@ export class KeyManager {
         const signatureOffloaderServer = new SignatureOffloaderRPCServer(rpc1);
         await signatureOffloaderServer.init();
 
+        const keyPairs2: KeyPair[] = [];
+
         const keyPairsLength = keyPairs.length;
         for (let i=0; i<keyPairsLength; i++) {
             const keyPair = keyPairs[i];
-            await signatureOffloaderServer.addKeyPair(keyPair);
+
+            const keyPair2 = {
+                publicKey: Buffer.from(keyPair.publicKey),
+                secretKey: Buffer.from(keyPair.secretKey),
+            };
+
+            keyPairs2.push(keyPair2);
+
+            await signatureOffloaderServer.addKeyPair(keyPair2);
         }
 
-        const handshakeFactoryFactoryRPCCserver = new HandshakeFactoryFactoryRPCServer(rpc2, keyPairs);
+        const handshakeFactoryFactoryRPCCserver = new HandshakeFactoryFactoryRPCServer(rpc2, keyPairs2);
 
         return {
             signatureOffloaderRPCId,
