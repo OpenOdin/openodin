@@ -21,7 +21,7 @@ import {
  * 8 bit node class id.
  * 8 bit node class major version.
  */
-export const DATANODE_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_ID, 0, SECONDARY_INTERFACE_ID, NODE_CLASS, CLASS_MAJOR_VERSION]);
+export const DATA_NODE_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_ID, 0, SECONDARY_INTERFACE_ID, NODE_CLASS, CLASS_MAJOR_VERSION]);
 
 export type DataParams = NodeParams & {
     dataConfig?: number,

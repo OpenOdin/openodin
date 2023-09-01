@@ -11,7 +11,7 @@ import {
     DataInterface,
     Filter,
     CMP,
-    DATANODE_TYPE,
+    DATA_NODE_TYPE,
 } from "../datamodel";
 
 import {
@@ -206,7 +206,7 @@ export class StorageUtil {
                 parentId,
                 match: [
                     {
-                        nodeType: DATANODE_TYPE,
+                        nodeType: DATA_NODE_TYPE,
                         filters: [
                             {
                                 field: "id1",

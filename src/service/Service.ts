@@ -1310,7 +1310,7 @@ export class Service {
             discardRoot: true,
             match: [
                 {
-                    nodeType: DATANODE_TYPE,
+                    nodeType: DATA_NODE_TYPE,
                     filters: [
                         {
                             field: "refId",

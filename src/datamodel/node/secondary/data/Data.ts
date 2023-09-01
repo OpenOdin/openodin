@@ -35,7 +35,7 @@ import {
 } from "../../../../util/common";
 
 import {
-    DATANODE_TYPE,
+    DATA_NODE_TYPE,
     DataConfig,
     DataParams,
     SPECIAL_NODES,
@@ -101,7 +101,7 @@ export class Data extends Node implements DataInterface {
      * @param nodeType set this from a deriving node, otherwise leave as default.
      * @param nodeFields set this from a derviing node, otherwise leave as default.
      */
-    constructor(nodeType: ModelType = DATANODE_TYPE, nodeFields: Fields = {}) {
+    constructor(nodeType: ModelType = DATA_NODE_TYPE, nodeFields: Fields = {}) {
         const fields = {...FIELDS, ...nodeFields};
         super(nodeType, fields);
     }
@@ -111,8 +111,8 @@ export class Data extends Node implements DataInterface {
      * @returns the Data node's model type.
      */
     public static GetType(length?: number): Buffer {
-        length = length ?? DATANODE_TYPE.length;
-        return DATANODE_TYPE.slice(0, length);
+        length = length ?? DATA_NODE_TYPE.length;
+        return DATA_NODE_TYPE.slice(0, length);
     }
 
     /**
@@ -120,8 +120,8 @@ export class Data extends Node implements DataInterface {
      * @returns the Data node's model type.
      */
     public getType(length?: number): Buffer {
-        length = length ?? DATANODE_TYPE.length;
-        return DATANODE_TYPE.slice(0, length);
+        length = length ?? DATA_NODE_TYPE.length;
+        return DATA_NODE_TYPE.slice(0, length);
     }
 
     /**
