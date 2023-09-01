@@ -45,18 +45,23 @@ export class SignatureOffloaderRPCClient implements SignatureOffloaderInterface 
 
     public async sign(datamodels: DataModelInterface[], publicKey: Buffer, deepValidate: boolean = true): Promise<void> {
         const toBeSigned: ToBeSigned[] = [];
+
         const datamodelsLength = datamodels.length;
         for (let index=0; index<datamodelsLength; index++) {
-            const datamodel = datamodels[index];
+            const dataModel = datamodels[index];
 
-            const val = datamodel.validate(deepValidate ? 2 : 0);
+            const val = dataModel.validate(deepValidate ? 2 : 0);
             if (!val[0]) {
                 throw new Error(`A datamodel did not validate prior to signing: ${val[1]}`);
             }
 
             // Might throw
-            datamodel.enforceSigningKey(publicKey);
-            toBeSigned.push({index, message: datamodel.hash(), publicKey, crypto: datamodel.getCrypto()});
+            dataModel.enforceSigningKey(publicKey);
+
+            // Note that we are sending the full datamodel export here, so that one cannot
+            // sign arbitrary data, it must be a validatable datamodel.
+            toBeSigned.push({index, message: dataModel.export(),
+                publicKey, crypto: dataModel.getCrypto()});
         }
 
         // Might throw
@@ -69,9 +74,9 @@ export class SignatureOffloaderRPCClient implements SignatureOffloaderInterface 
         // Apply signatures to all datamodels.
         for (let i=0; i<signatures.length; i++) {
             const {index, signature} = signatures[i];
-            const datamodel = datamodels[index];
-            datamodel.addSignature(Buffer.from(signature), publicKey);
-            datamodel.setId1(datamodel.calcId1());
+            const dataModel = datamodels[index];
+            dataModel.addSignature(Buffer.from(signature), publicKey);
+            dataModel.setId1(dataModel.calcId1());
         }
     }
 

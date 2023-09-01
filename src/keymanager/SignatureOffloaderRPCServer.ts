@@ -3,6 +3,10 @@ import {
 } from "../datamodel/node";
 
 import {
+    Decoder,
+} from "../datamodel/decoder";
+
+import {
     ToBeSigned,
     SignaturesCollection,
 } from "../datamodel/decoder/types";
@@ -44,7 +48,22 @@ export class SignatureOffloaderRPCServer extends SignatureOffloader {
         });
 
         this.rpc.onCall("signer", (toBeSigned: ToBeSigned[]) => {
-            return this.signer(toBeSigned);
+            const toBeSigned2: ToBeSigned[] = toBeSigned.map( toBeSigned => {
+                const dataModel = Decoder.Decode(toBeSigned.message);
+
+                dataModel.enforceSigningKey(toBeSigned.publicKey);
+
+                const val = dataModel.validate(2);
+
+                if (!val[0]) {
+                    throw new Error(`A datamodel did not validate prior to signing: ${val[1]}`);
+                }
+
+                return {index: toBeSigned.index, message: dataModel.hash(),
+                    publicKey: toBeSigned.publicKey, crypto: toBeSigned.crypto};
+            });
+
+            return this.signer(toBeSigned2);
         });
 
         this.rpc.onCall("verifier", (signaturesCollections: SignaturesCollection[]) => {
