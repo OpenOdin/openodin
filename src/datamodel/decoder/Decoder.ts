@@ -19,6 +19,10 @@ import {
 } from "../cert";
 
 import {
+    DataModelInterface,
+} from "../interface";
+
+import {
     NodeUtil,
 } from "../../util/NodeUtil";
 
@@ -75,6 +79,25 @@ const ALL_SUPPORTED_CERTS = [
  * The Decoder class provides a set of static function which are used to decode data model raw data (images as we call them).
  */
 export class Decoder {
+    public static Decode(image: Buffer): DataModelInterface {
+        for (let i=0; i<ALL_SUPPORTED_CERTS.length; i++) {
+            const cls = ALL_SUPPORTED_CERTS[i];
+            const modelType = cls.GetType();
+            if (modelType.equals(image.slice(0, modelType.length))) {
+                return Decoder.DecodeAnyCert(image);
+            }
+        }
+
+        for (let index=0; index<SUPPORTED_NODE_TYPES.length; index++) {
+            const NODECLASS = SUPPORTED_NODE_TYPES[index];
+            if (NODECLASS.GetType().equals(image.slice(0, NODECLASS.GetType().length))) {
+                return Decoder.DecodeNode(image);
+            }
+        }
+
+        throw new Error("DataModel type is unknown.");
+    }
+
     /**
      * Decodes any known cert, optionally decode recursively.
      * Note that this function does not validate nor cryptographically verify any certs.
