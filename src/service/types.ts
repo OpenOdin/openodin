@@ -11,6 +11,18 @@ import {
     P2PClientPermissions,
 } from "../p2pclient/types";
 
+import {
+    KeyPair,
+    AuthCertInterface,
+    PrimaryNodeCertInterface,
+} from "../datamodel";
+
+import {
+    ThreadTemplate,
+    ThreadParams,
+} from "../storage/thread";
+
+
 export type ConnectionConfig = {
     handshakeFactoryConfig: HandshakeFactoryConfig,
     permissions: P2PClientPermissions,
@@ -49,8 +61,18 @@ export type DriverConfig = {
 };
 
 export type LocalStorageConfig = {
-    /** The permissions the local storage allows on incoming requests. */
+    /**
+     * The permissions the local storage allows on incoming requests.
+     * This is usually unchecked since peer and app permissions are enforced already.
+     */
     permissions: P2PClientPermissions,
+
+    /**
+     * The permissions the local application is allowed to the local storage.
+     * This is usually permissive but should not be unchecked without good reason
+     * so that the app is not tricked into exposing data.
+     */
+    appPermissions: P2PClientPermissions,
 
     /** Required to be set. */
     driver: DriverConfig,
@@ -69,4 +91,49 @@ export type AppConfig = {
     jumpPeerPublicKey?: Buffer,
     licenseTargets?: Buffer[],
     custom?: any,
+};
+
+export type PeerConf = {
+    handshakeFactoryConfig: HandshakeFactoryConfig,
+    permissions:            P2PClientPermissions,
+    region?:                string,
+    jurisdiction?:          string,
+};
+
+export type StorageConf = {
+    peer?:      PeerConf,
+    database?:  LocalStorageConfig,
+};
+
+export type SyncConf = {
+    peerPublicKeys:    Buffer[],
+    blobSizeMaxLimit:  number,
+    threads: {
+        name: string,
+        stream: boolean,
+        direction: "pull" | "push" | "both",
+        threadParams: ThreadParams,
+    }[],
+};
+
+export type UniverseConf = {
+    format:         1,
+    name:           string,
+    version:        string,
+    title:          string,
+    description:    string,
+    homepage:       string,
+    author:         string,
+    repository:     string,
+    custom:         {[key: string]: any};
+    threads:        {[name: string]: ThreadTemplate};
+    peers:          PeerConf[],
+    sync:           SyncConf[],
+};
+
+export type WalletConf = {
+    keyPairs:       KeyPair[],
+    authCert?:      AuthCertInterface,
+    nodeCerts:      PrimaryNodeCertInterface[],
+    storage:        StorageConf,
 };

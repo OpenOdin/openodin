@@ -142,6 +142,9 @@ export class P2PClientAutoFetcher {
                 // we try to preserve them into the Storage (this requires that the Storage is OK with that).
                 this.processFetch(fetchResponse.result.nodes, autoFetch.downloadBlobs, fetchRequest.query.preserveTransient);
             }
+            else if (fetchResponse.error) {
+                console.debug("AutoFetcher got error on response:", fetchResponse.error);
+            }
         });
 
         if (msgId) {

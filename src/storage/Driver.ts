@@ -150,7 +150,7 @@ export class Driver implements DriverInterface {
         if (fetchQuery.rootNodeId1.length > 0) {
             let errorReply: FetchReplyData | undefined;
 
-            // Note we do not run this inside a read-transction since it is not necessary.
+            // Note we do not run this inside a read-transaction since it is not necessary.
             //
             [rootNode, errorReply] = await this.getRootNode(fetchQuery, now);
 

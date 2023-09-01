@@ -26,10 +26,15 @@ import {
 } from "../../util/StorageUtil";
 
 import {
+    CopyBuffer,
+} from "../../util/common";
+
+import {
     DataParams,
     LicenseParams,
     LicenseInterface,
     NodeInterface,
+    LICENSE_NODE_TYPE,
 } from "../../datamodel";
 
 import {
@@ -63,9 +68,42 @@ export class Thread {
         protected publicKey: Buffer,
         protected signerPublicKey: Buffer) {
 
-        if (this.threadTemplate.transform) {
+        if (this.threadTemplate.transform?.algos.length > 0) {
             this.transformerCache = new TransformerCache();
         }
+    }
+
+    public static GetFetchRequest(threadTemplate: ThreadTemplate,
+        threadParams: ThreadParams, defaults: ThreadDefaults, stream: boolean = false): FetchRequest {
+
+        const query = Thread.ParseQuery(threadTemplate, threadParams.query ?? {}, defaults);
+        const transform = Thread.ParseTransform(threadTemplate, threadParams.transform ?? {});
+
+        if (stream) {
+            if (query.triggerNodeId.length === 0 && query.triggerInterval === 0) {
+                if (query.parentId.length > 0) {
+                    query.triggerNodeId = CopyBuffer(query.parentId);
+                }
+                else if (threadTemplate.query?.triggerNodeId && threadTemplate.query?.triggerNodeId.length > 0) {
+                    query.triggerNodeId = CopyBuffer(threadTemplate.query.triggerNodeId);
+                }
+            }
+
+            if (query.triggerNodeId.length === 0 && query.triggerInterval === 0) {
+                throw new Error("Missing triggerNodeId/triggerInterval for Thread streaming and parentId cannot be copied from template");
+            }
+        }
+        else {
+            // We need to delete these to be sure not to stream.
+            query.triggerNodeId     = Buffer.alloc(0);
+            query.triggerInterval   = 0;
+            query.onlyTrigger       = false;
+        }
+
+        return {
+            query,
+            transform,
+        };
     }
 
     public setDefault(name: keyof ThreadDefaults, value: any) {
@@ -73,35 +111,23 @@ export class Thread {
     }
 
     public query(threadParams: ThreadParams, callback: ThreadQueryCallback) {
-        const query = this.parseQuery(threadParams.query ?? {});
-        const transform = this.parseTransform(threadParams.transform ?? {});
+        const fetchRequest = Thread.GetFetchRequest(this.threadTemplate, threadParams, this.defaults);
 
-        const fetchRequest = {
-            query,
-            transform,
-        };
+        // We need to delete these to be sure not to stream.
+        fetchRequest.query.triggerNodeId     = Buffer.alloc(0);
+        fetchRequest.query.triggerInterval   = 0;
+        fetchRequest.query.onlyTrigger       = false;
 
         this.fetch(fetchRequest, callback);
     }
 
     public stream(threadParams: ThreadParams, callback: ThreadQueryCallback) {
         if (this.streamResponse) {
-            throw new Error("Cannot stream twice on the same Thread. Please call stopStream() first.");
+            throw new Error("Cannot stream twice on the same Thread instance. Please call stopStream() first or create another instance.");
         }
 
-        const query = this.parseQuery(threadParams.query ?? {});
-        const transform = this.parseTransform(threadParams.transform ?? {});
-
-        query.triggerNodeId = query.parentId ?? this.threadTemplate.query?.triggerNodeId;
-
-        if (!query.triggerNodeId) {
-            throw new Error("Missing triggerNodeId for Thread stream and cannot be copied from parentId");
-        }
-
-        const fetchRequest = {
-            query,
-            transform,
-        };
+        const fetchRequest = Thread.GetFetchRequest(this.threadTemplate, threadParams,
+            this.defaults, true);
 
         this.streamResponse = this.fetch(fetchRequest, callback);
     }
@@ -207,27 +233,43 @@ export class Thread {
         return ParseUtil.ParseDataParams(dataParams);
     }
 
-    protected parseQuery(threadQueryParams: ThreadQueryParams): FetchQuery {
-        if (!this.threadTemplate.query) {
+    protected static ParseQuery(threadTemplate: ThreadTemplate,
+        threadQueryParams: ThreadQueryParams, defaults: ThreadDefaults): FetchQuery {
+
+        if (!threadTemplate.query) {
             throw new Error("Missing query template in Thread");
         }
 
         const queryParams = {
-            ...this.threadTemplate.query,
+            ...threadTemplate.query,
             ...threadQueryParams,
         };
 
+        if (queryParams.includeLicenses) {
+            queryParams.match = queryParams.match ?? [];
+            queryParams.match.push({
+                nodeType: LICENSE_NODE_TYPE,
+            });
+
+            queryParams.embed = queryParams.embed ?? [];
+            queryParams.embed.push({
+                nodeType: LICENSE_NODE_TYPE,
+            });
+        }
+
         if (!queryParams.parentId && !queryParams.rootNodeId1) {
-            queryParams.parentId = this.defaults.parentId;
+            queryParams.parentId = defaults.parentId;
         }
 
         return ParseUtil.ParseQuery(queryParams);
     }
 
-    protected parseTransform(params: ThreadTransformerParams): FetchTransform {
+    protected static ParseTransform(threadTemplate: ThreadTemplate,
+        threadTransformerParams: ThreadTransformerParams): FetchTransform {
+
         return ParseUtil.ParseTransform({
-            ...(this.threadTemplate.transform ?? {}),
-            ...params,
+            ...(threadTemplate.transform ?? {}),
+            ...threadTransformerParams,
         });
     }
 

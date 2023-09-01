@@ -47,16 +47,13 @@ import {
     SPECIAL_NODES,
     CMP,
     Hash,
-    DATANODE_TYPE,
+    DATA_NODE_TYPE,
+    KeyPair,
 } from "../datamodel";
 
 import {
     Status,
 } from "../types";
-
-import {
-    ParseUtil,
-} from "../util/ParseUtil";
 
 import {
     RegionUtil,
@@ -67,6 +64,11 @@ import {
     ConnectionConfig,
     ExposeStorageToApp,
     HandshakeFactoryFactoryInterface,
+    UniverseConf,
+    StorageConf,
+    PeerConf,
+    SyncConf,
+    WalletConf,
 } from "./types";
 
 import {
@@ -104,6 +106,7 @@ import {
     ThreadTemplate,
     ThreadTemplates,
     ThreadDefaults,
+    ThreadParams,
 } from "../storage/thread";
 
 declare const window: any;
@@ -145,16 +148,8 @@ export type ServiceConfig = {
      */
     connectionConfigs: ConnectionConfig[],
 
-    /**
-     * If set to true then connectionConfigs will be automatically instantiated to factories when
-     * a storage connection has been established, and also later when new connection configs are added.
-     */
-    autoStartConnections: boolean,
-
     /** AutoFetch objects to initiate on autoFetcher clients. */
     autoFetch: AutoFetch[],
-
-    exposeStorageToApp?: ExposeStorageToApp,
 
     /** Arbitrary app config accessable to the app. */
     app: any,
@@ -323,18 +318,14 @@ export type BlobCallback = (blobEvent: BlobEvent) => void;
 /**
  */
 export class Service {
-    protected _isRunning: boolean;
-    protected handlers: {[name: string]: ( (...args: any) => void)[]};
+    protected _isRunning: boolean = false;
+    protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
 
     /** The configuration of the whole Service, which is partly allowed to change during runtime. */
     protected config: ServiceConfig;
 
     /** The current running state. */
     protected state: ServiceState;
-
-    protected signatureOffloader: SignatureOffloaderInterface;
-
-    protected handshakeFactoryFactory: HandshakeFactoryFactoryInterface;
 
     protected nodeUtil: NodeUtil;
 
@@ -343,33 +334,44 @@ export class Service {
 
     /**
      * The cryptographic public key of the user running the Service.
-     * The key pair must have been added to the SignatureOffloader.
+     * The key pair must have been added to the SignatureOffloader
+     * and the first key is extracted from there and set as publicKey on init().
      */
-    protected publicKey: Buffer;
+    protected publicKey: Buffer = Buffer.alloc(0);
 
     protected threadTemplates: ThreadTemplates = {};
 
+    protected universeConf: UniverseConf;
+
     /**
-     * @param publicKey the key used to sign. The matching keypair must alreadey have been added to the SignatureOffloader.
-     * @param signatureOffloader already initiated, needed to sign and verify signatures.
-     * @param config optional initial config.
+     * After constructed call init() then start().
+     *
+     * @param universeConf object which will be parsed into a UniverseConf object.
+     * @param signatureOffloader if not already initiated with key pairs then keyPairs
+     * must be provided when calling init().
+     * @param handshakeFactoryFactory
      */
-    constructor(publicKey: Buffer, signatureOffloader: SignatureOffloaderInterface, handshakeFactoryFactory: HandshakeFactoryFactoryInterface, config?: ServiceConfig) {
-        this._isRunning = false;
-        this.handlers = {};
-        this.publicKey = CopyBuffer(publicKey);
-        this.signatureOffloader = signatureOffloader;
-        this.handshakeFactoryFactory = handshakeFactoryFactory;
+    constructor(universeConf: UniverseConf, protected signatureOffloader: SignatureOffloaderInterface,
+        protected handshakeFactoryFactory: HandshakeFactoryFactoryInterface) {
+
+        this.universeConf = DeepCopy(universeConf);
+
+        if (this.universeConf.format !== 1) {
+            throw new Error("Unknown UniverseConf format, expecting 1");
+        }
+
         this.nodeUtil = new NodeUtil(this.signatureOffloader);
+
         this.sharedStorageFactoriesSocketFactoryStats = {counters: {}};
-        this.config = config ?? {
+
+        this.config = {
             nodeCerts: [],
             connectionConfigs: [],
             storageConnectionConfigs: [],
-            autoStartConnections: true,
             autoFetch: [],
             app: {},
         };
+
         this.state = {
             autoFetchers: [],
             storageServers: [],
@@ -381,6 +383,57 @@ export class Service {
     }
 
     /**
+     * @param walletConf if wallet contains keyPairs then they are added to signatureOffloader, else
+     * signatureOffloader is expected to have already added key pairs.
+     */
+    public async init(walletConf: WalletConf) {
+        if (this.publicKey.length > 0) {
+            throw new Error("Service already initiated");
+        }
+
+        const promises: Promise<void>[] = walletConf.keyPairs.map( (keyPair: KeyPair) => this.signatureOffloader.addKeyPair(keyPair) );
+        await Promise.all(promises);
+
+        const publicKeys = await this.signatureOffloader.getPublicKeys();
+
+        if (publicKeys.length === 0) {
+            throw new Error("No public keys added to SignatureOffloader");
+        }
+
+        this.publicKey = publicKeys[0];
+
+        if (walletConf.authCert) {
+            await this.setAuthCert(walletConf.authCert);
+        }
+
+        for (let i=0; i<walletConf.nodeCerts.length; i++) {
+            await this.addNodeCert(walletConf.nodeCerts[i]);
+        }
+
+        if (walletConf.storage.peer) {
+            this.addStorageConnectionConfig(walletConf.storage.peer);
+        }
+        else if (walletConf.storage.database) {
+            this.setLocalStorage(walletConf.storage.database);
+        }
+        else {
+            throw new Error("Missing walletConf.storage configuration");
+        }
+
+        for(let name in this.universeConf.threads) {
+            this.addThreadTemplate(name, this.universeConf.threads[name]);
+        }
+
+        this.universeConf.peers.forEach( (peerConf: PeerConf) => {
+            this.addConnectionConfig(peerConf);
+        });
+
+        this.universeConf.sync.forEach( (sync: SyncConf) => {
+            this.addSync(sync);
+        });
+    }
+
+    /**
      * Start this Service.
      *
      * @throws
@@ -389,9 +442,27 @@ export class Service {
         if (this._isRunning) {
             return;
         }
+
+        if (this.publicKey.length === 0) {
+            throw new Error("PublicKey not set. Service must be initiated before started.");
+        }
+
         this._isRunning = true;
+
         this.triggerEvent(EVENTS.START.name);
-        await this.initStorage();
+
+        try {
+            await this.initStorage();
+        }
+        catch(e) {
+            this._isRunning = false;
+
+            this.triggerEvent(EVENTS.STORAGE_PARSE_ERROR.name, {error: `${e}`});
+
+            this.triggerEvent(EVENTS.STORAGE_ERROR.name, {subEvent: EVENTS.STORAGE_PARSE_ERROR.name, e: {error: `${e}`}});
+
+            this.triggerEvent(EVENTS.STOP.name);
+        }
     }
 
     /**
@@ -485,122 +556,6 @@ export class Service {
     }
 
     /**
-     * Parse config object fragment and add/set extracted config parameters.
-     * This can be called in runtime as long as only such runtime changeable parameters are set.
-     *
-     * @param configObject POJO typically parsed from JSON.
-     * @returns [false, err] on bad config format or [true] on no error
-     */
-    public async parseConfig(obj: any): Promise<[boolean, string | undefined]> {
-        try {
-            const autoStartConnections = ParseUtil.ParseVariable("autoStartConnections must be boolean, if set", obj.autoStartConnections, "boolean", true) ?? true;
-
-            this.setAutoStartConnections(autoStartConnections);
-
-            if (obj.authCert) {
-                const authCert = await ParseUtil.ParseConfigAuthCert(obj.authCert);
-                if (authCert) {
-                    await this.setAuthCert(authCert);
-                }
-            }
-
-            if (obj.nodeCerts) {
-                const nodeCerts = await ParseUtil.ParseConfigNodeCerts(obj.nodeCerts);
-                for (let i=0; i<nodeCerts.length; i++) {
-                    await this.addNodeCert(nodeCerts[i]);
-                }
-            }
-
-            if (obj.storage?.local && obj.storage?.remote) {
-                console.warn("Both local and remote connected storage configuration present. Will opt for the remote storage config.");
-            }
-
-            if (obj.storage?.local && !obj.storage.remote) {
-                if (obj.storage.local.permissions === undefined) {
-                    obj.storage.local.permissions = UNCHECKED_PERMISSIVE_PERMISSIONS;
-                }
-
-                const localStorage = ParseUtil.ParseConfigLocalStorage(obj.storage.local);
-
-                let exposeToApp: ExposeStorageToApp | undefined = undefined;
-                if (obj.storage.local.exposeToApp) {
-                    exposeToApp = {
-                        permissions: ParseUtil.ParseP2PClientPermissions(obj.storage.local.exposeToApp.permissions ?? PERMISSIVE_PERMISSIONS),
-                    };
-                }
-
-                this.setLocalStorage(localStorage);
-                this.setExposeStorageToApp(exposeToApp);
-            }
-
-            if (obj.storage?.remote) {
-                if (obj.storage.remote.connections) {
-                    if (!Array.isArray(obj.storage.remote.connections)) {
-                        throw new Error("storage.remote.connections is expected to be object[]");
-                    }
-
-                    obj.storage.remote.connections.forEach( (config: any) => {
-                        if (config.permissions !== undefined) {
-                            throw new Error("permissions object must not be set on storage remote configs.");
-                        }
-
-                        // We do not allow any incoming requests from the remote storage it self.
-                        config.permissions = LOCKED_PERMISSIONS;
-
-                        const connectionConfig = ParseUtil.ParseConfigConnectionConfig(config,
-                            this.sharedStorageFactoriesSocketFactoryStats);
-
-                        this.addStorageConnectionConfig(connectionConfig);
-                    });
-                }
-
-                if (obj.storage.remote.exposeToApp) {
-                    if (obj.storage.remote.exposeToApp.permissions) {
-                        throw new Error("exposeToApp must not have permissions set when using remote storage.");
-                    }
-                    this.setExposeStorageToApp({});
-                }
-            }
-
-            if (obj.connections) {
-                if (!Array.isArray(obj.connections)) {
-                    throw new Error("connections is expected to be object[]");
-                }
-
-                obj.connections.forEach( (config: any) => {
-                    if (config.permissions === undefined) {
-                        config.permissions = LOCKED_PERMISSIONS;
-                    }
-
-                    const connectionConfig = ParseUtil.ParseConfigConnectionConfig(config);
-
-                    this.addConnectionConfig(connectionConfig);
-                });
-            }
-
-            if (obj.autoFetch) {
-                if (!Array.isArray(obj.autoFetch)) {
-                    throw new Error("autoFetch is expected to be object[]");
-                }
-                obj.autoFetch.forEach( (autoFetch: any) => {
-                    this.addAutoFetch(ParseUtil.ParseConfigAutoFetch(autoFetch));
-                });
-            }
-
-            if (obj.app) {
-                if (typeof obj.app !== "object" || obj.app.constructor !== Object) {
-                    throw new Error("app config must be object, if set.");
-                }
-                this.config.app = ParseUtil.ParseAppConfig(obj.app);
-            }
-        }
-        catch(e) {
-            return [false, `Error when parsing config: ${(e as Error).message}`];
-        }
-        return [true, undefined];
-    }
-
-    /**
      * Return the public key of this side.
      * Primarily return the root issuer public key from the Auth Cert,
      * secondary return the public key from the SignatureOffloader.
@@ -621,18 +576,6 @@ export class Service {
      */
     public getSignerPublicKey(): Buffer {
         return CopyBuffer(this.publicKey);
-    }
-
-    /**
-     * As soon as a config is ready and the storage connection is established
-     * peers and Storage client factories can be initiated automatically.
-     */
-    public setAutoStartConnections(autoStartConnections: boolean) {
-        this.config.autoStartConnections = autoStartConnections;
-    }
-
-    public getAutoStartConnections(): boolean {
-        return this.config.autoStartConnections;
     }
 
     /**
@@ -732,15 +675,6 @@ export class Service {
         this.state.localDatabaseReconnectDelay = this.config.localStorage?.driver.reconnectDelay;
     }
 
-    /** If set then a storage is exposed to be available for a local app. */
-    public setExposeStorageToApp(exposeStorageToApp: ExposeStorageToApp | undefined) {
-        this.config.exposeStorageToApp = exposeStorageToApp;
-    }
-
-    public getExposeStorageToApp(): ExposeStorageToApp | undefined {
-        return this.config.exposeStorageToApp;
-    }
-
     public getAppConfig(): any {
         return this.config.app;
     }
@@ -758,8 +692,8 @@ export class Service {
             throw new Error(`Thread ${name} not existing`);
         }
 
-        return new Thread(threadTemplate, defaults, storageClient, this.nodeUtil, this.getPublicKey(),
-            this.getSignerPublicKey());
+        return new Thread(threadTemplate, defaults, storageClient, this.nodeUtil,
+            this.getPublicKey(), this.getSignerPublicKey());
     }
 
     /**
@@ -767,16 +701,22 @@ export class Service {
      *
      * The HandshakeFactoryConfig in the ConnectionConfig will be complemented with peerData upon connecting.
      *
-     * If existing storage client and autoStartConnections is true then immediately init the connection factory.
+     * If existing storage client and service started then immediately init the connection factory.
      * @param connectionConfig object
      */
     public addConnectionConfig(connectionConfig: ConnectionConfig) {
+        if (!connectionConfig.handshakeFactoryConfig.socketFactoryStats) {
+            connectionConfig.handshakeFactoryConfig.socketFactoryStats = this.sharedStorageFactoriesSocketFactoryStats;
+        }
+
         if (this.config.connectionConfigs.some( (connectionConfig2: any) => DeepEquals(connectionConfig, connectionConfig2) )) {
             // Already exists.
             return;
         }
+
         this.config.connectionConfigs.push(connectionConfig);
-        if (this.state.storageClient && this.config.autoStartConnections) {
+
+        if (this._isRunning && !this.config.localStorage) {
             this.initConnectionFactories();
         }
     }
@@ -797,7 +737,7 @@ export class Service {
      *
      * The HandshakeFactoryConfig in the ConnectionConfig will be complemented with peerData upon connecting.
      *
-     * If existing storage client and autoStartConnections is true then immediately init the connection factory.
+     * If existing storage client and service is started then immediately init the connection factory.
      * @param connectionConfig object
      */
     public addStorageConnectionConfig(connectionConfig: ConnectionConfig) {
@@ -805,7 +745,9 @@ export class Service {
             // Already exists.
             return;
         }
+
         this.config.storageConnectionConfigs.push(connectionConfig);
+
         if (this._isRunning && !this.config.localStorage) {
             this.initStorageFactories();
         }
@@ -820,6 +762,68 @@ export class Service {
         this.config.storageConnectionConfigs.splice(index, 1);
         const connectionFactory = this.state.storageConnectionFactories.splice(index, 1)[0];
         connectionFactory?.close();
+    }
+
+    protected syncToAutoFetch(sync: SyncConf): AutoFetch[] {
+        const autoFetchers: AutoFetch[] = [];
+
+        sync.peerPublicKeys.forEach( (remotePublicKey: Buffer) => {
+            const downloadBlobs = sync.blobSizeMaxLimit !== 0;  //TODO
+
+            sync.threads.forEach( syncThread => {
+                const threadTemplate = this.threadTemplates[syncThread.name];
+
+                if (!threadTemplate) {
+                    throw new Error(`Missing thread template requried for sync: ${syncThread.name}`);
+                }
+
+                const threadParams = DeepCopy(syncThread.threadParams);
+
+                threadParams.query = threadParams.query ?? {};
+
+                // Always set includeLicenses when auto syncing.
+                threadParams.query.includeLicenses = true;
+
+                const fetchRequest = Thread.GetFetchRequest(threadTemplate, threadParams, {}, syncThread.stream);
+
+                // Transformers are not allowed to be used when auto syncing.
+                fetchRequest.transform.algos = [];
+
+                if (syncThread.direction === "pull" || syncThread.direction === "both") {
+                    autoFetchers.push({
+                        remotePublicKey,
+                        fetchRequest,
+                        downloadBlobs,
+                        reverse: false,
+                    });
+                }
+
+                if (syncThread.direction === "push" || syncThread.direction === "both") {
+                    autoFetchers.push({
+                        remotePublicKey,
+                        fetchRequest,
+                        downloadBlobs,
+                        reverse: true,
+                    });
+                }
+            });
+        });
+
+        return autoFetchers;
+    }
+
+    /**
+     * This is a suger function over addAutoFetch which uses Threads.
+     */
+    public addSync(sync: SyncConf) {
+        this.syncToAutoFetch(sync).forEach(autoFetch => this.addAutoFetch(autoFetch) );
+    }
+
+    /**
+     * Remove syncs added with addSync().
+     */
+    public removeSync(sync: SyncConf) {
+        this.syncToAutoFetch(sync).forEach(autoFetch => this.removeAutoFetch(autoFetch) );
     }
 
     /**
@@ -1027,29 +1031,24 @@ export class Service {
                 messaging1.open();
                 messaging2.open();
 
-                let externalStorageClient: P2PClient | undefined;
-                const exposeStorageToApp = this.getExposeStorageToApp();
+                // Create virtual paired sockets.
+                const [socket3, socket4] = CreatePair();
+                const messaging3 = new Messaging(socket3, 0);
+                const messaging4 = new Messaging(socket4, 0);
 
-                if (exposeStorageToApp) {
-                    // Create virtual paired sockets.
-                    const [socket3, socket4] = CreatePair();
-                    const messaging3 = new Messaging(socket3, 0);
-                    const messaging4 = new Messaging(socket4, 0);
+                // Set permissions on this to limit the local app's access to the storage.
+                const intermediaryStorageClient =
+                    new P2PClient(messaging3, this.makePeerProps(), this.makePeerProps(),
+                        localStorage.appPermissions);
 
-                    // Set permissions on this to limit the local app's access to the storage.
-                    const intermediaryStorageClient =
-                        new P2PClient(messaging3, this.makePeerProps(), this.makePeerProps(),
-                            exposeStorageToApp.permissions);
+                // This client only initiates requests and does not need any permissions to it.
+                const externalStorageClient =
+                    new P2PClient(messaging4, this.makePeerProps(), this.makePeerProps());
 
-                    // This client only initiates requests and does not need any permissions to it.
-                    externalStorageClient =
-                        new P2PClient(messaging4, this.makePeerProps(), this.makePeerProps());
+                new P2PClientForwarder(intermediaryStorageClient, internalStorageClient);
 
-                    new P2PClientForwarder(intermediaryStorageClient, internalStorageClient);
-
-                    messaging3.open();
-                    messaging4.open();
-                }
+                messaging3.open();
+                messaging4.open();
 
                 const closePromise = PromiseCallback();
 
@@ -1226,7 +1225,7 @@ export class Service {
             const ipRegion = RegionUtil.GetRegionByIpAddress(ipAddress);
 
             if (!ipRegion) {
-                throw new Error(`Could not lookup IP address: ${ipAddress}`);
+                throw new Error(`Could not lookup region for IP address: ${ipAddress}`);
             }
 
             if (ipRegion !== remoteProps.region) {
@@ -1458,7 +1457,7 @@ export class Service {
      * Called when a storage connection has been setup, either locally or to a remote.
      * @param p2pClient
      */
-    protected async storageConnected(internalStorageClient: P2PClient, externalStorageClient?: P2PClient) {
+    protected async storageConnected(internalStorageClient: P2PClient, externalStorageClient: P2PClient) {
         if (this.state.storageClient) {
             console.warn("Storage already connected.");
             internalStorageClient.close();
@@ -1468,7 +1467,7 @@ export class Service {
         this.state.storageClient = internalStorageClient;
         this.state.externalStorageClient = externalStorageClient;
 
-        this.state.externalStorageClient?.onClose( () => {
+        this.state.externalStorageClient.onClose( () => {
             delete this.state.externalStorageClient;
         });
 
@@ -1479,9 +1478,7 @@ export class Service {
             // Note: we do not delete storageFactory here, because it might spawn a new connection for us.
         });
 
-        if (this.config.autoStartConnections) {
-            await this.initConnectionFactories();
-        }
+        await this.initConnectionFactories();
 
         this.triggerEvent(EVENTS.STORAGE_CONNECT.name, {p2pClient: externalStorageClient});
     }

@@ -22,8 +22,6 @@ import {
 } from "./common";
 
 export class NodeUtil {
-    //protected signatureOffloader?: SignatureOffloaderInterface;
-
     /**
      * @param signatureOffloader if provided then signing will be threaded. Must already have been initialized.
      * @param nodeCerts sign certs to use if needed when signing nodes on behalf of others.

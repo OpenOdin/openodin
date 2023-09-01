@@ -181,8 +181,8 @@ export type FetchQuery = {
 
     /**
      * If set then the query will init a subscription which is run whenever a node is added/changed below the triggerNodeId.
-     * triggerNodeId is the the parentId of the nodes to observe, it does not need to be related to
-     * the rootNodeId1 of the query.
+     * triggerNodeId is the parentId of the nodes to observe, it does not need to be related to
+     * the parentId or the rootNodeId1 of the query.
      * The Storage is not required to support this feature and if it does not support this feature
      * then a malformed error is returned.
      */
@@ -204,7 +204,7 @@ export type FetchQuery = {
 
     /**
      * Set to true to only query on trigger, meaning do not perform an initial fetch,
-     * but only fetch on triggerNodeId and/or triggerInterval.
+     * but only fetch on triggerNodeId activation and/or triggerInterval.
      */
     onlyTrigger: boolean,
 

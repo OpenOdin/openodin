@@ -19,6 +19,10 @@ export class TransformerCache {
             return;
         }
 
+        if (nodes.length !== indexes.length) {
+            throw new Error("Mismatch in TransformerCache, not same length of nodes and indexes.");
+        }
+
         const nodesLength = nodes.length;
 
         for (let i=0; i<nodesLength; i++) {

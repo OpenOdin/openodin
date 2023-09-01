@@ -8,10 +8,16 @@ import {
     Hash,
     BlobEvent,
     ParseUtil,
-    SimpleChat,
     TransformerCache,
     TransformerItem,
     AbstractStreamReader,
+    Service,
+    Thread,
+    BlobStreamWriter,
+    ThreadTemplate,
+    StorageUtil,
+    UniverseConf,
+    WalletConf,
 } from "../../../";
 
 import {
@@ -51,16 +57,28 @@ class StreamReader extends AbstractStreamReader {
 async function main() {
     const consoleMain = PocketConsole({module: "Main  "});
 
-    let serverConfig;
-    let clientConfig;
+    let serverConfig: UniverseConf;
+    let clientConfig: UniverseConf;
+    let serverWallet: WalletConf;
+    let clientWallet: WalletConf;
     try {
-        serverConfig = JSONUtil.LoadJSON(`${__dirname}/server.json`, ['.']);
-        clientConfig = JSONUtil.LoadJSON(`${__dirname}/client.json`, ['.']);
+        serverConfig = ParseUtil.ParseUniverseConf(
+            JSONUtil.LoadJSON(`${__dirname}/server-universe.json`, ['.']));
+
+        clientConfig = ParseUtil.ParseUniverseConf(
+            JSONUtil.LoadJSON(`${__dirname}/client-universe.json`, ['.']));
+
+        serverWallet = ParseUtil.ParseWalletConf(
+            JSONUtil.LoadJSON(`${__dirname}/server-wallet.json`, ['.']));
+
+        clientWallet = ParseUtil.ParseWalletConf(
+            JSONUtil.LoadJSON(`${__dirname}/client-wallet.json`, ['.']));
     }
     catch(e) {
         consoleMain.error(`Could not load and parse config files`, e);
         process.exit(1);
     }
+
 
     // -----------------------------------------------------------------------
 
@@ -88,18 +106,13 @@ async function main() {
     //
     // We extract and reset the keyPairs to show that it is the KeyManager who is managing the keys from here on.
     //
-    const keyPair1 = ParseUtil.ParseKeyPair(serverConfig.keyPair);
-    const keyPair2 = ParseUtil.ParseKeyPair(clientConfig.keyPair);
+    const keyPair1 = serverWallet.keyPairs[0];
+    serverWallet.keyPairs = [];
+    const keyPair2 = clientWallet.keyPairs[0];
+    clientWallet.keyPairs = [];
 
-    serverConfig.keyPair = {
-        publicKey: Buffer.alloc(0),
-        secretKey: Buffer.alloc(0),
-    };
-
-    clientConfig.keyPair = {
-        publicKey: Buffer.alloc(0),
-        secretKey: Buffer.alloc(0),
-    };
+    assert(keyPair1);
+    assert(keyPair2);
 
     //
     // This part sets up the communication between the isolated parts of the code.
@@ -131,14 +144,38 @@ async function main() {
     const keyManager2 = new KeyManager(rpc2);
 
     keyManager1.onAuth( async () => {
+        const publicKey: number[] = [];
+        const secretKey: number[] = [];
+
+        keyPair1.publicKey.forEach(i => publicKey.push(i) );
+        keyPair1.secretKey.forEach(i => secretKey.push(i) );
+
         return {
-            keyPairs: [keyPair1],
+            keyPairs: [
+                {
+                    publicKey,
+                    secretKey,
+                    crypto: "ed25519",
+                }
+            ]
         };
     });
 
     keyManager2.onAuth( async () => {
+        const publicKey: number[] = [];
+        const secretKey: number[] = [];
+
+        keyPair2.publicKey.forEach(i => publicKey.push(i) );
+        keyPair2.secretKey.forEach(i => secretKey.push(i) );
+
         return {
-            keyPairs: [keyPair2],
+            keyPairs: [
+                {
+                    publicKey,
+                    secretKey,
+                    crypto: "ed25519",
+                }
+            ]
         };
     });
 
@@ -150,7 +187,7 @@ async function main() {
     const universe1 = new Universe(rpc1b);
     const rpcClients1 = await universe1.auth();
     if (rpcClients1.error || !rpcClients1.signatureOffloader || !rpcClients1.handshakeFactoryFactory) {
-        console.error('Error in auth: ${rpcClients1.error}');
+        console.error(`Error in auth: ${rpcClients1.error}`);
         process.exit(1);
         return;
     }
@@ -161,7 +198,7 @@ async function main() {
     const universe2 = new Universe(rpc2b);
     const rpcClients2 = await universe2.auth();
     if (rpcClients2.error || !rpcClients2.signatureOffloader || !rpcClients2.handshakeFactoryFactory) {
-        console.error('Error in auth: ${rpcClients2.error}');
+        console.error(`Error in auth: ${rpcClients2.error}`);
         process.exit(1);
         return;
     }
@@ -200,29 +237,43 @@ async function main() {
 
     const consoleServer = PocketConsole({module: "Server"});
 
-    const chatServer = new SimpleChat(keyPair1.publicKey, signatureOffloader1, handshakeFactoryFactory1);
+    const chatServer = new Service(serverConfig, signatureOffloader1, handshakeFactoryFactory1);
+
+    await chatServer.init(serverWallet);
 
     chatServer.onConnectionError( (e) => {
         consoleMain.error("Connection error in server", e);
         process.exit(1);
     });
 
-    chatServer.onChatReady( (cache: TransformerCache) => {
-        cache.onAdd( (item: TransformerItem) => {
-            const message = (item.node as DataInterface).getData()?.toString();
-            consoleServer.info(message);
-            checkToQuit();
+    chatServer.onStorageConnect( async (e) => {
+        const storageClient = e.p2pClient;
+
+        const serverThread = chatServer.makeThread("channel", {parentId: Buffer.alloc(32),
+            licenseTargets: [keyPair1.publicKey]});
+
+        serverThread.stream({}, (getResponse, transformerCache) => {
+            transformerCache?.onChange( (item: TransformerItem) => {
+                const message = (item.node as DataInterface).getData()?.toString();
+                consoleServer.info(message);
+                checkToQuit();
+            });
         });
 
         // Here we send as soon as Storage is connected, peer might or might
         // not be connected yet.
         consoleMain.info("Storage connected, send message from Server side");
-        chatServer.sendChat("Hello from Server");
+        const [node] = await serverThread.post({data: Buffer.from("Hello from Server")});
+        if (node) {
+            serverThread.postLicense(node);
+        }
     });
 
     chatServer.onBlob( async (blobEvent: BlobEvent) => {
         if (blobEvent.nodeId1 && !blobEvent.error) {
-            const blobData = await chatServer.getLib()!.readBlob(blobEvent.nodeId1!);
+            consoleServer.info("server got attachment");
+            const storageUtil = new StorageUtil(chatServer.getStorageClient()!);
+            const blobData = await storageUtil.readBlob(blobEvent.nodeId1!);
 
             if (blobResolve) {
                 blobResolve(blobData);
@@ -233,8 +284,6 @@ async function main() {
     chatServer.onConnectionConnect( () => {
         consoleMain.info("Connection connected to server");
     });
-
-    await chatServer.init(serverConfig);
 
     chatServer.onStop( () => {
         signatureOffloader1.close();
@@ -248,30 +297,46 @@ async function main() {
     const consoleClient = PocketConsole({module: "Client"});
 
 
-    const chatClient = new SimpleChat(keyPair2.publicKey, signatureOffloader2, handshakeFactoryFactory2);
+    const chatClient = new Service(clientConfig, signatureOffloader2, handshakeFactoryFactory2);
+
+    await chatClient.init(clientWallet);
 
     chatClient.onConnectionError( (e) => {
         consoleMain.error("Connection error in client", e);
         process.exit(1);
     });
 
-    chatClient.onChatReady( (cache: TransformerCache) => {
-        cache.onChange( (item: TransformerItem, changeType: string) => {
-            const message = (item.node as DataInterface).getData()?.toString();
-            consoleClient.info(message);
-            checkToQuit();
+    var clientThread: Thread | undefined;
+
+    chatClient.onStorageConnect( (e) => {
+        const storageClient = e.p2pClient;
+
+        clientThread = chatClient.makeThread("channel", {parentId: Buffer.alloc(32),
+            licenseTargets: [keyPair2.publicKey]});
+
+        clientThread.stream({}, (getResponse, transformerCache) => {
+            transformerCache?.onChange( (item: TransformerItem, changeType: string) => {
+                const message = (item.node as DataInterface).getData()?.toString();
+                consoleClient.info(message);
+                checkToQuit();
+            });
         });
     });
 
-    chatClient.onConnectionConnect( () => {
+    chatClient.onConnectionConnect( async () => {
         consoleMain.info("Connection connected to client, send message from Client side");
         const blobLength = BigInt(BLOB_DATA.length);
         const blobHash = Hash(BLOB_DATA);
         const streamReader = new StreamReader(BLOB_DATA);
-        chatClient.sendAttachment("Hello from Client with attachment", blobHash, blobLength, streamReader);
-    });
+        const [node] = await clientThread!.post({blobHash, blobLength, data: Buffer.from("Hello from Client with attachment")});
+        if (node) {
+            clientThread!.postLicense(node);
 
-    await chatClient.init(clientConfig);
+            const nodeId1 = node.getId1();
+            const storageUtil = new StorageUtil(chatClient.getStorageClient()!);
+            storageUtil.streamStoreBlob(nodeId1!, streamReader);
+        }
+    });
 
     chatClient.onStop( () => {
         signatureOffloader2.close();
@@ -282,7 +347,7 @@ async function main() {
     const blobData = await blobPromise as Buffer;
     assert(blobData.equals(BLOB_DATA));
 
-    consoleServer.aced("Transferred blob successfully");
+    consoleServer.aced("Downloaded blob successfully");
     checkToQuit();
 }
 

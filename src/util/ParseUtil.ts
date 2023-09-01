@@ -30,6 +30,7 @@ import {
     DataCertConstraintValues,
     LicenseCertParams,
     LicenseCertConstraintValues,
+    DATA_NODE_TYPE,
 } from "../datamodel";
 
 import {
@@ -45,6 +46,9 @@ import {
     P2PClientPermissions,
     P2PClientFetchPermissions,
     P2PClientStorePermissions,
+    UNCHECKED_PERMISSIVE_PERMISSIONS,
+    PERMISSIVE_PERMISSIONS,
+    DEFAULT_PEER_PERMISSIONS,
 } from "../p2pclient/types";
 
 import {
@@ -52,12 +56,205 @@ import {
     ConnectionConfig,
     DriverConfig,
     AppConfig,
+    UniverseConf,
+    WalletConf,
+    PeerConf,
+    SyncConf,
+    StorageConf,
 } from "../service/types";
+
+import {
+    ThreadTemplate,
+} from "../storage/thread";
+
+import {
+    DeepCopy,
+} from "../util/common";
 
 /**
  * Parse config object fragments.
  */
 export class ParseUtil {
+    /**
+     * @param conf object
+     * {
+     *  format?:        1,
+     *  name:           string,
+     *  version:        string,
+     *  title?:         string,
+     *  description?:   string,
+     *  homepage?:      string,
+     *  author?:        string,
+     *  repository?:    string,
+     *  custom?:        {[key: string]: any};
+     *  threads?:       {[name: string]: ThreadTemplate};
+     *  peers?: {
+     *      connection:     HandshakeFactoryConfig,
+     *      permissions:    P2PClientPermissions,
+     *      region?:        string,
+     *      jurisdiction?:  string,
+     *  }[],
+     *  sync?: {
+     *      peerPublicKeys:    Buffer[],
+     *      blobSizeMaxLimit:  number,
+     *      threads: {
+     *          name:               string,
+     *          stream?:            boolean,
+     *          direction?:         "push" | "pull" " "both",
+     *      }[],
+     *  }[]
+     * }
+     *
+     * Note that threads[].threadParams are not supported to be parsed.
+     *
+     * @returns UniverseConf
+     * @throws if malconfigured.
+     */
+    public static ParseUniverseConf(conf: any): UniverseConf {
+        const format = ParseUtil.ParseVariable("universeConf.format must be number, if set", conf.format, "number", true) ?? 1;
+
+        if (format !== 1) {
+            throw new Error("universeConf.format must be set to 1");
+        }
+
+        const name = ParseUtil.ParseVariable("universeConf.name must be string", conf.name, "string");
+        const version = ParseUtil.ParseVariable("universeConf.version must be string", conf.version, "string");
+        const title = ParseUtil.ParseVariable("universeConf.title must be string, if set", conf.title, "string", true) ?? "";
+        const description = ParseUtil.ParseVariable("universeConf.description must be string, if set", conf.description, "string", true) ?? "";
+        const homepage = ParseUtil.ParseVariable("universeConf.homepage must be string, if set", conf.homepage, "string", true) ?? "";
+        const author = ParseUtil.ParseVariable("universeConf.author must be string, if set", conf.author, "string", true) ?? "";
+        const repository = ParseUtil.ParseVariable("universeConf.repository must be string, if set", conf.repository, "string", true) ?? "";
+        const custom = ParseUtil.ParseVariable("universeConf.custom must be object, if set", conf.custom, "object", true) ?? {};
+
+        const threads: {[name: string]: ThreadTemplate} = {};
+        const threadTemplates = ParseUtil.ParseVariable("universeConf.threads must be object, if set", conf.threads, "object", true) ?? {};
+        for (let name in threadTemplates) {
+            const threadTemplate = threadTemplates[name];
+
+            const query     = threadTemplate.query;
+            const transform = threadTemplate.transform;
+            const post      = threadTemplate.post;
+            const postLicense = threadTemplate.postLicense;
+
+            threads[name] = {
+                query,
+                transform,
+                post,
+                postLicense,
+            };
+        }
+
+        const peers: PeerConf[] = [];
+        (conf.peers ?? []).forEach( (peerConf: any) => {
+            if (peerConf.permissions === null || peerConf.permissions === undefined) {
+                peerConf = {
+                    ...peerConf,
+                    permissions: DEFAULT_PEER_PERMISSIONS,
+                };
+            }
+
+            const connectionConfig = ParseUtil.ParseConfigConnectionConfig(peerConf);
+
+            peers.push(connectionConfig);
+        });
+
+        const sync: SyncConf[] = [];
+        (conf.sync ?? []).forEach( (syncConf: any) => {
+            const peerPublicKeys = ParseUtil.ParseVariable("universeConf.sync.peerPublicKeys must be hex-string or Buffer array", syncConf.peerPublicKeys, "hex[]");
+
+            const blobSizeMaxLimit = ParseUtil.ParseVariable("universeConf.sync.blobSizeMaxLimit must be number, if set", syncConf.blobSizeMaxLimit, "number", true) ?? -1;
+
+            const threads: any[] = [];
+            (syncConf.threads ?? []).forEach( (thread: any) => {
+
+                const name = ParseUtil.ParseVariable("universeConf.sync.threads.name must be string", thread.name, "string");
+
+                const stream = ParseUtil.ParseVariable("universeConf.sync.threads.stream must be boolean, if set", thread.stream, "boolean", true) ?? false;
+
+                const direction = ParseUtil.ParseVariable("universeConf.sync.threads.direction must be string, if set", thread.direction, "string", true) ?? "pull";
+
+                threads.push({
+                    name,
+                    stream,
+                    threadParams: {},
+                    direction,
+                });
+            });
+
+            sync.push({
+                peerPublicKeys,
+                blobSizeMaxLimit,
+                threads,
+            });
+        });
+
+        return {
+            format,
+            name,
+            version,
+            title,
+            description,
+            homepage,
+            author,
+            repository,
+            custom,
+            threads,
+            peers,
+            sync,
+        };
+    }
+
+    /**
+     * @param conf object
+     * {
+     *  keyPairs: {
+     *      publicKey: hexstring | Buffer,
+     *      secretKey: hexstring | Buffer
+     *  },
+     *  authCert?: hexstring | Buffer,
+     *  nodeCerts?: (hexstring | Buffer)[],
+     *  storage?: {
+     *      peer?: {
+     *          connection:     HandshakeFactoryConfig,
+     *          region?:        string,
+     *          jurisdiction?:  string,
+     *          permissions:    P2PClientPermissions,
+     *      },
+     *      database?: {
+     *          permissions?: P2PClientPermissions,
+     *          appPermissions?: P2PClientPermissions,
+     *          driver?: DriverConfig,
+     *          blobDriver?: DriverConfig,
+     *      }
+     *  }
+     * }
+     * @returns UniverseConf
+     * @throws if malconfigured.
+     */
+    public static ParseWalletConf(conf: any): WalletConf {
+        const keyPairs = conf.keyPairs.map( (keyPair: any) => ParseUtil.ParseKeyPair(keyPair) );
+
+        const authCert = conf.authCert ? ParseUtil.ParseConfigAuthCert(conf.authCert) : undefined;
+
+        const nodeCerts = ParseUtil.ParseConfigNodeCerts(conf.nodeCerts ?? []);
+
+        const storage: StorageConf = {};
+
+        if (conf.storage?.peer) {
+            storage.peer = ParseUtil.ParseConfigConnectionConfig(conf.storage.peer);
+        }
+        else {
+            storage.database = ParseUtil.ParseConfigLocalStorage(conf.storage?.database ?? {});
+        }
+
+        return {
+            keyPairs,
+            authCert,
+            nodeCerts,
+            storage,
+        };
+    }
+
     /**
      * @param keyPair object with hex encoded string properties:
      * {
@@ -82,7 +279,7 @@ export class ParseUtil {
      * @returns AuthCert
      * @throws if malconfigured or cert cannot be decoded.
      */
-    public static async ParseConfigAuthCert(encoded: any): Promise<AuthCertInterface> {
+    public static ParseConfigAuthCert(encoded: any): AuthCertInterface {
         const buf = ParseUtil.ParseVariable("authCert must be hex-string or Buffer", encoded, "hex");
         const authCert = Decoder.DecodeAuthCert(buf);
         return authCert;
@@ -97,7 +294,7 @@ export class ParseUtil {
      * @returns list of decoded node certs.
      * @throws if malconfigured or certs cannot be decoded.
      */
-    public static async ParseConfigNodeCerts(arr: any): Promise<PrimaryNodeCertInterface[]> {
+    public static ParseConfigNodeCerts(arr: any): PrimaryNodeCertInterface[] {
         const nodeCerts: PrimaryNodeCertInterface[] = [];
         const arr2 = ParseUtil.ParseVariable("nodeCerts must be hex[] or Buffer[], if set.", arr, "hex[]", true);
         (arr2 || []).forEach( (str: any) => {
@@ -118,7 +315,8 @@ export class ParseUtil {
      * @throws if malconfigured
      */
     public static ParseConfigLocalStorage(obj: any): LocalStorageConfig {
-        const permissions = ParseUtil.ParseP2PClientPermissions(obj.permissions);
+        const permissions = ParseUtil.ParseP2PClientPermissions(obj.permissions ?? UNCHECKED_PERMISSIVE_PERMISSIONS);
+        const appPermissions = ParseUtil.ParseP2PClientPermissions(obj.appPermissions ?? PERMISSIVE_PERMISSIONS);
 
         let driver: DriverConfig = {
             sqlite: ":memory:",
@@ -185,6 +383,7 @@ export class ParseUtil {
 
         const local: LocalStorageConfig = {
             permissions,
+            appPermissions,
             driver,
             blobDriver,
         };
@@ -223,7 +422,7 @@ export class ParseUtil {
     /**
      * @param obj object with properties:
      * {
-     *  factory: HandshakeFactoryConfig,
+     *  connection: HandshakeFactoryConfig,
      *  region?: string,
      *  jurisdiction?: string,
      *  permissions: P2PClientPermissions,
@@ -231,8 +430,8 @@ export class ParseUtil {
      * @returns ConnectionConfig
      * @throws if malconfigured
      */
-    public static ParseConfigConnectionConfig(connectionConfig: any, sharedFactoryStats?: any): ConnectionConfig {
-        const handshakeFactoryConfig = ParseUtil.ParseHandshakeFactory(connectionConfig.factory);
+    public static ParseConfigConnectionConfig(connectionConfig: any): ConnectionConfig {
+        const handshakeFactoryConfig = ParseUtil.ParseHandshakeFactory(connectionConfig.connection);
         let region: string | undefined;
         let jurisdiction: string | undefined;
 
@@ -247,8 +446,6 @@ export class ParseUtil {
 
         const permissions = ParseUtil.ParseP2PClientPermissions(connectionConfig.permissions);
 
-        handshakeFactoryConfig.socketFactoryStats = sharedFactoryStats;
-
         return {
             handshakeFactoryConfig,
             region,
@@ -260,9 +457,12 @@ export class ParseUtil {
     /**
      * @param obj object with the following properties:
      * {
-     *  network: string,
+     *  galaxy: string,
      *  maxConnections?: number,
      *  maxConnectionsPerIp?: number,
+     *  maxConnectionsPerClient?: number,
+     *  maxConnectionsPerClientPair?: number,
+     *  pingInterval?: number,
      *  client?: {
      *   socketType: "WebSocket" | "TCP",
      *   serverPublicKey: hexstring | Buffer,
@@ -294,7 +494,9 @@ export class ParseUtil {
      * @throws if malconfigured
      */
     public static ParseHandshakeFactory(obj: any): HandshakeFactoryConfig {
-        const discriminator = Buffer.from(ParseUtil.ParseVariable("connection network must be string", obj.network, "string"));  // NOTE: we refer to the discriminator at "network" in this context.
+        // NOTE: we refer to the discriminator at "galaxy" in this context.
+        const discriminator = Buffer.from(ParseUtil.ParseVariable("connection galaxy must be string, if set", obj.galaxy, "string", true) ?? "");
+
         const maxConnections = ParseUtil.ParseVariable("connection maxConnections must be number, if set", obj.maxConnections, "number", true);
         const maxConnectionsPerIp = ParseUtil.ParseVariable("connection maxConnectionsPerIp must be number, if set", obj.maxConnectionsPerIp, "number", true);
         const maxConnectionsPerClient = ParseUtil.ParseVariable("connection maxConnectionsPerClient must be number, if set", obj.maxConnectionsPerClient, "number", true);
@@ -399,6 +601,8 @@ export class ParseUtil {
      *  storePermissions?: P2PClientStorePermissions,
      *  allowUncheckedAccess: boolean,
      * }
+     *
+     * @returns by default a locked down permissions object.
      */
     public static ParseP2PClientPermissions(permissions: any): P2PClientPermissions {
         let fetchPermissions: P2PClientFetchPermissions = {
@@ -682,7 +886,7 @@ export class ParseUtil {
      */
     public static ParseMatch(matches: any[]): Match[] {
         return matches.map( (match: Match) => {
-            const nodeType = ParseUtil.ParseVariable("match nodeType must be hex-string or Buffer", match.nodeType, "hex");
+            const nodeType = ParseUtil.ParseVariable("match nodeType must be hex-string or Buffer, if set", match.nodeType, "hex", true) ?? DATA_NODE_TYPE;
             let filters: Filter[] = [];
             const filters0 = ParseUtil.ParseVariable("match filters must be Filter[], if set", match.filters, "object[]", true);
             if (filters0) {
@@ -1466,7 +1670,7 @@ export class ParseUtil {
                     else if (typeof v !== expectedType) {
                         throw new Error(error);
                     }
-                    value2.push(v);
+                    value2.push(DeepCopy(v));
                 });
                 return value2;
             }
@@ -1483,13 +1687,13 @@ export class ParseUtil {
                         if (value2.toString("hex").toLowerCase() !== value.toLowerCase()) {
                             throw new Error(error);
                         }
-                        value = value2;
+                        return value2;
                     }
                 }
                 else if (typeof value !== expectedType) {
                     throw new Error(error);
                 }
-                return value;
+                return DeepCopy(value);
             }
         }
     }

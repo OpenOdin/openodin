@@ -95,7 +95,6 @@ export type AutoFetch = {
 
     /** If true then reverse the fetch and store so we fetch from storage and store to remote. */
     reverse: boolean,
-
 };
 
 /**
@@ -181,6 +180,26 @@ export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     storePermissions: {
         allowStore: true,
         allowWriteBlob: true,
+    }
+};
+
+export const DEFAULT_PEER_PERMISSIONS: P2PClientPermissions = {
+    allowUncheckedAccess: false,
+    fetchPermissions: {
+        allowEmbed: [
+            {
+                nodeType: "0004" as any,
+                "filters": []
+            }
+        ],
+        allowTrigger: true,
+        allowNodeTypes: ["0004" as any],
+        allowTransform: [],
+        allowReadBlob: true,
+    },
+    storePermissions: {
+        allowStore: false,
+        allowWriteBlob: false,
     }
 };
 

@@ -1,5 +1,6 @@
 import {
     NodeInterface,
+    DATA_NODE_TYPE,
 } from "../../datamodel";
 
 import {
@@ -28,6 +29,10 @@ import {
     Status,
 } from "../../types";
 
+/**
+ * Transformers ignore any nodes who are not of DATA_NODE_TYPE,
+ * that are not returned in the response.
+ */
 export class Transformer {
     protected algoFunctions: AlgoInterface[];
     protected _isClosed: boolean;
@@ -171,6 +176,7 @@ export class Transformer {
         return (fetchReplyData: FetchReplyData) => {
             try {
                 const status = fetchReplyData.status ?? Status.RESULT;
+                const nodesToAdd = (fetchReplyData.nodes ?? []).filter( node => node.getType().equals(DATA_NODE_TYPE) );
 
                 if (status !== Status.RESULT) {
                     handleFetchReplyData(fetchReplyData);
@@ -179,7 +185,7 @@ export class Transformer {
 
                 if (this.isPristine) {
                     // First time, fill model.
-                    this.add(fetchReplyData.nodes ?? []);
+                    this.add(nodesToAdd);
                     embed.push(...fetchReplyData.embed ?? []);
 
                     rowCount += fetchReplyData.rowCount ?? 0;
@@ -225,9 +231,8 @@ export class Transformer {
                         allNodes = this.getAllNodes();
                     }
 
-                    const nodesToAdd    = fetchReplyData.nodes ?? [];
-                    const embed         = fetchReplyData.embed ?? [];
-                    rowCount            += fetchReplyData.rowCount ?? 0;
+                    const embed  = fetchReplyData.embed ?? [];
+                    rowCount    += fetchReplyData.rowCount ?? 0;
 
                     // For every node which comes in we tick it off from the current model.
                     //
@@ -278,8 +283,7 @@ export class Transformer {
                     // Add nodes and return positive diff.
                     //
 
-                    const nodesToAdd    = fetchReplyData.nodes ?? [];
-                    const embed         = fetchReplyData.embed ?? [];
+                    const embed = fetchReplyData.embed ?? [];
 
                     const [nodes, indexes] = this.handleAdd(nodesToAdd);
 

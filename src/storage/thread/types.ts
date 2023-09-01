@@ -17,7 +17,7 @@ import {
 
 /**
  * The JSON parsed structure of the Thread template.
- * At this point not verified for accurucy but will
+ * At this point not verified for accuracy but will
  * be when parsed as typed structures.
  */
 export type ThreadTemplate = {
@@ -70,10 +70,11 @@ export type ThreadQueryParams = {
     preserveTransient?:     boolean,
     region?:                string,
     jurisdiction?:          string,
+    includeLicenses?:       boolean,
 };
 
 /**
- * These are the relevat properties of FetchTransform which could be
+ * These are the relevant properties of FetchTransform which could be
  * set to override the template properties of transform.
  * A value of undefined will also overwrite and set
  * the final property to undefined.
