@@ -70,7 +70,7 @@ enum RouteAction {
     MESSAGE     = "message",
 }
 
-export type HandlerFn<RequestDataType, ResponseDataType> = (peer: P2PClient, incoming: RequestDataType, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ResponseDataType>) => void;
+export type HandlerFn<RequestDataType, ResponseDataType> = (incoming: RequestDataType, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ResponseDataType>) => void;
 
 /**
  * The purpose of the P2PClient is to connect two peers over a common request-response protocol.
@@ -354,7 +354,7 @@ export class P2PClient {
                 return;
             }
 
-            await handlerFn(this, request, routeEvent.fromMsgId, routeEvent.expectingReply, sendResponse);
+            await handlerFn(request, this, routeEvent.fromMsgId, routeEvent.expectingReply, sendResponse);
         }
         catch(e) {
             console.error(`Exception when routing incoming message with action: ${routeAction}`, e);

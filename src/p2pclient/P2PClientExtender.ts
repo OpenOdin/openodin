@@ -64,11 +64,11 @@ export class P2PClientExtender extends P2PClientForwarder {
         this.nodeCerts = nodeCerts.slice();
     }
 
-    protected handleFetch(senderClient: P2PClient, fetchRequest: FetchRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>)  {
+    protected handleFetch(fetchRequest: FetchRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>)  {
         fetchRequest.query.clientPublicKey = senderClient.getLocalPublicKey();
         fetchRequest.query.targetPublicKey = senderClient.getRemotePublicKey();
 
-        super.handleFetch(senderClient, fetchRequest, fromMsgId, expectingReply, sendResponse);
+        super.handleFetch(fetchRequest, senderClient, fromMsgId, expectingReply, sendResponse);
     }
 
     protected handleFetchResponse(sendResponse: SendResponseFn<FetchResponse>, targetClient: P2PClient, fetchResponse: FetchResponse) {
@@ -98,11 +98,11 @@ export class P2PClientExtender extends P2PClientForwarder {
         super.handleFetchResponse(sendResponse, targetClient, fetchResponse2);
     }
 
-    protected handleReadBlob(senderClient: P2PClient, readBlobRequest: ReadBlobRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ReadBlobResponse>) {
+    protected handleReadBlob(readBlobRequest: ReadBlobRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ReadBlobResponse>) {
         readBlobRequest.clientPublicKey = senderClient.getLocalPublicKey();
         readBlobRequest.targetPublicKey = senderClient.getRemotePublicKey();
 
-        super.handleReadBlob(senderClient, readBlobRequest, fromMsgId, expectingReply, sendResponse);
+        super.handleReadBlob(readBlobRequest, senderClient, fromMsgId, expectingReply, sendResponse);
     }
 
     /**

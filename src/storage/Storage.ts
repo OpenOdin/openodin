@@ -222,7 +222,7 @@ export class Storage {
         }
     };
 
-    protected handleStore: HandlerFn<StoreRequest, StoreResponse> = async (peer: P2PClient, storeRequest: StoreRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) => {
+    protected handleStore: HandlerFn<StoreRequest, StoreResponse> = async (storeRequest: StoreRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) => {
         let ts: number | undefined;
 
         try {
@@ -419,7 +419,7 @@ export class Storage {
         return promises;
     }
 
-    protected handleFetch: HandlerFn<FetchRequest, FetchResponse> = async (peer: P2PClient, fetchRequest: FetchRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>) => {
+    protected handleFetch: HandlerFn<FetchRequest, FetchResponse> = async (fetchRequest: FetchRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>) => {
         if (!sendResponse) {
             return;
         }
@@ -850,7 +850,7 @@ export class Storage {
         return undefined;
     }
 
-    protected handleUnsubscribe: HandlerFn<UnsubscribeRequest, UnsubscribeResponse> = (peer: P2PClient, unsubscribeRequest: UnsubscribeRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<UnsubscribeResponse>) => {
+    protected handleUnsubscribe: HandlerFn<UnsubscribeRequest, UnsubscribeResponse> = (unsubscribeRequest: UnsubscribeRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<UnsubscribeResponse>) => {
         try {
             if (unsubscribeRequest.clientPublicKey.length === 0) {
                 unsubscribeRequest.clientPublicKey = CopyBuffer(this.clientPublicKey);
@@ -881,7 +881,7 @@ export class Storage {
         }
     };
 
-    protected handleWriteBlob: HandlerFn<WriteBlobRequest, WriteBlobResponse> = async (peer: P2PClient, writeBlobRequest: WriteBlobRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<WriteBlobResponse>) => {
+    protected handleWriteBlob: HandlerFn<WriteBlobRequest, WriteBlobResponse> = async (writeBlobRequest: WriteBlobRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<WriteBlobResponse>) => {
         let status: Status | undefined;
 
         try {
@@ -1174,7 +1174,7 @@ export class Storage {
         }
     };
 
-    protected handleReadBlob: HandlerFn<ReadBlobRequest, ReadBlobResponse> = async (peer: P2PClient, readBlobRequest: ReadBlobRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ReadBlobResponse>) => {
+    protected handleReadBlob: HandlerFn<ReadBlobRequest, ReadBlobResponse> = async (readBlobRequest: ReadBlobRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ReadBlobResponse>) => {
         if (!sendResponse) {
             return;
         }

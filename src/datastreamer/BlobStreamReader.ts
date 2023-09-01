@@ -110,7 +110,7 @@ export class BlobStreamReader extends AbstractStreamReader {
                 return;
             }
 
-            getResponse.onReply((peer: P2PClient, readBlobResponse: ReadBlobResponse) => {
+            getResponse.onReply((readBlobResponse: ReadBlobResponse) => {
                 if (readBlobResponse.status === Status.RESULT) {
                     const data = readBlobResponse.data;
                     const blobLength = readBlobResponse.blobLength;

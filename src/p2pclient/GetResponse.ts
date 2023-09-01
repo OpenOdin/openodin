@@ -397,7 +397,7 @@ export class GetResponse<ResponseDataType> {
 
     protected triggerReply(response: ResponseDataType, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ResponseDataType>) {
         this.triggers.reply.forEach( fn => {
-            fn(this.p2pClient, response, fromMsgId, expectingReply, sendResponse);
+            fn(response, this.p2pClient, fromMsgId, expectingReply, sendResponse);
         });
     }
 

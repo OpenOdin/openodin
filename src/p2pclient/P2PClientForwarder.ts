@@ -69,7 +69,7 @@ export class P2PClientForwarder {
 
     /**
      */
-    protected handleFetch(senderClient: P2PClient, fetchRequest: FetchRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>)  {
+    protected handleFetch(fetchRequest: FetchRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>)  {
         const isSubscription = fetchRequest.query.triggerNodeId.length > 0 || fetchRequest.query.triggerInterval > 0;
 
         // Send the modified request to the target.
@@ -92,7 +92,7 @@ export class P2PClientForwarder {
         //});
 
         if (sendResponse) {
-            getResponse.onReply( async (targetClient: P2PClient, fetchResponse: FetchResponse) => {
+            getResponse.onReply( async (fetchResponse: FetchResponse, targetClient: P2PClient) => {
                 this.handleFetchResponse(sendResponse, targetClient, fetchResponse);
             });
         }
@@ -106,7 +106,7 @@ export class P2PClientForwarder {
     /**
      *
      */
-    protected handleStore(senderClient: P2PClient, storeRequest: StoreRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) {
+    protected handleStore(storeRequest: StoreRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) {
 
         // Start with all msgIds which does not come from this Forwarder.
         const muteMsgIds = this.muteMsgIds.filter( msgId => {
@@ -138,7 +138,7 @@ export class P2PClientForwarder {
             return;
         }
 
-        getResponse.onReply( async (targetClient: P2PClient, storeResponse: StoreResponse) => {
+        getResponse.onReply( async (storeResponse: StoreResponse) => {
             // Tunnel the response back to the senderClient.
             if (sendResponse) {
                 sendResponse(storeResponse);
@@ -148,7 +148,7 @@ export class P2PClientForwarder {
 
     /**
      */
-    protected handleUnsubscribe(senderClient: P2PClient, unsubscribeRequest: UnsubscribeRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<UnsubscribeResponse>) {
+    protected handleUnsubscribe(unsubscribeRequest: UnsubscribeRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<UnsubscribeResponse>) {
         for (let i=0; i<this.subscriptionMaps.length; i++) {
             const subscriptionMap = this.subscriptionMaps[i];
             if (subscriptionMap.fromMsgId.equals(unsubscribeRequest.originalMsgId) && subscriptionMap.clientPublicKey.equals(unsubscribeRequest.clientPublicKey)) {
@@ -177,27 +177,27 @@ export class P2PClientForwarder {
 
     /**
      */
-    protected handleReadBlob(senderClient: P2PClient, readBlobRequest: ReadBlobRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ReadBlobResponse>) {
+    protected handleReadBlob(readBlobRequest: ReadBlobRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ReadBlobResponse>) {
         const {getResponse} = this.targetClient.readBlob(readBlobRequest);
 
         if (!getResponse) {
             return;
         }
 
-        getResponse.onReply( async (targetClient: P2PClient, readBlobResponse: ReadBlobResponse) => {
+        getResponse.onReply( async (readBlobResponse: ReadBlobResponse) => {
             if (sendResponse) {
                 sendResponse(readBlobResponse);
             }
         });
     }
 
-    protected handleWriteBlob(senderClient: P2PClient, writeBlobRequest: WriteBlobRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<WriteBlobResponse>) {
+    protected handleWriteBlob(writeBlobRequest: WriteBlobRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<WriteBlobResponse>) {
         const {getResponse} = this.targetClient.writeBlob(writeBlobRequest);
         if (!getResponse) {
             return;
         }
 
-        getResponse.onReply( async (targetClient: P2PClient, writeBlobResponse: WriteBlobResponse) => {
+        getResponse.onReply( async (writeBlobResponse: WriteBlobResponse) => {
             if (sendResponse) {
                 sendResponse(writeBlobResponse);
             }
@@ -206,13 +206,13 @@ export class P2PClientForwarder {
 
     /*
      */
-    protected handleMessage(senderClient: P2PClient, genericMessageRequest: GenericMessageRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<GenericMessageResponse>) {
+    protected handleMessage(genericMessageRequest: GenericMessageRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<GenericMessageResponse>) {
         const {getResponse} = this.targetClient.message(genericMessageRequest);
         if (!getResponse) {
             return;
         }
 
-        getResponse.onReply( async (targetClient: P2PClient, genericMessageResponse: GenericMessageResponse) => {
+        getResponse.onReply( async (genericMessageResponse: GenericMessageResponse) => {
             if (sendResponse) {
                 sendResponse(genericMessageResponse);
             }

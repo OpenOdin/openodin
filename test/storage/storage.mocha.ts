@@ -83,24 +83,24 @@ class StorageWrapper extends Storage {
         return super.chunkFetchResponse(fetchReplyData, seq, false);
     }
 
-    public async handleStoreWrapped(peer: P2PClient, storeRequest: StoreRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) {
-        return this.handleStore(peer, storeRequest, fromMsgId, expectingReply, sendResponse);
+    public async handleStoreWrapped(storeRequest: StoreRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) {
+        return this.handleStore(storeRequest, peer, fromMsgId, expectingReply, sendResponse);
     }
 
-    public async handleFetchWrapped(peer: P2PClient, fetchRequest: FetchRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>) {
-        return this.handleFetch(peer, fetchRequest, fromMsgId, expectingReply, sendResponse);
+    public async handleFetchWrapped(fetchRequest: FetchRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>) {
+        return this.handleFetch(fetchRequest, peer, fromMsgId, expectingReply, sendResponse);
     }
 
-    public handleUnsubscribeWrapped(peer: P2PClient, unsubscribeRequest: UnsubscribeRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<UnsubscribeResponse>) {
-        return this.handleUnsubscribe(peer, unsubscribeRequest, fromMsgId, expectingReply, sendResponse);
+    public handleUnsubscribeWrapped(unsubscribeRequest: UnsubscribeRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<UnsubscribeResponse>) {
+        return this.handleUnsubscribe(unsubscribeRequest, peer, fromMsgId, expectingReply, sendResponse);
     }
 
-    public handleWriteBlobWrapped(peer: P2PClient, writeBlobRequest: WriteBlobRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<WriteBlobResponse>) {
-        return this.handleWriteBlob(peer, writeBlobRequest, fromMsgId, expectingReply, sendResponse);
+    public handleWriteBlobWrapped(writeBlobRequest: WriteBlobRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<WriteBlobResponse>) {
+        return this.handleWriteBlob(writeBlobRequest, peer, fromMsgId, expectingReply, sendResponse);
     }
 
-    public handleReadBlobWrapped(peer: P2PClient, readBlobRequest: ReadBlobRequest, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ReadBlobResponse>) {
-        return this.handleReadBlob(peer, readBlobRequest, fromMsgId, expectingReply, sendResponse);
+    public handleReadBlobWrapped(readBlobRequest: ReadBlobRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ReadBlobResponse>) {
+        return this.handleReadBlob(readBlobRequest, peer, fromMsgId, expectingReply, sendResponse);
     }
 }
 
@@ -823,7 +823,7 @@ function setupTests(config: any) {
             response = obj;
         };
 
-        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
 
         assert(response);
         assert(response.status === Status.MALFORMED);
@@ -832,7 +832,7 @@ function setupTests(config: any) {
         response = undefined;;
         storeRequest.preserveTransient = false;
 
-        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
         assert(response);
         assert(response.status === Status.RESULT);
         assert(response.storedId1s.length === 2);
@@ -857,7 +857,7 @@ function setupTests(config: any) {
             fetchedNodes.push(...(obj.result?.nodes ?? []));
         };
 
-        await storage.handleFetchWrapped(p2pClient, fetchRequest, fromMsgId, expectingReply, sendResponse2);
+        await storage.handleFetchWrapped(fetchRequest, p2pClient, fromMsgId, expectingReply, sendResponse2);
         assert(fetchedNodes.length === 2);
         assert(fetchedNodes[0].equals(node1.export()));
         assert(fetchedNodes[1].equals(node2c.export()));
@@ -908,7 +908,7 @@ function setupTests(config: any) {
             counter++;
         };
 
-        await storage.handleFetchWrapped(p2pClient, fetchRequest, fromMsgId, expectingReply, sendResponse);
+        await storage.handleFetchWrapped(fetchRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
 
         const triggerNodeIdStr = triggerNodeId.toString("hex");
 
@@ -934,7 +934,7 @@ function setupTests(config: any) {
             muteMsgIds,
         };
 
-        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
 
         await sleep(100);
 
@@ -961,7 +961,7 @@ function setupTests(config: any) {
 
         fetchedNodes.length = 0;
 
-        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
 
         await sleep(100);
 
@@ -990,7 +990,7 @@ function setupTests(config: any) {
 
         fetchedNodes.length = 0;
 
-        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
 
         await sleep(100);
 
@@ -1018,7 +1018,7 @@ function setupTests(config: any) {
 
         fetchedNodes.length = 0;
 
-        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
 
         await sleep(100);
 
@@ -1050,7 +1050,7 @@ function setupTests(config: any) {
         counter = 0;
         fetchedNodes.length = 0;
 
-        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
 
         await sleep(100);
 
@@ -1062,7 +1062,7 @@ function setupTests(config: any) {
             clientPublicKey,
         };
 
-        await storage.handleUnsubscribeWrapped(p2pClient, unsubscribeRequest, fromMsgId, expectingReply, sendResponse);
+        await storage.handleUnsubscribeWrapped(unsubscribeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
 
 
         nodes.length = 0;
@@ -1088,7 +1088,7 @@ function setupTests(config: any) {
         counter = 0;
         fetchedNodes.length = 0;
 
-        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
 
         await sleep(100);
 
@@ -1134,7 +1134,7 @@ function setupTests(config: any) {
             muteMsgIds: [],
         };
 
-        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+        await storage.handleWriteBlobWrapped(writeBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
@@ -1155,7 +1155,7 @@ function setupTests(config: any) {
         };
 
         response = undefined;
-        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+        await storage.handleWriteBlobWrapped(writeBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
@@ -1197,7 +1197,7 @@ function setupTests(config: any) {
             muteMsgIds: [],
         };
 
-        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
 
         // We need to decouple the flow to not get triggered by the store event since
         // the emitting is done in setImmediate.
@@ -1222,7 +1222,7 @@ function setupTests(config: any) {
             fetchedNodes.push(...(obj.result?.nodes ?? []));
         };
 
-        await storage.handleFetchWrapped(p2pClient, fetchRequest, fromMsgId, expectingReply, sendResponse2);
+        await storage.handleFetchWrapped(fetchRequest, p2pClient, fromMsgId, expectingReply, sendResponse2);
 
         writeBlobRequest = {
             clientPublicKey,
@@ -1235,7 +1235,7 @@ function setupTests(config: any) {
 
 
         response = undefined;
-        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+        await storage.handleWriteBlobWrapped(writeBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
@@ -1253,7 +1253,7 @@ function setupTests(config: any) {
         };
 
         response = undefined;
-        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+        await storage.handleWriteBlobWrapped(writeBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
@@ -1271,7 +1271,7 @@ function setupTests(config: any) {
         };
 
         response = undefined;
-        await storage.handleReadBlobWrapped(p2pClient, readBlobRequest, fromMsgId,
+        await storage.handleReadBlobWrapped(readBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
@@ -1291,7 +1291,7 @@ function setupTests(config: any) {
         assert(fetchedNodes.length === 0);
 
         response = undefined;
-        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+        await storage.handleWriteBlobWrapped(writeBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
@@ -1309,7 +1309,7 @@ function setupTests(config: any) {
         fetchedNodes.length = 0;
 
         response = undefined;
-        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+        await storage.handleWriteBlobWrapped(writeBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
@@ -1335,7 +1335,7 @@ function setupTests(config: any) {
         fetchedNodes.length = 0;
 
         response = undefined;
-        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+        await storage.handleWriteBlobWrapped(writeBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
@@ -1425,7 +1425,7 @@ function setupTests(config: any) {
             muteMsgIds: [],
         };
 
-        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
 
 
         let writeBlobRequest: WriteBlobRequest = {
@@ -1437,7 +1437,7 @@ function setupTests(config: any) {
             muteMsgIds: [],
         };
 
-        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+        await storage.handleWriteBlobWrapped(writeBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
@@ -1453,7 +1453,7 @@ function setupTests(config: any) {
             muteMsgIds: [],
         };
 
-        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+        await storage.handleWriteBlobWrapped(writeBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
@@ -1471,7 +1471,7 @@ function setupTests(config: any) {
             muteMsgIds: [],
         };
 
-        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+        await storage.handleWriteBlobWrapped(writeBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
@@ -1488,7 +1488,7 @@ function setupTests(config: any) {
             muteMsgIds: [],
         };
 
-        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+        await storage.handleWriteBlobWrapped(writeBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
@@ -1506,12 +1506,12 @@ function setupTests(config: any) {
             muteMsgIds: [],
         };
 
-        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
 
 
         // Now copy node thanks to license.
         //
-        await storage.handleWriteBlobWrapped(p2pClient, writeBlobRequest, fromMsgId,
+        await storage.handleWriteBlobWrapped(writeBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
@@ -1528,7 +1528,7 @@ function setupTests(config: any) {
         };
 
         response = undefined;
-        await storage.handleReadBlobWrapped(p2pClient, readBlobRequest, fromMsgId,
+        await storage.handleReadBlobWrapped(readBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);
@@ -1545,12 +1545,12 @@ function setupTests(config: any) {
             muteMsgIds: [],
         };
 
-        await storage.handleStoreWrapped(p2pClient, storeRequest, fromMsgId, expectingReply, sendResponse);
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
 
         // Read and succeed thanks to license 2
         //
         response = undefined;
-        await storage.handleReadBlobWrapped(p2pClient, readBlobRequest, fromMsgId,
+        await storage.handleReadBlobWrapped(readBlobRequest, p2pClient, fromMsgId,
             expectingReply, sendResponse);
 
         assert(response);

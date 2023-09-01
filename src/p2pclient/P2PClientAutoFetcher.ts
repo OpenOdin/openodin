@@ -127,7 +127,7 @@ export class P2PClientAutoFetcher {
             this.removeFetch(autoFetch);
         });
 
-        getResponse.onReply( async (peer: P2PClient, fetchResponse: FetchResponse) => {
+        getResponse.onReply( async (fetchResponse: FetchResponse) => {
             // Transformer cache was invalidated in Storage.
             // Fetch again.
             if (fetchResponse.status === Status.TRY_AGAIN) {

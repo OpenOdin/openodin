@@ -288,7 +288,7 @@ export class Thread {
             this.transformerCache?.close();
         });
 
-        getResponse.onReply( (peer: P2PClient, fetchResponse: FetchResponse) => {
+        getResponse.onReply( (fetchResponse: FetchResponse, peer: P2PClient) => {
             if (fetchResponse.status === Status.TRY_AGAIN) {
                 // Transformer cache got invalidated.
                 this.transformerCache?.close();
