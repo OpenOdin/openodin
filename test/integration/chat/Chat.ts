@@ -2,19 +2,16 @@ import { strict as assert } from "assert";
 
 import {
     DataInterface,
-    //SignatureOffloader,
-    //CreateHandshakeFactoryFactory,
+    SignatureOffloader,
+    CreateHandshakeFactoryFactory,
     sleep,
     Hash,
     BlobEvent,
     ParseUtil,
-    TransformerCache,
     TransformerItem,
     AbstractStreamReader,
     Service,
     Thread,
-    BlobStreamWriter,
-    ThreadTemplate,
     StorageUtil,
     UniverseConf,
     WalletConf,
@@ -79,134 +76,21 @@ async function main() {
         process.exit(1);
     }
 
-
-    // -----------------------------------------------------------------------
-
-    // This is how to config it for the app to manage its own private keys.
-    //
-    //const keyPair1 = ParseUtil.ParseKeyPair(serverConfig.keyPair);
-    //const keyPair2 = ParseUtil.ParseKeyPair(clientConfig.keyPair);
-    //
-    //const signatureOffloader1 = new SignatureOffloader();
-    //await signatureOffloader1.init();
-    //await signatureOffloader1.addKeyPair(keyPair1);
-
-    //const signatureOffloader2 = new SignatureOffloader();
-    //await signatureOffloader2.init();
-    //await signatureOffloader2.addKeyPair(keyPair2);
-
-    //const handshakeFactoryFactory1 = CreateHandshakeFactoryFactory(keyPair1);
-    //const handshakeFactoryFactory2 = CreateHandshakeFactoryFactory(keyPair2);
-
-    // -----------------------------------------------------------------------
-
-    //
-    // This is how to config it for the app to not manage its own private keys,
-    // but use the KeyManager instead.
-    //
-    // We extract and reset the keyPairs to show that it is the KeyManager who is managing the keys from here on.
-    //
     const keyPair1 = serverWallet.keyPairs[0];
-    serverWallet.keyPairs = [];
-    const keyPair2 = clientWallet.keyPairs[0];
-    clientWallet.keyPairs = [];
-
     assert(keyPair1);
+
+    const keyPair2 = clientWallet.keyPairs[0];
     assert(keyPair2);
 
-    //
-    // This part sets up the communication between the isolated parts of the code.
-    //
-    const callbacks1: Function[] = [];
-    const callbacks2: Function[] = [];
+    const handshakeFactoryFactory1 = CreateHandshakeFactoryFactory(keyPair1);
+    const handshakeFactoryFactory2 = CreateHandshakeFactoryFactory(keyPair2);
 
-    const postMessage1 = (message: any) => {
-        callbacks2.forEach( cb => cb(message) );
-    };
+    const signatureOffloader1 = new SignatureOffloader();
+    await signatureOffloader1.init();
 
-    const listenMessage1 = ( cb: (message: any) => void) => {
-        callbacks1.push(cb);
+    const signatureOffloader2 = new SignatureOffloader();
+    await signatureOffloader2.init();
 
-    };
-
-    const postMessage2 = (message: any) => {
-        callbacks1.forEach( cb => cb(message) );
-    };
-
-    const listenMessage2 = ( cb: (message: any) => void) => {
-        callbacks2.push(cb);
-    };
-
-    const rpc1 = new RPC(postMessage1, listenMessage1, "rpc1");
-    const rpc2 = new RPC(postMessage1, listenMessage1, "rpc2");
-
-    const keyManager1 = new KeyManager(rpc1);
-    const keyManager2 = new KeyManager(rpc2);
-
-    keyManager1.onAuth( async () => {
-        const publicKey: number[] = [];
-        const secretKey: number[] = [];
-
-        keyPair1.publicKey.forEach(i => publicKey.push(i) );
-        keyPair1.secretKey.forEach(i => secretKey.push(i) );
-
-        return {
-            keyPairs: [
-                {
-                    publicKey,
-                    secretKey,
-                    crypto: "ed25519",
-                }
-            ]
-        };
-    });
-
-    keyManager2.onAuth( async () => {
-        const publicKey: number[] = [];
-        const secretKey: number[] = [];
-
-        keyPair2.publicKey.forEach(i => publicKey.push(i) );
-        keyPair2.secretKey.forEach(i => secretKey.push(i) );
-
-        return {
-            keyPairs: [
-                {
-                    publicKey,
-                    secretKey,
-                    crypto: "ed25519",
-                }
-            ]
-        };
-    });
-
-    //
-    // In a browser context the 'universe' object would be provided as window.universe,
-    // but here we create two of our own (this test app is running double clients).
-    //
-    const rpc1b = new RPC(postMessage2, listenMessage2, "rpc1");
-    const universe1 = new Universe(rpc1b);
-    const rpcClients1 = await universe1.auth();
-    if (rpcClients1.error || !rpcClients1.signatureOffloader || !rpcClients1.handshakeFactoryFactory) {
-        console.error(`Error in auth: ${rpcClients1.error}`);
-        process.exit(1);
-        return;
-    }
-    const signatureOffloader1 = rpcClients1.signatureOffloader;
-    const handshakeFactoryFactory1 = rpcClients1.handshakeFactoryFactory;
-
-    const rpc2b = new RPC(postMessage2, listenMessage2, "rpc2");
-    const universe2 = new Universe(rpc2b);
-    const rpcClients2 = await universe2.auth();
-    if (rpcClients2.error || !rpcClients2.signatureOffloader || !rpcClients2.handshakeFactoryFactory) {
-        console.error(`Error in auth: ${rpcClients2.error}`);
-        process.exit(1);
-        return;
-    }
-    const signatureOffloader2 = rpcClients2.signatureOffloader;
-    const handshakeFactoryFactory2 = rpcClients2.handshakeFactoryFactory;
-
-    //
-    // -----------------------------------------------------------------------
 
     let abortTimeout = setTimeout( () => {
         consoleMain.error("Messages not transferred within timeout, aborting.");

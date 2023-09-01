@@ -128,7 +128,7 @@ const console = PocketConsole({module: "Service"});
  * These configs are allowed to change in runtime by calling the set functions,
  * however when in the running state they might not be modifiable.
  */
-export type ServiceConfig = {
+type ServiceConfig = {
     /** Optional AuthCert of this side. It is used to authenticate as another public key. */
     authCert?: AuthCertInterface,
 
