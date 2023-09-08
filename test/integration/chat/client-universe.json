@@ -33,24 +33,6 @@
                     "serverPublicKey": "!serverKeyfile.json:.keyPair.publicKey",
                     "reconnectDelay": 0
                 }
-            },
-            "permissions": {
-                "fetchPermissions": {
-                    "allowEmbed": [
-                        {
-                            "nodeType": "00040002",
-                            "filters": []
-                        }
-                    ],
-                    "allowTrigger": true,
-                    "allowNodeTypes": ["0004"],
-                    "allowTransform": [],
-                    "allowReadBlob": true
-                },
-                "storePermissions": {
-                    "allowStore": false,
-                    "allowWriteBlob": false
-                }
             }
         }
     ],

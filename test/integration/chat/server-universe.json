@@ -1,5 +1,5 @@
 {
-    "name": "chat",
+    "name": "chat-server",
     "version": "0.1",
     "threads": {
         "channel": {
@@ -35,24 +35,6 @@
                     "allowedClients": ["!clientKeyfile.json:.keyPair.publicKey"],
                     "deniedIPs": [],
                     "allowedIPs": null
-                }
-            },
-            "permissions": {
-                "fetchPermissions": {
-                    "allowEmbed": [
-                        {
-                            "nodeType": "00040002",
-                            "filters": []
-                        }
-                    ],
-                    "allowTrigger": true,
-                    "allowNodeTypes": ["0004"],
-                    "allowTransform": [],
-                    "allowReadBlob": true
-                },
-                "storePermissions": {
-                    "allowStore": false,
-                    "allowWriteBlob": false
                 }
             }
         }
