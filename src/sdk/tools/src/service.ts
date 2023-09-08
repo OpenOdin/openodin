@@ -82,8 +82,8 @@ async function main(universeConf: UniverseConf, walletConf: WalletConf) {
     }
 }
 
-if (process.argv.length < 3) {
-    console.getConsole().error(`Usage: service.ts service.json`);
+if (process.argv.length < 4) {
+    console.getConsole().error(`Usage: service.ts universe.json wallet.json`);
     process.exit(1);
 }
 
@@ -95,11 +95,15 @@ if (typeof(universeConfigPath) !== "string" || typeof(walletConfigPath) !== "str
     process.exit(1);
 }
 
-let universeConf;
-let walletConf;
+let universeConf: UniverseConf;
+let walletConf: WalletConf;
+
 try {
-    universeConf = JSONUtil.LoadJSON(universeConfigPath, ['.']);
-    walletConf   = JSONUtil.LoadJSON(walletConfigPath, ['.']);
+    universeConf = ParseUtil.ParseUniverseConf(
+        JSONUtil.LoadJSON(universeConfigPath, ['.']));
+
+    walletConf = ParseUtil.ParseWalletConf(
+        JSONUtil.LoadJSON(walletConfigPath, ['.']));
 }
 catch(e) {
     console.error("Could not parse config files", (e as any as Error).message);
