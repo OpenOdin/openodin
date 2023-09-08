@@ -152,7 +152,7 @@ export class Thread {
      * @param targets if not set then targets taken from default object passed in constructor.
      */
     public async postLicense(node: NodeInterface, threadLicenseParams: ThreadLicenseParams = {}, targets?: Buffer[]): Promise<Buffer[]> {
-        targets = targets ?? this.defaults.licenseTargets;
+        targets = targets ?? this.defaults.licenseTargets ?? this.threadTemplate.postLicense?.targets;
 
         if (!node.isLicensed() || node.getLicenseMinDistance() !== 0 || !targets) {
             return [];
