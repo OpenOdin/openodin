@@ -173,6 +173,10 @@ export class ParseUtil {
 
                 const direction = ParseUtil.ParseVariable("universeConf.sync.threads.direction must be string, if set", thread.direction, "string", true) ?? "pull";
 
+                if (!["push", "pull", "both"].includes(direction)) {
+                    throw new Error("universeConf.sync.threads.direction must be either \"push\", \"pull\", \"both\", if set");
+                }
+
                 threads.push({
                     name,
                     stream,
