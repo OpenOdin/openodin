@@ -70,7 +70,7 @@ export type FetchRequestQueryParams = {
     descending?: boolean,
     orderByStorageTime?: boolean,
     targetPublicKey?: Buffer | string,
-    clientPublicKey?: Buffer | string,
+    sourcePublicKey?: Buffer | string,
     discardRoot?: boolean,
     preserveTransient?: boolean,
     embed?: {nodeType: Buffer | string, filters: Filter[]}[],
@@ -98,7 +98,6 @@ export type FetchRequestParams = {
 
 export type StoreRequestParams = {
     nodes: Buffer[],
-    clientPublicKey?: Buffer,
     targetPublicKey?: Buffer,
     sourcePublicKey?: Buffer,
     muteMsgIds?: Buffer[],
@@ -106,7 +105,8 @@ export type StoreRequestParams = {
 };
 
 export type WriteBlobRequestParams = {
-    clientPublicKey?: Buffer,
+    sourcePublicKey?: Buffer,
+    targetPublicKey?: Buffer,
     copyFromId1?: Buffer,
     nodeId1: Buffer,
     data: Buffer,
@@ -115,8 +115,8 @@ export type WriteBlobRequestParams = {
 };
 
 export type ReadBlobRequestParams = {
-    clientPublicKey?: Buffer,
     targetPublicKey?: Buffer,
+    sourcePublicKey?: Buffer,
     nodeId1: Buffer,
     length: number,
     pos?: bigint,
@@ -336,7 +336,6 @@ export class StorageUtil {
     public static CreateStoreRequest(storeRequestParams: StoreRequestParams): StoreRequest {
         const storeRequest: StoreRequest = {
             nodes: storeRequestParams.nodes,
-            clientPublicKey: storeRequestParams.clientPublicKey ?? Buffer.alloc(0),
             targetPublicKey: storeRequestParams.targetPublicKey ?? Buffer.alloc(0),
             sourcePublicKey: storeRequestParams.sourcePublicKey ?? Buffer.alloc(0),
             muteMsgIds: storeRequestParams.muteMsgIds ?? [],
@@ -353,7 +352,8 @@ export class StorageUtil {
      */
     public static CreateWriteBlobRequest(writeBlobRequestParams: WriteBlobRequestParams): WriteBlobRequest {
         const writeBlobRequest: WriteBlobRequest = {
-            clientPublicKey: writeBlobRequestParams.clientPublicKey ?? Buffer.alloc(0),
+            sourcePublicKey: writeBlobRequestParams.sourcePublicKey ?? Buffer.alloc(0),
+            targetPublicKey: writeBlobRequestParams.targetPublicKey ?? Buffer.alloc(0),
             copyFromId1: writeBlobRequestParams.copyFromId1 ?? Buffer.alloc(0),
             nodeId1: writeBlobRequestParams.nodeId1,
             data: writeBlobRequestParams.data,
@@ -371,8 +371,8 @@ export class StorageUtil {
      */
     public static CreateReadBlobRequest(readBlobRequestParams: ReadBlobRequestParams): ReadBlobRequest {
         const readBlobRequest: ReadBlobRequest = {
-            clientPublicKey: readBlobRequestParams.clientPublicKey ?? Buffer.alloc(0),
             targetPublicKey: readBlobRequestParams.targetPublicKey ?? Buffer.alloc(0),
+            sourcePublicKey: readBlobRequestParams.sourcePublicKey ?? Buffer.alloc(0),
             nodeId1: readBlobRequestParams.nodeId1,
             pos: readBlobRequestParams.pos ?? 0n,
             length: readBlobRequestParams.length,

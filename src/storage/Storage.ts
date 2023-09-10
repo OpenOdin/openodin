@@ -108,9 +108,6 @@ const EMPTY_FETCHRESPONSE: FetchResponse = {
 export class Storage {
     protected p2pClient: P2PClient;
 
-    /** The public key of the connected peer. */
-    protected clientPublicKey: Buffer;
-
     /** The driver object provided in the constructor. */
     protected driver: DriverInterface;
 
@@ -167,13 +164,6 @@ export class Storage {
     ) {
         this.p2pClient = p2pClient;
 
-        const clientPublicKey = p2pClient.getRemotePublicKey();
-
-        if (!clientPublicKey) {
-            throw new Error("Peer client public key required");
-        }
-
-        this.clientPublicKey = clientPublicKey;
         this.signatureOffloader = signatureOffloader;
         this.driver = driver;
         this.blobDriver = blobDriver;
@@ -232,12 +222,12 @@ export class Storage {
                 await p.promise;
             }
 
-            if (storeRequest.clientPublicKey.length === 0) {
-                storeRequest.clientPublicKey = CopyBuffer(this.clientPublicKey);
+            if (storeRequest.targetPublicKey.length === 0) {
+                throw new Error("targetPublicKey expected to be set");
             }
 
             if (storeRequest.sourcePublicKey.length === 0) {
-                storeRequest.sourcePublicKey = CopyBuffer(storeRequest.clientPublicKey);
+                throw new Error("sourcePublicKey expected to be set");
             }
 
             if (storeRequest.preserveTransient && !this.allowPreserveTransient) {
@@ -267,7 +257,7 @@ export class Storage {
                     const node = Decoder.DecodeNode(image, storeRequest.preserveTransient);
 
                     if (node.isPrivate()) {
-                        if (!node.canReceivePrivately(storeRequest.sourcePublicKey, storeRequest.clientPublicKey)) {
+                        if (!node.canReceivePrivately(storeRequest.sourcePublicKey, storeRequest.targetPublicKey)) {
                             continue;
                         }
                     }
@@ -437,12 +427,12 @@ export class Storage {
             // Deep copy the fetch request object since we will update its cutoffTime property.
             const fetchRequestCopy = DeepCopy(fetchRequest) as FetchRequest;
 
-            if (fetchRequestCopy.query.clientPublicKey.length === 0) {
-                fetchRequestCopy.query.clientPublicKey = CopyBuffer(this.clientPublicKey);
+            if (fetchRequestCopy.query.sourcePublicKey.length === 0) {
+                throw new Error("sourcePublicKey expected to be set");
             }
 
             if (fetchRequestCopy.query.targetPublicKey.length === 0) {
-                fetchRequestCopy.query.targetPublicKey = CopyBuffer(fetchRequestCopy.query.clientPublicKey);
+                throw new Error("targetPublicKey expected to be set");
             }
 
             if (fetchRequestCopy.query.triggerInterval > 0) {
@@ -519,7 +509,7 @@ export class Storage {
                 await this.driver.fetch(fetchRequestCopy.query, now, handleFetchReplyData);
 
                 if (trigger?.closed) {
-                    this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.clientPublicKey);
+                    this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.targetPublicKey);
                     trigger = undefined;
                     transformer?.close();
                 }
@@ -541,7 +531,7 @@ export class Storage {
         }
         catch(e) {
             if (trigger) {
-                this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.clientPublicKey);
+                this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.targetPublicKey);
             }
 
             console.debug("Exception in handleFetch", e);
@@ -564,12 +554,12 @@ export class Storage {
     };
 
 
-    protected dropTrigger(msgId: Buffer, clientPublicKey: Buffer) {
+    protected dropTrigger(msgId: Buffer, targetPublicKey: Buffer) {
         for (const parentId in this.triggers) {
             const triggers = this.triggers[parentId];
             const index = triggers.findIndex( (trigger: Trigger) => {
                 if (trigger.msgId.equals(msgId)) {
-                    if (trigger.fetchRequest.query.clientPublicKey.equals(clientPublicKey)) {
+                    if (trigger.fetchRequest.query.targetPublicKey.equals(targetPublicKey)) {
                         return true;
                     }
                 }
@@ -653,7 +643,7 @@ export class Storage {
         }
         catch(e) {
             // Note that error response has already been sent by the QueryProcessor.
-            this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.clientPublicKey);
+            this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.targetPublicKey);
             return 3;
         }
         finally {
@@ -668,7 +658,7 @@ export class Storage {
         trigger.isRunning = false;
 
         if (trigger.closed) {
-            this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.clientPublicKey);
+            this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.targetPublicKey);
             return 4;
         }
 
@@ -852,11 +842,11 @@ export class Storage {
 
     protected handleUnsubscribe: HandlerFn<UnsubscribeRequest, UnsubscribeResponse> = (unsubscribeRequest: UnsubscribeRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<UnsubscribeResponse>) => {
         try {
-            if (unsubscribeRequest.clientPublicKey.length === 0) {
-                unsubscribeRequest.clientPublicKey = CopyBuffer(this.clientPublicKey);
+            if (unsubscribeRequest.targetPublicKey.length === 0) {
+                throw new Error("targetPublicKey expected to be set");
             }
 
-            this.dropTrigger(unsubscribeRequest.originalMsgId, unsubscribeRequest.clientPublicKey);
+            this.dropTrigger(unsubscribeRequest.originalMsgId, unsubscribeRequest.targetPublicKey);
 
             if (sendResponse) {
                 const unsubscribeResponse: UnsubscribeResponse = {
@@ -895,8 +885,12 @@ export class Storage {
                 throw new Error("Blob driver is not configured");
             }
 
-            if (writeBlobRequest.clientPublicKey.length === 0) {
-                writeBlobRequest.clientPublicKey = CopyBuffer(this.clientPublicKey);
+            if (writeBlobRequest.sourcePublicKey.length === 0) {
+                throw new Error("sourcePublicKey expected to be set");
+            }
+
+            if (writeBlobRequest.targetPublicKey.length === 0) {
+                throw new Error("targetPublicKey expected be set");
             }
 
             const nodeId1   = writeBlobRequest.nodeId1;
@@ -922,8 +916,9 @@ export class Storage {
             // This is so that the owner can always write blob data even if
             // there is no active license (yet).
             //
-            if (!writeBlobRequest.clientPublicKey.equals(node.getOwner() as Buffer)) {
-                node = await this.driver.fetchSingleNode(nodeId1, now, writeBlobRequest.clientPublicKey, writeBlobRequest.clientPublicKey);
+            if (!writeBlobRequest.sourcePublicKey.equals(node.getOwner() as Buffer)) {
+                node = await this.driver.fetchSingleNode(nodeId1, now,
+                    writeBlobRequest.targetPublicKey, writeBlobRequest.sourcePublicKey);
             }
 
             if (!node) {
@@ -950,7 +945,7 @@ export class Storage {
                 throw new Error("write out of bounds");
             }
 
-            const dataId = Hash([nodeId1, writeBlobRequest.clientPublicKey]);
+            const dataId = Hash([nodeId1, writeBlobRequest.sourcePublicKey]);
 
             if (await this.blobDriver.getBlobDataId(nodeId1)) {
                 if (sendResponse) {
@@ -983,9 +978,9 @@ export class Storage {
 
                 // If not owner then fetch the node applying permissions.
                 //
-                if (!writeBlobRequest.clientPublicKey.equals(copyFromNode.getOwner() as Buffer)) {
+                if (!writeBlobRequest.sourcePublicKey.equals(copyFromNode.getOwner() as Buffer)) {
                     copyFromNode = await this.driver.fetchSingleNode(writeBlobRequest.copyFromId1,
-                        now, writeBlobRequest.clientPublicKey, writeBlobRequest.clientPublicKey);
+                        now, writeBlobRequest.targetPublicKey, writeBlobRequest.sourcePublicKey);
                 }
 
                 if (!copyFromNode) {
@@ -1192,13 +1187,12 @@ export class Storage {
                 throw new Error("Blob driver is not configured");
             }
 
-            if (readBlobRequest.clientPublicKey.length === 0) {
-                readBlobRequest.clientPublicKey = CopyBuffer(this.clientPublicKey);
+            if (readBlobRequest.targetPublicKey.length === 0) {
+                throw new Error("targetPublicKey expected be set");
             }
 
-            // Set default target consumer same as client
-            if (readBlobRequest.targetPublicKey.length === 0) {
-                readBlobRequest.targetPublicKey = CopyBuffer(readBlobRequest.clientPublicKey);
+            if (readBlobRequest.sourcePublicKey.length === 0) {
+                throw new Error("sourcePublicKey expected be set");
             }
 
             const nodeId1   = readBlobRequest.nodeId1;
@@ -1213,7 +1207,8 @@ export class Storage {
 
             const now = this.timeFreeze.read();
 
-            const node = await this.driver.fetchSingleNode(nodeId1, now, readBlobRequest.clientPublicKey, readBlobRequest.targetPublicKey);
+            const node = await this.driver.fetchSingleNode(nodeId1, now,
+                readBlobRequest.sourcePublicKey, readBlobRequest.targetPublicKey);
 
             if (!node) {
                 status = Status.NOT_ALLOWED;

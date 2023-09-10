@@ -53,7 +53,7 @@ export class BebopDeserialize {
         obj.query.rootNodeId1 = MakeIntoBuffer(obj.query.rootNodeId1);
         obj.query.parentId = MakeIntoBuffer(obj.query.parentId);
         obj.query.targetPublicKey = MakeIntoBuffer(obj.query.targetPublicKey);
-        obj.query.clientPublicKey = MakeIntoBuffer(obj.query.clientPublicKey);
+        obj.query.sourcePublicKey = MakeIntoBuffer(obj.query.sourcePublicKey);
         obj.query.triggerNodeId = MakeIntoBuffer(obj.query.triggerNodeId);
         obj.query.match = obj.query.match.map( match => {
             return {
@@ -93,9 +93,8 @@ export class BebopDeserialize {
     public StoreRequest(data: Buffer): StoreRequest {
         const obj = BopStoreRequest.decode(data);
         obj.nodes = (obj.nodes || []).map( MakeIntoBuffer );
-        obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
         obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
-        obj.clientPublicKey = MakeIntoBuffer(obj.clientPublicKey);
+        obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
         obj.muteMsgIds = (obj.muteMsgIds || []).map( MakeIntoBuffer );
         return obj as unknown as StoreRequest;
     }
@@ -122,7 +121,7 @@ export class BebopDeserialize {
     public UnsubscribeRequest(data: Buffer): UnsubscribeRequest {
         const obj = BopUnsubscribeRequest.decode(data);
         obj.originalMsgId = MakeIntoBuffer(obj.originalMsgId);
-        obj.clientPublicKey = MakeIntoBuffer(obj.clientPublicKey);
+        obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
         return obj as unknown as UnsubscribeRequest;
     }
 
@@ -141,7 +140,8 @@ export class BebopDeserialize {
         const obj = BopWriteBlobRequest.decode(data);
         obj.nodeId1 = MakeIntoBuffer(obj.nodeId1);
         obj.data = MakeIntoBuffer(obj.data);
-        obj.clientPublicKey = MakeIntoBuffer(obj.clientPublicKey);
+        obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
+        obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
         obj.copyFromId1 = MakeIntoBuffer(obj.copyFromId1);
         obj.muteMsgIds = (obj.muteMsgIds || []).map( MakeIntoBuffer );
         return obj as unknown as WriteBlobRequest;
@@ -162,7 +162,7 @@ export class BebopDeserialize {
         const obj = BopReadBlobRequest.decode(data);
         obj.nodeId1 = MakeIntoBuffer(obj.nodeId1);
         obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
-        obj.clientPublicKey = MakeIntoBuffer(obj.clientPublicKey);
+        obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
         return obj as unknown as ReadBlobRequest;
     }
 
@@ -181,7 +181,7 @@ export class BebopDeserialize {
     public GenericMessageRequest(data: Buffer): GenericMessageRequest {
         const obj = BopGenericMessageRequest.decode(data);
         obj.data = MakeIntoBuffer(obj.data);
-        obj.clientPublicKey = MakeIntoBuffer(obj.clientPublicKey);
+        obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
         return obj as unknown as GenericMessageRequest;
     }
 

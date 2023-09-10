@@ -375,8 +375,22 @@ export class P2PClient {
      * @returns limited genericMessageRequest
      */
     protected limitGenericMessageRequest = (genericMessageRequest: GenericMessageRequest/*, sendResponse: SendResponseFn<GenericMessageResponse> | undefined*/): GenericMessageRequest => {
-        if (!this.permissions.allowUncheckedAccess || genericMessageRequest.clientPublicKey.length === 0) {
-            genericMessageRequest.clientPublicKey = this.getRemotePublicKey();
+
+        if (this.permissions.allowUncheckedAccess) {
+            if (genericMessageRequest.sourcePublicKey.length === 0) {
+                throw new Error("peerPublicKey expected to be set when calling");
+            }
+        }
+        else {
+            // Set default values
+            if (genericMessageRequest.sourcePublicKey.length === 0) {
+                genericMessageRequest.sourcePublicKey = this.getRemotePublicKey();
+            }
+
+            // Check so values are set as expected.
+            if (!genericMessageRequest.sourcePublicKey.equals(this.getRemotePublicKey())) {
+                throw new Error("Mismatch in provided sourcePublicKey");
+            }
         }
 
         return genericMessageRequest;
@@ -402,8 +416,33 @@ export class P2PClient {
             return undefined;
         }
 
-        if (!this.permissions.allowUncheckedAccess || writeBlobRequest.clientPublicKey.length === 0) {
-            writeBlobRequest.clientPublicKey = this.getRemotePublicKey();
+        if (this.permissions.allowUncheckedAccess) {
+            if (writeBlobRequest.sourcePublicKey.length === 0) {
+                throw new Error("sourcePublicKey expected to be set when calling");
+            }
+
+            if (writeBlobRequest.targetPublicKey.length === 0) {
+                throw new Error("targetPublicKey expected to be set when calling");
+            }
+        }
+        else {
+            // Set default values
+            if (writeBlobRequest.sourcePublicKey.length === 0) {
+                writeBlobRequest.sourcePublicKey = this.getRemotePublicKey();
+            }
+
+            if (writeBlobRequest.targetPublicKey.length === 0) {
+                writeBlobRequest.targetPublicKey = this.getLocalPublicKey();
+            }
+
+            // Check so values are set as expected.
+            if (!writeBlobRequest.sourcePublicKey.equals(this.getRemotePublicKey())) {
+                throw new Error("Mismatch in provided sourcePublicKey");
+            }
+
+            if (!writeBlobRequest.targetPublicKey.equals(this.getLocalPublicKey())) {
+                throw new Error("Mismatch in provided targetPublicKey");
+            }
         }
 
         return writeBlobRequest;
@@ -432,8 +471,33 @@ export class P2PClient {
             return undefined;
         }
 
-        if (!this.permissions.allowUncheckedAccess || readBlobRequest.clientPublicKey.length === 0) {
-            readBlobRequest.clientPublicKey = this.getRemotePublicKey();
+        if (this.permissions.allowUncheckedAccess) {
+            if (readBlobRequest.targetPublicKey.length === 0) {
+                throw new Error("targetPublicKey expected to be set when calling");
+            }
+
+            if (readBlobRequest.sourcePublicKey.length === 0) {
+                throw new Error("sourcePublicKey expected to be set when calling");
+            }
+        }
+        else {
+            // Set default values
+            if (readBlobRequest.targetPublicKey.length === 0) {
+                readBlobRequest.targetPublicKey = this.getRemotePublicKey();
+            }
+
+            if (readBlobRequest.sourcePublicKey.length === 0) {
+                readBlobRequest.sourcePublicKey = this.getLocalPublicKey();
+            }
+
+            // Check so values are set as expected.
+            if (!readBlobRequest.targetPublicKey.equals(this.getRemotePublicKey())) {
+                throw new Error("Mismatch in provided targetPublicKey");
+            }
+
+            if (!readBlobRequest.sourcePublicKey.equals(this.getLocalPublicKey())) {
+                throw new Error("Mismatch in provided sourcePublicKey");
+            }
         }
 
         return readBlobRequest;
@@ -445,8 +509,21 @@ export class P2PClient {
      * @returns limited UnsubscribeRequest
      */
     protected limitUnsubscribeRequest = (unsubscribeRequest: UnsubscribeRequest/*, sendResponse: SendResponseFn<UnsubscribeResponse> | undefined*/): UnsubscribeRequest => {
-        if (!this.permissions.allowUncheckedAccess || unsubscribeRequest.clientPublicKey.length === 0) {
-            unsubscribeRequest.clientPublicKey = this.getRemotePublicKey();
+        if (this.permissions.allowUncheckedAccess) {
+            if (unsubscribeRequest.targetPublicKey.length === 0) {
+                throw new Error("targetPublicKey expected to be set when calling");
+            }
+        }
+        else {
+            // Set default values
+            if (unsubscribeRequest.targetPublicKey.length === 0) {
+                unsubscribeRequest.targetPublicKey = this.getRemotePublicKey();
+            }
+
+            // Check so values are set as expected.
+            if (!unsubscribeRequest.targetPublicKey.equals(this.getRemotePublicKey())) {
+                throw new Error("Mismatch in provided targetPublicKey");
+            }
         }
 
         return unsubscribeRequest;
@@ -473,8 +550,33 @@ export class P2PClient {
             return undefined;
         }
 
-        if (!this.permissions.allowUncheckedAccess || storeRequest.clientPublicKey.length === 0) {
-            storeRequest.clientPublicKey = this.getRemotePublicKey();
+        if (this.permissions.allowUncheckedAccess) {
+            if (storeRequest.targetPublicKey.length === 0) {
+                throw new Error("targetPublicKey expected to be set when calling");
+            }
+
+            if (storeRequest.sourcePublicKey.length === 0) {
+                throw new Error("sourcePublicKey expected to be set when calling");
+            }
+        }
+        else {
+            // Set default values
+            if (storeRequest.sourcePublicKey.length === 0) {
+                storeRequest.sourcePublicKey = this.getRemotePublicKey();
+            }
+
+            if (storeRequest.targetPublicKey.length === 0) {
+                storeRequest.targetPublicKey = this.getRemotePublicKey();
+            }
+
+            // Check so values are set as expected.
+            if (!storeRequest.sourcePublicKey.equals(this.getRemotePublicKey())) {
+                throw new Error("Mismatch in provided sourcePublicKey");
+            }
+
+            if (!storeRequest.targetPublicKey.equals(this.getRemotePublicKey())) {
+                throw new Error("Mismatch in provided targetPublicKey");
+            }
         }
 
         return storeRequest;
@@ -559,8 +661,33 @@ export class P2PClient {
         fetchRequest2.query.region = RegionUtil.IntersectRegions(this.getRemoteProps().region, this.getLocalProps().region);
         fetchRequest2.query.jurisdiction = RegionUtil.IntersectJurisdictions(this.getRemoteProps().jurisdiction, this.getLocalProps().jurisdiction);
 
-        if (!this.permissions.allowUncheckedAccess || fetchRequest.query.clientPublicKey.length === 0) {
-            fetchRequest2.query.clientPublicKey = this.getRemotePublicKey();
+        if (this.permissions.allowUncheckedAccess) {
+            if (fetchRequest2.query.sourcePublicKey.length === 0) {
+                throw new Error("sourcePublicKey expected to be set when calling");
+            }
+
+            if (fetchRequest2.query.targetPublicKey.length === 0) {
+                throw new Error("targetPublicKey expected to be set when calling");
+            }
+        }
+        else {
+            // Set default values
+            if (fetchRequest2.query.sourcePublicKey.length === 0) {
+                fetchRequest2.query.sourcePublicKey = this.getLocalPublicKey();
+            }
+
+            if (fetchRequest2.query.targetPublicKey.length === 0) {
+                fetchRequest2.query.targetPublicKey = this.getRemotePublicKey();
+            }
+
+            // Check so values are set as expected.
+            if (!fetchRequest2.query.sourcePublicKey.equals(this.getLocalPublicKey())) {
+                throw new Error("Mismatch in provided sourcePublicKey");
+            }
+
+            if (!fetchRequest2.query.targetPublicKey.equals(this.getRemotePublicKey())) {
+                throw new Error("Mismatch in provided targetPublicKey");
+            }
         }
 
         return fetchRequest2;

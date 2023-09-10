@@ -334,12 +334,16 @@ export class Data extends Node implements DataInterface {
     /**
      * Enforces so that private nodes can only be sent to targetPublicKey if it is the owner.
      *
-     * @param clientPublicKey the public key embedding, signing and sending the node.
+     * @param sourcePublicKey the public key embedding, signing and sending the node.
      * @param targetPublicKey the target public key the embedding is towards.
      *
      * @returns true if this node can be sent as embedded.
      */
-    public canSendEmbedded(clientPublicKey: Buffer, targetPublicKey: Buffer): boolean {
+    public canSendEmbedded(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean {
+        if (!this.allowEmbed()) {
+            return false;
+        }
+
         if (this.isPrivate()) {
             // Private node can only be embedded to the same owner.
             if (!this.getOwner()?.equals(targetPublicKey)) {

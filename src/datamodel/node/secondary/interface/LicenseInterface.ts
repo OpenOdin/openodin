@@ -49,11 +49,10 @@ export interface LicenseInterface extends NodeInterface {
     embed(targetPublicKey: Buffer): LicenseInterface | undefined;
     getLicenseeHashes(): Buffer[];
     getIssuer(): Buffer | undefined;
-    isLicenseTo(nodeToLicense: NodeInterface, clientPublicKey?: Buffer, targetPublicKey?: Buffer): boolean;
+    isLicenseTo(nodeToLicense: NodeInterface): boolean;
     hashShared(): Buffer;
-    canSendEmbedded(clientPublicKey: Buffer, targetPublicKey: Buffer): boolean;
-    canSendPrivately(clientPublicKey: Buffer, targetPublicKey: Buffer): boolean;
-    canHoldPrivately(clientPublicKey: Buffer): boolean;
+    canSendEmbedded(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean;
+    canSendPrivately(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean;
     setAllowTargetSendPrivately(allowSend: boolean): void;
     allowTargetSendPrivately(): boolean;
     setDisallowRetroLicensing(disallow: boolean): void;

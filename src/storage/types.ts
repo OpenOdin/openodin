@@ -293,7 +293,7 @@ export type BlobDriverInterface = {
     /**
      * Write blob data.
      *
-     * @param dataId the hash of (nodeId1, clientPublicKey).
+     * @param dataId the hash of (nodeId1, sourcePublicKey).
      * @param pos the position (0-based) of where in the blob to start writing.
      * @param data the data buffer to write.
      *
@@ -407,13 +407,13 @@ export type DriverInterface = {
     getNodeById1(nodeId1: Buffer, now: number): Promise<NodeInterface | undefined>;
 
     /**
-     * Fetch a single node based on its id1 for the permissions combo of
-     * clientPublicKey, targetPublicKey.
+     * Fetch a single node based on its id1, permissions apply.
+     *
      * Licenses are allowed to be checked upwards from the node in a generous fashion.
      *
      * @returns the node if found and permissions allow.
      */
-    fetchSingleNode(nodeId1: Buffer, now: number, clientPublicKey: Buffer, targetPublicKey: Buffer):
+    fetchSingleNode(nodeId1: Buffer, now: number, sourcePublicKey: Buffer, targetPublicKey: Buffer):
         Promise<NodeInterface | undefined>;
 
     /**

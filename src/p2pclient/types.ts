@@ -70,8 +70,8 @@ export type SubscriptionMap = {
      */
     originalMsgId: Buffer,
 
-    /** The client creating the subscription. */
-    clientPublicKey: Buffer,
+    /** The target we are fetching for creating the subscription. */
+    targetPublicKey: Buffer,
 };
 
 /**
@@ -102,12 +102,12 @@ export type AutoFetch = {
  */
 export type P2PClientPermissions = {
     /**
-     * If set then does not enforce matching of clientPublicKey for incoming requests.
-     * This means that the peer sending the request (the remote side of the P2PClient connection)
-     * does not have to be the same as the clientPublicKey property set in the request.
+     * If set then does not enforce matching of sourcePublicKey and targetPublicKey for incoming requests.
+     *
      * This feature is useful when chaining together P2PClients to tunnel requests unaltered,
      * but it comes with security implications if not used properly.
-     * Note that the behaviour of fetchPermissions and storePermissions stays unchanged if setting this.
+     *
+     * Local storages has this by default set to true, and the permissions handling is done in the Service layer.
      */
     allowUncheckedAccess: boolean,
 

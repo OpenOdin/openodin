@@ -280,7 +280,7 @@ export interface IFetchQuery {
   rootNodeId1: Uint8Array;
   parentId: Uint8Array;
   targetPublicKey: Uint8Array;
-  clientPublicKey: Uint8Array;
+  sourcePublicKey: Uint8Array;
   triggerNodeId: Uint8Array;
   onlyTrigger: boolean;
   match: Array<IMatch>;
@@ -311,7 +311,7 @@ export const FetchQuery = {
       view.writeBytes(message.rootNodeId1);
       view.writeBytes(message.parentId);
       view.writeBytes(message.targetPublicKey);
-      view.writeBytes(message.clientPublicKey);
+      view.writeBytes(message.sourcePublicKey);
       view.writeBytes(message.triggerNodeId);
       view.writeByte(Number(message.onlyTrigger));
       {
@@ -408,7 +408,7 @@ export const FetchQuery = {
       rootNodeId1: field3,
       parentId: field4,
       targetPublicKey: field5,
-      clientPublicKey: field6,
+      sourcePublicKey: field6,
       triggerNodeId: field7,
       onlyTrigger: field8,
       match: field9,
@@ -844,9 +844,8 @@ export const BopFetchResponse = {
 
 export interface IBopStoreRequest {
   nodes?: Array<Uint8Array>;
-  clientPublicKey?: Uint8Array;
-  targetPublicKey?: Uint8Array;
   sourcePublicKey?: Uint8Array;
+  targetPublicKey?: Uint8Array;
   muteMsgIds?: Array<Uint8Array>;
   preserveTransient?: boolean;
 }
@@ -873,20 +872,16 @@ export const BopStoreRequest = {
         }
       }
       }
-      if (message.clientPublicKey != null) {
+      if (message.sourcePublicKey != null) {
         view.writeByte(2);
-        view.writeBytes(message.clientPublicKey);
+        view.writeBytes(message.sourcePublicKey);
       }
       if (message.targetPublicKey != null) {
         view.writeByte(3);
         view.writeBytes(message.targetPublicKey);
       }
-      if (message.sourcePublicKey != null) {
-        view.writeByte(4);
-        view.writeBytes(message.sourcePublicKey);
-      }
       if (message.muteMsgIds != null) {
-        view.writeByte(5);
+        view.writeByte(4);
         {
         const length0 = message.muteMsgIds.length;
         view.writeUint32(length0);
@@ -896,7 +891,7 @@ export const BopStoreRequest = {
       }
       }
       if (message.preserveTransient != null) {
-        view.writeByte(6);
+        view.writeByte(5);
         view.writeByte(Number(message.preserveTransient));
       }
       view.writeByte(0);
@@ -934,7 +929,7 @@ export const BopStoreRequest = {
           break;
 
         case 2:
-          message.clientPublicKey = view.readBytes();
+          message.sourcePublicKey = view.readBytes();
           break;
 
         case 3:
@@ -942,10 +937,6 @@ export const BopStoreRequest = {
           break;
 
         case 4:
-          message.sourcePublicKey = view.readBytes();
-          break;
-
-        case 5:
           {
         let length0 = view.readUint32();
         message.muteMsgIds = new Array<Uint8Array>(length0);
@@ -957,7 +948,7 @@ export const BopStoreRequest = {
       }
           break;
 
-        case 6:
+        case 5:
           message.preserveTransient = !!view.readByte();
           break;
 
@@ -1080,7 +1071,7 @@ export const BopStoreResponse = {
 
 export interface IBopUnsubscribeRequest {
   originalMsgId?: Uint8Array;
-  clientPublicKey?: Uint8Array;
+  targetPublicKey?: Uint8Array;
 }
 
 export const BopUnsubscribeRequest = {
@@ -1099,9 +1090,9 @@ export const BopUnsubscribeRequest = {
         view.writeByte(1);
         view.writeBytes(message.originalMsgId);
       }
-      if (message.clientPublicKey != null) {
+      if (message.targetPublicKey != null) {
         view.writeByte(2);
-        view.writeBytes(message.clientPublicKey);
+        view.writeBytes(message.targetPublicKey);
       }
       view.writeByte(0);
       const end = view.length;
@@ -1130,7 +1121,7 @@ export const BopUnsubscribeRequest = {
           break;
 
         case 2:
-          message.clientPublicKey = view.readBytes();
+          message.targetPublicKey = view.readBytes();
           break;
 
         default:
@@ -1206,7 +1197,8 @@ export const BopUnsubscribeResponse = {
 
 export interface IBopWriteBlobRequest {
   nodeId1?: Uint8Array;
-  clientPublicKey?: Uint8Array;
+  sourcePublicKey?: Uint8Array;
+  targetPublicKey?: Uint8Array;
   data?: Uint8Array;
   pos?: bigint;
   copyFromId1?: Uint8Array;
@@ -1229,24 +1221,28 @@ export const BopWriteBlobRequest = {
         view.writeByte(1);
         view.writeBytes(message.nodeId1);
       }
-      if (message.clientPublicKey != null) {
+      if (message.sourcePublicKey != null) {
         view.writeByte(2);
-        view.writeBytes(message.clientPublicKey);
+        view.writeBytes(message.sourcePublicKey);
+      }
+      if (message.targetPublicKey != null) {
+        view.writeByte(3);
+        view.writeBytes(message.targetPublicKey);
       }
       if (message.data != null) {
-        view.writeByte(3);
+        view.writeByte(4);
         view.writeBytes(message.data);
       }
       if (message.pos != null) {
-        view.writeByte(4);
+        view.writeByte(5);
         view.writeUint64(message.pos);
       }
       if (message.copyFromId1 != null) {
-        view.writeByte(5);
+        view.writeByte(6);
         view.writeBytes(message.copyFromId1);
       }
       if (message.muteMsgIds != null) {
-        view.writeByte(6);
+        view.writeByte(7);
         {
         const length0 = message.muteMsgIds.length;
         view.writeUint32(length0);
@@ -1282,22 +1278,26 @@ export const BopWriteBlobRequest = {
           break;
 
         case 2:
-          message.clientPublicKey = view.readBytes();
+          message.sourcePublicKey = view.readBytes();
           break;
 
         case 3:
-          message.data = view.readBytes();
+          message.targetPublicKey = view.readBytes();
           break;
 
         case 4:
-          message.pos = view.readUint64();
+          message.data = view.readBytes();
           break;
 
         case 5:
-          message.copyFromId1 = view.readBytes();
+          message.pos = view.readUint64();
           break;
 
         case 6:
+          message.copyFromId1 = view.readBytes();
+          break;
+
+        case 7:
           {
         let length0 = view.readUint32();
         message.muteMsgIds = new Array<Uint8Array>(length0);
@@ -1391,8 +1391,8 @@ export const BopWriteBlobResponse = {
 
 export interface IBopReadBlobRequest {
   nodeId1?: Uint8Array;
-  clientPublicKey?: Uint8Array;
   targetPublicKey?: Uint8Array;
+  sourcePublicKey?: Uint8Array;
   pos?: bigint;
   length?: number;
 }
@@ -1413,13 +1413,13 @@ export const BopReadBlobRequest = {
         view.writeByte(1);
         view.writeBytes(message.nodeId1);
       }
-      if (message.clientPublicKey != null) {
-        view.writeByte(2);
-        view.writeBytes(message.clientPublicKey);
-      }
       if (message.targetPublicKey != null) {
-        view.writeByte(3);
+        view.writeByte(2);
         view.writeBytes(message.targetPublicKey);
+      }
+      if (message.sourcePublicKey != null) {
+        view.writeByte(3);
+        view.writeBytes(message.sourcePublicKey);
       }
       if (message.pos != null) {
         view.writeByte(4);
@@ -1456,11 +1456,11 @@ export const BopReadBlobRequest = {
           break;
 
         case 2:
-          message.clientPublicKey = view.readBytes();
+          message.targetPublicKey = view.readBytes();
           break;
 
         case 3:
-          message.targetPublicKey = view.readBytes();
+          message.sourcePublicKey = view.readBytes();
           break;
 
         case 4:
@@ -1580,7 +1580,7 @@ export const BopReadBlobResponse = {
 
 export interface IBopGenericMessageRequest {
   action?: string;
-  clientPublicKey?: Uint8Array;
+  sourcePublicKey?: Uint8Array;
   data?: Uint8Array;
 }
 
@@ -1600,9 +1600,9 @@ export const BopGenericMessageRequest = {
         view.writeByte(1);
         view.writeString(message.action);
       }
-      if (message.clientPublicKey != null) {
+      if (message.sourcePublicKey != null) {
         view.writeByte(2);
-        view.writeBytes(message.clientPublicKey);
+        view.writeBytes(message.sourcePublicKey);
       }
       if (message.data != null) {
         view.writeByte(3);
@@ -1635,7 +1635,7 @@ export const BopGenericMessageRequest = {
           break;
 
         case 2:
-          message.clientPublicKey = view.readBytes();
+          message.sourcePublicKey = view.readBytes();
           break;
 
         case 3:

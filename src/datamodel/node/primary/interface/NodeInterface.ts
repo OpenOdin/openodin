@@ -86,10 +86,9 @@ export interface NodeInterface extends DataModelInterface {
     embed(targetPublicKey: Buffer, creationTime?: number): NodeInterface | undefined;
     hashTransient(): Buffer;
     checkFilters(filters: Filter[]): boolean;
-    canSendEmbedded(clientPublicKey: Buffer, targetPublicKey: Buffer): boolean;
-    canSendPrivately(clientPublicKey: Buffer, targetPublicKey: Buffer): boolean;
-    canHoldPrivately(clientPublicKey: Buffer): boolean;
-    canReceivePrivately(sourcePublicKey: Buffer, clientPublicKey: Buffer): boolean;
+    canSendEmbedded(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean;
+    canSendPrivately(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean;
+    canReceivePrivately(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean;
     setRefId(refId: Buffer | undefined): void;
     getRefId(): Buffer | undefined;
     hasBlob(): boolean;
@@ -112,7 +111,7 @@ export interface NodeInterface extends DataModelInterface {
     getLicenseMinDistance(): number;
     setLicenseMaxDistance(distance: number): void;
     getLicenseMaxDistance(): number;
-    getLicensingHashes(clientPublicKey?: Buffer, targetPublicKey?: Buffer, otherParentId?: Buffer): Buffer[];
+    getLicensingHashes(ownerPublicKey?: Buffer, targetPublicKey?: Buffer, otherParentId?: Buffer): Buffer[];
     getLicenseTypes(): Buffer[];
     setParams(params: NodeParams): void;
     getParams(): NodeParams;

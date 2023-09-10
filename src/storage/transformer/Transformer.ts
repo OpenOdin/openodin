@@ -358,7 +358,7 @@ export class Transformer {
         const triggerNodeId = fetchRequest.transform.cachedTriggerNodeId.length > 0 ? fetchRequest.transform.cachedTriggerNodeId : fetchRequest.query.triggerNodeId;
 
         const values: any = [
-            fetchRequest.query.clientPublicKey,
+            fetchRequest.query.sourcePublicKey,
             fetchRequest.query.targetPublicKey,
             fetchRequest.query.depth,
             fetchRequest.query.rootNodeId1,

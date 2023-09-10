@@ -750,7 +750,7 @@ export class ParseUtil {
      *  ignoreOwn?: boolean,
      *  ignoreInactive?: boolean,
      *  targetPublicKey?: hexstring | Buffer,
-     *  clientPublicKey?: hexstring | Buffer,
+     *  sourcePublicKey?: hexstring | Buffer,
      *  embed: {nodeType: hexstring | Buffer, filters: Filter[]}[],
      *  region?: string,
      *  jurisdiction?: string,
@@ -779,7 +779,7 @@ export class ParseUtil {
         const ignoreOwn = ParseUtil.ParseVariable("query ignoreOwn must be boolean, if set", query.ignoreOwn, "boolean", true) ?? false;
         const ignoreInactive = ParseUtil.ParseVariable("query ignoreInactive must be boolean, if set", query.ignoreInactive, "boolean", true) ?? false;
         const targetPublicKey = ParseUtil.ParseVariable("query targetPublicKey must be hex-string or Buffer, if set", query.targetPublicKey, "hex", true) ?? Buffer.alloc(0);
-        const clientPublicKey = ParseUtil.ParseVariable("query clientPublicKey must be hex-string or Buffer, if set", query.clientPublicKey, "hex", true) ?? Buffer.alloc(0);
+        const sourcePublicKey = ParseUtil.ParseVariable("query sourcePublicKey must be hex-string or Buffer, if set", query.sourcePublicKey, "hex", true) ?? Buffer.alloc(0);
         const region = ParseUtil.ParseVariable("query region must be string, if set", query.region, "string", true) ?? "";
         const jurisdiction = ParseUtil.ParseVariable("query jurisdiction must be string, if set", query.jurisdiction, "string", true) ?? "";
 
@@ -818,7 +818,7 @@ export class ParseUtil {
             ignoreInactive,
             embed: allowEmbed,
             targetPublicKey,
-            clientPublicKey,
+            sourcePublicKey,
             region,
             jurisdiction,
         };

@@ -1050,8 +1050,9 @@ export class License extends Node implements LicenseInterface {
     }
 
     /**
-     * Return array of hashes for which this license licenses for.
+     * Return combination of hashes for which this license licenses for.
      * If a node.getLicensingHashes() intersects with this output then this license does license that node.
+     *
      * @returns list of hashes to match with a node to be licensed.
      */
     public getLicenseeHashes(): Buffer[] {
@@ -1063,17 +1064,28 @@ export class License extends Node implements LicenseInterface {
         const issuer = this.getIssuer();
         const nodeId1 = this.getNodeId1();
         const targetPublicKey = this.getTargetPublicKey();
-        const clientPublicKey = this.getOwner();
+        const ownerPublicKey = this.getOwner();
         const interfacesType = this.getType().slice(0, 4);  // This is the primary+secondary interface ids
+
+        // This hash says there is a license for a specific node.
         hashes.push(Hash([interfacesType, this.getParentId(), issuer, nodeId1, undefined, undefined]));
+
+        // This hash says there is a license targeted at a specific targetPublicKey for any ownerPublicKey.
         hashes.push(Hash([interfacesType, this.getParentId(), issuer, nodeId1, undefined, targetPublicKey]));
-        hashes.push(Hash([interfacesType, this.getParentId(), issuer, nodeId1, clientPublicKey, undefined]));
-        hashes.push(Hash([interfacesType, this.getParentId(), issuer, nodeId1, clientPublicKey, targetPublicKey]));
+
+        // This hash says there is a license created by ownerPublicKey targeted at anybody.
+        hashes.push(Hash([interfacesType, this.getParentId(), issuer, nodeId1, ownerPublicKey, undefined]));
+
+        // This hash says there is a license created by ownerPublicKey targeted at targetPublicKey.
+        hashes.push(Hash([interfacesType, this.getParentId(), issuer, nodeId1, ownerPublicKey, targetPublicKey]));
 
         const jumpPeerPublicKey = this.getJumpPeerPublicKey();
         if (jumpPeerPublicKey) {
+            // This hash says there is a license targeted at a specific jumpPeerPublicKey for any ownerPublicKey.
             hashes.push(Hash([interfacesType, this.getParentId(), issuer, nodeId1, undefined, jumpPeerPublicKey]));
-            hashes.push(Hash([interfacesType, this.getParentId(), issuer, nodeId1, clientPublicKey, jumpPeerPublicKey]));
+
+            // This hash says there is a license created by ownerPublicKey targeted at jumpPeerPublicKey.
+            hashes.push(Hash([interfacesType, this.getParentId(), issuer, nodeId1, ownerPublicKey, jumpPeerPublicKey]));
         }
 
         this.cachedLicenseeHashes = hashes;
@@ -1099,14 +1111,13 @@ export class License extends Node implements LicenseInterface {
      * See if this License node licenses the passed in node.
      * Note that the function validateEmbedding makes sure that the chain of embedded licenses are valid, which is invoked in the validation/verification process.
      *
-     * @param clientPublicKey set this to match that the license is issued by this key.
-     * @param targetPublicKey set this to match that the license is targeted at the specific key.
      * @param otherParentId if checking licenses for this node if it is embedded below a different parent.
      * @returns true if this license does license the given node under the given client and targetpublicKeys.
      */
-    public isLicenseTo(nodeToLicense: NodeInterface, clientPublicKey?: Buffer, targetPublicKey?: Buffer, otherParentId?: Buffer): boolean {
+    public isLicenseTo(nodeToLicense: NodeInterface, otherParentId?: Buffer): boolean {
         const targetHashes = this.getLicenseeHashes();
-        const licensingHashes = nodeToLicense.getLicensingHashes(clientPublicKey, targetPublicKey, otherParentId);
+        const licensingHashes = nodeToLicense.getLicensingHashes(this.getOwner(),
+            this.getTargetPublicKey(), otherParentId);
 
         for (let i=0; i<targetHashes.length; i++) {
             for (let i2=0; i2<licensingHashes.length; i2++) {
@@ -1292,42 +1303,52 @@ export class License extends Node implements LicenseInterface {
     }
 
     /**
-     * Enforces so that licenses only can be sent embedded to targetPublicKey if the clientPublicKey (sender) is the current license target.
+     * Enforces so that licenses only can be sent embedded to targetPublicKey if the
+     * sourcePublicKey (sender) is the current license target.
      *
-     * @param clientPublicKey the public key embedding, signing and sending the node.
+     * @param sourcePublicKey the public key embedding, signing and sending the node.
      * @param targetPublicKey the target public key the embedding is towards.
      *
      * @returns true if this node can be sent as embedded.
      */
-    public canSendEmbedded(clientPublicKey: Buffer, targetPublicKey: Buffer): boolean {
-        const extensions = this.getExtensions();
-        if (extensions === undefined || extensions <= 0) {
-            return false;
-        }
+    public canSendEmbedded(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean {
         if (!this.allowEmbed()) {
             return false;
         }
-        if (clientPublicKey.equals(targetPublicKey)) {
+
+        const extensions = this.getExtensions();
+
+        if (extensions === undefined || extensions <= 0) {
             return false;
         }
-        if (this.getTargetPublicKey()?.equals(clientPublicKey)) {
+
+        if (!this.allowEmbed()) {
+            return false;
+        }
+
+        if (sourcePublicKey.equals(targetPublicKey)) {
+            return false;
+        }
+
+        if (this.getTargetPublicKey()?.equals(sourcePublicKey)) {
             return true;
         }
+
         return false;
     }
 
-    public canReceivePrivately(sourcePublicKey: Buffer, clientPublicKey: Buffer): boolean {
-        if (this.getOwner()?.equals(clientPublicKey)) {
+    public canReceivePrivately(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean {
+        if (this.getOwner()?.equals(targetPublicKey)) {
             // If the receiver created the license then they can hold it.
             return true;
         }
 
-        if (this.getTargetPublicKey()?.equals(clientPublicKey)) {
+        if (this.getTargetPublicKey()?.equals(targetPublicKey)) {
             // If the receiver is the target of the license then they can hold it.
             return true;
         }
 
-        if (this.getJumpPeerPublicKey()?.equals(clientPublicKey)) {
+        if (this.getJumpPeerPublicKey()?.equals(targetPublicKey)) {
             // If the possessor is designated intermediary holder of the
             // license then they can hold it.
             // Note that this doesn't grant the possessor rights to the licensed
@@ -1336,7 +1357,7 @@ export class License extends Node implements LicenseInterface {
         }
 
         if (this.allowTargetSendPrivately()) {
-            // If the sender is the target then we accept to store this license.
+            // If the source is the target then we accept to store this license.
             if (this.getTargetPublicKey()?.equals(sourcePublicKey)) {
                 return true;
             }
@@ -1346,40 +1367,30 @@ export class License extends Node implements LicenseInterface {
     }
 
     /**
-     * Check if this license can be sent privately to targetPublicKey via clientPublicKey.
+     * Check if this node can be sent privately to targetPublicKey from sourcePublicKey.
+     *
      * A private node is a node which is not public and it not licensed.
+     *
      * All license nodes are private.
      *
      * Allow to send if:
-     * owner == clientPublicKey && target == targetPublicKey (creator is sending to target).
-     * owner == clientPublicKey && clientPublicKey == targetPublicKey (the creator is asking to get what it created).
-     * target == clientPublicKey && clientPublicKey == targetPublicKey (the client is asking for licenses targeted towards them selves).
-     * target == clientPublicKey && allowTargetSendPrivately() == true (if the license allows then if the client is also the target they can share the license).
+     * targetPublicKey is the owner of the license.
+     * targetPublicKey is the target of the license.
+     * targetPublicKey is the jumpPeerPublicKey of the license.
+     * sourcePublicKey is the target of the license and allowTargetSendPrivately is true.
      *
-     * @param clientPublicKey the public key sending the node.
+     * @param sourcePublicKey the public key of the peer holding the node.
      * @param targetPublicKey the public key the node is to be sent to.
      *
      * @returns whether or not this node can send privately
      */
-    public canSendPrivately(clientPublicKey: Buffer, targetPublicKey: Buffer): boolean {
-        // Check if License is created by clientPublicKey targeted at targetPublicKey
-        if (this.getOwner()?.equals(clientPublicKey)) {
-            if (this.getTargetPublicKey()?.equals(targetPublicKey)) {
-                return true;
-            }
-
-            // If client asking for themselves then always return what client owns.
-            if (clientPublicKey.equals(targetPublicKey)) {
-                return true;
-            }
+    public canSendPrivately(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean {
+        if (this.getOwner()?.equals(targetPublicKey)) {
+            return true;
         }
-        else {
-            // If client asking for themselves then always return those nodes targeted at client.
-            if (clientPublicKey.equals(targetPublicKey)) {
-                if (this.getTargetPublicKey()?.equals(clientPublicKey)) {
-                    return true;
-                }
-            }
+
+        if (this.getTargetPublicKey()?.equals(targetPublicKey)) {
+            return true;
         }
 
         if (this.getJumpPeerPublicKey()?.equals(targetPublicKey)) {
@@ -1393,50 +1404,9 @@ export class License extends Node implements LicenseInterface {
         // If allowTargetSendPrivately() is set then the client can always share
         // the license if the client is the target of the license.
         if (this.allowTargetSendPrivately()) {
-            if (this.getTargetPublicKey()?.equals(clientPublicKey)) {
+            if (this.getTargetPublicKey()?.equals(sourcePublicKey)) {
                 return true;
             }
-        }
-
-        return false;
-    }
-
-    /**
-     * This checks if the license can be held by a specific client public key.
-     * Note that a licene is always private.
-     *
-     * The license can be held if:
-     * clientPublicKey is the owner of the license.
-     * clientPublicKey is the target of the license.
-     * allowTargetSendPrivately() is set then anyone who has access to the license can hold the license.
-     * @param clientPublicKey the party in possession of the node.
-     * @returns true if this node can be held.
-     */
-    public canHoldPrivately(clientPublicKey: Buffer): boolean {
-        if (this.getOwner()?.equals(clientPublicKey)) {
-            // If the possessor created the license then they can hold it.
-            return true;
-        }
-
-        if (this.getTargetPublicKey()?.equals(clientPublicKey)) {
-            // If the possessor is the target of the license then they can hold it.
-            return true;
-        }
-
-        if (this.getJumpPeerPublicKey()?.equals(clientPublicKey)) {
-            // If the possessor is designated intermediary holder of the
-            // license then they can hold it.
-            // Note that this doesn't grant the possessor rights to the licensed
-            // data only that they can help funnel the license to where it shold be.
-            return true;
-        }
-
-        if (this.allowTargetSendPrivately()) {
-            // This license can be possessed by anyone because the
-            // target of the license can send the license to anyone.
-            // Note that this doesn't mean the possessor has any rights,
-            // it is just OK that they store the license in their Storage.
-            return true;
         }
 
         return false;

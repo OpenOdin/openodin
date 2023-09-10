@@ -154,18 +154,28 @@ export type FetchQuery = {
     parentId: Buffer,
 
     /**
-     * Optionally set this to override who is performing this fetch query.
-     * This requires that the receiving P2PClient is has allowUncheckedAccess set to true to
-     * allow a different clientPublicKey than the remote public key.
-     * This is only applicable when requesting directly from a storage, extenders will set this property automatically.
-     */
-    clientPublicKey: Buffer,
-
-    /** The target user the client is fetching for.
-     * If fetching for themselves then set this same as clientPublicKey.
-     * Defaults to same as clientPublicKey.
+     * Optional.
+     *
+     * For whom this read is performed. Permissions are applied to this public key.
+     *
+     * Upon arrival this is by default set to the public key of the peer sending the message.
+     *
+     * It can be set differently by the sender if the receiving P2PClient is configured with
+     * allowUncheckedAccess.
      */
     targetPublicKey: Buffer,
+
+    /**
+     * Optional.
+     *
+     * Who is the source of the data we are fetching.
+     *
+     * Upon arrival this is by default set to the public key of the peer receiving this message.
+     *
+     * It can be set differently by the sender if the receiving P2PClient is configured with
+     * allowUncheckedAccess.
+     */
+    sourcePublicKey: Buffer,
 
     /** At least one Match must match for a node to be added to result set. */
     match: Match[],
@@ -233,8 +243,8 @@ export type FetchQuery = {
     ignoreInactive: boolean,
 
     /**
-     * Set to true to ignore data which has owner clientPublicKey.
-     * If targetPublicKey is set then data created by targetPublicKey is ignored instead.
+     * Set to true to ignore data which has owner targetPublicKey.
+     *
      * Default is false.
      */
     ignoreOwn: boolean,
@@ -360,7 +370,6 @@ export enum Status {
     /**
      * If access to root node is denied, or
      * when writing/reading a blob whos node we are not allowed to access,
-     * or if allowUncheckedAccess is not set when clientPublicKey differs from connected peer.
      */
     NOT_ALLOWED         = 8,
 
@@ -486,27 +495,36 @@ export type StoreRequest = {
     nodes: Buffer[],
 
     /**
-     * Optionally set this to override who is performing this store request.
-     * Setting this requires that the receiving P2PClient is configured with allowUncheckedAccess
-     * set to true to allow a different clientPublicKey than the remote public key.
-     * Defaults to the configured clientPublicKey of the Storage.
-     */
-    clientPublicKey: Buffer,
-
-    /**
-     * Optionally set this when storing nodes on behalf of someone else, e.g. storing licenses which have been extended to targetPublicKey.
-     * If empty this means no specific target.
-     * Not used as for now but might be used later for logging.
-     */
-    targetPublicKey: Buffer,
-
-    /**
-     * Optionally set the source user from where this data originates from for this current store request.
-     * Defaults to the storage requests clientPublicKey (or to the Storage's clientPublicKey) if empty.
-     * This is checked against to be stored Licenses flagged with allowTargetSendPrivately that the license's
-     * targetPublicKey matches the sourcePublicKey set in this store request.
+     * Optional.
+     *
+     * Set who is storing data.
+     *
+     * Upon arrival this is by default set to the public key of the peer sending the message.
+     *
+     * It can be set differently by the sender if the receiving P2PClient is configured with
+     * allowUncheckedAccess.
+     *
+     * P2PClientAutoFetchers set it to the public key from where they are fetching data
+     * which is then getting stored. It is however reset to its default value upon arrival
+     * unless allowUncheckedAccess is set in the receiving P2PClient.
+     *
      */
     sourcePublicKey: Buffer,
+
+    /**
+     * Optional.
+     *
+     * Set who is the reason we are storing this data.
+     *
+     * P2PClientExtender set this when extending new licenses and storing them towards
+     * the targetPublicKey.
+     *
+     * Upon arrival this is by default set to the public key of the peer sending the message.
+     *
+     * It can be set differently by the sender if the receiving P2PClient is configured with
+     * allowUncheckedAccess.
+     */
+    targetPublicKey: Buffer,
 
     /**
      * Could be populated with msg IDs which were the msg IDs of the fetchRequest message sent when creating a subscription.
@@ -560,11 +578,18 @@ export type UnsubscribeRequest = {
     originalMsgId: Buffer,
 
     /**
-     * Optionally set this to override who is performing this unsubscribe request.
-     * This requires that the receiving P2PClient is configured with allowUncheckedAccess
-     * set to true to allow a different clientPublicKey than the remote public key.
+     * Optional.
+     *
+     * Who is the fetcher now unsubscribing from a prior fetch request.
+     * This public key must match the targetPublicKey in the fetch query we are
+     * now unsubscring from.
+     *
+     * Upon arrival this is by default set to the public key of the peer sending the message.
+     *
+     * It can be set differently by the sender if the receiving P2PClient is configured with
+     * allowUncheckedAccess.
      */
-    clientPublicKey: Buffer,
+    targetPublicKey: Buffer,
 };
 
 /** Struct used for responding to unsubscribe requests. */
@@ -599,11 +624,29 @@ export type WriteBlobRequest = {
     data: Buffer,
 
     /**
-     * Optionally set this to override who is performing this write blob request.
-     * This requires that the receiving P2PClient is configured with allowUncheckedAccess
-     * set to true to allow a different clientPublicKey than the remote public key.
+     * Optional.
+     *
+     * Who is the sender. Permissions are applied to this public key and access is
+     * needed to the blob node to be able to write blob data.
+     *
+     * Upon arrival this is by default set to the public key of the peer sending the message.
+     *
+     * It can be set differently by the sender if the receiving P2PClient is configured with
+     * allowUncheckedAccess.
      */
-    clientPublicKey: Buffer,
+    sourcePublicKey: Buffer,
+
+    /**
+     * Optional.
+     *
+     * Set for whom we are storing this blob data.
+     *
+     * Upon arrival this is by default set to the public key of the peer receiving this message.
+     *
+     * It can be set differently by the sender if the receiving P2PClient is configured with
+     * allowUncheckedAccess.
+     */
+    targetPublicKey: Buffer,
 
     /**
      * If this is set then the blob data content is copied from an existing blob
@@ -671,19 +714,28 @@ export type ReadBlobRequest = {
     length: number,
 
     /**
-     * The target user the client is reading blob data for.
-     * If client reading for themselves then set this same as clientPublicKey.
-     * This is only applicable when requesting from a storage, extenders will set this property automatically.
+     * Optional.
+     *
+     * For whom this blob read is performed. Permissions are applied to this public key.
+     *
+     * Upon arrival this is by default set to the public key of the peer sending the message.
+     *
+     * It can be set differently by the sender if the receiving P2PClient is configured with
+     * allowUncheckedAccess.
      */
     targetPublicKey: Buffer,
 
     /**
-     * Optionally set this to override who is performing this read blob request.
-     * This requires that the receiving P2PClient is configured with allowUncheckedAccess
-     * set to true to allow a different clientPublicKey than the remote public key.
-     * This is only applicable when requesting from a storage, extenders will set this property automatically.
+     * Optional.
+     *
+     * Who is the source of the blob data we are fetching.
+     *
+     * Upon arrival this is by default set to the public key of the peer receiving this message.
+     *
+     * It can be set differently by the sender if the receiving P2PClient is configured with
+     * allowUncheckedAccess.
      */
-    clientPublicKey: Buffer,
+    sourcePublicKey: Buffer,
 };
 
 /** Struct used for responding to read blob requests. */
@@ -737,11 +789,14 @@ export type GenericMessageRequest = {
     action: string,
 
     /**
-     * Optionally set this to override who is performing this message request.
-     * This requires that the receiving P2PClient is configured with allowUncheckedAccess
-     * set to true to allow a different clientPublicKey than the remote public key.
+     * Optional.
+     *
+     * Upon arrival this is by default set to the public key of the peer sending the message.
+     *
+     * It can be set differently by the sender if the receiving P2PClient is configured with
+     * allowUncheckedAccess.
      */
-    clientPublicKey: Buffer,
+    sourcePublicKey: Buffer,
 
     /**
      * This can be JSON or whatever else serialized that the peer can understand.

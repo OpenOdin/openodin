@@ -157,14 +157,14 @@ describe("Storage: triggers", function() {
     it("#addTrigger, #uncorkTrigger, #dropTrigger", async function() {
         assert(storage);
 
-        let clientPublicKey = Buffer.alloc(32).fill(0x01);
+        let sourcePublicKey = Buffer.alloc(32).fill(0x01);
         let targetPublicKey = Buffer.alloc(32).fill(0x02);
         let triggerNodeId = Buffer.alloc(32).fill(0x10);
         let msgId = Buffer.from([1,2,3,4,5]);
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId: Buffer.alloc(32),
-            clientPublicKey,
+            sourcePublicKey,
             targetPublicKey,
             triggerNodeId,
             match: [
@@ -226,14 +226,14 @@ describe("Storage: triggers", function() {
 
         await driver.createTables();
 
-        let clientPublicKey = Buffer.alloc(32).fill(0x01);
+        let sourcePublicKey = Buffer.alloc(32).fill(0x01);
         let targetPublicKey = Buffer.alloc(32).fill(0x02);
         let triggerNodeId = Buffer.alloc(32).fill(0x10);
         let msgId = Buffer.from([1,2,3,4,5]);
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId: Buffer.alloc(32),
-            clientPublicKey,
+            sourcePublicKey,
             targetPublicKey,
             triggerNodeId,
             match: [
@@ -296,13 +296,13 @@ describe("Storage: triggers", function() {
     it("#addTrigger with interval", async function() {
         assert(storage);
 
-        let clientPublicKey = Buffer.alloc(32).fill(0x01);
+        let sourcePublicKey = Buffer.alloc(32).fill(0x01);
         let targetPublicKey = Buffer.alloc(32).fill(0x02);
         let msgId = Buffer.from([1,2,3,4,5]);
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId: Buffer.alloc(32),
-            clientPublicKey,
+            sourcePublicKey,
             targetPublicKey,
             triggerInterval: 60,
             match: [
@@ -348,14 +348,14 @@ describe("Storage: triggers", function() {
     it("#getTransformer", async function() {
         assert(storage);
 
-        let clientPublicKey = Buffer.alloc(32).fill(0x01);
+        let sourcePublicKey = Buffer.alloc(32).fill(0x01);
         let targetPublicKey = Buffer.alloc(32).fill(0x02);
         let msgId = Buffer.from([1,2,3,4,5]);
 
         let fetchRequest = StorageUtil.CreateFetchRequest({
             query: {
                 parentId: Buffer.alloc(32),
-                clientPublicKey,
+                sourcePublicKey,
                 targetPublicKey,
                 triggerInterval: 60,
                 match: [
@@ -448,7 +448,7 @@ describe("Storage: triggers", function() {
         let embed: NodeInterface[] = [];
 
         let parentId = Buffer.alloc(32).fill(0x00);
-        let clientPublicKey = Buffer.alloc(32).fill(0x01);
+        let sourcePublicKey = Buffer.alloc(32).fill(0x01);
         const nodeUtil = new NodeUtil();
         const now = Date.now();
 
@@ -459,7 +459,7 @@ describe("Storage: triggers", function() {
             id1.writeUInt32BE(i++, 0);
             const node = await nodeUtil.createDataNode({
                 id1,
-                owner: clientPublicKey,
+                owner: sourcePublicKey,
                 parentId,
                 expireTime: now + 10000,
                 creationTime: now,
@@ -475,7 +475,7 @@ describe("Storage: triggers", function() {
             id1.writeUInt32BE(i++, 0);
             const node = await nodeUtil.createDataNode({
                 id1,
-                owner: clientPublicKey,
+                owner: sourcePublicKey,
                 parentId,
                 expireTime: now + 10000,
                 creationTime: now,
@@ -772,9 +772,9 @@ function setupTests(config: any) {
         let keyPair1 = Node.GenKeyPair();
         let keyPair2 = Node.GenKeyPair();
         let parentId = Buffer.alloc(32).fill(0x00);
-        let clientPublicKey = keyPair1.publicKey;
+        let sourcePublicKey = keyPair1.publicKey;
         let targetPublicKey = keyPair1.publicKey;
-        let sourcePublicKey = Buffer.alloc(32).fill(0x02);
+        //let sourcePublicKey = Buffer.alloc(32).fill(0x02);
         let preserveTransient = true;
         let muteMsgIds: Buffer[] = [];
         let nodes: Buffer[] = [];
@@ -810,7 +810,6 @@ function setupTests(config: any) {
         nodes.push(node1.export(), node2.export(), node2b.export(), node2c.export());
 
         let storeRequest: StoreRequest = {
-            clientPublicKey,
             sourcePublicKey,
             targetPublicKey,
             preserveTransient,
@@ -842,7 +841,7 @@ function setupTests(config: any) {
         // see that what is stored is readable back
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey,
             targetPublicKey,
             match: [
                 {
@@ -880,9 +879,9 @@ function setupTests(config: any) {
 
         let parentId = Buffer.alloc(32).fill(0x00);
         let triggerNodeId = Buffer.alloc(32).fill(0xa0);
-        let clientPublicKey = keyPair1.publicKey;
+        let sourcePublicKey = keyPair1.publicKey;
         let targetPublicKey = keyPair1.publicKey;
-        let sourcePublicKey = Buffer.alloc(32).fill(0x02);
+        //let sourcePublicKey = Buffer.alloc(32).fill(0x02);
 
         let preserveTransient = false;
         let muteMsgIds: Buffer[] = [];
@@ -890,7 +889,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey,
             targetPublicKey,
             triggerNodeId,
             match: [
@@ -926,7 +925,6 @@ function setupTests(config: any) {
         nodes.push(node2.export());
 
         let storeRequest: StoreRequest = {
-            clientPublicKey,
             sourcePublicKey,
             targetPublicKey,
             preserveTransient,
@@ -951,7 +949,6 @@ function setupTests(config: any) {
         nodes.push(node2b.export());
 
         storeRequest = {
-            clientPublicKey,
             sourcePublicKey,
             targetPublicKey,
             preserveTransient,
@@ -980,7 +977,6 @@ function setupTests(config: any) {
         nodes.push(node3.export());
 
         storeRequest = {
-            clientPublicKey,
             sourcePublicKey,
             targetPublicKey,
             preserveTransient,
@@ -1008,7 +1004,6 @@ function setupTests(config: any) {
         nodes.push(node2c.export());
 
         storeRequest = {
-            clientPublicKey,
             sourcePublicKey,
             targetPublicKey,
             preserveTransient,
@@ -1039,7 +1034,6 @@ function setupTests(config: any) {
         nodes.push(node2d.export());
 
         storeRequest = {
-            clientPublicKey,
             sourcePublicKey,
             targetPublicKey,
             preserveTransient,
@@ -1059,7 +1053,7 @@ function setupTests(config: any) {
 
         let unsubscribeRequest: UnsubscribeRequest = {
             originalMsgId: fromMsgId,
-            clientPublicKey,
+            targetPublicKey,
         };
 
         await storage.handleUnsubscribeWrapped(unsubscribeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
@@ -1077,7 +1071,6 @@ function setupTests(config: any) {
         nodes.push(node2e.export());
 
         storeRequest = {
-            clientPublicKey,
             sourcePublicKey,
             targetPublicKey,
             preserveTransient,
@@ -1108,9 +1101,8 @@ function setupTests(config: any) {
         let fromMsgId = Buffer.from([1,2,3,4,5]);
 
         let keyPair1 = Node.GenKeyPair();
-        let clientPublicKey = keyPair1.publicKey;
-        let targetPublicKey = clientPublicKey;
-        let sourcePublicKey = clientPublicKey;
+        let sourcePublicKey = keyPair1.publicKey;
+        let targetPublicKey = sourcePublicKey;
         let parentId = Buffer.alloc(32).fill(0x00);
         let nodeId1 = Buffer.alloc(32).fill(0x01);
 
@@ -1126,7 +1118,8 @@ function setupTests(config: any) {
         let blobHash = Hash(data);
 
         let writeBlobRequest: WriteBlobRequest = {
-            clientPublicKey,
+            targetPublicKey: sourcePublicKey,
+            sourcePublicKey,
             copyFromId1,
             nodeId1,
             data,
@@ -1146,7 +1139,8 @@ function setupTests(config: any) {
         pos = 0n;
 
         writeBlobRequest = {
-            clientPublicKey,
+            targetPublicKey: sourcePublicKey,
+            sourcePublicKey,
             copyFromId1,
             nodeId1,
             data,
@@ -1189,7 +1183,6 @@ function setupTests(config: any) {
         }, keyPair1.publicKey, keyPair1.secretKey);
 
         let storeRequest = {
-            clientPublicKey,
             sourcePublicKey,
             targetPublicKey,
             preserveTransient: false,
@@ -1205,7 +1198,7 @@ function setupTests(config: any) {
 
         const fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId: node2.getParentId(),
-            clientPublicKey,
+            sourcePublicKey,
             targetPublicKey,
             triggerNodeId: node2.getParentId(),
             onlyTrigger: true,
@@ -1225,7 +1218,8 @@ function setupTests(config: any) {
         await storage.handleFetchWrapped(fetchRequest, p2pClient, fromMsgId, expectingReply, sendResponse2);
 
         writeBlobRequest = {
-            clientPublicKey,
+            targetPublicKey: sourcePublicKey,
+            sourcePublicKey,
             copyFromId1,
             nodeId1: node1.getId1() as Buffer,
             data,
@@ -1244,7 +1238,8 @@ function setupTests(config: any) {
 
 
         writeBlobRequest = {
-            clientPublicKey,
+            targetPublicKey: sourcePublicKey,
+            sourcePublicKey,
             copyFromId1,
             nodeId1: node2.getId1() as Buffer,
             data: data.slice(0,6),
@@ -1263,7 +1258,7 @@ function setupTests(config: any) {
 
 
         let readBlobRequest: ReadBlobRequest = {
-            clientPublicKey,
+            sourcePublicKey: targetPublicKey,
             targetPublicKey,
             nodeId1: node2.getId1() as Buffer,
             pos: 0n,
@@ -1280,7 +1275,8 @@ function setupTests(config: any) {
 
 
         writeBlobRequest = {
-            clientPublicKey,
+            targetPublicKey: sourcePublicKey,
+            sourcePublicKey,
             copyFromId1,
             nodeId1: node2.getId1() as Buffer,
             data: data.slice(6),
@@ -1324,7 +1320,8 @@ function setupTests(config: any) {
 
         // Copy blob and see that it also triggers.
         writeBlobRequest = {
-            clientPublicKey,
+            targetPublicKey: sourcePublicKey,
+            sourcePublicKey,
             copyFromId1: node2.getId1() as Buffer,
             nodeId1: node3.getId1() as Buffer,
             data: Buffer.alloc(0),
@@ -1413,11 +1410,10 @@ function setupTests(config: any) {
         }, keyPair2.publicKey, keyPair2.secretKey);
 
 
-        assert(license1.isLicenseTo(node1, keyPair1.publicKey, keyPair2.publicKey));
+        assert(license1.isLicenseTo(node1));
 
 
         let storeRequest = {
-            clientPublicKey: keyPair1.publicKey,
             sourcePublicKey: keyPair1.publicKey,
             targetPublicKey: keyPair1.publicKey,
             preserveTransient: false,
@@ -1429,7 +1425,8 @@ function setupTests(config: any) {
 
 
         let writeBlobRequest: WriteBlobRequest = {
-            clientPublicKey: keyPair2.publicKey,
+            targetPublicKey: keyPair2.publicKey,
+            sourcePublicKey: keyPair2.publicKey,
             copyFromId1,
             nodeId1: node1.getId1() as Buffer,
             data,
@@ -1445,7 +1442,8 @@ function setupTests(config: any) {
 
 
         writeBlobRequest = {
-            clientPublicKey: keyPair1.publicKey,
+            targetPublicKey: keyPair1.publicKey,
+            sourcePublicKey: keyPair1.publicKey,
             copyFromId1,
             nodeId1: node1.getId1() as Buffer,
             data,
@@ -1463,7 +1461,8 @@ function setupTests(config: any) {
 
 
         writeBlobRequest = {
-            clientPublicKey: keyPair1.publicKey,
+            targetPublicKey: keyPair1.publicKey,
+            sourcePublicKey: keyPair1.publicKey,
             nodeId1: node2.getId1() as Buffer,
             copyFromId1: node1.getId1() as Buffer,
             data,
@@ -1480,7 +1479,8 @@ function setupTests(config: any) {
 
 
         writeBlobRequest = {
-            clientPublicKey: keyPair2.publicKey,
+            targetPublicKey: keyPair2.publicKey,
+            sourcePublicKey: keyPair2.publicKey,
             nodeId1: node2.getId1() as Buffer,
             copyFromId1: node1.getId1() as Buffer,
             data,
@@ -1498,7 +1498,6 @@ function setupTests(config: any) {
         // Store license 1
         //
         storeRequest = {
-            clientPublicKey: keyPair1.publicKey,
             sourcePublicKey: keyPair1.publicKey,
             targetPublicKey: keyPair1.publicKey,
             preserveTransient: false,
@@ -1520,7 +1519,7 @@ function setupTests(config: any) {
         // Read node2's blob failing due to lacking license.
         //
         let readBlobRequest: ReadBlobRequest = {
-            clientPublicKey: keyPair1.publicKey,
+            sourcePublicKey: keyPair1.publicKey,
             targetPublicKey: keyPair1.publicKey,
             nodeId1: node2.getId1() as Buffer,
             pos: 0n,
@@ -1537,7 +1536,6 @@ function setupTests(config: any) {
         // Store license 2
         //
         storeRequest = {
-            clientPublicKey: keyPair2.publicKey,
             sourcePublicKey: keyPair2.publicKey,
             targetPublicKey: keyPair2.publicKey,
             preserveTransient: false,

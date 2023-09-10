@@ -96,8 +96,8 @@ export class BlobStreamReader extends AbstractStreamReader {
                 nodeId1: this.nodeId1,
                 pos: this.pos,
                 length: chunkSize,
-                clientPublicKey: peer.getLocalPublicKey(),
                 targetPublicKey: peer.getLocalPublicKey(),
+                sourcePublicKey: peer.getRemotePublicKey(),
             };
 
             const {getResponse} = peer.readBlob(readBlobRequest);

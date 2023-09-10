@@ -963,7 +963,7 @@ function setupDriverTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             rootNodeId1: Buffer.alloc(0),
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             match: [
                 {
@@ -1284,7 +1284,7 @@ function setupDriverTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
             cutoffTime: BigInt(now),
             match: [
@@ -1549,7 +1549,7 @@ function setupDriverTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
             cutoffTime: BigInt(now),
             match: [

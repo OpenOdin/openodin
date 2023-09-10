@@ -68,16 +68,16 @@ class QueryProcessorWrapper extends QueryProcessor {
         return super.embedNodes(nodes);
     }
 
-    public getLicenseNodeTree(node: NodeInterface, clientPublicKey: Buffer | undefined, targetPublicKey: Buffer): LicenseNodeEntry[] {
-        return super.getLicenseNodeTree(node, clientPublicKey, targetPublicKey);
+    public getLicenseNodeTree(node: NodeInterface, sourcePublicKey: Buffer | undefined, targetPublicKey: Buffer): LicenseNodeEntry[] {
+        return super.getLicenseNodeTree(node, sourcePublicKey, targetPublicKey);
     }
 
     public async checkLicenses(licensesToCheck: Buffer[], selectWriteLicenses: boolean): Promise<{[hash: string]: SelectLicenseeHash[]}> {
         return super.checkLicenses(licensesToCheck, selectWriteLicenses);
     }
 
-    public async checkLocalNodesPermissions(nodeId1s: Buffer[]): Promise<{[id1: string]: boolean}> {
-        return super.checkLocalNodesPermissions(nodeId1s);
+    public async checkSourceNodesPermissions(nodeId1s: Buffer[]): Promise<{[id1: string]: boolean}> {
+        return super.checkSourceNodesPermissions(nodeId1s);
     }
 
     public async applyFriendCerts(embeddingLicense: LicenseInterface, aCert: FriendCertInterface, bCert: FriendCertInterface): Promise<boolean> {
@@ -211,12 +211,12 @@ function setupTests(config: any) {
         let handleFetchReplyData = (fetchReplyData: FetchReplyData) => {
         };
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
+        let sourcePublicKey = Buffer.alloc(32).fill(110);
         let targetPublicKey = Buffer.alloc(32).fill(110);
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId: Buffer.alloc(32),
-            clientPublicKey,
+            sourcePublicKey,
             targetPublicKey,
             ignoreOwn: true,
             descending: false,
@@ -256,7 +256,7 @@ function setupTests(config: any) {
             // Do nothing
         };
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
+        let sourcePublicKey = Buffer.alloc(32).fill(110);
         let targetPublicKey = Buffer.alloc(32).fill(110);
         let parentId = Buffer.alloc(32).fill(0);
         let nodeIdA = Buffer.alloc(32).fill(1);
@@ -271,7 +271,7 @@ function setupTests(config: any) {
 
         const nodeA = await nodeUtil.createDataNode({
             id1: nodeIdA,
-            owner: clientPublicKey,
+            owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -279,7 +279,7 @@ function setupTests(config: any) {
 
         const nodeB = await nodeUtil.createDataNode({
             id1: nodeIdB,
-            owner: clientPublicKey,
+            owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -287,7 +287,7 @@ function setupTests(config: any) {
 
         const nodeC = await nodeUtil.createDataNode({
             id1: nodeIdC,
-            owner: clientPublicKey,
+            owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -295,7 +295,7 @@ function setupTests(config: any) {
 
         const nodeAA = await nodeUtil.createDataNode({
             id1: nodeIdAA,
-            owner: clientPublicKey,
+            owner: sourcePublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
             creationTime: now,
@@ -304,7 +304,7 @@ function setupTests(config: any) {
 
         const nodeBA = await nodeUtil.createDataNode({
             id1: nodeIdBA,
-            owner: clientPublicKey,
+            owner: sourcePublicKey,
             parentId: nodeIdB,
             expireTime: now + 10000,
             creationTime: now,
@@ -313,7 +313,7 @@ function setupTests(config: any) {
 
         const nodeBB = await nodeUtil.createDataNode({
             id1: nodeIdBB,
-            owner: clientPublicKey,
+            owner: sourcePublicKey,
             parentId: nodeIdB,
             expireTime: now + 10000,
             creationTime: now,
@@ -322,7 +322,7 @@ function setupTests(config: any) {
 
         const nodeCA = await nodeUtil.createDataNode({
             id1: nodeIdCA,
-            owner: clientPublicKey,
+            owner: sourcePublicKey,
             parentId: nodeIdC,
             expireTime: now + 10000,
             creationTime: now,
@@ -331,7 +331,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey,
             targetPublicKey,
             match: [],
         }});
@@ -465,7 +465,7 @@ function setupTests(config: any) {
             // Do nothing
         };
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
+        let sourcePublicKey = Buffer.alloc(32).fill(110);
         let targetPublicKey = Buffer.alloc(32).fill(110);
         let parentId = Buffer.alloc(32).fill(0);
         let nodeIdA = Buffer.alloc(32).fill(1);
@@ -476,7 +476,7 @@ function setupTests(config: any) {
 
         const nodeA = await nodeUtil.createDataNode({
             id1: nodeIdA,
-            owner: clientPublicKey,
+            owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -484,7 +484,7 @@ function setupTests(config: any) {
 
         const nodeB = await nodeUtil.createDataNode({
             id1: nodeIdB,
-            owner: clientPublicKey,
+            owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -493,7 +493,7 @@ function setupTests(config: any) {
 
         const nodeC = await nodeUtil.createDataNode({
             id1: nodeIdC,
-            owner: clientPublicKey,
+            owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -502,7 +502,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey,
             targetPublicKey,
             match: [],
         }});
@@ -565,7 +565,7 @@ function setupTests(config: any) {
         const nodeUtil = new NodeUtil();
         const now = Date.now();
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
+        let sourcePublicKey = Buffer.alloc(32).fill(110);
         let targetPublicKey = Buffer.alloc(32).fill(110);
         let clientPublicKey2 = Buffer.alloc(32).fill(111);
         let clientPublicKey3 = Buffer.alloc(32).fill(112);
@@ -585,7 +585,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey,
             targetPublicKey,
             match: [],
         }});
@@ -595,7 +595,7 @@ function setupTests(config: any) {
         // Private
         const nodeA = await nodeUtil.createDataNode({
             id1: nodeIdA,
-            owner: clientPublicKey,
+            owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -613,7 +613,7 @@ function setupTests(config: any) {
         // Licensed
         const nodeC = await nodeUtil.createDataNode({
             id1: nodeIdC,
-            owner: clientPublicKey,
+            owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -645,7 +645,7 @@ function setupTests(config: any) {
         const nodeF = await nodeUtil.createLicenseNode({
             id1: nodeIdF,
             owner: clientPublicKey2,
-            targetPublicKey: clientPublicKey,
+            targetPublicKey: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -689,7 +689,7 @@ function setupTests(config: any) {
 
         fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: sourcePublicKey,
             targetPublicKey: clientPublicKey3,
             match: [],
             embed: [
@@ -879,7 +879,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId: rootNodeId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
             match: [
                 {
@@ -922,10 +922,10 @@ function setupTests(config: any) {
         entries = qp.getLicenseNodeTree(node1A, undefined, clientPublicKey);
         assert(entries.length === 3);
 
-        // Test for different clientPublicKey
+        // Test for different targetPublicKey
         fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId: rootNodeId,
-            clientPublicKey: clientPublicKey2,
+            sourcePublicKey: clientPublicKey2,
             targetPublicKey: clientPublicKey2,
             match: [
                 {
@@ -984,7 +984,7 @@ function setupTests(config: any) {
         const nodeUtil = new NodeUtil();
         const now = Date.now();
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
+        let targetPublicKey = Buffer.alloc(32).fill(110);
         let clientPublicKey2 = Buffer.alloc(32).fill(111);
         let parentId = Buffer.alloc(32).fill(0);
         let nodeIdA1 = Buffer.alloc(32).fill(1);
@@ -1004,7 +1004,7 @@ function setupTests(config: any) {
         const nodeL1 = await nodeUtil.createLicenseNode({
             id1: nodeIdL1,
             owner: clientPublicKey2,
-            targetPublicKey: clientPublicKey,
+            targetPublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -1022,8 +1022,8 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
-            targetPublicKey: clientPublicKey,
+            sourcePublicKey: targetPublicKey,
+            targetPublicKey,
             match: [],
         }});
 
@@ -1070,7 +1070,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             match: [],
         }});
@@ -1183,7 +1183,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             match: [
                 {
@@ -1243,7 +1243,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             region: "EU",
             jurisdiction: "FI",
@@ -1278,7 +1278,7 @@ function setupTests(config: any) {
 
         fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             region: "SE",
             match: [
@@ -1296,7 +1296,7 @@ function setupTests(config: any) {
 
         fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             jurisdiction: "FI",
             match: [
@@ -1313,7 +1313,7 @@ function setupTests(config: any) {
 
         fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             region: "FI",
             jurisdiction: "FI",
@@ -1331,7 +1331,7 @@ function setupTests(config: any) {
 
         fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             region: "FI",
             jurisdiction: "FI",
@@ -1358,7 +1358,7 @@ function setupTests(config: any) {
 
         fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             region: "FI",
             jurisdiction: "FI",
@@ -1405,7 +1405,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey: owner,
+            sourcePublicKey: owner,
             targetPublicKey: owner,
             match: [
                 {
@@ -1456,7 +1456,7 @@ function setupTests(config: any) {
 
         const fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey: owner,
+            sourcePublicKey: owner,
             targetPublicKey: owner,
             orderByStorageTime: true,
             match: [
@@ -1518,7 +1518,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             depth: 3,
             match: [
@@ -1535,7 +1535,7 @@ function setupTests(config: any) {
 
         fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             depth: 4,
             match: [
@@ -1553,7 +1553,7 @@ function setupTests(config: any) {
 
         rootNode = lvl1[0];
         fetchRequest = StorageUtil.CreateFetchRequest({query: {
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             depth: 1,
             discardRoot: false,
@@ -1573,7 +1573,7 @@ function setupTests(config: any) {
 
 
         fetchRequest = StorageUtil.CreateFetchRequest({query: {
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             depth: 1,
             discardRoot: true,
@@ -1593,7 +1593,7 @@ function setupTests(config: any) {
 
 
         fetchRequest = StorageUtil.CreateFetchRequest({query: {
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             depth: 1,
             discardRoot: true,
@@ -1645,7 +1645,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             match: [
                 {
@@ -1735,7 +1735,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             cutoffTime: 0n,
             match: [
@@ -1848,7 +1848,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
             match: [
                 {
@@ -1919,7 +1919,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey,
             match: [
                 {
@@ -2029,7 +2029,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
             match: [
                 {
@@ -2386,7 +2386,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
             match: [
                 {
@@ -2709,7 +2709,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
             match: [
                 {
@@ -2891,7 +2891,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId: nodeIdE1,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
             depth: 0,
             discardRoot: false,
@@ -2986,7 +2986,7 @@ function setupTests(config: any) {
         assert(queryProcessor.alreadyProcessedNodes[nodeIdE1.toString("hex")]);
     });
 
-    it("#checkLocalNodesPermissions", async function() {
+    it("#checkSourceNodesPermissions", async function() {
         const driver = config.driver;
         const db = config.db;
 
@@ -3119,7 +3119,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey,
+            sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
             match: [
                 {
@@ -3130,13 +3130,13 @@ function setupTests(config: any) {
         }});
 
         let qp = new QueryProcessorWrapper(db, fetchRequest.query, undefined, now, handleFetchReplyData);
-        let nodesWithPermissions = await qp.checkLocalNodesPermissions([nodeIdA, nodeIdB1]);
+        let nodesWithPermissions = await qp.checkSourceNodesPermissions([nodeIdA, nodeIdB1]);
 
         assert(Object.keys(nodesWithPermissions).length === 0);
 
         await driver.storeNodes([licenseA], now);
 
-        nodesWithPermissions = await qp.checkLocalNodesPermissions([nodeIdA, nodeIdB1, nodeIdB2]);
+        nodesWithPermissions = await qp.checkSourceNodesPermissions([nodeIdA, nodeIdB1, nodeIdB2]);
 
 
         assert(Object.keys(nodesWithPermissions).length === 2);
@@ -3144,10 +3144,10 @@ function setupTests(config: any) {
 
         await driver.storeNodes([licenseB2], now);
 
-        nodesWithPermissions = await qp.checkLocalNodesPermissions([nodeIdA, nodeIdB1, nodeIdB2]);
+        nodesWithPermissions = await qp.checkSourceNodesPermissions([nodeIdA, nodeIdB1, nodeIdB2]);
         assert(Object.keys(nodesWithPermissions).length === 3);
 
-        nodesWithPermissions = await qp.checkLocalNodesPermissions([nodeIdA, nodeIdB1, nodeIdB2, nodeIdC1, nodeIdC2, nodeIdD]);
+        nodesWithPermissions = await qp.checkSourceNodesPermissions([nodeIdA, nodeIdB1, nodeIdB2, nodeIdC1, nodeIdC2, nodeIdD]);
         assert(Object.keys(nodesWithPermissions).length === 6);
     });
 
@@ -3200,7 +3200,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey: peerA,
+            sourcePublicKey: peerA,
             targetPublicKey: peerA,
             match: [],
         }});
@@ -3278,7 +3278,7 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey: peerI,
+            sourcePublicKey: peerI,
             targetPublicKey: peerB,
             match: [
                 {
@@ -3329,15 +3329,15 @@ function setupTests(config: any) {
         let peerB = Buffer.from("7b16e7f0d66ab67893e5927a7e51a3096a99b495b555ef0fe5f0d8dc0c55fcbb", "hex");
         let parentId = Buffer.alloc(32).fill(0);
         let nodeIdA = Buffer.alloc(32).fill(0x30);
-        let nodeIdB = Buffer.alloc(32).fill(0x31);
-        let licenseIdA = Buffer.alloc(32).fill(0x40);
+        let nodeIdB = Buffer.alloc(32).fill(0x31);      //embed
+        let licenseIdA = Buffer.alloc(32).fill(0x40);  //nodes
         let licenseIdA2 = Buffer.alloc(32).fill(0x11);
         let licenseIdAA2 = Buffer.alloc(32).fill(0x12);
         let licenseIdB = Buffer.alloc(32).fill(0x41);
         let licenseIdB2 = Buffer.alloc(32).fill(0x13);
-        let nodeFriendIdA = Buffer.alloc(32).fill(0x50);
-        let nodeFriendIdAA = Buffer.alloc(32).fill(0x52);
-        let nodeFriendIdB = Buffer.alloc(32).fill(0x51);
+        let nodeFriendIdA = Buffer.alloc(32).fill(0x50);  //nodes
+        let nodeFriendIdAA = Buffer.alloc(32).fill(0x52);  //nodes
+        let nodeFriendIdB = Buffer.alloc(32).fill(0x51);  //nodes
 
         // These friend cert images were created using the sdk/tools/examples/cert/friend
         //
@@ -3432,7 +3432,7 @@ function setupTests(config: any) {
         // Connect as Intermediary
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            clientPublicKey: peerI,
+            sourcePublicKey: peerI,
             targetPublicKey: peerA,
             match: [
                 {
@@ -3452,18 +3452,21 @@ function setupTests(config: any) {
 
         await qp.run();
 
-        assert(nodes.length === 3);
+        assert(nodes.length === 4);
         assert(embed.length === 2);
 
         let nodeIds = nodes.map( node => (node.getId1() as Buffer).toString("hex") );
+        assert(nodeIds.includes(licenseIdA.toString("hex")));
         assert(nodeIds.includes(nodeFriendIdA.toString("hex")));
         assert(nodeIds.includes(nodeFriendIdB.toString("hex")));
+        assert(nodeIds.includes(nodeFriendIdAA.toString("hex")));
 
         nodeIds = embed.map( node => (node.getRefId() as Buffer).toString("hex") );
-        // Store embedded node and query again.
         assert(nodeIds.includes(nodeIdA.toString("hex")));
         assert(nodeIds.includes(nodeIdB.toString("hex")));
 
+        // Store embedded node and query again.
+        //
         //embeddedNode1.setId1(licenseIdB2);
         embed[0].setId1(licenseIdB2);
         embed[1].setId1(licenseIdAA2);
@@ -3476,11 +3479,15 @@ function setupTests(config: any) {
         qp = new QueryProcessorWrapper(db, fetchRequest.query, undefined, now, handleFetchReplyData);
         await qp.run();
 
-        assert(nodes.length === 7);
+        assert(nodes.length === 8);
         assert(embed.length === 0);
         nodeIds = nodes.map( node => (node.getId1() as Buffer).toString("hex") );
+        assert(nodeIds.includes(licenseIdA.toString("hex")));
         assert(nodeIds.includes(nodeFriendIdA.toString("hex")));
         assert(nodeIds.includes(nodeFriendIdB.toString("hex")));
+        assert(nodeIds.includes(nodeFriendIdAA.toString("hex")));
+        assert(nodeIds.includes(nodeIdA.toString("hex")));
+        assert(nodeIds.includes(licenseIdAA2.toString("hex")));
         assert(nodeIds.includes(nodeIdB.toString("hex")));
         assert(nodeIds.includes(licenseIdB2.toString("hex")));
 
@@ -3492,16 +3499,17 @@ function setupTests(config: any) {
         qp = new QueryProcessorWrapper(db, fetchRequest.query, undefined, now, handleFetchReplyData);
         await qp.run();
 
-        assert(nodes.length === 3);
+        assert(nodes.length === 4);
         assert(embed.length === 1);
 
         nodeIds = nodes.map( node => (node.getId1() as Buffer).toString("hex") );
+        assert(nodeIds.includes(licenseIdB.toString("hex")));
         assert(nodeIds.includes(nodeFriendIdA.toString("hex")));
         assert(nodeIds.includes(nodeFriendIdB.toString("hex")));
+        assert(nodeIds.includes(nodeFriendIdAA.toString("hex")));
 
-        let embeddedNode1 = embed[0];
-        assert(embeddedNode1);
-        assert((embeddedNode1.getRefId() as Buffer).equals(nodeIdA));
+        nodeIds = embed.map( node => (node.getRefId() as Buffer).toString("hex") );
+        assert(nodeIds.includes(nodeIdA.toString("hex")));
     });
 }
 

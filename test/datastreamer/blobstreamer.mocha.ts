@@ -183,7 +183,6 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
         }, keyPair1.publicKey, keyPair1.secretKey);
 
         let storeRequest: StoreRequest = {
-            clientPublicKey: keyPair1.publicKey,
             sourcePublicKey: keyPair1.publicKey,
             targetPublicKey: keyPair1.publicKey,
             preserveTransient: false,
@@ -246,7 +245,6 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
         }, keyPair1.publicKey, keyPair1.secretKey);
 
         storeRequest = {
-            clientPublicKey: keyPair1.publicKey,
             sourcePublicKey: keyPair1.publicKey,
             targetPublicKey: keyPair1.publicKey,
             preserveTransient: false,

@@ -67,7 +67,7 @@ export class P2PClientAutoFetcher {
      * Keep track of subscriptions initiated by AutoFetches,
      * so we can unsubscribe from them when removing an AutoFetch object.
      */
-    protected autoFetchSubscriptions: {autoFetch: AutoFetch, msgId: Buffer, clientPublicKey: Buffer}[];
+    protected autoFetchSubscriptions: {autoFetch: AutoFetch, msgId: Buffer, targetPublicKey: Buffer}[];
 
     /**
      * If set then reverse serverClient and storageClient, and only match non reverse AutoFetch objects.
@@ -107,13 +107,22 @@ export class P2PClientAutoFetcher {
      * @return Buffer msgId or undefined on error
      */
     protected fetch(autoFetch: AutoFetch): Buffer | undefined {
+        autoFetch = DeepCopy(autoFetch);
+
+        const fetchRequest = autoFetch.fetchRequest;
+
+        const targetPublicKey = this.reverse ?
+            this.storageClient.getRemotePublicKey() : this.serverClient.getLocalPublicKey();
+
+        const sourcePublicKey = this.reverse ?
+            this.serverClient.getLocalPublicKey() : this.serverClient.getRemotePublicKey();
+
+        fetchRequest.query.sourcePublicKey = sourcePublicKey;
+        fetchRequest.query.targetPublicKey = targetPublicKey;
+
         if (this.autoFetchSubscriptions.findIndex( item => DeepEquals(item.autoFetch, autoFetch) ) > -1) {
             return undefined;
         }
-
-        const fetchRequest = DeepCopy(autoFetch.fetchRequest);
-        fetchRequest.query.clientPublicKey = this.serverClient.getLocalPublicKey() ?? Buffer.alloc(0);
-        fetchRequest.query.targetPublicKey = this.storageClient.getRemotePublicKey() ?? Buffer.alloc(0);
 
         const {getResponse, msgId} = this.serverClient.fetch(fetchRequest);
 
@@ -148,8 +157,9 @@ export class P2PClientAutoFetcher {
         });
 
         if (msgId) {
-            const clientPublicKey = autoFetch.fetchRequest.query.clientPublicKey;
-            this.autoFetchSubscriptions.push({autoFetch, msgId, clientPublicKey});
+            const targetPublicKey = autoFetch.fetchRequest.query.targetPublicKey;
+
+            this.autoFetchSubscriptions.push({autoFetch, msgId, targetPublicKey});
 
             const isSubscription = fetchRequest.query.triggerNodeId.length > 0 || fetchRequest.query.triggerInterval > 0;
 
@@ -190,9 +200,8 @@ export class P2PClientAutoFetcher {
 
             const storeRequest: StoreRequest = {
                 nodes: images,
-                clientPublicKey: this.storageClient.getLocalPublicKey() ?? Buffer.alloc(0),
-                targetPublicKey: this.storageClient.getLocalPublicKey() ?? Buffer.alloc(0),
-                sourcePublicKey: this.serverClient.getRemotePublicKey() ?? Buffer.alloc(0),
+                targetPublicKey: this.storageClient.getLocalPublicKey(),
+                sourcePublicKey: this.serverClient.getRemotePublicKey(),
                 muteMsgIds: this.reverse ? this.reverseMuteMsgIds : this.muteMsgIds,
                 preserveTransient,
             };
@@ -333,7 +342,7 @@ export class P2PClientAutoFetcher {
             const item = this.autoFetchSubscriptions[i];
             if (DeepEquals(item.autoFetch, autoFetch)) {
                 this.autoFetchSubscriptions.splice(i, 1);
-                this.unsubscribe({originalMsgId: item.msgId, clientPublicKey: item.clientPublicKey});
+                this.unsubscribe({originalMsgId: item.msgId, targetPublicKey: item.targetPublicKey});
                 const index = this.reverseMuteMsgIds.findIndex( msgId2 => msgId2.equals(item.msgId) );
                 if (index > -1) {
                     this.reverseMuteMsgIds.splice(index, 1);

@@ -214,7 +214,7 @@ export class Driver implements DriverInterface {
                 error: "Begin restrictive writer mode node cannot be used as root node.",
             }];
         }
-        else if (node.canSendPrivately(fetchQuery.clientPublicKey, fetchQuery.targetPublicKey)) {
+        else if (node.canSendPrivately(fetchQuery.sourcePublicKey, fetchQuery.targetPublicKey)) {
             return [node, undefined];
         }
         else if (node.hasRightsByAssociation()) {
@@ -241,7 +241,7 @@ export class Driver implements DriverInterface {
      *
      * @returns node if permissions allow.
      */
-    public async fetchSingleNode(nodeId1: Buffer, now: number, clientPublicKey: Buffer, targetPublicKey: Buffer): Promise<NodeInterface | undefined> {
+    public async fetchSingleNode(nodeId1: Buffer, now: number, sourcePublicKey: Buffer, targetPublicKey: Buffer): Promise<NodeInterface | undefined> {
         if (!Number.isInteger(now)) {
             throw new Error("now not integer");
         }
@@ -255,7 +255,7 @@ export class Driver implements DriverInterface {
             else if (node.isLicensed() || node.hasRightsByAssociation()) {
 
                 const fetchRequest = StorageUtil.CreateFetchRequest({query: {
-                    clientPublicKey,
+                    sourcePublicKey,
                     targetPublicKey,
                     depth: MAX_LICENSE_DISTANCE,
                     match: [
@@ -283,7 +283,7 @@ export class Driver implements DriverInterface {
 
                 return nodes[0];
             }
-            else if (node.canSendPrivately(clientPublicKey, targetPublicKey)) {
+            else if (node.canSendPrivately(sourcePublicKey, targetPublicKey)) {
                 return node;
             }
         }
@@ -554,8 +554,6 @@ export class Driver implements DriverInterface {
 
             const fetchRequest = StorageUtil.CreateFetchRequest({query: {
                 parentId: nodeId,
-                clientPublicKey: Buffer.alloc(0),
-                targetPublicKey: Buffer.alloc(0),
                 depth,
                 match: [
                     {

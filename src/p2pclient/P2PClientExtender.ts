@@ -1,8 +1,4 @@
 import {
-    ExpectingReply,
-} from "pocket-messaging";
-
-import {
     P2PClient,
 } from "./P2PClient";
 
@@ -16,7 +12,6 @@ import {
 
 import {
     NodeInterface,
-    KeyPair,
     PrimaryNodeCertInterface,
     SignatureOffloaderInterface,
     Decoder,
@@ -26,8 +21,6 @@ import {
 import {
     FetchResponse,
     StoreRequest,
-    ReadBlobRequest,
-    ReadBlobResponse,
     FetchRequest,
     FetchResult,
     MESSAGE_SPLIT_BYTES,
@@ -45,6 +38,7 @@ export class P2PClientExtender extends P2PClientForwarder {
     protected publicKey: Buffer;
 
     /**
+     * @param publicKey The cryptographic public key of the user running the Service.
      * @param signatureOffloader is required to have a default keypair set for signing nodes.
      */
     constructor(senderClient: P2PClient, targetClient: P2PClient, publicKey: Buffer, nodeCerts: PrimaryNodeCertInterface[], signatureOffloader: SignatureOffloaderInterface, muteMsgIds?: Buffer[]) {
@@ -64,14 +58,7 @@ export class P2PClientExtender extends P2PClientForwarder {
         this.nodeCerts = nodeCerts.slice();
     }
 
-    protected handleFetch(fetchRequest: FetchRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>)  {
-        fetchRequest.query.clientPublicKey = senderClient.getLocalPublicKey();
-        fetchRequest.query.targetPublicKey = senderClient.getRemotePublicKey();
-
-        super.handleFetch(fetchRequest, senderClient, fromMsgId, expectingReply, sendResponse);
-    }
-
-    protected handleFetchResponse(sendResponse: SendResponseFn<FetchResponse>, targetClient: P2PClient, fetchResponse: FetchResponse) {
+    protected handleFetchResponse(sendResponse: SendResponseFn<FetchResponse>, targetClient: P2PClient, fetchResponse: FetchResponse, fetchRequest: FetchRequest) {
         // Data incoming from storage
         // Transform and send to peer
         // If transient values were requested they are passed along here
@@ -83,7 +70,7 @@ export class P2PClientExtender extends P2PClientForwarder {
         if (imagesToEmbed.length > 0) {
             // Extend licenses towards peerPublicKey, store them to Storage.
             // This will trigger a subscription so related nodes will be sent out subsequently.
-            this.embedNodes(imagesToEmbed);
+            this.embedNodes(imagesToEmbed, fetchRequest);
         }
         const fetchResponse2: FetchResponse = {
             status: fetchResponse.status,
@@ -95,24 +82,18 @@ export class P2PClientExtender extends P2PClientForwarder {
             rowCount: fetchResponse.rowCount,
         };
 
-        super.handleFetchResponse(sendResponse, targetClient, fetchResponse2);
-    }
-
-    protected handleReadBlob(readBlobRequest: ReadBlobRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ReadBlobResponse>) {
-        readBlobRequest.clientPublicKey = senderClient.getLocalPublicKey();
-        readBlobRequest.targetPublicKey = senderClient.getRemotePublicKey();
-
-        super.handleReadBlob(readBlobRequest, senderClient, fromMsgId, expectingReply, sendResponse);
+        super.handleFetchResponse(sendResponse, targetClient, fetchResponse2, fetchRequest);
     }
 
     /**
      * Embed nodes towards senderClient and store them to Storage.
      * @param the proposed images to sign
      */
-    protected async embedNodes(images: Buffer[]) {
-        const targetPublicKey = this.senderClient.getRemotePublicKey();
-        const clientPublicKey = this.senderClient.getLocalPublicKey();
-        if (!targetPublicKey || !clientPublicKey) {
+    protected async embedNodes(images: Buffer[], fetchRequest: FetchRequest) {
+        const sourcePublicKey = this.targetClient.getLocalPublicKey();
+        const targetPublicKey = fetchRequest.query.targetPublicKey;
+
+        if (!targetPublicKey) {
             return;
         }
 
@@ -138,9 +119,10 @@ export class P2PClientExtender extends P2PClientForwarder {
                 // Terms for a newly extended License node will depend on the terms set on the inner
                 // most license object and the height of the license stack.
 
-                // Note that the embeddingNode is what the Database proposes to be signed using our key.
-                // If we do not trust the storage we should not have allowEmbed set to anything so that
-                // we do not automatically sign embeddings.
+                // Note that the embeddingNode is what the Database proposes to
+                // be signed using our key.
+                // If we do not trust the storage we should not have allowEmbed
+                // set to anything so that we do not automatically sign embeddings.
                 if (!embeddingNode.hasEmbedded()) {
                     continue;
                 }
@@ -149,7 +131,7 @@ export class P2PClientExtender extends P2PClientForwarder {
                     continue;
                 }
 
-                if (!clientPublicKey.equals(this.publicKey) && embeddingNode.getOwner()?.equals(clientPublicKey)) {
+                if (!embeddingNode.getOwner()?.equals(this.publicKey)) {
                     // We need to sign using a cert
                     if (!this.nodeCerts) {
                         // No certs provided, we can't sign
@@ -189,9 +171,8 @@ export class P2PClientExtender extends P2PClientForwarder {
 
             const storeRequest: StoreRequest = {
                 nodes: images,
-                clientPublicKey,
                 targetPublicKey,
-                sourcePublicKey: clientPublicKey,
+                sourcePublicKey,
                 muteMsgIds: [],
                 preserveTransient: false,  // No point trying preserving transient values since none have been set on these new nodes.
             };

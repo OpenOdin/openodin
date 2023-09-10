@@ -1430,7 +1430,7 @@ export class Service {
 
         const permissions = p2pClient.getPermissions();
 
-        if (permissions.fetchPermissions.allowEmbed.length > 0 || permissions.fetchPermissions.allowReadBlob) {
+        if (permissions.fetchPermissions.allowEmbed.length > 0) {
             const storageExtender = new P2PClientExtender(p2pClient, this.state.storageClient, this.publicKey,
                 this.config.nodeCerts,
                 this.signatureOffloader, muteMsgIds);

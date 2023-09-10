@@ -827,13 +827,10 @@ export class QueryProcessor {
 
             const ignoreInactive = this.fetchQuery.ignoreInactive ? `AND (isdynamic = 0 OR isactive = 1)` : "";
 
-            const ownKey = this.fetchQuery.targetPublicKey.length > 0 ?
-                this.fetchQuery.targetPublicKey : this.fetchQuery.clientPublicKey;
-
             let ignoreOwn = "";
             if (this.fetchQuery.ignoreOwn) {
                 const ph = this.db.generatePlaceholders(1, 1, params.length + 1);
-                params.push(ownKey);
+                params.push(this.fetchQuery.targetPublicKey);
                 ignoreOwn =  `AND owner <> ${ph}`;
             }
 
@@ -1317,7 +1314,7 @@ export class QueryProcessor {
                     id1s.push(row.aid1, row.bid1);
                 }
 
-                const nodesWithPermissions = await this.checkLocalNodesPermissions(id1s);
+                const nodesWithPermissions = await this.checkSourceNodesPermissions(id1s);
 
                 for (let index=0; index<rowsLength; index++) {
                     const row = rows[index] as SelectFriendCertPair;
@@ -1346,9 +1343,10 @@ export class QueryProcessor {
     }
 
     /**
-     * This function checks permissions on nodes independent of the running query.
-     * The permissions are checked only for clientPublicKey, so this function should not be used
-     * to determine if a node can be sent to target.
+     * This function checks permissions on nodes independent of the running query
+     * not for targetPublicKey but for sourcePublicKey.
+     *
+     * This function must not be used in general to determine if a node can be sent to target.
      *
      * Note that any restrictive writer mode is ignored as the query is never traversing downwards.
      * This is of less importance since we are asking for specific nodes.
@@ -1356,7 +1354,7 @@ export class QueryProcessor {
      * @param nodeId1s id1s of nodes to check permissions for.
      * @returns object of node id1s which have access permissions.
      */
-    protected async checkLocalNodesPermissions(nodeId1s: Buffer[]): Promise<{[id1: string]: boolean}> {
+    protected async checkSourceNodesPermissions(nodeId1s: Buffer[]): Promise<{[id1: string]: boolean}> {
         const nodesWithPermissions: {[id1: string]: boolean} = {};
 
         const nodes = await this.getNodesById1(nodeId1s);
@@ -1387,8 +1385,9 @@ export class QueryProcessor {
                 }
             }
             else {
-                // Is private
-                if (node.canSendPrivately(this.fetchQuery.clientPublicKey, this.fetchQuery.clientPublicKey)) {
+                // Is private.
+                // Check is sourcePublicKey has access to the node.
+                if (node.canSendPrivately(this.fetchQuery.sourcePublicKey, this.fetchQuery.sourcePublicKey)) {
                     nodesWithPermissions[id1Str] = true;
                 }
             }
@@ -1401,8 +1400,8 @@ export class QueryProcessor {
 
             const fetchRequest = StorageUtil.CreateFetchRequest({query: {
                 parentId,
-                clientPublicKey: this.fetchQuery.clientPublicKey,
-                targetPublicKey: this.fetchQuery.clientPublicKey,
+                sourcePublicKey: this.fetchQuery.sourcePublicKey,
+                targetPublicKey: this.fetchQuery.sourcePublicKey,  // Yes, sourcePublicKey since it's the source who needs access to the nodes in this case.
                 depth: MAX_LICENSE_DISTANCE,
                 match: [
                     {
@@ -1483,9 +1482,6 @@ export class QueryProcessor {
      *      b) requiring a specific parent path hash,
      */
     protected async filterLicensedNodes(nodes: NodeInterface[]): Promise<NodeInterface[]> {
-        const clientPublicKey = this.fetchQuery.clientPublicKey && this.fetchQuery.targetPublicKey && this.fetchQuery.clientPublicKey.equals(this.fetchQuery.targetPublicKey) ?
-                undefined : this.fetchQuery.clientPublicKey;
-
         const targetPublicKey = this.fetchQuery.targetPublicKey;
 
         const nodeHasLicense: {[nodeId1: string]: boolean} = {};
@@ -1519,7 +1515,7 @@ export class QueryProcessor {
                             break;
                         }
 
-                        const entries = this.getLicenseNodeTree(eyesOnNode, clientPublicKey, targetPublicKey, sameParentId ? undefined : parentId);
+                        const entries = this.getLicenseNodeTree(eyesOnNode, undefined, targetPublicKey, sameParentId ? undefined : parentId);
 
                         id1Str = id1Str ? id1Str + "_" : "";
                         id1Str = id1Str + (node.getId1() as Buffer).toString("hex");
@@ -1777,7 +1773,7 @@ export class QueryProcessor {
      *
      * @return array of nodes and each node's set of calculated pathHashes.
      */
-    protected getLicenseNodeTree(node: NodeInterface, clientPublicKey: Buffer | undefined, targetPublicKey: Buffer, actualParentId?: Buffer): LicenseNodeEntry[] {
+    protected getLicenseNodeTree(node: NodeInterface, ownerPublicKey: Buffer | undefined, targetPublicKey: Buffer, actualParentId?: Buffer): LicenseNodeEntry[] {
         const entries: LicenseNodeEntry[] = [];
 
         const maxDistance = Math.min(node.getLicenseMaxDistance(), actualParentId ? 0 : MAX_LICENSE_DISTANCE);
@@ -1799,7 +1795,7 @@ export class QueryProcessor {
                     break;
                 }
 
-                const licenseHashes = node.getLicensingHashes(clientPublicKey, targetPublicKey, actualParentId);
+                const licenseHashes = node.getLicensingHashes(ownerPublicKey, targetPublicKey, actualParentId);
 
                 const pathHashes: Buffer[] = prevHashes.map( prevHash => {
                     return Hash([node.getId1() as Buffer, Buffer.from([1]), prevHash]);
@@ -1871,7 +1867,6 @@ export class QueryProcessor {
 
     /**
      * Returns map of all found licenses by their licensing hashes.
-     *
      *
      * @param writeLicenses if true then only get for restrictivemodewriter and restrictivemodemanager
      * else only get for NOT those.
@@ -1948,7 +1943,7 @@ export class QueryProcessor {
             if (node.isPublic() || node.isLicensed()) {
                 keep[index] = true;
             }
-            else if (node.canSendPrivately(this.fetchQuery.clientPublicKey, this.fetchQuery.targetPublicKey)) {
+            else if (node.canSendPrivately(this.fetchQuery.sourcePublicKey, this.fetchQuery.targetPublicKey)) {
                 keep[index] = true;
             }
             else if (node.hasRightsByAssociation()) {
@@ -1956,10 +1951,6 @@ export class QueryProcessor {
                 if (refId && allowRightsByAssociation) {
                     checkAssociation[index] = refId;
                 }
-            }
-            else if (node.canSendEmbedded(this.fetchQuery.clientPublicKey, this.fetchQuery.targetPublicKey) &&
-                node.isUnique() && this.allowEmbedNode(node)) {
-                embed.push(node);
             }
         }
 
@@ -2002,7 +1993,23 @@ export class QueryProcessor {
             if (keep[index]) {
                 nodes.push(allNodes[index]);
             }
+
+            const node = allNodes[index];
+
+            if (!keep[index] || node?.getType(4).equals(License.GetType(4))) {
+                // If node was not allowed to send privately or if it is a license, then
+                // see if we can embed the node to send it.
+                // Licenses are a special case where the license created by target will be sent
+                // but also it could get embedded towards target and also sent.
+                if (node.canSendEmbedded(this.fetchQuery.sourcePublicKey, this.fetchQuery.targetPublicKey) &&
+                    node.isUnique() && this.allowEmbedNode(node)) {
+                    embed.push(node);
+                }
+            }
         }
+
+        // Check the uniqueness of embeddings so we don't trigger embed unnecessarily.
+        // TODO
 
         return [nodes, embed];
     }

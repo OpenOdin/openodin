@@ -41,7 +41,7 @@ struct FetchQuery {
     byte[] rootNodeId1;
     byte[] parentId;
     byte[] targetPublicKey;
-    byte[] clientPublicKey;
+    byte[] sourcePublicKey;
     byte[] triggerNodeId;
     bool onlyTrigger;
     Match[] match;
@@ -111,11 +111,10 @@ message BopFetchResponse {
 
 message BopStoreRequest {
     1 -> byte[][] nodes;
-    2 -> byte[] clientPublicKey;
+    2 -> byte[] sourcePublicKey;
     3 -> byte[] targetPublicKey;
-    4 -> byte[] sourcePublicKey;
-    5 -> byte[][] muteMsgIds;
-    6 -> bool preserveTransient;
+    4 -> byte[][] muteMsgIds;
+    5 -> bool preserveTransient;
 }
 
 message BopStoreResponse {
@@ -127,7 +126,7 @@ message BopStoreResponse {
 
 message BopUnsubscribeRequest {
     1 -> byte[] originalMsgId;
-    2 -> byte[] clientPublicKey;
+    2 -> byte[] targetPublicKey;
 }
 
 message BopUnsubscribeResponse {
@@ -137,11 +136,12 @@ message BopUnsubscribeResponse {
 
 message BopWriteBlobRequest {
     1 -> byte[] nodeId1;
-    2 -> byte[] clientPublicKey;
-    3 -> byte[] data;
-    4 -> uint64 pos;
-    5 -> byte[] copyFromId1;
-    6 -> byte[][] muteMsgIds;
+    2 -> byte[] sourcePublicKey;
+    3 -> byte[] targetPublicKey;
+    4 -> byte[] data;
+    5 -> uint64 pos;
+    6 -> byte[] copyFromId1;
+    7 -> byte[][] muteMsgIds;
 }
 
 message BopWriteBlobResponse {
@@ -152,8 +152,8 @@ message BopWriteBlobResponse {
 
 message BopReadBlobRequest {
     1 -> byte[] nodeId1;
-    2 -> byte[] clientPublicKey;
-    3 -> byte[] targetPublicKey;
+    2 -> byte[] targetPublicKey;
+    3 -> byte[] sourcePublicKey;
     4 -> uint64 pos;
     5 -> uint32 length;
 }
@@ -169,7 +169,7 @@ message BopReadBlobResponse {
 
 message BopGenericMessageRequest {
     1 -> string action;
-    2 -> byte[] clientPublicKey;
+    2 -> byte[] sourcePublicKey;
     3 -> byte[] data;
 }
 

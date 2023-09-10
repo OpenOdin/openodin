@@ -30,7 +30,12 @@ import {
     GenericMessageResponse,
 } from "../types";
 
-// Uncomment this if ever using con sole in this class.
+import {
+    DeepCopy,
+    CopyBuffer,
+} from "../util/common";
+
+// Uncomment this if ever using console in this class.
 //import {
     //PocketConsole,
 //} from "pocket-console";
@@ -50,7 +55,13 @@ export class P2PClientForwarder {
     /** Client we are tunneling requests to. */
     protected targetClient: P2PClient;
 
-    constructor(senderClient: P2PClient, targetClient: P2PClient, muteMsgIds?: Buffer[]) {
+    /**
+     * TODO
+     * @param resetSender if set then reset targetPublicKey and sourcePublicKey fields before forwarding the request.
+     * This is necessary in the cases when the receiving P2PClient does not have allowUncheckAccess set, for instance
+     * when forwarding to a remote storage.
+     */
+    constructor(senderClient: P2PClient, targetClient: P2PClient, muteMsgIds?: Buffer[], resetSender?: boolean) {
         this.senderClient = senderClient;
         this.targetClient = targetClient;
         this.muteMsgIds = muteMsgIds ?? [];
@@ -72,7 +83,6 @@ export class P2PClientForwarder {
     protected handleFetch(fetchRequest: FetchRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>)  {
         const isSubscription = fetchRequest.query.triggerNodeId.length > 0 || fetchRequest.query.triggerInterval > 0;
 
-        // Send the modified request to the target.
         const {getResponse} = this.targetClient.fetch(fetchRequest);
         if (!getResponse) {
             return;
@@ -82,8 +92,8 @@ export class P2PClientForwarder {
             // Save msgId associated in the Storage to use for unsubscription on close.
             const nextMsgId = getResponse.getMsgId();
             this.muteMsgIds.push(nextMsgId);
-            const clientPublicKey = fetchRequest.query.clientPublicKey;
-            this.subscriptionMaps.push({fromMsgId, originalMsgId: nextMsgId, clientPublicKey});
+            const targetPublicKey = CopyBuffer(fetchRequest.query.targetPublicKey);
+            this.subscriptionMaps.push({fromMsgId, originalMsgId: nextMsgId, targetPublicKey});
         }
 
         //response.onTimeout( () => {
@@ -93,12 +103,12 @@ export class P2PClientForwarder {
 
         if (sendResponse) {
             getResponse.onReply( async (fetchResponse: FetchResponse, targetClient: P2PClient) => {
-                this.handleFetchResponse(sendResponse, targetClient, fetchResponse);
+                this.handleFetchResponse(sendResponse, targetClient, fetchResponse, fetchRequest);
             });
         }
     }
 
-    protected handleFetchResponse(sendResponse: SendResponseFn<FetchResponse>, targetClient: P2PClient, fetchResponse: FetchResponse) {
+    protected handleFetchResponse(sendResponse: SendResponseFn<FetchResponse>, targetClient: P2PClient, fetchResponse: FetchResponse, fetchRequest: FetchRequest) {
         // Tunnel the response back to the senderClient.
         sendResponse(fetchResponse);
     }
@@ -119,6 +129,8 @@ export class P2PClientForwarder {
 
             return true;
         });
+
+        storeRequest = DeepCopy(storeRequest);
 
         // Add those the client specifically wants to mute events on.
         storeRequest.muteMsgIds.forEach( (msgId: Buffer) => {
@@ -151,16 +163,16 @@ export class P2PClientForwarder {
     protected handleUnsubscribe(unsubscribeRequest: UnsubscribeRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<UnsubscribeResponse>) {
         for (let i=0; i<this.subscriptionMaps.length; i++) {
             const subscriptionMap = this.subscriptionMaps[i];
-            if (subscriptionMap.fromMsgId.equals(unsubscribeRequest.originalMsgId) && subscriptionMap.clientPublicKey.equals(unsubscribeRequest.clientPublicKey)) {
+            if (subscriptionMap.fromMsgId.equals(unsubscribeRequest.originalMsgId) && subscriptionMap.targetPublicKey.equals(unsubscribeRequest.targetPublicKey)) {
                 this.subscriptionMaps.slice(i, 1);
-                const {originalMsgId, clientPublicKey} = subscriptionMap;
+                const {originalMsgId, targetPublicKey} = subscriptionMap;
 
                 const index = this.muteMsgIds.findIndex( msgId => msgId.equals(originalMsgId) );
                 if (index > -1) {
                     this.muteMsgIds.splice(index, 1);
                 }
 
-                this.targetClient.unsubscribe({originalMsgId, clientPublicKey});
+                this.targetClient.unsubscribe({originalMsgId, targetPublicKey});
                 break;
             }
         }
@@ -234,7 +246,7 @@ export class P2PClientForwarder {
 
             this.targetClient.unsubscribe({
                 originalMsgId: subscriptionMap.originalMsgId,
-                clientPublicKey: subscriptionMap.clientPublicKey,
+                targetPublicKey: subscriptionMap.targetPublicKey,
             });
         });
 

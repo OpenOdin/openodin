@@ -1598,25 +1598,31 @@ export abstract class Node implements NodeInterface {
 
     /**
      * Return a list of hashes for which this node is licensed against.
+     *
      * These hashes are matched against license hashes.
+     *
      * Note that hashes are returned also for public and private nodes even though
      * they are not licensed on fetching they can still have *write* licenses targeted at them.
-     * @param clientPublicKey set this to match that the license is issued by this key.
+     *
+     * @param ownerPublicKey set this to match that the license is owned by this key (last issuer in the stack).
+     * If not set then allow it to be issued by any public key.
      * @param targetPublicKey set this to match that the license is targeted at the specific key.
      * @param otherParentId if checking licenses for this node if it is embedded below a different parent node set this to override the actual parent node Id.
      * @returns list of hashes
      */
-    public getLicensingHashes(clientPublicKey?: Buffer, targetPublicKey?: Buffer, otherParentId?: Buffer): Buffer[] {
+    public getLicensingHashes(ownerPublicKey?: Buffer, targetPublicKey?: Buffer, otherParentId?: Buffer): Buffer[] {
         const parentId = otherParentId ?? this.getParentId();
-        const keyStr = `${parentId?.toString("hex")}_${clientPublicKey?.toString("hex")}_${targetPublicKey?.toString("hex")}`;
+        const keyStr = `${parentId?.toString("hex")}_${ownerPublicKey?.toString("hex")}_${targetPublicKey?.toString("hex")}`;
         const cache = this.cachedLicensingHashes[keyStr] || [];
         if (cache.length > 0) {
             return cache;
         }
         const hashes: Buffer[] = [];
 
+        const issuerPublicKey = this.getOwner();
+
         this.getLicenseTypes().forEach( type => {
-            hashes.push(Hash([type, parentId, this.getOwner(), this.getId1(), clientPublicKey, targetPublicKey]));
+            hashes.push(Hash([type, parentId, issuerPublicKey, this.getId1(), ownerPublicKey, targetPublicKey]));
         });
 
         this.cachedLicensingHashes[keyStr] = hashes;
@@ -2202,77 +2208,61 @@ export abstract class Node implements NodeInterface {
     }
 
     /**
-     * Check if this node if embedded can be sent to targetPublicKey via clientPublicKey.
-     * Some nodes are not allowed to be sent as-is but when embedded they are allowed to be sent, for example when extending Licenses.
-     * Note that the embedded node is fully exposed inside the embedding node, so this is not a privacy feature.
+     * Check if sourcePublicKey can embed the node and send it to targetPublicKey.
      *
-     * @param clientPublicKey the public key embedding, signing and sending the node.
+     * Some nodes are not allowed to be sent as-is but when embedded they are allowed to be sent,
+     * for example when extending Licenses.
+     *
+     * Note that the embedded node is fully exposed inside the embedding node,
+     * so this is not a privacy feature.
+     *
+     * @param sourcePublicKey the public key embedding, signing and sending the node.
      * @param targetPublicKey the target public key the embedding is towards.
      *
      * @returns whether or not this node is allowed to be sent if embedded.
      */
-    public canSendEmbedded(clientPublicKey: Buffer, targetPublicKey: Buffer): boolean {
+    public canSendEmbedded(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean {
         return false;
     }
 
     /**
-     * Check if this node can be sent privately to targetPublicKey via clientPublicKey.
-     * A private node is a node which is not public and it not licensed,
+     * Check if this node can be sent privately to targetPublicKey from sourcePublicKey.
+     *
+     * A private node is a node which is not public and is not licensed,
      * and in such case it is up to each node type to determine what private means.
      *
-     * Override this in deriving nodes to implement the node types ow logic.
+     * Override this in deriving nodes to implement the node types own logic.
      * The default behaviour is that private nodes can only be sent from their owner to their owner.
      *
-     * @param clientPublicKey the public key sending the node.
+     * @param sourcePublicKey the public key of the peer holding the node.
      * @param targetPublicKey the public key the node is to be sent to.
      *
-     * @returns whether or not this node can send privately
+     * @returns true if this node can be sent privately to targetPublicKey.
      */
-    public canSendPrivately(clientPublicKey: Buffer, targetPublicKey: Buffer): boolean {
-        if ((clientPublicKey.equals(targetPublicKey))) {
-            // Client is fetching for themselves, now check if this is the owner.
-            if (this.getOwner()?.equals(clientPublicKey)) {
-                // This is the clients own node
-                // Check embedded nodes recursively
-                try {
-                    if (this.hasEmbedded()) {
-                        const embedded = this.getEmbeddedObject();
-                        if (embedded.getType(2).equals(Buffer.from([0, PRIMARY_INTERFACE_NODE_ID]))) {  // Check if data model is of primary interface Node
-                            const embeddedNode = embedded as NodeInterface;
-                            return embeddedNode.canSendPrivately(clientPublicKey, targetPublicKey);
-                        }
-                        else if (CertUtil.IsCert(embedded.getType())) {
-                            // Certs can always be sent privately.
-                            return true;
-                        }
-                        else {
-                            // Unknown object type.
-                            return false;
-                        }
+    public canSendPrivately(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean {
+        // This is the clients own node
+        if (this.getOwner()?.equals(targetPublicKey)) {
+            // Check embedded nodes recursively
+            try {
+                if (this.hasEmbedded()) {
+                    const embedded = this.getEmbeddedObject();
+                    if (embedded.getType(2).equals(Buffer.from([0, PRIMARY_INTERFACE_NODE_ID]))) {  // Check if data model is of primary interface Node
+                        const embeddedNode = embedded as NodeInterface;
+                        return embeddedNode.canSendPrivately(sourcePublicKey, targetPublicKey);
+                    }
+                    else if (CertUtil.IsCert(embedded.getType())) {
+                        // Certs can always be sent privately.
+                        return true;
+                    }
+                    else {
+                        // Unknown object type.
+                        return false;
                     }
                 }
-                catch(e) {
-                    return false;
-                }
-                return true;
             }
-        }
-
-        return false;
-    }
-
-    /**
-     * This checks if a private node can be held privately by a specific client public key.
-     *
-     * Default behaviour is that only owner can hold private nodes.
-     * Override this in deriving classes to define their restrictions on holding nodes privately.
-     *
-     * @param clientPublicKey the party in possession of the node.
-     * @returns true if this node can be held privately.
-     */
-    public canHoldPrivately(clientPublicKey: Buffer): boolean {
-        if (this.getOwner()?.equals(clientPublicKey)) {
-            // This is the clients own node
+            catch(e) {
+                return false;
+            }
             return true;
         }
 
@@ -2285,14 +2275,12 @@ export abstract class Node implements NodeInterface {
      * Default behaviour is that only owner can hold private nodes.
      * Override this in deriving classes to define their restrictions on holding nodes privately.
      *
-     * @param sourcePublicKey the public key from where the node came.
-     * @param clientPublicKey the public key of the party in possession of the data.
-     * @param targetPublicKey the public key of the who this data is stored on behalf of.
+     * @param sourcePublicKey the public key from where the node is coming from.
+     * @param targetPublicKey the public key of the party to receive the node.
      * @returns true if this node can be received privately.
      */
-    public canReceivePrivately(sourcePublicKey: Buffer, clientPublicKey: Buffer): boolean {
-        if (this.getOwner()?.equals(clientPublicKey)) {
-            // This is the clients own node
+    public canReceivePrivately(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean {
+        if (this.getOwner()?.equals(targetPublicKey)) {
             return true;
         }
 
