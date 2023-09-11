@@ -2,6 +2,26 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.6.4] - 20230911
+BREAKING CHANGE: Request Types updated and more.  
+Refactor request types to use sourcePublicKey and targetPublicKey.
+Add Thread template postLicense.targets field.  
+Simplify test/integration/chat conf files.  
+Make integration chat test not use RPC anymore.  
+Refactor GetResponse.onReply argument order so response comes first.  
+Secure SignatureOffloaderRPC.  
+Add Decoder.Decode() to decode node or cert as generic DataModelInterface.  
+Implement the new universe.json config schema.  
+Refactor DATANODE\_TYPE to DATA\_NODE\_TYPE.  
+Add Thread usage in Service.  
+Fix shared factory stats bug in Service.  
+Add Thread functionality.  
+Delete AppLib and SimpleChat sample.  
+Reassign variables back to Buffer in case of running in browser.  
+Export util/BrowserUtil.  
+Fix bug in BlobDriver.  
+Allow data stream writers to decide chunk size.  
+
 ## [0.6.3] - 20230808
 BREAKING CHANGE: ./app replaced with ./service/lib.  
 Add TransformerCache to be used as mirror data model of transformer.  
