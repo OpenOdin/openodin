@@ -149,9 +149,6 @@ type ServiceConfig = {
 
     /** AutoFetch objects to initiate on autoFetcher clients. */
     autoFetch: AutoFetch[],
-
-    /** Arbitrary app config accessable to the app. */
-    app: any,
 };
 
 type ServiceState = {
@@ -368,7 +365,6 @@ export class Service {
             connectionConfigs: [],
             storageConnectionConfigs: [],
             autoFetch: [],
-            app: {},
         };
 
         this.state = {
@@ -578,6 +574,13 @@ export class Service {
     }
 
     /**
+     * @returns the custom object from the UniverseConf object.
+     */
+    public getCustomConfig(): {[key: string]: any} {
+        return DeepCopy(this.universeConf.custom);
+    }
+
+    /**
      * Set or remove auth cert.
      * Auth cert will be cryptographically verified, but
      * the auth cert will not be online verified at this point.
@@ -672,10 +675,6 @@ export class Service {
         this.config.localStorage = localStorage;
 
         this.state.localDatabaseReconnectDelay = this.config.localStorage?.driver.reconnectDelay;
-    }
-
-    public getAppConfig(): any {
-        return this.config.app;
     }
 
     public makeThread(name: string, defaults: ThreadDefaults = {}): Thread {

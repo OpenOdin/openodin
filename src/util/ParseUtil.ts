@@ -55,7 +55,6 @@ import {
     LocalStorageConfig,
     ConnectionConfig,
     DriverConfig,
-    AppConfig,
     UniverseConf,
     WalletConf,
     PeerConf,
@@ -458,34 +457,6 @@ export class ParseUtil {
         };
 
         return local;
-    }
-
-    /**
-     * @param obj object with properties:
-     * {
-     *  licenseValidSeconds?: number,
-     *  licenseExtensions?: number,
-     *  jumpPeerPublicKey?: hexstring | Buffer,
-     *  licenseTargets?: (hexstring | Buffer)[],
-     *  custom?: any,
-     * }
-     * @returns AppConfig
-     * @throws if malconfigured
-     */
-    public static ParseAppConfig(appConfig: any): AppConfig {
-        const licenseValidSeconds = ParseUtil.ParseVariable("app licenseValidSeconds must be number, if set", appConfig.licenseValidSeconds, "number", true);
-        const licenseExtensions = ParseUtil.ParseVariable("app licenseExtensions must be number, if set", appConfig.licenseExtensions, "number", true);
-        const jumpPeerPublicKey = ParseUtil.ParseVariable("app jumpPeerPublicKey must be hex-string or Buffer, if set", appConfig.jumpPeerPublicKey, "hex", true);
-        const licenseTargets = ParseUtil.ParseVariable("app licenseTargets must be array of hex-string or Buffer, if set", appConfig.licenseTargets, "hex[]", true);
-        let custom: any = appConfig.custom;
-
-        return {
-            licenseValidSeconds,
-            licenseExtensions,
-            jumpPeerPublicKey,
-            licenseTargets,
-            custom,
-        };
     }
 
     /**

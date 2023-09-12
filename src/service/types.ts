@@ -85,14 +85,6 @@ export interface HandshakeFactoryFactoryInterface {
     (handshakeFactoryConfig: HandshakeFactoryConfig, peerProps: PeerProps): Promise<HandshakeFactoryInterface>;
 }
 
-export type AppConfig = {
-    licenseValidSeconds?: number,
-    licenseExtensions?: number,
-    jumpPeerPublicKey?: Buffer,
-    licenseTargets?: Buffer[],
-    custom?: any,
-};
-
 export type PeerConf = {
     handshakeFactoryConfig: HandshakeFactoryConfig,
     permissions:            P2PClientPermissions,
