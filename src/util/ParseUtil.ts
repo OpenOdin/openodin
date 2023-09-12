@@ -65,6 +65,8 @@ import {
 
 import {
     ThreadTemplate,
+    ThreadLicenseParams,
+    ThreadDataParams,
 } from "../storage/thread";
 
 import {
@@ -131,10 +133,10 @@ export class ParseUtil {
         for (let name in threadTemplates) {
             const threadTemplate = threadTemplates[name];
 
-            const query     = threadTemplate.query;
-            const transform = threadTemplate.transform;
-            const post      = threadTemplate.post;
-            const postLicense = threadTemplate.postLicense;
+            const query     = ParseUtil.ParseQuery(threadTemplate.query ?? {});
+            const transform = ParseUtil.ParseTransform(threadTemplate.transform);
+            const post      = ParseUtil.ParseThreadDataParams(threadTemplate.post);
+            const postLicense = ParseUtil.ParseThreadLicenseParams(threadTemplate.postLicense);
 
             threads[name] = {
                 query,
@@ -206,6 +208,69 @@ export class ParseUtil {
             peers,
             sync,
         };
+    }
+
+    /**
+     * @param conf object
+     * {
+     *  ...LicenseParams,
+     *  validSeconds?: number,
+     *  targets?: (hexstring | Buffer)[],
+     *
+     *  @returns ThreadLicenseParams or undefined
+     */
+    public static ParseThreadLicenseParams(conf: any): ThreadLicenseParams | undefined {
+        if (!conf) {
+            return undefined;
+        }
+
+        const licenseParams = ParseUtil.ParseLicenseParams(conf);
+
+        const threadLicenseParams: ThreadLicenseParams = {
+            ...licenseParams,
+        };
+
+        if (conf.hasOwnProperty("validSeconds")) {
+            threadLicenseParams.validSeconds =
+                ParseUtil.ParseVariable("ThreadLicenseParams.validSeconds must be number, if set",
+                    conf.validSeconds, "number", true);  // allow undefined.
+        }
+
+        if (conf.hasOwnProperty("targets")) {
+            threadLicenseParams.targets =
+                ParseUtil.ParseVariable("ThreadLicenseParams.targets must be hex-string or Buffer array, if set",
+                    conf.targets, "hex[]", true);  // allow undefined
+        }
+
+        return threadLicenseParams;
+    }
+
+    /**
+     * @param conf object
+     * {
+     *  ...DataParams,
+     *  validSeconds?: number,
+     *
+     *  @returns ThreadDataParams or undefined
+     */
+    public static ParseThreadDataParams(conf: any): ThreadDataParams | undefined {
+        if (!conf) {
+            return undefined;
+        }
+
+        const dataParams = ParseUtil.ParseDataParams(conf);
+
+        const threadDataParams: ThreadDataParams = {
+            ...dataParams,
+        };
+
+        if (conf.hasOwnProperty("validSeconds")) {
+            threadDataParams.validSeconds =
+                ParseUtil.ParseVariable("ThreadDataParams.validSeconds must be number, if set",
+                    conf.validSeconds, "number", true);  // allow undefined.
+        }
+
+        return threadDataParams;
     }
 
     /**
@@ -737,7 +802,7 @@ export class ParseUtil {
      *  onlyTrigger?: boolean,
      *  triggerNodeId?: hexstring | Buffer,
      *  triggerInterval?: number,
-     *  match: Match[],
+     *  match?: Match[],
      *  depth?: number,
      *  limit?: number,
      *  cutoffTime?: bigint,
@@ -766,7 +831,7 @@ export class ParseUtil {
         const onlyTrigger = ParseUtil.ParseVariable("query onlyTrigger must be boolean, if set", query.onlyTrigger, "boolean", true) ?? false;
         const triggerNodeId = ParseUtil.ParseVariable("query triggerNodeId must be hex-string or Buffer, if set", query.triggerNodeId, "hex", true) ?? Buffer.alloc(0);
         const triggerInterval = ParseUtil.ParseVariable("query interval must be number, if set", query.interval, "number", true) ?? 0;
-        const match = ParseUtil.ParseMatch(ParseUtil.ParseVariable("query match must be object[]", query.match, "object[]"));
+        const match = ParseUtil.ParseMatch(ParseUtil.ParseVariable("query match must be object[], if set", query.match, "object[]", true) ?? []);
         const depth = ParseUtil.ParseVariable("query depth must be number, if set", query.depth, "number", true) ?? -1;
         const limit = ParseUtil.ParseVariable("query limit must be number, if set", query.limit, "number", true) ?? -1;
         const cutoffTime = ParseUtil.ParseVariable("query cutoffTime must be number, if set", query.cutoffTime, "bigint", true) ?? 0n;

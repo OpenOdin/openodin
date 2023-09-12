@@ -13,6 +13,8 @@ import {
 
 import {
     FetchResponse,
+    FetchQuery,
+    FetchTransform,
 } from "../../types";
 
 /**
@@ -23,38 +25,37 @@ import {
 export type ThreadTemplate = {
     /**
      * Query has to be set if performing queries on the thread.
-     * Parameters match the FetchQuery data type.
      */
-    query?: any,
+    query?: FetchQuery,
 
     /**
      * Transform can be set if query is set.
      * Parameters match the FetchTransform data type.
      */
-    transform?: any,
+    transform?: FetchTransform,
 
     /**
      * Default parameters for when posting new data nodes.
      * Not required to be set to post, but then all parameters
      * must be passed as arguments to post() instead.
      */
-    post?: any,
+    post?: ThreadDataParams,
 
     /**
      * Default parameters for when posting new license nodes.
-     * Not required to be set to post licenses, but then all parameters
+     * Not required to be set to post licenses, but then all required parameters
      * must be passed as arguments to postLicense() instead.
      */
-    postLicense?: any,
+    postLicense?: ThreadLicenseParams,
 };
 
 export type ThreadTemplates = {[name: string]: ThreadTemplate};
 
 /**
  * These are the relevat properties of FetchQuery which could be
- * set to override the template properties of query.
- * A value of undefined will also overwrite and set
- * the final property to undefined.
+ * set to override the template and default properties of a query.
+ * Unset or undefined values are ignored.
+ * If rootNodeId1 is set in query then it has precedence over parentId.
  */
 export type ThreadQueryParams = {
     parentId?:              Buffer,
@@ -75,9 +76,8 @@ export type ThreadQueryParams = {
 
 /**
  * These are the relevant properties of FetchTransform which could be
- * set to override the template properties of transform.
- * A value of undefined will also overwrite and set
- * the final property to undefined.
+ * set to override the template and default properties of transform.
+ * Unset or undefined values are ignored.
  */
 export type ThreadTransformerParams = {
     reverse?:           boolean,
@@ -87,28 +87,69 @@ export type ThreadTransformerParams = {
     includeDeleted?:    boolean,
 };
 
-export type ThreadParams = {
+/**
+ * This is the argument type passed to post() and postLicense()
+ * and the struct contains the properties which can be set to override
+ * the template and default values of FetchRequest.
+ */
+export type ThreadFetchParams = {
     query?: ThreadQueryParams,
     transform?: ThreadTransformerParams,
 };
 
 /**
- * Optional parameters of DataParams.
- * These parameters have precedence over the template parameters
- * when posting new data nodes.
+ * Parameters optionally passed to post() when posting new data nodes.
+ *
+ * These parameters have precedence over the template
+ * and default properties when posting new data nodes.
+ *
  */
-export type ThreadDataParams = {[param: string]: any} | DataParams;
+export type ThreadDataParams = DataParams & {
+    /**
+     * Optionally set for how many seconds until the data node expires.
+     * Note that expireTime has precedence over validSeconds.
+     */
+    validSeconds?: number,
+};
 
 /**
- * Optional parameters of LicenseParams.
- * These parameters have precedence over the template parameters
- * when posting new license nodes.
+ * Parameters optionally passed to postLicense() when posting new license nodes.
+ *
+ * These parameters have precedence over the template
+ * and default properties when posting new data nodes.
  */
-export type ThreadLicenseParams = {[param: string]: any} | LicenseParams;
+export type ThreadLicenseParams = LicenseParams & {
+    /** Optional list of target public keys to issue licenses or. */
+    targets?: Buffer[],
+
+    /**
+     * Optionally set for how many seconds until the license node expires.
+     * Note that expireTime has precedence over validSeconds.
+     */
+    validSeconds?: number,
+};
 
 export type ThreadQueryCallback = (getResponse: GetResponse<FetchResponse>, transformerCache?: TransformerCache) => void;
 
+/**
+ * Default parameters layered on top of template properties but below function parameters.
+ */
 export type ThreadDefaults = {
+    /**
+     * Default parentId if parentId/rootNodeId1 if not set in post function params.
+     * If rootNodeId1 is set in query then it has precedence over parentId.
+     */
     parentId?: Buffer,
-    licenseTargets?: Buffer[],
+
+    /** Default license targets if not set in postLicense function params. */
+    targets?: Buffer[],
+
+    /** Default data and license expire time in milliseconds, if not set in function params. */
+    expireTime?: number,
+
+    /**
+     * Default data and license valid time in seconds, if not set in function params.
+     * Note that this property is only used if expireTime is not set.
+     */
+    validSeconds?: number,
 };

@@ -134,7 +134,7 @@ async function main() {
         const storageClient = e.p2pClient;
 
         const serverThread = chatServer.makeThread("channel", {parentId: Buffer.alloc(32),
-            licenseTargets: [keyPair1.publicKey]});
+            targets: [keyPair1.publicKey]});
 
         serverThread.stream({}, (getResponse, transformerCache) => {
             transformerCache?.onChange( (item: TransformerItem) => {
@@ -196,7 +196,7 @@ async function main() {
         const storageClient = e.p2pClient;
 
         clientThread = chatClient.makeThread("channel", {parentId: Buffer.alloc(32),
-            licenseTargets: [keyPair2.publicKey]});
+            targets: [keyPair2.publicKey]});
 
         clientThread.stream({}, (getResponse, transformerCache) => {
             transformerCache?.onChange( (item: TransformerItem, changeType: string) => {

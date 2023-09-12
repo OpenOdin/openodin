@@ -106,7 +106,6 @@ import {
     ThreadTemplate,
     ThreadTemplates,
     ThreadDefaults,
-    ThreadParams,
 } from "../storage/thread";
 
 declare const window: any;
