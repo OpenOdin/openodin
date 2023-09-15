@@ -339,22 +339,27 @@ export class Service {
 
     protected universeConf: UniverseConf;
 
+    protected walletConf: WalletConf;
+
     /**
-     * After constructed call init() then start().
+     * After class has been constructed call init() then call start().
      *
      * @param universeConf object which will be parsed into a UniverseConf object.
+     * @param walletConf if wallet contains keyPairs then they are added to signatureOffloader, else
+     * signatureOffloader is expected to have already added key pairs.
      * @param signatureOffloader if not already initiated with key pairs then keyPairs
-     * must be provided when calling init().
+     * must be provided in the walletConf.
      * @param handshakeFactoryFactory
      */
-    constructor(universeConf: UniverseConf, protected signatureOffloader: SignatureOffloaderInterface,
+    constructor(universeConf: UniverseConf, walletConf: WalletConf, protected signatureOffloader: SignatureOffloaderInterface,
         protected handshakeFactoryFactory: HandshakeFactoryFactoryInterface) {
 
-        this.universeConf = DeepCopy(universeConf);
-
-        if (this.universeConf.format !== 1) {
+        if (universeConf.format !== 1) {
             throw new Error("Unknown UniverseConf format, expecting 1");
         }
+
+        this.universeConf   = DeepCopy(universeConf);
+        this.walletConf     = DeepCopy(walletConf);
 
         this.nodeUtil = new NodeUtil(this.signatureOffloader);
 
@@ -377,16 +382,12 @@ export class Service {
         };
     }
 
-    /**
-     * @param walletConf if wallet contains keyPairs then they are added to signatureOffloader, else
-     * signatureOffloader is expected to have already added key pairs.
-     */
-    public async init(walletConf: WalletConf) {
+    public async init() {
         if (this.publicKey.length > 0) {
             throw new Error("Service already initiated");
         }
 
-        const promises: Promise<void>[] = walletConf.keyPairs.map( (keyPair: KeyPair) => this.signatureOffloader.addKeyPair(keyPair) );
+        const promises: Promise<void>[] = this.walletConf.keyPairs.map( (keyPair: KeyPair) => this.signatureOffloader.addKeyPair(keyPair) );
         await Promise.all(promises);
 
         const publicKeys = await this.signatureOffloader.getPublicKeys();
@@ -397,19 +398,19 @@ export class Service {
 
         this.publicKey = publicKeys[0];
 
-        if (walletConf.authCert) {
-            await this.setAuthCert(walletConf.authCert);
+        if (this.walletConf.authCert) {
+            await this.setAuthCert(this.walletConf.authCert);
         }
 
-        for (let i=0; i<walletConf.nodeCerts.length; i++) {
-            await this.addNodeCert(walletConf.nodeCerts[i]);
+        for (let i=0; i<this.walletConf.nodeCerts.length; i++) {
+            await this.addNodeCert(this.walletConf.nodeCerts[i]);
         }
 
-        if (walletConf.storage.peer) {
-            this.addStorageConnectionConfig(walletConf.storage.peer);
+        if (this.walletConf.storage.peer) {
+            this.addStorageConnectionConfig(this.walletConf.storage.peer);
         }
-        else if (walletConf.storage.database) {
-            this.setLocalStorage(walletConf.storage.database);
+        else if (this.walletConf.storage.database) {
+            this.setLocalStorage(this.walletConf.storage.database);
         }
         else {
             throw new Error("Missing walletConf.storage configuration");
@@ -609,6 +610,10 @@ export class Service {
         this.threadTemplates[name] = DeepCopy(threadTemplate);
     }
 
+    public getThreadTemplates(): ThreadTemplates {
+        return DeepCopy(this.threadTemplates);
+    }
+
     /**
      * Add NodeCert.
      * The cert will get cryptographically verified, but not online verified.
@@ -714,7 +719,7 @@ export class Service {
 
         this.config.connectionConfigs.push(connectionConfig);
 
-        if (this._isRunning && !this.config.localStorage) {
+        if (this._isRunning && this.state.storageClient) {
             this.initConnectionFactories();
         }
     }

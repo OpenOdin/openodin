@@ -275,10 +275,10 @@ export class ParseUtil {
     /**
      * @param conf object
      * {
-     *  keyPairs: {
+     *  keyPairs?: {
      *      publicKey: hexstring | Buffer,
      *      secretKey: hexstring | Buffer
-     *  },
+     *  }[],
      *  authCert?: hexstring | Buffer,
      *  nodeCerts?: (hexstring | Buffer)[],
      *  storage?: {
@@ -296,11 +296,14 @@ export class ParseUtil {
      *      }
      *  }
      * }
+     *
      * @returns UniverseConf
      * @throws if malconfigured.
      */
     public static ParseWalletConf(conf: any): WalletConf {
-        const keyPairs = conf.keyPairs.map( (keyPair: any) => ParseUtil.ParseKeyPair(keyPair) );
+        conf = conf ?? {};
+
+        const keyPairs = (conf.keyPairs ?? []).map( (keyPair: any) => ParseUtil.ParseKeyPair(keyPair) );
 
         const authCert = conf.authCert ? ParseUtil.ParseConfigAuthCert(conf.authCert) : undefined;
 
