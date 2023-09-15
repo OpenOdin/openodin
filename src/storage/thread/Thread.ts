@@ -53,13 +53,18 @@ import {
     ThreadFetchParams,
     ThreadDataParams,
     ThreadLicenseParams,
-    ThreadQueryCallback,
     ThreadDefaults,
+    ThreadResponseAPI,
 } from "./types";
+
+import {
+    StreamReaderInterface,
+    StreamWriterInterface,
+} from "../../datastreamer";
 
 export class Thread {
     protected transformerCache?: TransformerCache;
-    protected streamResponse?: GetResponse<FetchResponse>;
+    protected streamGetResponse?: GetResponse<FetchResponse>;
 
     constructor(protected threadTemplate: ThreadTemplate,
         protected defaults: ThreadDefaults,
@@ -110,7 +115,7 @@ export class Thread {
         this.defaults[name] = value;
     }
 
-    public query(threadFetchParams: ThreadFetchParams, callback: ThreadQueryCallback) {
+    public query(threadFetchParams: ThreadFetchParams = {}): ThreadResponseAPI {
         const fetchRequest = Thread.GetFetchRequest(this.threadTemplate, threadFetchParams, this.defaults);
 
         // We need to delete these to be sure not to stream.
@@ -118,18 +123,22 @@ export class Thread {
         fetchRequest.query.triggerInterval   = 0;
         fetchRequest.query.onlyTrigger       = false;
 
-        this.fetch(fetchRequest, callback);
+        const getResponse = this.fetch(fetchRequest);
+
+        return this.threadResponseAPI(getResponse);
     }
 
-    public stream(threadFetchParams: ThreadFetchParams, callback: ThreadQueryCallback) {
-        if (this.streamResponse) {
+    public stream(threadFetchParams: ThreadFetchParams = {}): ThreadResponseAPI {
+        if (this.streamGetResponse) {
             throw new Error("Cannot stream twice on the same Thread instance. Please call stopStream() first or create another instance.");
         }
 
         const fetchRequest = Thread.GetFetchRequest(this.threadTemplate, threadFetchParams,
             this.defaults, true);
 
-        this.streamResponse = this.fetch(fetchRequest, callback);
+        this.streamGetResponse = this.fetch(fetchRequest);
+
+        return this.threadResponseAPI(this.streamGetResponse);
     }
 
     public async post(threadDataParams: ThreadDataParams): Promise<NodeInterface[]> {
@@ -144,6 +153,61 @@ export class Thread {
         }
 
         return [];
+    }
+
+    protected threadResponseAPI(getResponse: GetResponse<FetchResponse>): ThreadResponseAPI {
+        const transformerCache = this.transformerCache;
+
+        return {
+            onAdd: (...parameters: Parameters<TransformerCache["onAdd"]>) => {
+                if (!transformerCache) {
+                    throw new Error("Thread not using transformer, cannot call onAdd()");
+                }
+
+                transformerCache.onAdd(...parameters);
+            },
+            onUpdate: (...parameters: Parameters<TransformerCache["onUpdate"]>) => {
+                if (!transformerCache) {
+                    throw new Error("Thread not using transformer, cannot call onUpdate()");
+                }
+
+                transformerCache.onUpdate(...parameters);
+            },
+            onInsert: (...parameters: Parameters<TransformerCache["onInsert"]>) => {
+                if (!transformerCache) {
+                    throw new Error("Thread not using transformer, cannot call onInsert()");
+                }
+
+                transformerCache.onInsert(...parameters);
+            },
+            onDelete: (...parameters: Parameters<TransformerCache["onDelete"]>) => {
+                if (!transformerCache) {
+                    throw new Error("Thread not using transformer, cannot call onDelete()");
+                }
+
+                transformerCache.onDelete(...parameters);
+            },
+            onChange: (...parameters: Parameters<TransformerCache["onChange"]>) => {
+                if (!transformerCache) {
+                    throw new Error("Thread not using transformer, cannot call onChange()");
+                }
+
+                transformerCache.onChange(...parameters);
+            },
+            onClose: (...parameters: Parameters<TransformerCache["onClose"]>) => {
+                if (!transformerCache) {
+                    throw new Error("Thread not using transformer, cannot call onClose()");
+                }
+
+                transformerCache.onClose(...parameters);
+            },
+            getResponse: (): GetResponse<FetchResponse> => {
+                return getResponse;
+            },
+            getTransformer: (): TransformerCache | undefined => {
+                return this.transformerCache;
+            },
+        }
     }
 
     /**
@@ -181,15 +245,88 @@ export class Thread {
     }
 
     public stopStream() {
-        if (this.streamResponse) {
+        if (this.streamGetResponse) {
             // TODO unsubsribe from storage
-            this.streamResponse.cancel();
-            delete this.streamResponse;
+            this.streamGetResponse.cancel();
+            delete this.streamGetResponse;
         }
     }
 
     public getTransformer(): TransformerCache | undefined {
         return this.transformerCache;
+    }
+
+    /**
+     * Store a blob into storage by using a StreamReaderInterface.
+     *
+     */
+    public upload(nodeId1: Buffer, streamReader: StreamReaderInterface): StreamWriterInterface {
+        const storageUtil = new StorageUtil(this.storageClient);
+
+        return storageUtil.streamStoreBlob(nodeId1, streamReader);
+    }
+
+    /**
+     * @returns a StreamReaderInterface for blob
+     */
+    public download(nodeId1: Buffer): StreamReaderInterface {
+        const storageUtil   = new StorageUtil(this.storageClient);
+
+        const streamReader  = storageUtil.getBlobStreamReader(nodeId1);
+
+        return streamReader;
+    }
+
+    /**
+     * Download the full blob and then return it as a Buffer.
+     * Note that this should be used with care for larger blobs.
+     *
+     * Data is returned as array of Buffers since that is how it is read
+     * and joining that buffer might put unnecessary strain on memory so we don't do it automatically.
+     *
+     * @returns the complete data for a blob.
+     * @throws on error
+     */
+    public downloadFull(node: NodeInterface): {blobDataPromise: Promise<Buffer[]>, streamReader: StreamReaderInterface} {
+        const storageUtil = new StorageUtil(this.storageClient);
+        const streamReader = storageUtil.getBlobStreamReader(node.getId1()!);
+
+        const blobLength = node.getBlobLength();
+
+        if (blobLength === undefined) {
+            throw new Error("Missing blob length");
+        }
+
+        const blobDataPromise = new Promise<Buffer[]>( async (resolve) => {
+
+            const blobData: Buffer[] = [];
+
+            let readLength = 0;
+
+            try {
+                while (readLength < blobLength) {
+                    const readData = await streamReader.next();
+
+                    if (!readData) {
+                        throw new Error("Could not read from blob stream");
+                    }
+
+                    blobData.push(readData.data);
+
+                    readLength += readData.data.length;
+                }
+            }
+            catch(e) {
+                throw e;
+            }
+            finally {
+                streamReader.close();
+            }
+
+            resolve(blobData);
+        });
+
+        return {blobDataPromise, streamReader};
     }
 
     protected parsePostLicense(node: NodeInterface, threadLicenseParams: ThreadLicenseParams): LicenseParams {
@@ -315,7 +452,7 @@ export class Thread {
             Thread.MergeParams([threadTransformerParams, (threadTemplate.transform ?? {})]));
     }
 
-    protected fetch(fetchRequest: FetchRequest, callback: ThreadQueryCallback) {
+    protected fetch(fetchRequest: FetchRequest) {
         const {getResponse} = this.storageClient.fetch(fetchRequest, /*timeout=*/0);
 
         if (!getResponse) {
@@ -334,18 +471,18 @@ export class Thread {
             if (fetchResponse.status === Status.TRY_AGAIN) {
                 // Transformer cache got invalidated.
                 this.transformerCache?.close();
-                this.streamResponse?.cancel();
+                this.streamGetResponse?.cancel();
                 delete this.transformerCache;
-                delete this.streamResponse;
+                delete this.streamGetResponse;
                 return;
             }
             else if (fetchResponse.status === Status.MISSING_CURSOR) {
                 // TODO: do what?
                 // cursordId1 is missing for transformer.
                 //this.transformerCache?.close();
-                //this.streamResponse?.cancel();
+                //this.streamGetResponse?.cancel();
                 //delete this.transformerCache;
-                //delete this.streamResponse;
+                //delete this.streamGetResponse;
                 console.debug("cursordId1 not found for Thread with transformer");
                 return;
             }
@@ -364,8 +501,6 @@ export class Thread {
                 this.transformerCache.handleResponse(nodes, indexes, getResponse.getBatchCount() === 1);
             }
         });
-
-        callback(getResponse, this.transformerCache);
 
         return getResponse;
     }

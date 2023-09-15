@@ -36,6 +36,7 @@ import {
 
 import {
     StreamReaderInterface,
+    StreamWriterInterface,
     BlobStreamReader,
     BlobStreamWriter,
 } from "../datastreamer";
@@ -162,24 +163,22 @@ export class StorageUtil {
      *
      * The given streamReader is automatically closed when finished (also on error).
      *
+     * This function runs in the background and it immediately returns the StreamWriter.
+     *
      * @param nodeId1
      * @param streamReader a ready to go stream reader to read data from.
-     * @throws on error
+     * @return StreamWriterInterface
      */
-    public async streamStoreBlob(nodeId1: Buffer, streamReader: StreamReaderInterface) {
+    public streamStoreBlob(nodeId1: Buffer, streamReader: StreamReaderInterface): StreamWriterInterface {
         const streamWriter = new BlobStreamWriter(nodeId1, streamReader, this.storageClient);
 
-        try {
-            await streamWriter.run();
-        }
-        catch(e) {
+        streamWriter.run().catch(e => {
             console.error(e);
+
             throw e;
-        }
-        finally {
-            streamWriter.close();
-            streamReader.close();
-        }
+        });
+
+        return streamWriter;
     }
 
     /**
@@ -254,7 +253,7 @@ export class StorageUtil {
      */
     public async storeBlob(nodeId1: Buffer, data: Buffer) {
         if (data.length > 1024 * 60) {
-            throw new Error("Maximum blob size allowed is 60 KiB. For larger blobs use the stream uploder");
+            throw new Error("Maximum blob size allowed is 60 KiB. For larger blobs use a stream uploader");
         }
 
         const writeBlobRequest = StorageUtil.CreateWriteBlobRequest({nodeId1, data});

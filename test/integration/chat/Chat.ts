@@ -100,8 +100,7 @@ async function main() {
     let messageCounter = 0;
 
     const checkToQuit = () => {
-        messageCounter++;
-        if (messageCounter === 5) {
+        if (messageCounter === 4) {
             clearTimeout(abortTimeout);
             consoleMain.aced("All messages transferred, closing Server and Client");
             setTimeout( () => {
@@ -121,9 +120,9 @@ async function main() {
 
     const consoleServer = PocketConsole({module: "Server"});
 
-    const chatServer = new Service(serverConfig, signatureOffloader1, handshakeFactoryFactory1);
+    const chatServer = new Service(serverConfig, serverWallet, signatureOffloader1, handshakeFactoryFactory1);
 
-    await chatServer.init(serverWallet);
+    await chatServer.init();
 
     chatServer.onConnectionError( (e) => {
         consoleMain.error("Connection error in server", e);
@@ -136,12 +135,23 @@ async function main() {
         const serverThread = chatServer.makeThread("channel", {parentId: Buffer.alloc(32),
             targets: [keyPair1.publicKey]});
 
-        serverThread.stream({}, (getResponse, transformerCache) => {
-            transformerCache?.onChange( (item: TransformerItem) => {
-                const message = (item.node as DataInterface).getData()?.toString();
-                consoleServer.info(message);
-                checkToQuit();
-            });
+        const responseAPI = serverThread.stream();
+        responseAPI.onChange( async (item: TransformerItem) => {
+            messageCounter++;
+
+            const dataNode = item.node as DataInterface;
+
+            const message = dataNode.getData()?.toString();
+
+            consoleServer.info(message);
+
+            if (dataNode.hasBlob()) {
+                const {blobDataPromise} = serverThread!.downloadFull(dataNode);
+
+                const blobData = await blobDataPromise;
+
+                blobResolve && blobResolve(Buffer.concat(blobData));
+            }
         });
 
         // Here we send as soon as Storage is connected, peer might or might
@@ -150,18 +160,6 @@ async function main() {
         const [node] = await serverThread.post({data: Buffer.from("Hello from Server")});
         if (node) {
             serverThread.postLicense(node);
-        }
-    });
-
-    chatServer.onBlob( async (blobEvent: BlobEvent) => {
-        if (blobEvent.nodeId1 && !blobEvent.error) {
-            consoleServer.info("server got attachment");
-            const storageUtil = new StorageUtil(chatServer.getStorageClient()!);
-            const blobData = await storageUtil.readBlob(blobEvent.nodeId1!);
-
-            if (blobResolve) {
-                blobResolve(blobData);
-            }
         }
     });
 
@@ -181,16 +179,16 @@ async function main() {
     const consoleClient = PocketConsole({module: "Client"});
 
 
-    const chatClient = new Service(clientConfig, signatureOffloader2, handshakeFactoryFactory2);
+    const chatClient = new Service(clientConfig, clientWallet, signatureOffloader2, handshakeFactoryFactory2);
 
-    await chatClient.init(clientWallet);
+    await chatClient.init();
 
     chatClient.onConnectionError( (e) => {
         consoleMain.error("Connection error in client", e);
         process.exit(1);
     });
 
-    var clientThread: Thread | undefined;
+    let clientThread: Thread | undefined;
 
     chatClient.onStorageConnect( (e) => {
         const storageClient = e.p2pClient;
@@ -198,12 +196,13 @@ async function main() {
         clientThread = chatClient.makeThread("channel", {parentId: Buffer.alloc(32),
             targets: [keyPair2.publicKey]});
 
-        clientThread.stream({}, (getResponse, transformerCache) => {
-            transformerCache?.onChange( (item: TransformerItem, changeType: string) => {
-                const message = (item.node as DataInterface).getData()?.toString();
-                consoleClient.info(message);
-                checkToQuit();
-            });
+        const responseAPI = clientThread.stream();
+
+        responseAPI.onChange( (item: TransformerItem, changeType: string) => {
+            messageCounter++;
+
+            const message = (item.node as DataInterface).getData()?.toString();
+            consoleClient.info(message);
         });
     });
 
@@ -217,8 +216,7 @@ async function main() {
             clientThread!.postLicense(node);
 
             const nodeId1 = node.getId1();
-            const storageUtil = new StorageUtil(chatClient.getStorageClient()!);
-            storageUtil.streamStoreBlob(nodeId1!, streamReader);
+            clientThread!.upload(nodeId1!, streamReader);
         }
     });
 

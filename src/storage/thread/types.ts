@@ -129,8 +129,6 @@ export type ThreadLicenseParams = LicenseParams & {
     validSeconds?: number,
 };
 
-export type ThreadQueryCallback = (getResponse: GetResponse<FetchResponse>, transformerCache?: TransformerCache) => void;
-
 /**
  * Default parameters layered on top of template properties but below function parameters.
  */
@@ -152,4 +150,15 @@ export type ThreadDefaults = {
      * Note that this property is only used if expireTime is not set.
      */
     validSeconds?: number,
+};
+
+export type ThreadResponseAPI = {
+    onAdd: TransformerCache["onAdd"],
+    onUpdate: TransformerCache["onUpdate"],
+    onInsert: TransformerCache["onInsert"],
+    onDelete: TransformerCache["onDelete"],
+    onChange: TransformerCache["onChange"],
+    onClose: TransformerCache["onClose"],
+    getResponse: () => GetResponse<FetchResponse>,
+    getTransformer: () => TransformerCache | undefined,
 };
