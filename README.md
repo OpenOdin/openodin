@@ -28,6 +28,12 @@ Use this repo to:
 ## Roadmap
 This repo follows the semver versioning schema, however breaking changes are expected for any new version below 1.0.0.  
 
+## Status
+The project is currently (2023-09-19) going through a wrapping up phase together with the Data Wallet browser extension ([https://github.com/universe-ai/datawallet](https://github.com/universe-ai/datawallet)) and the Web Chat application ([https://github.com/universe-ai/webchat/](https://github.com/universe-ai/webchat/)) in preparation for a stable release.  
+
+## Documentation
+Documentation is found at [https://universe.ai/docs/](https://universe.ai/docs/).  
+
 ## NPM
 This project is released on NPM as [https://www.npmjs.com/package/universeai](https://www.npmjs.com/package/universeai).  
 
