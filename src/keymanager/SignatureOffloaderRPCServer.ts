@@ -32,7 +32,10 @@ export class SignatureOffloaderRPCServer extends SignatureOffloader {
         });
 
         this.rpc.onCall("addKeyPair", (keyPair: KeyPair) => {
-            return this.addKeyPair(keyPair);
+            return this.addKeyPair({
+                publicKey: Buffer.from(keyPair.publicKey),
+                secretKey: Buffer.from(keyPair.secretKey),
+            });
         });
 
         this.rpc.onCall("getPublicKeys", () => {
@@ -49,9 +52,14 @@ export class SignatureOffloaderRPCServer extends SignatureOffloader {
 
         this.rpc.onCall("signer", (toBeSigned: ToBeSigned[]) => {
             const toBeSigned2: ToBeSigned[] = toBeSigned.map( toBeSigned => {
-                const dataModel = Decoder.Decode(toBeSigned.message);
+                // Convert to Buffer as browser makes it into Uint8Array.
+                //
+                const message   = Buffer.isBuffer(toBeSigned.message) ? toBeSigned.message : Buffer.from(toBeSigned.message);
+                const publicKey = Buffer.isBuffer(toBeSigned.publicKey) ? toBeSigned.publicKey : Buffer.from(toBeSigned.publicKey);
 
-                dataModel.enforceSigningKey(toBeSigned.publicKey);
+                const dataModel = Decoder.Decode(message);
+
+                dataModel.enforceSigningKey(publicKey);
 
                 const val = dataModel.validate(2);
 
@@ -60,7 +68,7 @@ export class SignatureOffloaderRPCServer extends SignatureOffloader {
                 }
 
                 return {index: toBeSigned.index, message: dataModel.hash(),
-                    publicKey: toBeSigned.publicKey, crypto: toBeSigned.crypto};
+                    publicKey, crypto: toBeSigned.crypto};
             });
 
             return this.signer(toBeSigned2);

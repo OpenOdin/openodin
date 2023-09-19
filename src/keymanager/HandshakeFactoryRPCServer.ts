@@ -90,27 +90,27 @@ export class HandshakeFactoryRPCServer extends HandshakeFactory {
 
             const clientId = socket.clientConfig.clientId;
 
-            this.rpc.call("onHandshakeError", [e.error, clientId]);
+            this.rpc.call("onHandshakeError", [e.error.message, clientId]);
         });
 
         this.onError( (e: {subEvent: string, e: {error: Error}}) => {
-            this.rpc.call("onError", [e.subEvent, e.e.error]);
+            this.rpc.call("onError", [e.subEvent, e.e.error.message]);
         });
 
         this.onServerInitError( (error: Error) => {
-            this.rpc.call("onServerInitError", [error]);
+            this.rpc.call("onServerInitError", [error.message]);
         });
 
         this.onServerListenError( (error: Error) => {
-            this.rpc.call("onServerListenError", [error]);
+            this.rpc.call("onServerListenError", [error.message]);
         });
 
         this.onClientInitError( (e: {error: Error}) => {
-            this.rpc.call("onClientInitError", [e.error]);
+            this.rpc.call("onClientInitError", [e.error.message]);
         });
 
         this.onConnectError( (error: Error) => {
-            this.rpc.call("onConnectError", [error]);
+            this.rpc.call("onConnectError", [error.message]);
         });
 
         this.onConnect( (e: {client: ClientInterface, isServer: boolean}) => {

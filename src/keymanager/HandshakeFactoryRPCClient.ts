@@ -72,40 +72,40 @@ export class HandshakeFactoryRPCClient implements HandshakeFactoryInterface {
             this.triggerEvent("handshake", e);
         });
 
-        this.rpc.onCall("onHandshakeError", (error: Error, clientId: string) => {
+        this.rpc.onCall("onHandshakeError", (error: string, clientId: string) => {
             const client = this.getSocketRPCClient(clientId);
 
             const e = {
-                error,
+                error: new Error(error),
                 client,
             };
 
             this.triggerEvent("handshakeError", e);
         });
 
-        this.rpc.onCall("onError", (subEvent: string, error: Error) => {
+        this.rpc.onCall("onError", (subEvent: string, error: string) => {
             const e = {
                 subEvent,
-                e: {error},
+                e: {error: new Error(error)},
             };
 
             this.triggerEvent("error", e);
         });
 
-        this.rpc.onCall("onServerInitError", (error: Error) => {
-            this.triggerEvent("serverInitError", error);
+        this.rpc.onCall("onServerInitError", (error: string) => {
+            this.triggerEvent("serverInitError", new Error(error));
         });
 
-        this.rpc.onCall("onServerListenError", (error: Error) => {
-            this.triggerEvent("serverListenError", error);
+        this.rpc.onCall("onServerListenError", (error: string) => {
+            this.triggerEvent("serverListenError", new Error(error));
         });
 
-        this.rpc.onCall("onClientInitError", (error: Error) => {
-            this.triggerEvent("clientInitError", {error});
+        this.rpc.onCall("onClientInitError", (error: string) => {
+            this.triggerEvent("clientInitError", {error: new Error(error)});
         });
 
-        this.rpc.onCall("onConnectError", (error: Error) => {
-            this.triggerEvent("connectError", error);
+        this.rpc.onCall("onConnectError", (error: string) => {
+            this.triggerEvent("connectError", new Error(error));
         });
 
         this.rpc.onCall("onConnect", (clientConfig: ClientConfig, isServer: boolean) => {

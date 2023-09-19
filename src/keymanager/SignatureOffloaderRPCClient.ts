@@ -36,7 +36,8 @@ export class SignatureOffloaderRPCClient implements SignatureOffloaderInterface 
     }
 
     public async getPublicKeys(): Promise<Buffer[]> {
-        return await this.rpc.call("getPublicKeys");
+        const publicKeys = await this.rpc.call("getPublicKeys");
+        return publicKeys.map( (publicKey: Buffer | Uint8Array) => Buffer.from(publicKey) );
     }
 
     public async countWorkers(): Promise<number> {

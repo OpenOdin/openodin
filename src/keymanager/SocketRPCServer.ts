@@ -38,10 +38,18 @@ export class SocketRPCServer {
         });
 
         this.rpc.onCall(this.rpcPrefix + "send", (data: Buffer) => {
+            if (!Buffer.isBuffer(data)) {
+                data = Buffer.from(data);
+            }
+
             return this.client.send(data);
         });
 
         this.rpc.onCall(this.rpcPrefix + "unRead", (data: Buffer) => {
+            if (!Buffer.isBuffer(data)) {
+                data = Buffer.from(data);
+            }
+
             return this.client.unRead(data);
         });
 
