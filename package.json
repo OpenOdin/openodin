@@ -27,7 +27,7 @@
         "build": "./node_modules/.bin/bebopc && ./node_modules/.bin/tsc && ./node_modules/.bin/browserify -i ./build/src/datastreamer/FileStreamWriter.js -i ./build/src/datastreamer/FileStreamReader.js ./build/src/datamodel/decoder/thread.js -o ./build/src/datamodel/decoder/thread-browser.js && cp ./build/src/datamodel/decoder/thread.js ./src/datamodel/decoder/thread.js",
         "tsc": "./node_modules/.bin/tsc",
         "clean": "rm -rf ./build",
-        "prepublishOnly": "npm run build",
+        "prepublishOnly": "[ -z \"$(git status --porcelain)\" ] && npm run build",
         "c-sdk": "./node_modules/.bin/tsc -p ./tsconfig-sdk.json",
         "pkg-sdk": "npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/cert ./build-sdk/sdk/tools/src/CertCLI.js && npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/keygen ./build-sdk/sdk/tools/src/keygen.js && npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/service ./build-sdk/sdk/tools/src/service.js",
         "test": "./node_modules/.bin/mocha -r ts-node/register --timeout 10000 'test/**/*.mocha.ts'",
