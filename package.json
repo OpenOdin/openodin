@@ -1,6 +1,6 @@
 {
     "name": "universeai",
-    "version": "0.6.4",
+    "version": "0.6.5",
     "description": "The UniverseAI Protocol is a complete package to build decentralized applications with real data interoperability. It is a protocol specification and an implementation of the protocol bundled with an SDK.",
     "keywords": [
         "decentralized",

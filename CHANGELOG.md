@@ -2,6 +2,12 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.6.5] - 20230919
+BREAKING CHANGE: Update Service constructor to also take WalletConf argument.  
+Fix serialization bugs in RPC.  
+Add ThreadResponseAPI and improved types.  
+Remove AppConfig in favor of the UniverseConf custom field.  
+
 ## [0.6.4] - 20230911
 BREAKING CHANGE: Request Types updated and more.  
 Refactor request types to use sourcePublicKey and targetPublicKey.
