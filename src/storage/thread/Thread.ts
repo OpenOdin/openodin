@@ -111,12 +111,16 @@ export class Thread {
         };
     }
 
+    public getFetchRequest(threadFetchParams: ThreadFetchParams, stream: boolean = false): FetchRequest {
+        return Thread.GetFetchRequest(this.threadTemplate, threadFetchParams, this.defaults, stream);
+    }
+
     public setDefault(name: keyof ThreadDefaults, value: any) {
         this.defaults[name] = value;
     }
 
     public query(threadFetchParams: ThreadFetchParams = {}): ThreadResponseAPI {
-        const fetchRequest = Thread.GetFetchRequest(this.threadTemplate, threadFetchParams, this.defaults);
+        const fetchRequest = this.getFetchRequest(threadFetchParams);
 
         // We need to delete these to be sure not to stream.
         fetchRequest.query.triggerNodeId     = Buffer.alloc(0);
@@ -133,15 +137,14 @@ export class Thread {
             throw new Error("Cannot stream twice on the same Thread instance. Please call stopStream() first or create another instance.");
         }
 
-        const fetchRequest = Thread.GetFetchRequest(this.threadTemplate, threadFetchParams,
-            this.defaults, true);
+        const fetchRequest = this.getFetchRequest(threadFetchParams, true);
 
         this.streamGetResponse = this.fetch(fetchRequest);
 
         return this.threadResponseAPI(this.streamGetResponse);
     }
 
-    public async post(threadDataParams: ThreadDataParams): Promise<NodeInterface[]> {
+    public async post(threadDataParams: ThreadDataParams = {}): Promise<NodeInterface[]> {
         const dataParams = this.parsePost(threadDataParams);
 
         const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey);
@@ -438,7 +441,7 @@ export class Thread {
 
         if (!queryParams.parentId && !queryParams.rootNodeId1) {
             if (!defaults.parentId) {
-                throw new Error("parentId is missing");
+                throw new Error("parentId is missing in thread query");
             }
         }
 

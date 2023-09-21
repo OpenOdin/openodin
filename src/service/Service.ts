@@ -106,6 +106,7 @@ import {
     ThreadTemplate,
     ThreadTemplates,
     ThreadDefaults,
+    ThreadFetchParams,
 } from "../storage/thread";
 
 declare const window: any;
@@ -767,7 +768,7 @@ export class Service {
         connectionFactory?.close();
     }
 
-    protected syncToAutoFetch(sync: SyncConf): AutoFetch[] {
+    protected syncConfToAutoFetch(sync: SyncConf): AutoFetch[] {
         const autoFetchers: AutoFetch[] = [];
 
         sync.peerPublicKeys.forEach( (remotePublicKey: Buffer) => {
@@ -780,14 +781,14 @@ export class Service {
                     throw new Error(`Missing thread template requried for sync: ${syncThread.name}`);
                 }
 
-                const threadParams = DeepCopy(syncThread.threadParams);
+                const threadFetchParams = DeepCopy(syncThread.threadFetchParams);
 
-                threadParams.query = threadParams.query ?? {};
+                threadFetchParams.query = threadFetchParams.query ?? {};
 
                 // Always set includeLicenses when auto syncing.
-                threadParams.query.includeLicenses = true;
+                threadFetchParams.query.includeLicenses = true;
 
-                const fetchRequest = Thread.GetFetchRequest(threadTemplate, threadParams, {}, syncThread.stream);
+                const fetchRequest = Thread.GetFetchRequest(threadTemplate, threadFetchParams, {}, syncThread.stream);
 
                 // Transformers are not allowed to be used when auto syncing.
                 fetchRequest.transform.algos = [];
@@ -816,17 +817,94 @@ export class Service {
     }
 
     /**
-     * This is a suger function over addAutoFetch which uses Threads.
+     * This is a suger function over addAutoFetch which uses a Thread template.
      */
     public addSync(sync: SyncConf) {
-        this.syncToAutoFetch(sync).forEach(autoFetch => this.addAutoFetch(autoFetch) );
+        this.syncConfToAutoFetch(sync).forEach( autoFetch => this.addAutoFetch(autoFetch) );
     }
 
     /**
      * Remove syncs added with addSync().
      */
     public removeSync(sync: SyncConf) {
-        this.syncToAutoFetch(sync).forEach(autoFetch => this.removeAutoFetch(autoFetch) );
+        this.syncConfToAutoFetch(sync).forEach( autoFetch => this.removeAutoFetch(autoFetch) );
+    }
+
+    /**
+     * This is a suger function over addAutoFetch which uses an instantiated Thread.
+     */
+    public addThreadSync(thread: Thread,
+        threadFetchParams: ThreadFetchParams = {},
+        stream: boolean = true,
+        direction: "pull" | "push" | "both" = "both",
+        blobSizeMaxLimit: number = -1,
+        peerPublicKeys?: Buffer[]) {
+
+        this.threadToAutoFetch(thread, threadFetchParams, stream, direction, blobSizeMaxLimit, peerPublicKeys)
+            .forEach( autoFetch => this.addAutoFetch(autoFetch) );
+    }
+
+    /**
+     * Remove sync added with addThreadSync.
+     */
+    public removeThreadSync(thread: Thread,
+        threadFetchParams: ThreadFetchParams = {},
+        stream: boolean = true,
+        direction: "pull" | "push" | "both" = "both",
+        blobSizeMaxLimit: number = -1,
+        peerPublicKeys?: Buffer[]) {
+
+        this.threadToAutoFetch(thread, threadFetchParams, stream, direction, blobSizeMaxLimit, peerPublicKeys)
+            .forEach( autoFetch => this.removeAutoFetch(autoFetch) );
+    }
+
+    protected threadToAutoFetch(thread: Thread,
+        threadFetchParams: ThreadFetchParams = {},
+        stream: boolean = true,
+        direction: "pull" | "push" | "both" = "both",
+        blobSizeMaxLimit: number = -1,
+        peerPublicKeys?: Buffer[]): AutoFetch[] {
+
+        const autoFetchers: AutoFetch[] = [];
+
+        const downloadBlobs = blobSizeMaxLimit !== 0;  //TODO
+
+        // Default is to match every remote public key.
+        peerPublicKeys = peerPublicKeys ?? [Buffer.alloc(0)];
+
+        threadFetchParams = DeepCopy(threadFetchParams);
+
+        threadFetchParams.query = threadFetchParams.query ?? {};
+
+        // Always set includeLicenses when auto syncing.
+        threadFetchParams.query.includeLicenses = true;
+
+        const fetchRequest = thread.getFetchRequest(threadFetchParams, stream);
+
+        // Transformers are not allowed to be used when auto syncing.
+        fetchRequest.transform.algos = [];
+
+        peerPublicKeys.forEach( (remotePublicKey: Buffer) => {
+            if (direction === "pull" || direction === "both") {
+                autoFetchers.push({
+                    remotePublicKey,
+                    fetchRequest,
+                    downloadBlobs,
+                    reverse: false,
+                });
+            }
+
+            if (direction === "push" || direction === "both") {
+                autoFetchers.push({
+                    remotePublicKey,
+                    fetchRequest,
+                    downloadBlobs,
+                    reverse: true,
+                });
+            }
+        });
+
+        return autoFetchers;
     }
 
     /**

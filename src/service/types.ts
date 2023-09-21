@@ -104,7 +104,7 @@ export type SyncConf = {
         name: string,
         stream: boolean,
         direction: "pull" | "push" | "both",
-        threadParams: ThreadFetchParams,
+        threadFetchParams: ThreadFetchParams,
     }[],
 };
 
