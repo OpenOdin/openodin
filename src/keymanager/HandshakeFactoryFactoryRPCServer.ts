@@ -28,6 +28,7 @@ import {
 export class HandshakeFactoryFactoryRPCServer {
     protected rpc: RPC;
     protected keyPairs: KeyPair[];
+    protected handshakeFactories: HandshakeFactoryRPCServer[] = [];
 
     constructor(rpc: RPC, keyPairs: KeyPair[]) {
         this.rpc = rpc;
@@ -77,7 +78,14 @@ export class HandshakeFactoryFactoryRPCServer {
             const handshakeFactoryRPCServer = new HandshakeFactoryRPCServer(rpc2,
                 userHandshakeFactoryConfig2);
 
+            this.handshakeFactories.push(handshakeFactoryRPCServer);
+
             return rpcId2;
         });
+    }
+
+    public close() {
+        this.handshakeFactories.forEach( handshakeFactoryRPCServer => handshakeFactoryRPCServer.close() );
+        this.handshakeFactories.length = 0;
     }
 }

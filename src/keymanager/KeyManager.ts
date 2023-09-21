@@ -24,6 +24,8 @@ import {
 export class KeyManager {
     protected rpc: RPC;
     protected triggerOnAuth?: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>;
+    protected signatureOffloaderRPCServer?: SignatureOffloaderRPCServer;
+    protected handshakeFactoryFactoryRPCCserver?: HandshakeFactoryFactoryRPCServer;
 
     constructor(rpc: RPC) {
         this.rpc = rpc;
@@ -37,8 +39,9 @@ export class KeyManager {
     /**
      * Close resources created when authed.
      */
-    public closeAuth(rpcId1: string, rpcId2: string) {
-        // TODO
+    public close() {
+        this.signatureOffloaderRPCServer?.close();
+        this.handshakeFactoryFactoryRPCCserver?.close();
     }
 
     /**
@@ -46,6 +49,12 @@ export class KeyManager {
      * @returns AuthResponse.
      */
     protected auth = async (): Promise<AuthResponse> => {
+        if (this.signatureOffloaderRPCServer || this.handshakeFactoryFactoryRPCCserver) {
+            return {
+                error: "KeyManager already authenticated",
+            };
+        }
+
         const signatureOffloaderRPCId = Buffer.from(crypto.randomBytes(8)).toString("hex");
         const handshakeRPCId = Buffer.from(crypto.randomBytes(8)).toString("hex");
 
@@ -68,10 +77,8 @@ export class KeyManager {
         const rpc1 = this.rpc.clone(signatureOffloaderRPCId);
         const rpc2 = this.rpc.clone(handshakeRPCId);
 
-        // TODO: keep track of browser's tab close event to close and remove objects.
-
-        const signatureOffloaderServer = new SignatureOffloaderRPCServer(rpc1);
-        await signatureOffloaderServer.init();
+        this.signatureOffloaderRPCServer = new SignatureOffloaderRPCServer(rpc1, 1);  // Only use one separate worker thread in RPC (browser) scenarios.
+        await this.signatureOffloaderRPCServer.init();
 
         const keyPairs2: KeyPair[] = [];
 
@@ -86,10 +93,10 @@ export class KeyManager {
 
             keyPairs2.push(keyPair2);
 
-            await signatureOffloaderServer.addKeyPair(keyPair2);
+            await this.signatureOffloaderRPCServer.addKeyPair(keyPair2);
         }
 
-        const handshakeFactoryFactoryRPCCserver = new HandshakeFactoryFactoryRPCServer(rpc2, keyPairs2);
+        this.handshakeFactoryFactoryRPCCserver = new HandshakeFactoryFactoryRPCServer(rpc2, keyPairs2);
 
         return {
             signatureOffloaderRPCId,
