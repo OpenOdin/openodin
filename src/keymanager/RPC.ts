@@ -9,6 +9,7 @@ export class RPC {
     protected rpcId: string;
     protected promises: {[messageId: string]: [Function, Function]} = {};
     protected messageCounter = 0;
+    protected forkCounter = 0;
 
     /**
      * @param postMessage to send to the RPC server.
@@ -23,6 +24,15 @@ export class RPC {
 
     public clone(rpcId: string): RPC {
         const rpc = new RPC(this.postMessage, this.listenMessage, rpcId);
+
+        return rpc;
+    }
+
+    /**
+     * Clone the RPC but use the existing rpcId as base for the new rpcId.
+     */
+    public fork(): RPC {
+        const rpc = new RPC(this.postMessage, this.listenMessage, `${this.rpcId}_${this.forkCounter++}`);
 
         return rpc;
     }
@@ -132,5 +142,17 @@ export class RPC {
 
     public onCall(name: string, eventHandler: Function) {
         this.eventHandlers[name] = eventHandler;
+    }
+
+    public close() {
+        this.eventHandlers = {};
+
+        const messageIds = Object.keys(this.promises);
+
+        messageIds.forEach( messageId => {
+            const [resolve, reject] = this.promises[messageId] ?? [];
+            delete this.promises[messageId];
+            reject("RPC endpoint closed");
+        });
     }
 }

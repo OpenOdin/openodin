@@ -562,7 +562,7 @@ export class Service {
         if (this.config.authCert) {
             const publicKey = this.config.authCert.getIssuerPublicKey();
             assert(publicKey);
-            return publicKey;
+            return CopyBuffer(publicKey);
         }
 
         return this.getSignerPublicKey();

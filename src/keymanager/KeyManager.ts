@@ -1,5 +1,3 @@
-import crypto from "crypto";
-
 import {
     SignatureOffloaderRPCServer,
 } from "./SignatureOffloaderRPCServer";
@@ -29,7 +27,14 @@ export class KeyManager {
 
     constructor(rpc: RPC) {
         this.rpc = rpc;
+
         this.rpc.onCall("auth", this.auth);
+
+        this.rpc.onCall("close", this.close);
+
+        this.rpc.onCall("universe-hello", async () => {
+            return "keymanager-hello";
+        });
     }
 
     public onAuth(fn: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>) {
@@ -39,7 +44,7 @@ export class KeyManager {
     /**
      * Close resources created when authed.
      */
-    public close() {
+    public close = () => {
         this.signatureOffloaderRPCServer?.close();
         this.handshakeFactoryFactoryRPCCserver?.close();
     }
@@ -55,14 +60,17 @@ export class KeyManager {
             };
         }
 
-        const signatureOffloaderRPCId = Buffer.from(crypto.randomBytes(8)).toString("hex");
-        const handshakeRPCId = Buffer.from(crypto.randomBytes(8)).toString("hex");
-
         if (!this.triggerOnAuth) {
             return {
                 error: "No auth callback defined in KeyManager",
             };
         }
+
+        const rpc1 = this.rpc.fork();
+        const rpc2 = this.rpc.fork();
+
+        const signatureOffloaderRPCId   = rpc1.getId();
+        const handshakeRPCId            = rpc2.getId();
 
         const authResponse2 = await this.triggerOnAuth(signatureOffloaderRPCId, handshakeRPCId);
 
@@ -73,9 +81,6 @@ export class KeyManager {
                 error: authResponse2.error ?? "No keys provided",
             };
         }
-
-        const rpc1 = this.rpc.clone(signatureOffloaderRPCId);
-        const rpc2 = this.rpc.clone(handshakeRPCId);
 
         this.signatureOffloaderRPCServer = new SignatureOffloaderRPCServer(rpc1, 1);  // Only use one separate worker thread in RPC (browser) scenarios.
         await this.signatureOffloaderRPCServer.init();
@@ -102,9 +107,5 @@ export class KeyManager {
             signatureOffloaderRPCId,
             handshakeRPCId,
         };
-    }
-
-    public getRPCId(): string {
-        return this.rpc.getId();
     }
 }

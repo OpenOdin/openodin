@@ -1,5 +1,3 @@
-import crypto from "crypto";
-
 import {
     HandshakeFactoryConfig,
 } from "pocket-messaging";
@@ -41,8 +39,9 @@ export class HandshakeFactoryFactoryRPCServer {
             // or to complement or override the parameters.
             //
 
-            const rpcId2 = Buffer.from(crypto.randomBytes(8)).toString("hex");
-            const rpc2 = this.rpc.clone(rpcId2);
+            const rpc2 = this.rpc.fork();
+
+            const rpcId2 = rpc2.getId();
 
             const userHandshakeFactoryConfig2 = DeepCopy(userHandshakeFactoryConfig) as HandshakeFactoryConfig;
             const props = DeepCopy(peerProps);
