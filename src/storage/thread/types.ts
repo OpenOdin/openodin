@@ -153,12 +153,12 @@ export type ThreadDefaults = {
 };
 
 export type ThreadResponseAPI = {
-    onAdd: TransformerCache["onAdd"],
-    onUpdate: TransformerCache["onUpdate"],
-    onInsert: TransformerCache["onInsert"],
-    onDelete: TransformerCache["onDelete"],
-    onChange: TransformerCache["onChange"],
-    onClose: TransformerCache["onClose"],
+    onAdd:      (...parameters: Parameters<TransformerCache["onAdd"]>) => ThreadResponseAPI,
+    onUpdate:   (...parameters: Parameters<TransformerCache["onUpdate"]>) => ThreadResponseAPI,
+    onInsert:   (...parameters: Parameters<TransformerCache["onInsert"]>) => ThreadResponseAPI,
+    onDelete:   (...parameters: Parameters<TransformerCache["onDelete"]>) => ThreadResponseAPI,
+    onChange:   (...parameters: Parameters<TransformerCache["onChange"]>) => ThreadResponseAPI,
+    onClose:    (...parameters: Parameters<TransformerCache["onClose"]>) => ThreadResponseAPI,
     getResponse: () => GetResponse<FetchResponse>,
     getTransformer: () => TransformerCache | undefined,
 };

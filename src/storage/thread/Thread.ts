@@ -161,48 +161,60 @@ export class Thread {
     protected threadResponseAPI(getResponse: GetResponse<FetchResponse>): ThreadResponseAPI {
         const transformerCache = this.transformerCache;
 
-        return {
-            onAdd: (...parameters: Parameters<TransformerCache["onAdd"]>) => {
+        const threadResponse: ThreadResponseAPI = {
+            onAdd: (...parameters: Parameters<TransformerCache["onAdd"]>): ThreadResponseAPI => {
                 if (!transformerCache) {
                     throw new Error("Thread not using transformer, cannot call onAdd()");
                 }
 
                 transformerCache.onAdd(...parameters);
+
+                return threadResponse;
             },
-            onUpdate: (...parameters: Parameters<TransformerCache["onUpdate"]>) => {
+            onUpdate: (...parameters: Parameters<TransformerCache["onUpdate"]>): ThreadResponseAPI => {
                 if (!transformerCache) {
                     throw new Error("Thread not using transformer, cannot call onUpdate()");
                 }
 
                 transformerCache.onUpdate(...parameters);
+
+                return threadResponse;
             },
-            onInsert: (...parameters: Parameters<TransformerCache["onInsert"]>) => {
+            onInsert: (...parameters: Parameters<TransformerCache["onInsert"]>): ThreadResponseAPI => {
                 if (!transformerCache) {
                     throw new Error("Thread not using transformer, cannot call onInsert()");
                 }
 
                 transformerCache.onInsert(...parameters);
+
+                return threadResponse;
             },
-            onDelete: (...parameters: Parameters<TransformerCache["onDelete"]>) => {
+            onDelete: (...parameters: Parameters<TransformerCache["onDelete"]>): ThreadResponseAPI => {
                 if (!transformerCache) {
                     throw new Error("Thread not using transformer, cannot call onDelete()");
                 }
 
                 transformerCache.onDelete(...parameters);
+
+                return threadResponse;
             },
-            onChange: (...parameters: Parameters<TransformerCache["onChange"]>) => {
+            onChange: (...parameters: Parameters<TransformerCache["onChange"]>): ThreadResponseAPI => {
                 if (!transformerCache) {
                     throw new Error("Thread not using transformer, cannot call onChange()");
                 }
 
                 transformerCache.onChange(...parameters);
+
+                return threadResponse;
             },
-            onClose: (...parameters: Parameters<TransformerCache["onClose"]>) => {
+            onClose: (...parameters: Parameters<TransformerCache["onClose"]>): ThreadResponseAPI => {
                 if (!transformerCache) {
                     throw new Error("Thread not using transformer, cannot call onClose()");
                 }
 
                 transformerCache.onClose(...parameters);
+
+                return threadResponse;
             },
             getResponse: (): GetResponse<FetchResponse> => {
                 return getResponse;
@@ -210,7 +222,9 @@ export class Thread {
             getTransformer: (): TransformerCache | undefined => {
                 return this.transformerCache;
             },
-        }
+        };
+
+        return threadResponse;
     }
 
     /**
@@ -247,11 +261,20 @@ export class Thread {
         return this.storeNodes(licenseNodes);
     }
 
-    public stopStream() {
+    public close() {
         if (this.streamGetResponse) {
-            // TODO unsubsribe from storage
+            this.storageClient.unsubscribe({
+                originalMsgId: this.streamGetResponse.getMsgId(),
+                targetPublicKey: Buffer.alloc(0),
+            });
+
             this.streamGetResponse.cancel();
+
             delete this.streamGetResponse;
+
+            this.transformerCache?.close();
+
+            delete this.transformerCache;
         }
     }
 
@@ -463,7 +486,7 @@ export class Thread {
         }
 
         getResponse.onTimeout( () => {
-            this.stopStream();
+            this.close();
         });
 
         getResponse.onClose( (hadError: boolean) => {

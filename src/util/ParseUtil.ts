@@ -106,7 +106,7 @@ export class ParseUtil {
      *  }[]
      * }
      *
-     * Note that threads[].threadParams are not supported to be parsed.
+     * Note that threads[].threadFetchParams are not supported to be parsed.
      *
      * @returns UniverseConf
      * @throws if malconfigured.
@@ -181,7 +181,7 @@ export class ParseUtil {
                 threads.push({
                     name,
                     stream,
-                    threadParams: {},
+                    threadFetchParams: {},
                     direction,
                 });
             });

@@ -314,6 +314,10 @@ export class GetResponse<ResponseDataType> {
         }
     }
 
+    /**
+     * @returns the msgId of the message sent and getting replied to.
+     * This is the msgId to use for unsubscribe requests.
+     */
     public getMsgId(): Buffer {
         return this.msgId;
     }

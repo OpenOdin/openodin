@@ -173,30 +173,42 @@ export class TransformerCache {
         return this.items.slice(-1)[0];
     }
 
-    public onAdd(cb: ON_CALLBACK) {
+    public onAdd(cb: ON_CALLBACK): TransformerCache {
         this.hookEvent("add", cb);
+
+        return this;
     }
 
     // A node with updated transient properties.
     // The node must already exist in the cache for this event to trigger.
-    public onUpdate(cb: ON_CALLBACK) {
+    public onUpdate(cb: ON_CALLBACK): TransformerCache {
         this.hookEvent("update", cb);
+
+        return this;
     }
 
-    public onInsert(cb: ON_CALLBACK) {
+    public onInsert(cb: ON_CALLBACK): TransformerCache {
         this.hookEvent("insert", cb);
+
+        return this;
     }
 
-    public onDelete(cb: ON_CALLBACK) {
+    public onDelete(cb: ON_CALLBACK): TransformerCache {
         this.hookEvent("delete", cb);
+
+        return this;
     }
 
-    public onChange(cb: ONCHANGE_CALLBACK) {
+    public onChange(cb: ONCHANGE_CALLBACK): TransformerCache {
         this.hookEvent("change", cb);
+
+        return this;
     }
 
-    public onClose(cb: (...args: any) => void ) {
+    public onClose(cb: (...args: any) => void ): TransformerCache {
         this.hookEvent("close", cb);
+
+        return this;
     }
 
     public find(nodeId1: Buffer): TransformerItem | undefined {
