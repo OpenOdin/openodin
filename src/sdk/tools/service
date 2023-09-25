@@ -3,16 +3,24 @@
 # This is a thin usage wrapper over src/service.ts.
 #
 
-if [ "$#" -ne 1 ]; then
-    printf "%s\\n" "Usage: ${0} <service.json>" >&2
+if [ "$#" -ne 2 ]; then
+    printf "%s\\n" "Usage: ${0} <universe.json> <wallet.json>" >&2
     exit 1
 fi
 
-filepath="${1}"
+universePath="${1}"
 shift
 
-if [ ! -f "${filepath}" ]; then
-    printf "%s\\n" "Error: File ${filepath} does not exist." >&2
+walletPath="${1}"
+shift
+
+if [ ! -f "${universePath}" ]; then
+    printf "%s\\n" "Error: File ${universePath} does not exist." >&2
+    exit 1
+fi
+
+if [ ! -f "${walletPath}" ]; then
+    printf "%s\\n" "Error: File ${walletPath} does not exist." >&2
     exit 1
 fi
 
@@ -25,4 +33,4 @@ if [ -z "${cmd}" ]; then
     exit 1
 fi
 
-${cmd} -r ts-node/register "${BASEDIR}/src/service.ts" "${filepath}"
+${cmd} -r ts-node/register "${BASEDIR}/src/service.ts" "${universePath}" "${walletPath}"
