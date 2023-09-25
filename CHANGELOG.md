@@ -2,6 +2,12 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.6.6] - 20230925
+
+BREAKING CHANGE: Make Universe RPC client work with multiple instances on the same port.  
+Add Service.addThreadSync().  
+Better cleanup of RPC resources.  
+
 ## [0.6.5] - 20230919
 BREAKING CHANGE: Update Service constructor to also take WalletConf argument.  
 Fix serialization bugs in RPC.  
