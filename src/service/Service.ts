@@ -832,6 +832,7 @@ export class Service {
 
     /**
      * This is a suger function over addAutoFetch which uses an instantiated Thread.
+     * @param threadFetchParams same as when calling query() or stream() directly on the thread instance.
      */
     public addThreadSync(thread: Thread,
         threadFetchParams: ThreadFetchParams = {},

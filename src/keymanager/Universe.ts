@@ -43,6 +43,7 @@ export class Universe {
     protected signatureOffloader?: SignatureOffloaderInterface;
     protected handshakeFactoryFactory?: HandshakeFactoryFactoryInterface;
     protected walletConf?: WalletConf;
+    protected pendingAuth: boolean = false;
 
     constructor(rpc?: RPC) {
         if (!rpc) {
@@ -68,9 +69,16 @@ export class Universe {
         else {
             this.rpc = rpc;
         }
+
+        // In case the from-content-script-init has already been sent we send hello to activate.
+        this.sendHello();
     }
 
     protected async sendHello() {
+        if (this._isActive) {
+            return;
+        }
+
         const ret = await this.rpc.call("universe-hello");
 
         if (ret === "keymanager-hello") {
@@ -91,7 +99,11 @@ export class Universe {
      * @throws on error
      */
     public async auth(): Promise<void> {
+        this.pendingAuth = true;
+
         const authResponse = await this.rpc.call("auth") as AuthResponse;
+
+        this.pendingAuth = false;
 
         if (authResponse.error || !authResponse.signatureOffloaderRPCId || !authResponse.handshakeRPCId) {
             throw new Error(authResponse.error ?? "Unknown error");
@@ -105,6 +117,10 @@ export class Universe {
 
         // TODO
         this.walletConf = ParseUtil.ParseWalletConf({});
+    }
+
+    public isPendingAuth(): boolean {
+        return this.pendingAuth;
     }
 
     public getSignatureOffloader(): SignatureOffloaderInterface | undefined {
@@ -142,11 +158,11 @@ export class Universe {
         return service;
     }
 
-    public close() {
-        this.rpc.call("close");
-
+    public close(): Promise<void> {
         delete this.signatureOffloader;
         delete this.handshakeFactoryFactory;
+
+        return this.rpc.call("close");
     }
 
     public onActive( cb: () => void ) {

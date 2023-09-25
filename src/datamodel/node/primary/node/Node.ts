@@ -636,7 +636,7 @@ export abstract class Node implements NodeInterface {
         }
 
         if (this.isPublic() && this.isLicensed()) {
-            return [false, `Node cannot be licences and public at the same time`];
+            return [false, `Node cannot be licensed and public at the same time`];
         }
 
         if (!this.isPrivate() && this.isIndestructible()) {
