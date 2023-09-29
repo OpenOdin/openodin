@@ -47,7 +47,7 @@
         "@typescript-eslint/parser": "^5.48.1",
         "bebop-tools": "2.4.10",
         "browserify": "^17.0.0",
-        "chai": "^4.3.6",
+        "chai": "^4.3.10",
         "eslint": "^8.31.0",
         "mocha": "^10.0.0",
         "pkg": "^5.8.0",
@@ -72,6 +72,6 @@
         "web-worker": "^1.2.0"
     },
     "overrides": {
-      "make-dir": "^4.0.0"
+        "make-dir": "^4.0.0"
     }
 }
