@@ -29,6 +29,22 @@ import {
     SPECIAL_NODES,
 } from "../../src";
 
+// These are exported friend certificates taken from
+// ./src/sdk/tools/cert/examples/cert/friend/cert{a,b,certself}.
+// If the need arises to regenerate these use the script provided examples/cert/friend/test.sh.
+// Then copy the hexadecimal values from the json files into these variables.
+//
+// Friend cert A (certa/friendCert.json:cert hex string).
+const friendCertImageA = Buffer.from("0002000200001f00b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c05a0af6fe01f07481be2f981c937299ce3b6d8bab835778fedebfaf52c79d52626b7fcd21d0a8d020901150a0041004583fecc4efa4dd82398cc823b6a32f2b5ae31634c74eeda557dcd53469b65d78b316a17f89e1f408780ade1ef07059688aa5ef0efff69751713ee997d87210a151e0002abba", "hex");
+
+// Friend cert B (certb/friendCert.json:cert hex string).
+const friendCertImageB = Buffer.from("0002000200001f007b16e7f0d66ab67893e5927a7e51a3096a99b495b555ef0fe5f0d8dc0c55fcbb150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c05a0af6fe01f07481be2f981c937299ce3b6d8bab835778fedebfaf52c79d52626b7fcd21d0a8d020901150a00410038e3fd1d50721a6d0019500f3ee3768732bd875a59b2735231901fba0fe6488fddaafc7738c9390be9b0edc5896f0541a0f3698b1f21a96555a0e160992e2105151e0002beef", "hex");
+
+// Self cert
+// Friend certself (certself/friendCert.json:cert hex string).
+const friendCertImageASelf = Buffer.from("0002000200001f00b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c05a0af6fe01f0789a1fe894f2f481064804e609b08ca72e20c53a16942009c1077ac260db34f31020901150a0041007170ffd7621ff1f699b7f85107d96661c820348f5334386b92585222bc0742723b7013f9921a8ae0f935aa6c25d7933a0eb0424af9dde7d039d224cadc3a8008151e0005b0bbafe444", "hex");
+
+
 class DriverTestWrapper extends Driver {
     public async insertNodes(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<void> {
         return super.insertNodes(nodes, now, preserveTransient);
@@ -3185,14 +3201,8 @@ function setupTests(config: any) {
 
         assert(embeddingLicense);
 
-        // These friend cert images were created using the sdk/tools/examples/cert/friend
-        //
-        const imageA = Buffer.from("0002000200001f00b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c056514a5e01f07481be2f981c937299ce3b6d8bab835778fedebfaf52c79d52626b7fcd21d0a8d020901150a0041003d36c8c573797e420e284a32b9d476e0cf47fe16c07018c423749ad22a7be07d5053fd176df5b176dfa9f8c0e83877c73180c9be7116e6861ba43f78b3cf460a151e0002abba", "hex");
-
-        const imageB = Buffer.from("0002000200001f007b16e7f0d66ab67893e5927a7e51a3096a99b495b555ef0fe5f0d8dc0c55fcbb150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c056514a5e01f07481be2f981c937299ce3b6d8bab835778fedebfaf52c79d52626b7fcd21d0a8d020901150a004100be9cc28fb606c1749a6c89ff672bba5e8221b67dff2410f9b8ed1b1f60cc5626ee9e46e659a99c0bf6f6a0d7ff124ba79b66fe40348e09caec70276f1647580d151e0002beef", "hex");
-
-        const aCert = Decoder.DecodeFriendCert(imageA);
-        const bCert = Decoder.DecodeFriendCert(imageB);
+        const aCert = Decoder.DecodeFriendCert(friendCertImageA);
+        const bCert = Decoder.DecodeFriendCert(friendCertImageB);
 
         let handleFetchReplyData = (fetchReplyData: FetchReplyData) => {
             // Do nothing
@@ -3235,12 +3245,6 @@ function setupTests(config: any) {
         let nodeIdA = Buffer.alloc(32).fill(0x30);
         let nodeIdB = Buffer.alloc(32).fill(0x31);
 
-        // These friend cert images were created using the sdk/tools/examples/cert/friend
-        //
-        const imageA = Buffer.from("0002000200001f00b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c056514a5e01f07481be2f981c937299ce3b6d8bab835778fedebfaf52c79d52626b7fcd21d0a8d020901150a0041003d36c8c573797e420e284a32b9d476e0cf47fe16c07018c423749ad22a7be07d5053fd176df5b176dfa9f8c0e83877c73180c9be7116e6861ba43f78b3cf460a151e0002abba", "hex");
-
-        const imageB = Buffer.from("0002000200001f007b16e7f0d66ab67893e5927a7e51a3096a99b495b555ef0fe5f0d8dc0c55fcbb150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c056514a5e01f07481be2f981c937299ce3b6d8bab835778fedebfaf52c79d52626b7fcd21d0a8d020901150a004100be9cc28fb606c1749a6c89ff672bba5e8221b67dff2410f9b8ed1b1f60cc5626ee9e46e659a99c0bf6f6a0d7ff124ba79b66fe40348e09caec70276f1647580d151e0002beef", "hex");
-
         const nodeA = await nodeUtil.createDataNode({
             id1: nodeIdA,
             owner: peerA,
@@ -3249,7 +3253,7 @@ function setupTests(config: any) {
             creationTime: now,
             isSpecial: true,
             contentType: SPECIAL_NODES.FRIENDCERT,
-            embedded: imageA,
+            embedded: friendCertImageA,
             isPublic: true,
         });
 
@@ -3262,7 +3266,7 @@ function setupTests(config: any) {
             creationTime: now,
             isSpecial: true,
             contentType: SPECIAL_NODES.FRIENDCERT,
-            embedded: imageB,
+            embedded: friendCertImageB,
             isLicensed: true,
         });
 
@@ -3339,14 +3343,6 @@ function setupTests(config: any) {
         let nodeFriendIdAA = Buffer.alloc(32).fill(0x52);  //nodes
         let nodeFriendIdB = Buffer.alloc(32).fill(0x51);  //nodes
 
-        // These friend cert images were created using the sdk/tools/examples/cert/friend
-        //
-        const imageA = Buffer.from("0002000200001f00b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c056514a5e01f07481be2f981c937299ce3b6d8bab835778fedebfaf52c79d52626b7fcd21d0a8d020901150a0041003d36c8c573797e420e284a32b9d476e0cf47fe16c07018c423749ad22a7be07d5053fd176df5b176dfa9f8c0e83877c73180c9be7116e6861ba43f78b3cf460a151e0002abba", "hex");
-
-        const imageB = Buffer.from("0002000200001f007b16e7f0d66ab67893e5927a7e51a3096a99b495b555ef0fe5f0d8dc0c55fcbb150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c056514a5e01f07481be2f981c937299ce3b6d8bab835778fedebfaf52c79d52626b7fcd21d0a8d020901150a004100be9cc28fb606c1749a6c89ff672bba5e8221b67dff2410f9b8ed1b1f60cc5626ee9e46e659a99c0bf6f6a0d7ff124ba79b66fe40348e09caec70276f1647580d151e0002beef", "hex");
-
-        const imageAA = Buffer.from("0002000200001f00b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c056514a5e01f0789a1fe894f2f481064804e609b08ca72e20c53a16942009c1077ac260db34f31020901150a004100112897b5b00b35799db9be3df6f334aaca35dfe27ac94321ec4a89781780d4e8519598b68f8bee1dc90f1a1e0c14c7cbd47046934da3b9b693bd94efca454509151e0005b0bbafe444", "hex");
-
         const nodeA = await nodeUtil.createDataNode({
             id1: nodeIdA,
             owner: peerA,
@@ -3398,7 +3394,7 @@ function setupTests(config: any) {
             creationTime: now,
             isSpecial: true,
             contentType: SPECIAL_NODES.FRIENDCERT,
-            embedded: imageA,
+            embedded: friendCertImageA,
             isPublic: true,
         });
 
@@ -3410,7 +3406,7 @@ function setupTests(config: any) {
             creationTime: now,
             isSpecial: true,
             contentType: SPECIAL_NODES.FRIENDCERT,
-            embedded: imageAA,
+            embedded: friendCertImageASelf,
             isPublic: true,
         });
 
@@ -3422,7 +3418,7 @@ function setupTests(config: any) {
             creationTime: now,
             isSpecial: true,
             contentType: SPECIAL_NODES.FRIENDCERT,
-            embedded: imageB,
+            embedded: friendCertImageB,
             isPublic: true,
         });
 

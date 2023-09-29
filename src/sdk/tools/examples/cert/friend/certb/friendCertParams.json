@@ -13,7 +13,7 @@
     "creationTime": 1664316000000,
 
     "#--": "The cert has expired on this UNIX time ms.",
-    "expireTime": 1695852000000,
+    "expireTime": 2695852000000,
 
     "#--": "We do not use any chain cert in this example.",
     "cert": null,

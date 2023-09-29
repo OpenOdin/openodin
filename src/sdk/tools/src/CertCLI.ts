@@ -70,6 +70,7 @@ Usage:
 
     cert show <cert.json> [--logLevel=debug|info|error|none]
         Dissect and show all details of a cert and any embedded certs.
+        json format: {"cert": "hexdata"}.
 
     cert list
         List all known cert types.
