@@ -1,8 +1,8 @@
-![Continuous integration: main branch](https://github.com/universe-ai/universe/actions/workflows/ci.yml/badge.svg?branch=main)
+[![Continuous integration: main branch](https://github.com/universe-ai/universe/actions/workflows/ci.yml/badge.svg?branch=main)](#)
 
 # The UniverseAI Protocol
 
-![UniverseAI logo](https://universe.ai/logo4.svg)
+[![UniverseAI logo](https://universe.ai/logo4.svg)](#)
 
 The UniverseAI Protocol is an interoperable application and data sharing protocol where each party keep ownership and control over their data. The protocol and this implementation is developed by The UniverseAI Foundation.
 
