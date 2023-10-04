@@ -138,8 +138,8 @@ export class P2PClientAutoFetcher {
 
         getResponse.onReply( async (fetchResponse: FetchResponse) => {
             // Transformer cache was invalidated in Storage.
-            // Fetch again.
-            if (fetchResponse.status === Status.TRY_AGAIN) {
+            // Attempt to fetch again.
+            if (fetchResponse.status === Status.TRANSFORMER_INVALIDATED) {
                 this.removeFetch(autoFetch);
                 this.fetch(autoFetch);
                 return;

@@ -87,9 +87,7 @@ export type FetchRequestTransformParams = {
     cursorId1?: Buffer | string,
     head?: number,
     tail?: number,
-    cacheId?: number,
-    cachedTriggerNodeId?: Buffer | string,
-    includeDeleted?: boolean,
+    msgId?: Buffer | string,
 };
 
 export type FetchRequestParams = {

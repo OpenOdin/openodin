@@ -1,243 +1,185 @@
+/**
+ * The client side of a transformer,
+ * used to keep a subset of the transformer model up to date.
+ */
+
+//
+// TODO purge nodes and ext who are old
+//
+
 import {
-    NodeInterface,
+    DataInterface,
 } from "../../datamodel";
 
 import {
+    TransformerModel,
     TransformerItem,
+    TransformerExternalData,
+    TRANSFORMER_EVENT,
 } from "./types";
 
-type ON_CALLBACK = (transformerItem: TransformerItem) => void;
-type ONCHANGE_CALLBACK = (transformerItem: TransformerItem, eventType: string) => void;
+const fossilDelta = require("fossil-delta");
+
+type ONCHANGE_CALLBACK = (transformerEvents: TRANSFORMER_EVENT) => void;
 
 export class TransformerCache {
     protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
-    protected items: TransformerItem[] = [];
-    protected _isClosed: boolean = false;
 
-    public handleResponse(nodes: NodeInterface[], indexes: number[], onlySet: boolean) {
-        if (this._isClosed) {
-            return;
-        }
+    protected model: TransformerModel = {
+        list: [],
+        nodes: {},
+        datas: {},
+    };
 
-        if (nodes.length !== indexes.length) {
-            throw new Error("Mismatch in TransformerCache, not same length of nodes and indexes.");
-        }
+    public handleResponse(nodes: DataInterface[], delta: Buffer) {
+        const addedNodesId1s: Buffer[] = [];
 
-        const nodesLength = nodes.length;
+        const updatedNodesId1s: Buffer[] = [];
 
-        for (let i=0; i<nodesLength; i++) {
-            const node = nodes[i];
-            const index = indexes[i];
+        const deletedNodesId1s: Buffer[] = [];
 
-            if (index < 0) {
-                // These events are subscription events of new nodes merging with the model,
-                // and trigger either "add" or "insert" events.
-                this.merge(node, index);
+        // Apply nodes to model.
+        nodes.forEach( node => {
+            const id1 = node.getId1() as Buffer;
+
+            const id1Str = id1.toString("hex");
+
+            if (this.model.nodes[id1Str] === undefined) {
+                addedNodesId1s.push(id1);
             }
             else {
-                if (onlySet) {
-                    // First result, just set the cache without triggering any events.
-                    this.set(node, index);
-                }
-                else {
-                    // Subscription events updates existing nodes and triggers "update" events.
-                    this.update(node, index);
-                }
+                updatedNodesId1s.push(id1);
             }
-        }
-    }
 
-    public close() {
-        if (this._isClosed) {
-            return;
-        }
+            // Always replace the node in case it has updated transient values.
+            this.model.nodes[id1Str] = node;
 
-        this._isClosed = true;
-
-        this.triggerEvent("close");
-    }
-
-    public delete(indexes: number[]) {
-        if (this._isClosed) {
-            return;
-        }
-
-        indexes = indexes.slice();
-        // We want to delete from the end to not mess up indexes.
-        indexes.sort().reverse();
-        indexes.forEach( index => {
-            const arrayIndex = this.items.findIndex( (transformerItem: TransformerItem) => transformerItem.index === index );
-            if (arrayIndex > -1) {
-                const transformerItem = this.items.splice(arrayIndex, 1)[0];
-                this.triggerEvent("delete", transformerItem);
-                this.triggerEvent("change", transformerItem, "delete");
-                for (let i=arrayIndex; i<this.items.length; i++) {
-                    const transformerItem = this.items[i];
-                    transformerItem.index--;
-                }
+            // If there has been lingering data keep it.
+            if (!this.model.datas[id1Str]) {
+                this.model.datas[id1Str] = {};
             }
         });
+
+        if (delta.length === 0) {
+            // This is not a delta given.
+            // Set the model and order exactly as given.
+            this.model.list = nodes.map( node => node.getId1() as Buffer );
+        }
+        else {
+            // Apply patch.
+            const deltaType = delta[0];
+            if (deltaType !== 0) {
+                throw new Error("Delta type not supported");
+            }
+
+            const delta2 = JSON.parse(delta.slice(1).toString());
+
+            const newList = fossilDelta.apply(
+                this.model.list.map( id1 => id1.toString("hex")).join(" "), delta2);
+
+            this.model.list = newList.join("").split(" ").map(
+                (id1Str: string) => Buffer.from(id1Str, "hex"));
+        }
+
+        const listNodeId1s: {[id: string]: boolean} = {};
+
+        this.model.list.forEach( id1 => {
+            const id1Str = id1.toString("hex");
+            listNodeId1s[id1Str] = true;
+        });
+
+        Object.keys(this.model.nodes).forEach( nodeId1Str => {
+
+            if (listNodeId1s[nodeId1Str] === undefined) {
+                delete this.model.nodes[nodeId1Str];
+                deletedNodesId1s.push(Buffer.from(nodeId1Str, "hex"));
+                // Note: we are leaving the datas[nodeId1Str] alive for some time.
+            }
+        });
+
+        this.triggerOnChange(addedNodesId1s, updatedNodesId1s, deletedNodesId1s);
+    }
+
+    public triggerOnChange(added: Buffer[], updated: Buffer[], deleted: Buffer[]) {
+        const transformerEvent: TRANSFORMER_EVENT = {
+            added,
+            deleted,
+            updated,
+        };
+
+        this.triggerEvent("change", transformerEvent);
     }
 
     /**
-     * Update an existing item.
-     * Emit "update" event.
+     * @returns the internal items object to be used with the application as read-only.
      */
-    public update(node: NodeInterface, index: number) {
-        if (this._isClosed) {
-            return;
-        }
-
-        if (index >= 0) {
-            // For positive indexes these are updates and do not affect any other indexes.
-
-            const arrayIndex = this.items.findIndex( (transformerItem: TransformerItem) => transformerItem.index === index );
-
-            if (arrayIndex > -1) {
-                // This node exists, replace it with the updated node.
-                this.items[arrayIndex] = {node, index};
-                this.triggerEvent("update", this.items[arrayIndex]);
-                this.triggerEvent("change", this.items[arrayIndex], "update");
-            }
-        }
-    }
-
-    /**
-     * Set an item.
-     * This function does not emit any events.
-     *
-     * @param node the node to set
-     * @param index the unallocated index to set the item at.
-     */
-    public set(node: NodeInterface, index: number) {
-        if (this._isClosed) {
-            return;
-        }
-
-        this.items[index] = {node, index};
-    }
-
-    /**
-     * Manage insert into cache coming from subscription events.
-     * @param index is expected to be negative (signals an injection in the transformer model).
-     */
-    public merge(node: NodeInterface, index: number) {
-        if (this._isClosed) {
-            return;
-        }
-
-        if (index < 0) {
-            // For negative indexes these are inserts not updates.
-            // An insert effects the indexes of all nodes after it.
-
-            // Translate to positive index. -1 means index 0.
-            index = index * -1 - 1;
-
-            if (index > 0) {
-                const arrayIndex = this.items.findIndex( (transformerItem: TransformerItem) => transformerItem.index === index - 1 );
-                if (arrayIndex === -1) {
-                    console.error("unexpected index", index);
-                }
-            }
-
-            // Increase indexes of all following nodes to keep in sync with server model.
-            for (let i=0; i<this.items.length; i++) {
-                const transformerItem = this.items[i];
-                if (transformerItem.index >= index) {
-                    transformerItem.index++;
-                }
-            }
-
-            const transformerItem = {node, index};
-
-            this.items.push(transformerItem);
-
-            this.sortItems();
-
-            if (this.items.slice(-1)[0]?.index === index) {
-                this.triggerEvent("add", transformerItem);
-                this.triggerEvent("change", transformerItem, "add");
-            }
-            else {
-                this.triggerEvent("insert", transformerItem);
-                this.triggerEvent("change", transformerItem, "insert");
-            }
-        }
-    }
-
     public getItems(): TransformerItem[] {
-        return this.items.slice();
+        const items: TransformerItem[] = [];
+
+        const listLength = this.model.list.length;
+
+        for (let index=0; index<listLength; index++) {
+            const item = this.getItem(index);
+
+            if (item) {
+                items.push(item);
+            }
+
+        }
+
+        return items;
     }
 
-    public getLast(): TransformerItem | undefined {
-        return this.items.slice(-1)[0];
+    public getItem(index: number): TransformerItem | undefined {
+        const id1 = this.model.list[index];
+
+        if (!id1) {
+            return undefined;
+        }
+
+        const node = this.getNode(id1);
+
+        const data = this.getData(id1);
+
+        if (!node || !data) {
+            return undefined;
+        }
+
+        return {
+            index,
+            id1,
+            node,
+            data,
+        };
     }
 
-    public onAdd(cb: ON_CALLBACK): TransformerCache {
-        this.hookEvent("add", cb);
+    public getNode(id1: Buffer): DataInterface | undefined {
+        const id1Str = id1.toString("hex");
 
-        return this;
+        return this.model.nodes[id1Str];
     }
 
-    // A node with updated transient properties.
-    // The node must already exist in the cache for this event to trigger.
-    public onUpdate(cb: ON_CALLBACK): TransformerCache {
-        this.hookEvent("update", cb);
+    public getData(id1: Buffer): TransformerExternalData | undefined {
+        const id1Str = id1.toString("hex");
 
-        return this;
+        return this.model.datas[id1Str];
     }
 
-    public onInsert(cb: ON_CALLBACK): TransformerCache {
-        this.hookEvent("insert", cb);
-
-        return this;
+    public getLastItem(): TransformerItem | undefined {
+        return this.getItem(this.model.list.length - 1);
     }
 
-    public onDelete(cb: ON_CALLBACK): TransformerCache {
-        this.hookEvent("delete", cb);
-
-        return this;
+    /**
+     * Empty the model.
+     */
+    public empty() {
+        this.handleResponse([], Buffer.alloc(0));
     }
 
     public onChange(cb: ONCHANGE_CALLBACK): TransformerCache {
         this.hookEvent("change", cb);
 
         return this;
-    }
-
-    public onClose(cb: (...args: any) => void ): TransformerCache {
-        this.hookEvent("close", cb);
-
-        return this;
-    }
-
-    public find(nodeId1: Buffer): TransformerItem | undefined {
-        const itemsLength = this.items.length;
-        for (let i=0; i<itemsLength; i++) {
-            const item = this.items[i];
-
-            if (item.node.getId1()?.equals(nodeId1)) {
-                return item;
-            }
-        }
-
-        return undefined;
-    }
-
-    protected sortItems() {
-        this.items.sort( (a: TransformerItem, b: TransformerItem) => {
-            let diff = (a.index ?? 0) - (b.index ?? 0);
-
-            if (diff === 0) {
-                const id1a = a.node.getId1();
-                const id1b = b.node.getId1();
-                if (id1a && id1b) {
-                    diff = id1a.compare(id1b);
-                }
-            }
-
-            return diff;
-        });
     }
 
     protected hookEvent(name: string, callback: ( (...args: any) => void)) {

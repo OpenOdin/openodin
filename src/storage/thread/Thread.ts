@@ -27,6 +27,7 @@ import {
 
 import {
     CopyBuffer,
+    DeepCopy,
 } from "../../util/common";
 
 import {
@@ -34,6 +35,7 @@ import {
     LicenseParams,
     LicenseInterface,
     NodeInterface,
+    DataInterface,
     LICENSE_NODE_TYPE,
 } from "../../datamodel";
 
@@ -54,7 +56,9 @@ import {
     ThreadDataParams,
     ThreadLicenseParams,
     ThreadDefaults,
-    ThreadResponseAPI,
+    ThreadStreamResponseAPI,
+    ThreadQueryResponseAPI,
+    UpdateStreamParams,
 } from "./types";
 
 import {
@@ -63,19 +67,12 @@ import {
 } from "../../datastreamer";
 
 export class Thread {
-    protected transformerCache?: TransformerCache;
-    protected streamGetResponse?: GetResponse<FetchResponse>;
-
     constructor(protected threadTemplate: ThreadTemplate,
         protected defaults: ThreadDefaults,
         protected storageClient: P2PClient,
         protected nodeUtil: NodeUtil,
         protected publicKey: Buffer,
         protected signerPublicKey: Buffer) {
-
-        if (this.threadTemplate.transform?.algos.length) {
-            this.transformerCache = new TransformerCache();
-        }
     }
 
     public static GetFetchRequest(threadTemplate: ThreadTemplate,
@@ -86,17 +83,20 @@ export class Thread {
 
         if (stream) {
             if (query.triggerNodeId.length === 0 && query.triggerInterval === 0) {
-                if (query.parentId.length > 0) {
-                    query.triggerNodeId = CopyBuffer(query.parentId);
-                }
-                else if (threadTemplate.query?.triggerNodeId && threadTemplate.query?.triggerNodeId.length > 0) {
-                    query.triggerNodeId = CopyBuffer(threadTemplate.query.triggerNodeId);
-                }
+                query.triggerNodeId = CopyBuffer(query.parentId);
+            }
+
+            if (query.triggerInterval === 0) {
+                query.triggerInterval = 60;
             }
 
             if (query.triggerNodeId.length === 0 && query.triggerInterval === 0) {
                 throw new Error("Missing triggerNodeId/triggerInterval for Thread streaming and parentId cannot be copied from template");
             }
+
+            // This is not allowed when initiating a stream,
+            // but is allowed when performing single queries.
+            transform.msgId = Buffer.alloc(0);
         }
         else {
             // We need to delete these to be sure not to stream.
@@ -111,7 +111,7 @@ export class Thread {
         };
     }
 
-    public getFetchRequest(threadFetchParams: ThreadFetchParams, stream: boolean = false): FetchRequest {
+    public getFetchRequest(threadFetchParams: ThreadFetchParams = {}, stream: boolean = false): FetchRequest {
         return Thread.GetFetchRequest(this.threadTemplate, threadFetchParams, this.defaults, stream);
     }
 
@@ -119,32 +119,52 @@ export class Thread {
         this.defaults[name] = value;
     }
 
-    public query(threadFetchParams: ThreadFetchParams = {}): ThreadResponseAPI {
+    /**
+     * If wanting to reuse a transformer model from the streaming
+     * be sure all relevant parameters are set exactly the same including 
+     * triggerNodeId (which needs to be set for a transformer to be reusable).
+     * Set msgId to the original msgId (getResponse.getMsgId()) and triggerInterval = 0.
+     */
+    public query(threadFetchParams: ThreadFetchParams = {}): ThreadQueryResponseAPI {
         const fetchRequest = this.getFetchRequest(threadFetchParams);
 
-        // We need to delete these to be sure not to stream.
-        fetchRequest.query.triggerNodeId     = Buffer.alloc(0);
-        fetchRequest.query.triggerInterval   = 0;
-        fetchRequest.query.onlyTrigger       = false;
+        const {getResponse} = this.storageClient.fetch(fetchRequest);
 
-        const getResponse = this.fetch(fetchRequest);
+        if (!getResponse) {
+            throw new Error("unexpectedly missing getResponse");
+        }
 
-        return this.threadResponseAPI(getResponse);
+        return this.threadQueryResponseAPI(getResponse);
     }
 
-    public stream(threadFetchParams: ThreadFetchParams = {}): ThreadResponseAPI {
-        if (this.streamGetResponse) {
-            throw new Error("Cannot stream twice on the same Thread instance. Please call stopStream() first or create another instance.");
+    /**
+     * triggerNodeId is by default set to the parentId of the query and
+     *
+     * triggerInterval is by default set to 60.
+     *
+     * If triggerInterval is set but not triggerNodeId then triggerNodeId will not be automatically set.
+     */
+    public stream(threadFetchParams: ThreadFetchParams = {}): ThreadStreamResponseAPI {
+        let transformerCache;
+
+        if (this.threadTemplate.transform?.algos.length) {
+            transformerCache = new TransformerCache();
         }
 
         const fetchRequest = this.getFetchRequest(threadFetchParams, true);
 
-        this.streamGetResponse = this.fetch(fetchRequest);
+        const {getResponse} = this.storageClient.fetch(fetchRequest, /*timeout=*/0);
 
-        return this.threadResponseAPI(this.streamGetResponse);
+        if (!getResponse) {
+            throw new Error("unexpectedly missing getResponse");
+        }
+
+        return this.threadStreamResponseAPI(getResponse, transformerCache, fetchRequest);
     }
 
-    public async post(threadDataParams: ThreadDataParams = {}): Promise<NodeInterface[]> {
+    /**
+     */
+    public async post(threadDataParams: ThreadDataParams = {}): Promise<DataInterface[]> {
         const dataParams = this.parsePost(threadDataParams);
 
         const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey);
@@ -158,47 +178,68 @@ export class Thread {
         return [];
     }
 
-    protected threadResponseAPI(getResponse: GetResponse<FetchResponse>): ThreadResponseAPI {
-        const transformerCache = this.transformerCache;
+    protected threadQueryResponseAPI(getResponse: GetResponse<FetchResponse>): ThreadQueryResponseAPI {
+        const onDataCBs: Array<(nodes: NodeInterface[]) => void> = [];
 
-        const threadResponse: ThreadResponseAPI = {
-            onAdd: (...parameters: Parameters<TransformerCache["onAdd"]>): ThreadResponseAPI => {
-                if (!transformerCache) {
-                    throw new Error("Thread not using transformer, cannot call onAdd()");
-                }
+        getResponse.onReply( (fetchResponse: FetchResponse, peer: P2PClient) => {
+            if (fetchResponse.status === Status.RESULT) {
+                const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse);
+                onDataCBs.forEach( cb => cb(nodes.slice()) );
+            }
+        });
 
-                transformerCache.onAdd(...parameters);
-
-                return threadResponse;
-            },
-            onUpdate: (...parameters: Parameters<TransformerCache["onUpdate"]>): ThreadResponseAPI => {
-                if (!transformerCache) {
-                    throw new Error("Thread not using transformer, cannot call onUpdate()");
-                }
-
-                transformerCache.onUpdate(...parameters);
+        const threadResponse: ThreadQueryResponseAPI = {
+            onData: (cb: (nodes: NodeInterface[]) => void): ThreadQueryResponseAPI => {
+                onDataCBs.push(cb)
 
                 return threadResponse;
             },
-            onInsert: (...parameters: Parameters<TransformerCache["onInsert"]>): ThreadResponseAPI => {
-                if (!transformerCache) {
-                    throw new Error("Thread not using transformer, cannot call onInsert()");
-                }
 
-                transformerCache.onInsert(...parameters);
+            onCancel: (cb: () => void): ThreadQueryResponseAPI => {
+                getResponse.onCancel(cb);
 
                 return threadResponse;
             },
-            onDelete: (...parameters: Parameters<TransformerCache["onDelete"]>): ThreadResponseAPI => {
-                if (!transformerCache) {
-                    throw new Error("Thread not using transformer, cannot call onDelete()");
-                }
 
-                transformerCache.onDelete(...parameters);
-
-                return threadResponse;
+            getResponse: (): GetResponse<FetchResponse> => {
+                return getResponse;
             },
-            onChange: (...parameters: Parameters<TransformerCache["onChange"]>): ThreadResponseAPI => {
+        };
+
+        return threadResponse;
+    };
+
+    protected threadStreamResponseAPI(getResponse: GetResponse<FetchResponse>,
+        transformerCache: TransformerCache | undefined,
+        fetchRequest: FetchRequest): ThreadStreamResponseAPI {
+
+        const onDataCBs: Array<(nodes: NodeInterface[]) => void> = [];
+
+        getResponse.onReply( (fetchResponse: FetchResponse, peer: P2PClient) => {
+            if (fetchResponse.status === Status.MISSING_CURSOR) {
+                // cursordId1 is missing for transformer.
+                // Clear out cache, but keep alive and wait for more data.
+
+                transformerCache?.empty();
+            }
+            else if (fetchResponse.status !== Status.RESULT) {
+                console.debug(`Error code (${fetchResponse.status}) returned on fetch, error message: ${fetchResponse.error}`);
+
+            }
+            else {
+                const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse);
+
+                onDataCBs.forEach( cb => cb(nodes.slice()) );
+
+                if (transformerCache) {
+                    const delta = fetchResponse.transformResult.delta;
+                    transformerCache.handleResponse(nodes as DataInterface[], delta);
+                }
+            }
+        });
+
+        const threadResponse: ThreadStreamResponseAPI = {
+            onChange: (...parameters: Parameters<TransformerCache["onChange"]>): ThreadStreamResponseAPI => {
                 if (!transformerCache) {
                     throw new Error("Thread not using transformer, cannot call onChange()");
                 }
@@ -207,20 +248,65 @@ export class Thread {
 
                 return threadResponse;
             },
-            onClose: (...parameters: Parameters<TransformerCache["onClose"]>): ThreadResponseAPI => {
-                if (!transformerCache) {
-                    throw new Error("Thread not using transformer, cannot call onClose()");
-                }
 
-                transformerCache.onClose(...parameters);
+            onData: (cb: (nodes: NodeInterface[]) => void): ThreadStreamResponseAPI => {
+                onDataCBs.push(cb)
 
                 return threadResponse;
             },
+
+            onCancel: (cb: () => void): ThreadStreamResponseAPI => {
+                getResponse.onCancel(cb);
+
+                return threadResponse;
+            },
+
+            stopStream: () => {
+                this.storageClient.unsubscribe({
+                    originalMsgId: getResponse.getMsgId(),
+                    targetPublicKey: Buffer.alloc(0),
+                });
+            },
+
+            updateStream: (updateStreamParams: UpdateStreamParams) => {
+                // Replace with our new
+                fetchRequest = DeepCopy(fetchRequest);
+
+                fetchRequest.transform.msgId = getResponse.getMsgId();
+
+                if (updateStreamParams.triggerInterval !== undefined) {
+                    fetchRequest.query.triggerInterval = updateStreamParams.triggerInterval;
+                }
+
+                if (updateStreamParams.head !== undefined) {
+                    fetchRequest.transform.head         = updateStreamParams.head;
+                }
+
+                if (updateStreamParams.tail !== undefined) {
+                    fetchRequest.transform.tail         = updateStreamParams.tail;
+                }
+
+                if (updateStreamParams.cursorId1 !== undefined) {
+                    fetchRequest.transform.cursorId1    = updateStreamParams.cursorId1;
+                }
+
+                if (updateStreamParams.reverse !== undefined) {
+                    fetchRequest.transform.reverse      = updateStreamParams.reverse;
+                }
+
+                this.storageClient.fetch(fetchRequest);
+            },
+
             getResponse: (): GetResponse<FetchResponse> => {
                 return getResponse;
             },
-            getTransformer: (): TransformerCache | undefined => {
-                return this.transformerCache;
+
+            getTransformer: (): TransformerCache => {
+                if (!transformerCache) {
+                    throw new Error("Thread not using transformer");
+                }
+
+                return transformerCache;
             },
         };
 
@@ -261,30 +347,8 @@ export class Thread {
         return this.storeNodes(licenseNodes);
     }
 
-    public close() {
-        if (this.streamGetResponse) {
-            this.storageClient.unsubscribe({
-                originalMsgId: this.streamGetResponse.getMsgId(),
-                targetPublicKey: Buffer.alloc(0),
-            });
-
-            this.streamGetResponse.cancel();
-
-            delete this.streamGetResponse;
-
-            this.transformerCache?.close();
-
-            delete this.transformerCache;
-        }
-    }
-
-    public getTransformer(): TransformerCache | undefined {
-        return this.transformerCache;
-    }
-
     /**
      * Store a blob into storage by using a StreamReaderInterface.
-     *
      */
     public upload(nodeId1: Buffer, streamReader: StreamReaderInterface): StreamWriterInterface {
         const storageUtil = new StorageUtil(this.storageClient);
@@ -311,7 +375,6 @@ export class Thread {
      * and joining that buffer might put unnecessary strain on memory so we don't do it automatically.
      *
      * @returns the complete data for a blob.
-     * @throws on error
      */
     public downloadFull(node: NodeInterface): {blobDataPromise: Promise<Buffer[]>, streamReader: StreamReaderInterface} {
         const storageUtil = new StorageUtil(this.storageClient);
@@ -396,7 +459,7 @@ export class Thread {
             expireTime = Math.min(expireTime, nodeExpireTime);
         }
 
-        const owner         = this.publicKey;
+        const owner = this.publicKey;
 
         return ParseUtil.ParseLicenseParams(
             Thread.MergeParams([threadLicenseParams, this.threadTemplate.postLicense ?? {},
@@ -476,59 +539,6 @@ export class Thread {
 
         return ParseUtil.ParseTransform(
             Thread.MergeParams([threadTransformerParams, (threadTemplate.transform ?? {})]));
-    }
-
-    protected fetch(fetchRequest: FetchRequest) {
-        const {getResponse} = this.storageClient.fetch(fetchRequest, /*timeout=*/0);
-
-        if (!getResponse) {
-            throw new Error("unexpectedly missing getResponse");
-        }
-
-        getResponse.onTimeout( () => {
-            this.close();
-        });
-
-        getResponse.onClose( (hadError: boolean) => {
-            this.transformerCache?.close();
-        });
-
-        getResponse.onReply( (fetchResponse: FetchResponse, peer: P2PClient) => {
-            if (fetchResponse.status === Status.TRY_AGAIN) {
-                // Transformer cache got invalidated.
-                this.transformerCache?.close();
-                this.streamGetResponse?.cancel();
-                delete this.transformerCache;
-                delete this.streamGetResponse;
-                return;
-            }
-            else if (fetchResponse.status === Status.MISSING_CURSOR) {
-                // TODO: do what?
-                // cursordId1 is missing for transformer.
-                //this.transformerCache?.close();
-                //this.streamGetResponse?.cancel();
-                //delete this.transformerCache;
-                //delete this.streamGetResponse;
-                console.debug("cursordId1 not found for Thread with transformer");
-                return;
-            }
-            else if (fetchResponse.status !== Status.RESULT) {
-                console.error(`Error code (${fetchResponse.status}) returned on fetch, error message: ${fetchResponse.error}`);
-                return;
-            }
-
-            if (fetchResponse.transformResult.deletedNodesId1.length > 0) {
-                this.transformerCache?.delete(fetchResponse.transformResult.indexes);
-            }
-
-            if (this.transformerCache) {
-                const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse);
-                const indexes = fetchResponse.transformResult.indexes;
-                this.transformerCache.handleResponse(nodes, indexes, getResponse.getBatchCount() === 1);
-            }
-        });
-
-        return getResponse;
     }
 
     /**

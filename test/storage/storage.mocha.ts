@@ -48,6 +48,7 @@ import {
     ReadBlobRequest,
     ReadBlobResponse,
     Hash,
+    DeepCopy,
 } from "../../src";
 
 class StorageWrapper extends Storage {
@@ -71,8 +72,8 @@ class StorageWrapper extends Storage {
         return super.emitInsertEvent(triggerNodeIds, muteMsgIds);
     }
 
-    public getTransformer(fetchRequest: FetchRequest, sendResponse: SendResponseFn<FetchResponse>): Transformer | undefined {
-        return super.getTransformer(fetchRequest, sendResponse);
+    public createTransformer(fetchRequest: FetchRequest, sendResponse: SendResponseFn<FetchResponse>): Transformer | undefined {
+        return super.createTransformer(fetchRequest, sendResponse);
     }
 
     public getReadyTransformer(fetchRequest: FetchRequest): Transformer | undefined {
@@ -205,7 +206,7 @@ describe("Storage: triggers", function() {
         assert(trigger.isCorked === false);
         assert(trigger.isPending === false);
         assert(i === 3);
-        assert(response?.status === Status.ERROR);
+        assert(response?.status === Status.DROPPED_TRIGGER);
 
         //@ts-ignore
         assert(storage.triggers[triggerNodeIdStr] === undefined);
@@ -322,10 +323,12 @@ describe("Storage: triggers", function() {
 
         assert(trigger);
 
+        trigger.lastRun = Date.now() - 2000;
         trigger.isCorked = false;
 
-        //@ts-ignore
+        //@ts-ignore we need to clear this for the process to be able to end.
         clearTimeout(storage.triggerTimeout);
+
         //@ts-ignore
         storage.triggersTimeout();
 
@@ -335,17 +338,18 @@ describe("Storage: triggers", function() {
         //@ts-ignore
         trigger.fetchRequest.query.triggerInterval = 1;
 
-        //@ts-ignore
+        //@ts-ignore we need to clear this for the process to be able to end.
         clearTimeout(storage.triggerTimeout);
+
         //@ts-ignore
         storage.triggersTimeout();
 
         await sleep(1000);
         assert(response);
-        assert(response.status === Status.ERROR);
+        assert(response.status === Status.DROPPED_TRIGGER);
     });
 
-    it("#getTransformer", async function() {
+    it("#createTransformer", async function() {
         assert(storage);
 
         let sourcePublicKey = Buffer.alloc(32).fill(0x01);
@@ -355,9 +359,9 @@ describe("Storage: triggers", function() {
         let fetchRequest = StorageUtil.CreateFetchRequest({
             query: {
                 parentId: Buffer.alloc(32),
+                triggerNodeId: Buffer.alloc(32),
                 sourcePublicKey,
                 targetPublicKey,
-                triggerInterval: 60,
                 match: [
                     {
                         nodeType: Data.GetType(),
@@ -375,12 +379,14 @@ describe("Storage: triggers", function() {
             response = obj;
         };
 
-        let transformer = storage.getTransformer(fetchRequest, sendResponse);
+        const fetchRequest2 = DeepCopy(fetchRequest) as FetchRequest;
+
+        let transformer = storage.createTransformer(fetchRequest, sendResponse);
         assert(transformer);
         assert(transformer.getAlgoFunctions().length === 1);
         assert(!response);
 
-        let transformer2 = storage.getTransformer(fetchRequest, sendResponse);
+        let transformer2 = storage.createTransformer(fetchRequest, sendResponse);
         assert(transformer2);
         assert(transformer2.getAlgoFunctions().length === 1);
         assert(!response);
@@ -397,10 +403,23 @@ describe("Storage: triggers", function() {
 
         assert(storage.getReadyTransformer(fetchRequest));
 
+        fetchRequest.transform.msgId = Buffer.alloc(0);
+
+        assert(!storage.getReadyTransformer(fetchRequest));
+
+        assert(!storage.getReadyTransformer(fetchRequest2));
+
+        fetchRequest2.transform.msgId = msgId;
+
+        assert(storage.getReadyTransformer(fetchRequest2));
+
         assert(!response);
-        let transformer3 = storage.getTransformer(fetchRequest, sendResponse);
-        assert(response);
-        assert(!transformer3);
+
+        fetchRequest2.transform.msgId = Buffer.alloc(0);
+
+        let transformer3 = storage.createTransformer(fetchRequest2, sendResponse);
+
+        assert(transformer3);
     });
 
     // TODO: test handleFetchReplyDataFactory for trigger.closed
@@ -413,7 +432,7 @@ describe("Storage: triggers", function() {
             status: Status.ERROR,
             isLast: true,
             extra: "hello",
-            indexes: [1,2,3],
+            delta: Buffer.alloc(1024),
             error: "some error",
         };
 
@@ -423,14 +442,14 @@ describe("Storage: triggers", function() {
         assert(fetchResponses[0].seq === 0);
         assert(fetchResponses[0].status === Status.ERROR);
         assert(fetchResponses[0].error === "some error");
-        assert(fetchResponses[0].transformResult.indexes.length === 0);
+        assert(fetchResponses[0].transformResult.delta.length === 0);
         assert(fetchResponses[0].transformResult.extra === "");
 
         fetchReplyData = {
             status: Status.RESULT,
             isLast: true,
             extra: "hello",
-            indexes: [1,2,3],
+            delta: Buffer.alloc(1024),
             error: "bla",
         };
 
@@ -441,7 +460,7 @@ describe("Storage: triggers", function() {
         assert(fetchResponses[0].endSeq === 10);
         assert(fetchResponses[0].status === Status.RESULT);
         assert(fetchResponses[0].error === "");
-        assert(fetchResponses[0].transformResult.indexes.length === 3);
+        assert(fetchResponses[0].transformResult.delta.length === 1024);
         assert(fetchResponses[0].transformResult.extra === "hello");
 
         let nodes: NodeInterface[] = [];
@@ -470,7 +489,7 @@ describe("Storage: triggers", function() {
         }
 
         l = 0;
-        while (l < MESSAGE_SPLIT_BYTES * 1.5) {
+        while (l < MESSAGE_SPLIT_BYTES * 1.4) {
             const id1 = Buffer.alloc(32);
             id1.writeUInt32BE(i++, 0);
             const node = await nodeUtil.createDataNode({
@@ -489,8 +508,7 @@ describe("Storage: triggers", function() {
             status: Status.RESULT,
             isLast: true,
             extra: "hello",
-            indexes: [1,2,3],
-            deletedNodesId1: [Buffer.alloc(32).fill(0x99)],
+            delta: Buffer.alloc(124),
             nodes: nodes.slice(),
             embed: embed.slice(),
         };
@@ -508,11 +526,6 @@ describe("Storage: triggers", function() {
         assert(fetchResponses[0].transformResult.extra === "hello");
         assert(fetchResponses[1].transformResult.extra === "");
         assert(fetchResponses[2].transformResult.extra === "");
-
-        assert(fetchResponses[0].transformResult.indexes.length === 0);
-        assert(fetchResponses[1].transformResult.indexes.length === 0);
-        assert(fetchResponses[2].transformResult.indexes.length === 3);
-        assert(fetchResponses[2].transformResult.deletedNodesId1.length === 1);
 
         assert(fetchResponses[0].result.nodes.length + fetchResponses[1].result.nodes.length === nodes.length);
         assert(fetchResponses[1].result.embed.length + fetchResponses[2].result.embed.length === embed.length);

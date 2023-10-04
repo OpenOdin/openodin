@@ -85,6 +85,7 @@ export class GetResponse<ResponseDataType> {
         timeout: (() => void)[],
         close:   ((hadError: boolean) => void)[],
         any:     ((anyData: AnyData<ResponseDataType>) => void)[],
+        cancel:  (() => void)[],
     };
     protected deserializeResponse: DeserializeInterface<ResponseDataType>;
     protected serializeResponse?: SerializeInterface<ResponseDataType>;
@@ -104,7 +105,7 @@ export class GetResponse<ResponseDataType> {
         this.p2pClient = p2pClient;
         this.isStream = isStream;
         this.isMultipleStream = isMultipleStream;
-        this.triggers = { reply: [], error: [], timeout: [], close: [], any: [] };
+        this.triggers = { reply: [], error: [], timeout: [], close: [], any: [], cancel: [] };
         this.hookEvents();
     }
 
@@ -124,25 +125,36 @@ export class GetResponse<ResponseDataType> {
                 if (this.isStream) {
                     // The message in reply is expecting streaming responses.
 
-                    // We do a dirty check on the response object to look if it has the "seq" and "endSeq" attributes.
-                    const isEndOfStream = (response && typeof((response as any).seq) === "number" && typeof((response as any).endSeq) === "number" && (response as any).seq === (response as any).endSeq);
+                    // We do a dirty check on the response object to look if it has the
+                    // "seq" and "endSeq" attributes.
+                    // seq must be set, must be > 0 and must be equal to endSeq.
+                    const isEndOfStream = (response as any)?.seq &&
+                        (response as any).seq === (response as any).endSeq;
 
                     // Dirty check
-                    const errorSeq = (response && (response as any).seq === 0);  // seq==0 indicates an error, so we remove the message.
+                    // seq==0 indicates an error or unsubscription, so we remove the message.
+                    const cancelSeq = (response as any)?.seq === 0;
 
-                    if (isEndOfStream && this.isMultipleStream && !errorSeq) {
-                        // End of stream detected, since we are expecting more streams we clear the stream timeout so the message does not timeout unexpectedly,
+                    if (cancelSeq) {
+                        this.cancel();
+                    }
+                    else if (isEndOfStream && this.isMultipleStream) {
+                        // End of stream detected, since we are expecting more streams we clear
+                        // the stream timeout so the message does not timeout unexpectedly,
                         // since we don't know when the next stream will start.
                         this.clearTimeout();
                     }
-                    else if (isEndOfStream || errorSeq) {
+                    else if (isEndOfStream) {
                         // End of stream and no further streams expected, so remove message.
-                        this.cancel();
+                        this.done();
                     }
                 }
 
-                const sendResponse = SendResponseFactory<ResponseDataType>(this.p2pClient, replyEvent, this.serializeResponse, this.deserializeResponse);
-                this.triggerReply(response, replyEvent.fromMsgId, replyEvent.expectingReply, sendResponse);
+                const sendResponse = SendResponseFactory<ResponseDataType>(this.p2pClient,
+                    replyEvent, this.serializeResponse, this.deserializeResponse);
+
+                this.triggerReply(response, replyEvent.fromMsgId, replyEvent.expectingReply,
+                    sendResponse);
             }
             catch(e) {
                 // This is unexpected and needs to be inspected, we do not send back any reply to the sender.
@@ -153,6 +165,7 @@ export class GetResponse<ResponseDataType> {
         this.eventEmitter.on(EventType.TIMEOUT, (/*timeoutEvent: TimeoutEvent*/) => {
             try {
                 this.triggerTimeout();
+                this.cancel();
             }
             catch(e) {
                 console.error("Unhandled exception in Responder.onTimeout handler function", e);
@@ -162,6 +175,7 @@ export class GetResponse<ResponseDataType> {
         this.eventEmitter.on(EventType.ERROR, (errorEvent: ErrorEvent) => {
             try {
                 this.triggerError(errorEvent.error);
+                this.cancel();
             }
             catch(e) {
                 console.error("Unhandled exception in Responder.onError handler function", e);
@@ -171,6 +185,7 @@ export class GetResponse<ResponseDataType> {
         this.eventEmitter.on(EventType.CLOSE, (closeEvent: CloseEvent) => {
             try {
                 this.triggerClose(closeEvent.hadError);
+                this.cancel();
             }
             catch(e) {
                 console.error("Unhandled exception in Responder.onClose handler function", e);
@@ -288,6 +303,29 @@ export class GetResponse<ResponseDataType> {
         const index = this.triggers.close.indexOf(fn);
         if (index > -1) {
             this.triggers.close.splice(index, 1);
+        }
+    }
+
+    /**
+     * Hook event for when the GetResponse is cancelled,
+     * either on socket error, error response, timeout, unsubscription or socket close.
+     * 
+     * If socket closed then onClose is first triggerd then onCancel is triggered.
+     *
+     * NOTE: this event is NOT also triggered as an ANY event.
+     *
+     * @throws if message is not pending reply.
+     */
+    public onCancel = (fn: () => void) => {
+        this.checkMsgPending();
+        this.triggers.cancel.push(fn);
+        return this;
+    }
+
+    public offCancel = (fn: () => void) => {
+        const index = this.triggers.cancel.indexOf(fn);
+        if (index > -1) {
+            this.triggers.cancel.splice(index, 1);
         }
     }
 
@@ -423,6 +461,12 @@ export class GetResponse<ResponseDataType> {
         });
     }
 
+    protected triggerCancel() {
+        this.triggers.cancel.forEach( fn => {
+            fn();
+        });
+    }
+
     protected triggerAny(anyData: AnyData<ResponseDataType>) {
         this.triggers.any.forEach( fn => {
             fn(anyData);
@@ -431,8 +475,20 @@ export class GetResponse<ResponseDataType> {
 
     /**
      * Removes the Responder by removing its EventEmitter from the messaging instance.
+     * Triggers the onCancel event.
      */
-    public cancel() {
+    protected cancel() {
+        this.p2pClient.getMessaging().cancelPendingMessage(this.getMsgId());
+
+        this.triggerCancel();
+
+        this.triggers.cancel.length = 0;
+    }
+
+    /**
+     * Removes the Responder by removing its EventEmitter from the messaging instance.
+     */
+    protected done() {
         this.p2pClient.getMessaging().cancelPendingMessage(this.getMsgId());
     }
 

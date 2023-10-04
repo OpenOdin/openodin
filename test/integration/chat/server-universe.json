@@ -12,7 +12,8 @@
                 ]
             },
             "transform": {
-                "algos": [2]
+                "algos": [2],
+                "head": -1
             },
             "post": {
                 "contentType": "app/chat/message",

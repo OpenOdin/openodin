@@ -11,7 +11,6 @@ import {
  * Sort nodes on creationTime or storageTime and make sure there are no duplicate entries.
  */
 export class AlgoSorted implements AlgoInterface {
-    protected reverse: boolean;
     protected orderByStorageTime: boolean;
     protected nodeIndexById1: {[id1: string]: number};
     protected nodes: NodeInterface[];
@@ -19,13 +18,11 @@ export class AlgoSorted implements AlgoInterface {
     protected maxLength: number;
 
     /**
-     * @param reverse
      * @param orderByStorageTime if true then order by storage time insteadof creationTime.
      * @param maxLength
      *
      */
-    constructor(reverse: boolean = false, orderByStorageTime: boolean = false, maxLength: number = 10000) {
-        this.reverse = reverse;
+    constructor(maxLength: number = MAX_TRANSFORMER_LENGTH, orderByStorageTime: boolean = false) {
         this.orderByStorageTime = orderByStorageTime;
         this.nodeIndexById1 = {};
         this.nodes = [];
@@ -102,10 +99,6 @@ export class AlgoSorted implements AlgoInterface {
             this.nodes.push(...newNodes);
 
             this.nodes.sort( (a: NodeInterface, b: NodeInterface) => {
-                if (this.reverse) {
-                    [a, b] = [b, a];
-                }
-
                 const diffCreationTime = (a.getCreationTime() ?? 0) - (b.getCreationTime() ?? 0);
                 const diffStorageTime = (a.getTransientStorageTime() ?? 0) - (b.getTransientStorageTime() ?? 0);
 
@@ -143,59 +136,68 @@ export class AlgoSorted implements AlgoInterface {
     /**
      * @returns undefined if cursor node does not exist.
      */
-    public get(cursorId1: Buffer | undefined, head: number, tail: number): [NodeInterface[], number[]] | undefined {
-        const nodes: NodeInterface[] = [];
-        const indexes: number[] = [];
+    public get(cursorId1: Buffer | undefined, head: number, tail: number, reverse: boolean):
+        [NodeInterface[], number[]] | undefined {
 
-        if (tail === 0 && head === 0) {
+        if ((tail === 0 && head === 0) || (tail !== 0 && head !== 0)) {
             return [[], []];
         }
 
-        let index;
-        let step;
-        let limit;
-
         if (head !== 0) {
-            index = 0;
-            step = 1;
-            if (head === -1) {
-                limit = MAX_TRANSFORMER_LENGTH;
+            if (head <= -1) {
+                head = MAX_TRANSFORMER_LENGTH;
             }
             else {
-                limit = Math.min(head, MAX_TRANSFORMER_LENGTH);
+                head = Math.min(head, MAX_TRANSFORMER_LENGTH);
             }
         }
-        else {
-            index = this.nodes.length - 1;
-            step = -1;
-            if (tail === -1) {
-                limit = MAX_TRANSFORMER_LENGTH;
+
+        if (tail !== 0) {
+            if (tail <= -1) {
+                tail = MAX_TRANSFORMER_LENGTH;
             }
             else {
-                limit = Math.min(tail, MAX_TRANSFORMER_LENGTH);
+                tail = Math.min(tail, MAX_TRANSFORMER_LENGTH);
             }
+        }
+
+        if (reverse) {
+            [tail, head] = [head, tail];
+        }
+
+        let startIndex  = 0;
+        let endIndex    = head;
+
+        if (tail) {
+            endIndex = this.nodes.length;
+            startIndex = Math.max(endIndex - tail, 0);
         }
 
         if (cursorId1 && cursorId1.length > 0) {
             const id1Str = cursorId1.toString("hex");
-            index = this.nodeIndexById1[id1Str];
-            if (index === undefined) {
+
+            const cursorIndex = this.nodeIndexById1[id1Str];
+
+            if (cursorIndex === undefined) {
                 return undefined;
             }
 
-            index = index + step;
+            if (head) {
+                startIndex = cursorIndex + 1;
+                endIndex = startIndex + head;
+            }
+            else {
+                endIndex = cursorIndex;
+                startIndex = Math.max(endIndex - tail, 0);
+            }
         }
 
-        while (index >= 0 && index < this.nodes.length && nodes.length < limit) {
-            const node = this.nodes[index];
-            if (!node) {
-                break;
-            }
+        const nodes = this.nodes.slice(startIndex, endIndex);
+        const indexes = nodes.map( (node, index) => startIndex + index);
 
-            nodes.push(node);
-            indexes.push(index);
-
-            index = index + step;
+        if (reverse) {
+            nodes.reverse();
+            indexes.reverse();
         }
 
         return [nodes, indexes];

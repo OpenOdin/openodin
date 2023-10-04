@@ -91,6 +91,8 @@ export type Match = {
      * When paging we use this do cutoff everything before and up til this node.
      * The Match is inert until the cursor node is passed.
      * However the Match must match the cursor node to be able to mark it as passed.
+     *
+     * Note that if the cursor is not found no error is returned, just an empty resultset.
      */
     cursorId1: Buffer,
 };
@@ -199,16 +201,16 @@ export type FetchQuery = {
     triggerNodeId: Buffer,
 
     /**
-     * Set > 0 to init a subscription to run the query on an interval in seconds.
+     * Set > 0 to init a subscription to rerun the query on an interval in seconds.
      * Smallest interval is 60 seconds.
-     *
-     * When using a transformer with includeDeleted maximum interval allowed is 120 seconds.
-     * This is to be able to detect deleted nodes within a reasonable time window.
      *
      * This can be set regardless if/not triggerNodeId is set and is unsubscribed in the same way.
      *
      * The Storage is not required to support this feature and if it does not support this feature
      * then an error with the status malformed is returned.
+     *
+     * If using a transformer together with a subscription triggerNodeId, then the
+     * triggerInterval must also be set to properly detect expired nodes.
      */
     triggerInterval: number,
 
@@ -274,42 +276,60 @@ export type FetchQuery = {
 /**
  * A fetchRequest can have a FetchTransform to transform the result from the FetchQuery.
  * A transformer can be used as the basis of a CRDT model.
- * The current max size of a Transformer is 10000 elements.
+ * The current max size of a Transformer is 100000 elements.
  */
 export type FetchTransform = {
     /** At least one ordering algorithm must be specified when using a transformer. */
     algos: number[],
 
     /**
-     * When fetching with a Transformer without using a trigger one can reuse an existing transformer trigger
-     * cache by referencing the query.triggerNodeId here.
+     * To use this feature the property triggerNodeId must have been set in the original
+     * fetch request and set exactly the same in this request.
      *
-     * This can be useful to avoid having to regenerate a complete transformer model for a single fetch.
+     * 1.
+     * If this property is set and triggerInterval == 0 that dictates that this is not
+     * a new streaming request but a single query wanting to reuse an existing transformer model.
+     *
+     * This is done by setting this property to the msgId of the initial fetch request.
+     *
+     * All other parameters of the FetchRequest must be exactly the same as the original,
+     * however the properties of transformer.head, tail, cursorId1, and reverse are allowed
+     * to be set differently to extract results from the model.
+     *
+     * 2.
+     * If this property is set and triggerInterval > 0 that dictates that this is not
+     * a new streaming request but a request to update the underlying fetch request
+     * of an existing streaming request.
+     *
+     * All other parameters of the FetchRequest must be exactly the same as the original,
+     * however the properties of transformer.head, tail, cursorId1, and reverse and
+     * query.triggerInterval are allowed to be set differently to update those properties
+     * in the existing streaming request.
      */
-    cachedTriggerNodeId: Buffer,
+    msgId: Buffer,
 
     /**
-     * This ID can be used to avoid reusing the cache of a specific trigger transform request.
-     * If set then the hash-key will be different for a otherwise identical request.
-     *
-     * The use case is to create and reuse a dedicated cache say for paging history.
+     * Sort in reverse order in the transformer model.
      */
-    cacheId: number,
-
-    /** Sort in reverse order in the transformer model. */
     reverse: boolean,
 
     /**
-     * Read a number if nodes from the start of the sorted model, -1 means until end or maximum 10000.
-     * This value is mutually exclusive to tail.
-     * Set it to 0 if tail is set.
+     * Read a number if nodes from the start of the sorted model,
+     * -1 means until end (or maximum 100000 nodes).
+     *
+     * This value is mutually exclusive to tail. Set it to 0 if tail is set.
+     *
+     * This value can be changed for streaming requests to change the scope of the resultset.
      */
     head: number,
 
     /**
-     * Read a number if nodes from the end of the sorted model, -1 means until start or maximum 10000.
-     * This value is mutually exclusive to head.
-     * Set it to 0 if head is set.
+     * Read a number if nodes from the end of the sorted model,
+     * -1 means until start (or maximum 100000 nodes).
+     *
+     * This value is mutually exclusive to head. Set it to 0 if head is set.
+     *
+     * This value can be changed for streaming requests to change the scope of the resultset.
      */
     tail: number,
 
@@ -317,22 +337,12 @@ export type FetchTransform = {
      * This can be used to page the result when fetching.
      * The index of the node with the id1 equal to cursorId1 is the previous element in the list
      * and the first returned element is the node after the cursor node.
+     *
      * If a cursor is given but not found then the fetch response status is MISSING_CURSOR.
+     *
+     * This value can be changed for streaming requests to change the scope of the resultset.
      */
     cursorId1: Buffer,
-
-    /**
-     * If this is set to true then the transformer will detect nodes which have fallen out of the
-     * model and send a response back to the client populated with deletedNodesId1 containing
-     * the ID1s of the "deleted" nodes.
-     *
-     * "Deleted" simply means that the node is no longer accessible, either it has expired or
-     * licenses have expired, it does not necessarily mean that the node has been permanently deleted.
-     *
-     * This requires that triggerInterval is set (from 60 to 120).
-     * Deleted nodes are never returned in the original fetch, only on interval fetches.
-     */
-    includeDeleted: boolean,
 };
 
 /**
@@ -380,18 +390,32 @@ export enum Status {
     EXISTS              = 10,
 
     /**
-     * When a transformer cache got invalidated and the fetch needs to be re-requested.
-     * The Storage can purge caches at its own will to reduce memory usage, as it sees fit.
-     * If that happens for a subscription fetch the subscription needs to be re-requested
-     * for the cache to be re-rendered.
+     * When a transformer cache got/is invalidated and the fetch needs to be re-requested.
+     *
+     * This can happen during a subscription due to the server purging cache to
+     * reduce memory footprint, as it sees fit.
+     * The remedy is to rerequest possibly trying to keep a smaller model by limiting
+     * the scope of the underlying fetch query.
+     *
+     * For single queries reusing transformer caches this happens if the cache does not exist.
      */
-    TRY_AGAIN           = 11,
+    TRANSFORMER_INVALIDATED = 11,
 
     /**
-     * When a transform fetch is done using a cursor but the cursor does not exist,
-     * this return status is only for requests using transformers.
+     * When a transform fetch is done using a cursor but the cursor does not exist, this return
+     * status is only for requests using transformers, and not applicable for query.cursordId1.
+     *
+     * Note that this is not regarded as an error message and if the request is a trigger subscription
+     * then it will not be automatically removed (as when sending any other error replies).
      */
     MISSING_CURSOR      = 12,
+
+    /**
+     * Sent from the Storage when a trigger has been dropped.
+     * Message is sent with seq=0 so that message is cleared out and onCancel()
+     * is triggered on the GetResponse object.
+     */
+    DROPPED_TRIGGER     = 13,
 }
 
 /**
@@ -413,21 +437,10 @@ export type FetchResult = {
 
 export type TransformResult = {
     /**
-     * ID1s of deleted nodes.
-     * This requires that the fetching is done using an interval timer.
+     * The delta used to patch old model to updated model.
+     * All added nodes are passed in the query response.
      */
-    deletedNodesId1: Buffer[],
-
-    /**
-     * Nodes indexes in the transformer model is represented here, corresponding to the nodes
-     * returned in FetchResult.
-     *
-     * Updated nodes have a corresponding positive index matching the fetchResult.nodes array.
-     *
-     * Inserted nodes have a corresponding negative index (index = (index + 1) * -1).
-     * This is so that the consumer can properly keep its model in sync even though it does not have the whole model.
-     */
-    indexes: number[],
+    delta: Buffer,
 
     /**
      * Extra JSON data potentially returned.
@@ -450,7 +463,7 @@ export type FetchResponse = {
      * Status.NOT_ALLOWED
      * Status.ROOTNODE_LICENSED
      * Status.MISSING_ROOTNODE
-     * Status.TRY_AGAIN
+     * Status.TRANSFORMER_INVALIDATED
      * Status.MISSING_CURSOR
      * Status.MALFORMED
      */
@@ -463,14 +476,21 @@ export type FetchResponse = {
     /**
      * Counter starting from 1 and will increase for each FetchResponse sent.
      * A batch is identified as having the same endSeq set.
-     * If seq == 0 then indicates an error and the message will be removed from the pocket-messaging cache and cannot be replied to anymore.
+     *
+     * If seq == 0 then indicates an error or an unsubscription,
+     * and the GetResponse will be cancelled.
+     * The message will be removed from the pocket-messaging cache and no more data will flow.
+     *
+     * A trigger subscription is already removed from the Storage and it is not necessary
+     * to explicitly unsubscribe from failed requests.
      */
     seq: number,
 
     /**
      * The seq nr of the last fetchResponse in the batch.
      * If endSeq == 0 then undetermined nr of responses will follow.
-     * If endSeq == seq it means this is the last response in this batch, however more batches could follow if the fetch request is a subscription.
+     * If endSeq == seq it means this is the last response in this batch, however more batches could
+     * follow if the fetch request is a subscription.
      */
     endSeq: number,
 

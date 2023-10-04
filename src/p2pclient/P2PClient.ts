@@ -252,7 +252,7 @@ export class P2PClient {
                     this.route<StoreRequest, StoreResponse>(RouteAction.STORE, routeEvent, this.handlerStore, this.limitStoreRequest, this.deserialize.StoreRequest, this.serialize.StoreResponse, this.deserialize.StoreResponse, {storedId1s: [], missingBlobId1s: [], status: Status.ERROR, error: ""});
                     break;
                 case RouteAction.FETCH:
-                    this.route<FetchRequest, FetchResponse>(RouteAction.FETCH, routeEvent, this.handlerFetch, this.limitFetchRequest, this.deserialize.FetchRequest, this.serialize.FetchResponse, this.deserialize.FetchResponse, {seq: 0, endSeq: 0, result: {nodes: [], embed: [], cutoffTime: 0n}, transformResult: {deletedNodesId1: [], indexes: [], extra: ""}, status: Status.ERROR, error: "", rowCount: 0});
+                    this.route<FetchRequest, FetchResponse>(RouteAction.FETCH, routeEvent, this.handlerFetch, this.limitFetchRequest, this.deserialize.FetchRequest, this.serialize.FetchResponse, this.deserialize.FetchResponse, {seq: 0, endSeq: 0, result: {nodes: [], embed: [], cutoffTime: 0n}, transformResult: {delta: Buffer.alloc(0), extra: ""}, status: Status.ERROR, error: "", rowCount: 0});
                     break;
                 case RouteAction.UNSUBSCRIBE:
                     this.route<UnsubscribeRequest, UnsubscribeResponse>(RouteAction.UNSUBSCRIBE, routeEvent, this.handlerUnsubscribe, this.limitUnsubscribeRequest, this.deserialize.UnsubscribeRequest, this.serialize.UnsubscribeResponse, this.deserialize.UnsubscribeResponse, {status: Status.ERROR, error: ""});
@@ -631,8 +631,7 @@ export class P2PClient {
                     cutoffTime: 0n,
                 },
                 transformResult: {
-                    deletedNodesId1: [],
-                    indexes: [],
+                    delta: Buffer.alloc(0),
                     extra: "",
                 },
                 seq: 0,

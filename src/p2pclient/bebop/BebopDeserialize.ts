@@ -49,7 +49,7 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize FetchRequest");
         }
         obj.transform.cursorId1 = MakeIntoBuffer(obj.transform.cursorId1);
-        obj.transform.cachedTriggerNodeId = MakeIntoBuffer(obj.transform.cachedTriggerNodeId);
+        obj.transform.msgId = MakeIntoBuffer(obj.transform.msgId);
         obj.query.rootNodeId1 = MakeIntoBuffer(obj.query.rootNodeId1);
         obj.query.parentId = MakeIntoBuffer(obj.query.parentId);
         obj.query.targetPublicKey = MakeIntoBuffer(obj.query.targetPublicKey);
@@ -83,7 +83,7 @@ export class BebopDeserialize {
         }
         obj.result.nodes = (obj.result.nodes || []).map( MakeIntoBuffer );
         obj.result.embed = (obj.result.embed || []).map( MakeIntoBuffer );
-        obj.transformResult.deletedNodesId1 = (obj.transformResult.deletedNodesId1 || []).map( MakeIntoBuffer );
+        obj.transformResult.delta = MakeIntoBuffer(obj.transformResult.delta);
         return (obj as unknown) as FetchResponse;
     }
 

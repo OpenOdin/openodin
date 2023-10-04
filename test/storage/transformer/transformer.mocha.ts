@@ -20,6 +20,9 @@ async function testSorted(algoSorted: AlgoInterface) {
 
     const node1 = await nodeUtil.createDataNode({creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
     const node1copy = await nodeUtil.createDataNode({creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+
+    assert(node1.getId1()?.equals(node1copy.getId1()!));
+
     node1copy.setDynamicSelfActive();
 
     let [addedNodes, transientNodes] = algoSorted.add([node1]);
@@ -91,9 +94,9 @@ async function testSorted(algoSorted: AlgoInterface) {
     [nodes, indexes] = algoSorted.get(undefined, 0, -1);
     assert(nodes.length === 3);
     assert(indexes.length === 3);
-    assert(nodes[2] === node1);
+    assert(nodes[0] === node1);
     assert(nodes[1] === node2);
-    assert(nodes[0] === node3);
+    assert(nodes[2] === node3);
 
     //@ts-ignore
     [nodes, indexes] = algoSorted.get(node2.getId1(), 3, 0);
@@ -146,7 +149,7 @@ describe("Transformer AlgoSorted", function() {
             transientStorageTime: 1,
         });
 
-        let algoSorted = new AlgoSorted(false, false);
+        let algoSorted = new AlgoSorted(undefined, false);
         algoSorted.add([node2, node1, node3]);
         let indexes = algoSorted.getIndexes([node1, node2, node3]);
         assert(indexes.length === 3);
@@ -154,15 +157,19 @@ describe("Transformer AlgoSorted", function() {
         assert(indexes[1] === 2);
         assert(indexes[2] === 1);
 
-        algoSorted = new AlgoSorted(true, false);
+        algoSorted = new AlgoSorted(undefined, false);
+        //reverse
         algoSorted.add([node2, node1, node3]);
-        indexes = algoSorted.getIndexes([node1, node2, node3]);
-        assert(indexes.length === 3);
-        assert(indexes[0] === 2);
-        assert(indexes[1] === 0);
-        assert(indexes[2] === 1);
+        let [nodes, revIndexes] = algoSorted.get(undefined, 3, 0, true);
+        assert(revIndexes.length === 3);
+        assert(revIndexes[0] === 2);
+        assert(revIndexes[1] === 1);
+        assert(revIndexes[2] === 0);
+        assert(nodes[0] === node2);
+        assert(nodes[1] === node3);
+        assert(nodes[2] === node1);
 
-        algoSorted = new AlgoSorted(false, true);
+        algoSorted = new AlgoSorted(undefined, true);
         algoSorted.add([node2, node1, node3, node4]);
         indexes = algoSorted.getIndexes([node1, node2, node3, node4]);
         assert(indexes.length === 4);
@@ -171,14 +178,19 @@ describe("Transformer AlgoSorted", function() {
         assert(indexes[2] === 0);
         assert(indexes[3] === 1);
 
-        algoSorted = new AlgoSorted(true, true);
+        algoSorted = new AlgoSorted(undefined, true);
+        //reverse
         algoSorted.add([node2, node1, node3, node4]);
-        indexes = algoSorted.getIndexes([node1, node2, node3, node4]);
-        assert(indexes.length === 4);
-        assert(indexes[0] === 0);
-        assert(indexes[1] === 1);
-        assert(indexes[2] === 3);
-        assert(indexes[3] === 2);
+        [nodes, revIndexes] = algoSorted.get(undefined, 4, 0, true);
+        assert(revIndexes.length === 4);
+        assert(revIndexes[0] === 3);
+        assert(revIndexes[1] === 2);
+        assert(revIndexes[2] === 1);
+        assert(revIndexes[3] === 0);
+        assert(nodes[0] === node1);
+        assert(nodes[1] === node2);
+        assert(nodes[2] === node4);
+        assert(nodes[3] === node3);
     });
 });
 

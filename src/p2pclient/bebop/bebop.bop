@@ -39,14 +39,15 @@ struct FetchQuery {
     int32 limit;
     int64 cutoffTime;
     byte[] rootNodeId1;
+    bool discardRoot;
     byte[] parentId;
     byte[] targetPublicKey;
     byte[] sourcePublicKey;
-    byte[] triggerNodeId;
-    bool onlyTrigger;
     Match[] match;
-    bool discardRoot;
     AllowEmbed[] embed;
+    byte[] triggerNodeId;
+    uint16 triggerInterval;
+    bool onlyTrigger;
     bool descending;
     bool orderByStorageTime;
     bool ignoreInactive;
@@ -58,13 +59,11 @@ struct FetchQuery {
 
 struct FetchTransform {
     uint16[] algos;
+    byte[] msgId;
     bool reverse;
-    byte[] cursorId1;
     int32 head;
     int32 tail;
-    byte[] cachedTriggerNodeId;
-    int16 cacheId;
-    bool includeDeleted;
+    byte[] cursorId1;
 }
 
 enum Status {
@@ -78,8 +77,9 @@ enum Status {
     NOT_ALLOWED         = 8;
     MISMATCH            = 9;
     EXISTS              = 10;
-    TRY_AGAIN           = 11;
+    TRANSFORMER_INVALIDATED = 11;
     MISSING_CURSOR      = 12;
+    DROPPED_TRIGGER     = 13;
 }
 
 struct FetchResult {
@@ -89,8 +89,7 @@ struct FetchResult {
 }
 
 struct TransformResult {
-    byte[][] deletedNodesId1;
-    int32[] indexes;
+    byte[] delta;
     string extra;
 }
 

@@ -91,8 +91,7 @@ const EMPTY_FETCHRESPONSE: FetchResponse = {
         cutoffTime: 0n,
     },
     transformResult: {
-        deletedNodesId1: [],
-        indexes: [],
+        delta: Buffer.alloc(0),
         extra: "",
     },
     rowCount: 0,
@@ -424,19 +423,17 @@ export class Storage {
                 await p.promise;
             }
 
-            // Deep copy the fetch request object since we will update its cutoffTime property.
+            // Deep copy the fetch request object since we might update some properties property.
             const fetchRequestCopy = DeepCopy(fetchRequest) as FetchRequest;
 
             if (fetchRequestCopy.query.sourcePublicKey.length === 0) {
+                status = Status.MALFORMED;
                 throw new Error("sourcePublicKey expected to be set");
             }
 
             if (fetchRequestCopy.query.targetPublicKey.length === 0) {
+                status = Status.MALFORMED;
                 throw new Error("targetPublicKey expected to be set");
-            }
-
-            if (fetchRequestCopy.query.triggerInterval > 0) {
-                fetchRequestCopy.query.triggerInterval = Math.max(fetchRequestCopy.query.triggerInterval, 60);
             }
 
             if (fetchRequestCopy.query.rootNodeId1.length > 0 && fetchRequestCopy.query.parentId.length > 0) {
@@ -444,43 +441,133 @@ export class Storage {
                 throw new Error("rootNodeId1 and parentId are exclusive to each other, set only one");
             }
 
-            if (fetchRequestCopy.transform.algos.length > 0) {
-                if (fetchRequest.transform.includeDeleted &&
-                    (fetchRequest.query.triggerInterval < 60 || fetchRequest.query.triggerInterval > 120)) {
+            if (fetchRequestCopy.query.triggerInterval > 0) {
+                fetchRequestCopy.query.triggerInterval = Math.max(fetchRequestCopy.query.triggerInterval, 60);
+            }
 
+            if (fetchRequestCopy.transform.algos.length > 0) {
+                if (fetchRequestCopy.query.cutoffTime !== 0n) {
                     status = Status.MALFORMED;
-                    throw new Error("triggerInterval must be minimum 60 and maximum 120 (seconds) when fetching with transform and includeDeleted");
+                    throw new Error("query.cutoffTime must be 0 when fetching with transform");
                 }
 
-                if (fetchRequest.query.onlyTrigger) {
-
+                if (fetchRequestCopy.query.onlyTrigger) {
                     status = Status.MALFORMED;
                     throw new Error("onlyTrigger cannot be true when fetching with transform");
                 }
 
-                if ( (fetchRequest.query.triggerNodeId.length > 0 || fetchRequest.query.triggerInterval > 0) &&
-                    fetchRequest.transform.cachedTriggerNodeId.length > 0) {
+                if (fetchRequestCopy.transform.msgId.length === 0) {
+                    // Regular call, not reusing or updating request.
+                    //
+                    if (fetchRequestCopy.query.triggerNodeId.length > 0 && fetchRequestCopy.query.triggerInterval === 0) {
+                        status = Status.MALFORMED;
+                        throw new Error("triggerInterval must be set when fetching with transform and triggerNodeId.");
+                    }
 
-                    status = Status.MALFORMED;
-                    throw new Error("query.triggerNodeId/triggerInterval cannot be set together with transform.cachedTriggerNodeId");
+                    // Note that triggerInterval can be set regardless of triggerNodeId.
+                    if (fetchRequestCopy.query.triggerInterval < 60 || fetchRequestCopy.query.triggerInterval > 600) {
+                        status = Status.MALFORMED;
+                        throw new Error("triggerInterval must be set within 60 to 600 seconds when fetching with transform.");
+                    }
+                }
+                else {
+                    // Reusing transformer for single query or updating the request.
+                    if (fetchRequestCopy.query.triggerNodeId.length === 0) {
+                        status = Status.MALFORMED;
+                        throw new Error("triggerNodeId must be set if msgId is set");
+                    }
                 }
             }
 
+
+            // This is a request to update the underlaying fetch request.
+            //
+            if (fetchRequestCopy.transform.algos.length > 0 &&
+                fetchRequestCopy.query.triggerNodeId.length > 0 &&
+                fetchRequestCopy.query.triggerInterval > 0 &&
+                fetchRequestCopy.transform.msgId.length > 0) {
+
+                const key = Transformer.HashKey(fetchRequestCopy);
+
+                const trigger = this.getTrigger(fetchRequestCopy.query.triggerNodeId, key, false);
+
+                if (trigger) {
+                    trigger.fetchRequest.query.cutoffTime       = 0n;
+                    trigger.fetchRequest.query.triggerInterval  = fetchRequestCopy.query.triggerInterval;
+                    trigger.fetchRequest.transform.head         = fetchRequestCopy.transform.head;
+                    trigger.fetchRequest.transform.tail         = fetchRequestCopy.transform.tail;
+                    trigger.fetchRequest.transform.cursorId1    = CopyBuffer(fetchRequestCopy.transform.cursorId1);
+                    trigger.fetchRequest.transform.reverse      = fetchRequestCopy.transform.reverse;
+
+                    const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
+                    sendResponse(fetchResponse);
+
+                    // Rerun the trigger using the updated query.
+                    this.runTrigger(trigger);
+                }
+                else {
+                    const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
+                    fetchResponse.status = Status.TRANSFORMER_INVALIDATED;
+                    sendResponse(fetchResponse);
+                }
+
+                return;
+            }
 
             let transformer: Transformer | undefined;
 
             // Check for transformer algorithms to be run.
             //
             if (fetchRequestCopy.transform.algos.length > 0) {
-                transformer = this.getTransformer(fetchRequestCopy, sendResponse);
 
-                if (!transformer) {
-                    // Fetch response already sent, either by using cached transformer
-                    // or by sending error message.
+                // This is a single query trying to reuse a model.
+                // Return nodes but do not return any delta.
+                if (fetchRequestCopy.query.triggerNodeId.length > 0 &&
+                    fetchRequestCopy.query.triggerInterval === 0 &&
+                    fetchRequestCopy.transform.msgId.length > 0) {
+
+                    const transformer = this.getReadyTransformer(fetchRequestCopy);
+
+                    if (transformer) {
+                        const handleFetchReplyData = this.handleFetchReplyDataFactory(sendResponse,
+                            undefined, fetchRequestCopy.query.preserveTransient);
+
+                        const result = transformer.get(fetchRequestCopy.transform.cursorId1,
+                            fetchRequestCopy.transform.head, fetchRequestCopy.transform.tail,
+                            fetchRequestCopy.transform.reverse);
+
+                        if (!result) {
+                            const fetchReplyData: FetchReplyData = {
+                                status: Status.MISSING_CURSOR,
+                            };
+
+                            handleFetchReplyData(fetchReplyData);
+                        }
+                        else {
+                            const [nodes] = result;
+
+                            const fetchReplyData: FetchReplyData = {
+                                nodes,
+                            };
+
+                            handleFetchReplyData(fetchReplyData);
+                        }
+                    }
+                    else {
+                        // Send error message.
+                        const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
+                        fetchResponse.status = Status.TRANSFORMER_INVALIDATED;
+                        sendResponse(fetchResponse);
+                    }
+
                     return;
                 }
-                else {
-                    // Fall through with newly created transformer.
+
+                transformer = this.createTransformer(fetchRequestCopy, sendResponse);
+
+                if (!transformer) {
+                    // Error response already sent.
+                    return;
                 }
             }
 
@@ -491,7 +578,7 @@ export class Storage {
                 handleFetchReplyData = trigger.handleFetchReplyData;
             }
             else {
-                const handleFetchReplyData0 = this.handleFetchReplyDataFactory(sendResponse, undefined, fetchRequest.query.preserveTransient);
+                const handleFetchReplyData0 = this.handleFetchReplyDataFactory(sendResponse, undefined, fetchRequestCopy.query.preserveTransient);
 
                 handleFetchReplyData = transformer ?
                     transformer.handleFetchReplyDataFactory(handleFetchReplyData0) : handleFetchReplyData0;
@@ -537,6 +624,8 @@ export class Storage {
             console.debug("Exception in handleFetch", e);
             const error = `${e}`;
 
+            // Note that this message has seq === 0 which will cancel the trigger.
+            //
             const errorFetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
             errorFetchResponse.status = status ?? Status.ERROR;
             errorFetchResponse.error  = error;
@@ -557,6 +646,7 @@ export class Storage {
     protected dropTrigger(msgId: Buffer, targetPublicKey: Buffer) {
         for (const parentId in this.triggers) {
             const triggers = this.triggers[parentId];
+
             const index = triggers.findIndex( (trigger: Trigger) => {
                 if (trigger.msgId.equals(msgId)) {
                     if (trigger.fetchRequest.query.targetPublicKey.equals(targetPublicKey)) {
@@ -569,17 +659,25 @@ export class Storage {
 
             if (index > -1) {
                 const trigger = triggers.splice(index, 1)[0];
+
                 if (trigger.transformer) {
                     trigger.transformer.close();
                 }
+
                 if (triggers.length === 0) {
                     delete this.triggers[parentId];
+                }
+
+                if (trigger.handleFetchReplyData) {
+                    trigger.handleFetchReplyData({status: Status.DROPPED_TRIGGER});
                 }
             }
         }
     }
 
     protected addTrigger(fetchRequest: FetchRequest, msgId: Buffer, sendResponse: SendResponseFn<FetchResponse>, transformer?: Transformer): Trigger {
+        fetchRequest.transform.msgId = CopyBuffer(msgId);
+
         const key = Transformer.HashKey(fetchRequest);
 
         const trigger: Trigger = {
@@ -663,7 +761,12 @@ export class Storage {
         }
 
         trigger.fetchRequest.query.cutoffTime = BigInt(now);
-        trigger.lastRun = Date.now();
+
+        if (trigger.fetchRequest.transform.algos.length === 0) {
+            // Only update this here if not using a subscription with transformer.
+            // since that trigger we always want run periodically full reftech to detect deleted nodes.
+            trigger.lastRun = Date.now();
+        }
 
         if (trigger.isPending) {
             trigger.isPending = false;
@@ -688,8 +791,10 @@ export class Storage {
 
                 if (interval > 0 && now - trigger.lastRun > interval) {
                     if (!trigger.isRunning) {
-                        if (trigger.fetchRequest.transform.includeDeleted) {
+                        if (trigger.fetchRequest.transform.algos.length > 0) {
+                            // Do full refetch when using transformer and subscription.
                             trigger.fetchRequest.query.cutoffTime = 0n;
+                            trigger.lastRun = Date.now();
                         }
 
                         this.runTrigger(trigger);
@@ -730,56 +835,61 @@ export class Storage {
         const error                 = fetchReplyData.error;
         const nodes                 = fetchReplyData.nodes ?? [];
         const embed                 = fetchReplyData.embed ?? [];
-        const deletedNodesId1b      = fetchReplyData.deletedNodesId1 ?? [];
-        const indexesArray          = fetchReplyData.indexes ?? [];
         let extra1                  = fetchReplyData.extra ?? "";
+        let delta1                  = fetchReplyData.delta ?? Buffer.alloc(0);
         const rowCount              = fetchReplyData.rowCount ?? 0;
         const cutoffTime            = BigInt(fetchReplyData.now ?? 0);
 
-        if (status === Status.RESULT) {
+        if (status === Status.RESULT || status === Status.MISSING_CURSOR) {
             while (true) {
                 const images: Buffer[]          = [];
                 const imagesToEmbed: Buffer[]   = [];
-                const deletedNodesId1: Buffer[] = [];
-                const indexes: number[]         = [];
 
                 let extra = "";
+                let delta = Buffer.alloc(0);
                 let responseSize = 0;
                 while (responseSize < MESSAGE_SPLIT_BYTES) {
-                    if (extra1.length > 0) {
-                        extra = extra1;
-                        responseSize += extra.length + 4;
-                        extra1 = "";
+                    if (delta1.length > 0) {
+                        const max = MESSAGE_SPLIT_BYTES - responseSize;
+                        delta = delta1.slice(0, max);
+                        responseSize += delta.length + 4;
+                        delta1 = delta1.slice(delta.length);
                         continue;
                     }
 
-                    const node = nodes.shift();
+                    if (extra1.length > 0) {
+                        const max = MESSAGE_SPLIT_BYTES - responseSize;
+                        extra = extra1.slice(0, max);
+                        responseSize += extra.length + 4;
+                        extra1 = extra1.slice(extra.length);
+                        continue;
+                    }
+
+                    const node = nodes[0];
                     if (node) {
                         const image = node.export(preserveTransient, preserveTransient);
+                        if (responseSize + image.length >= MESSAGE_SPLIT_BYTES) {
+                            break;
+                        }
+
+                        nodes.shift();
+
                         images.push(image);
                         responseSize += image.length + 4;
                         continue;
                     }
 
-                    const nodeEmbed = embed.shift();
+                    const nodeEmbed = embed[0];
                     if (nodeEmbed) {
                         const image = nodeEmbed.export(preserveTransient, preserveTransient);
+                        if (responseSize + image.length >= MESSAGE_SPLIT_BYTES) {
+                            break;
+                        }
+
+                        embed.shift();
+
                         imagesToEmbed.push(image);
                         responseSize += image.length + 4;
-                        continue;
-                    }
-
-                    const delNodeId1 = deletedNodesId1b.shift();
-                    if (delNodeId1) {
-                        deletedNodesId1.push(delNodeId1);
-                        responseSize += delNodeId1.length + 4;
-                        continue;
-                    }
-
-                    const index = indexesArray.shift();
-                    if (index !== undefined) {
-                        indexes.push(index);
-                        responseSize += 4 + 4;
                         continue;
                     }
 
@@ -794,8 +904,7 @@ export class Storage {
                         cutoffTime,
                     },
                     transformResult: {
-                        deletedNodesId1,
-                        indexes,
+                        delta,
                         extra,
                     },
                     rowCount,
@@ -810,6 +919,8 @@ export class Storage {
             }
         }
         else {
+            // Note that this message has seq === 0 which will cancel the trigger.
+            //
             const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
             fetchResponse.status    = status;
             fetchResponse.error     = error ?? "";
@@ -817,9 +928,13 @@ export class Storage {
             return [fetchResponse];
         }
 
+        // If we know what endSeq should be we set it.
+        //
         if (fetchReplyData.isLast) {
+            const endSeq = fetchResponses.slice(-1)[0].seq;
+
             for (const fetchResponse of fetchResponses) {
-                fetchResponse.endSeq = seq - 1;
+                fetchResponse.endSeq = endSeq;
             }
         }
 
@@ -835,6 +950,25 @@ export class Storage {
 
         if (trigger.isPending) {
             return this.runTrigger(trigger);
+        }
+
+        return undefined;
+    }
+
+    protected getTrigger(triggerNodeId: Buffer, key: string,
+        requireHasFetched: boolean = true): Trigger | undefined {
+
+        const idStr = triggerNodeId.toString("hex");
+
+        const triggers = this.triggers[idStr] ?? [];
+
+        const triggersLength = triggers.length;
+
+        for (let index=0; index<triggersLength; index++) {
+            const trigger = triggers[index];
+            if (trigger.key === key && (!requireHasFetched || trigger.hasFetched)) {
+                return trigger;
+            }
         }
 
         return undefined;
@@ -1291,46 +1425,8 @@ export class Storage {
         }
     };
 
-    protected getTransformer(fetchRequest: FetchRequest, sendResponse: SendResponseFn<FetchResponse>): Transformer | undefined {
-
-        fetchRequest.query.cutoffTime = 0n;
-
-        // If this request does not create a trigger then reuse an existing transformers cache
-        // to fetch from, if available.
-        //
-        if (fetchRequest.query.triggerNodeId.length === 0 && fetchRequest.query.triggerInterval === 0 &&
-            fetchRequest.transform.cachedTriggerNodeId) {
-
-            const transformer = this.getReadyTransformer(fetchRequest);
-
-            if (transformer) {
-                const handleFetchReplyData = this.handleFetchReplyDataFactory(sendResponse, undefined, fetchRequest.query.preserveTransient);
-
-                const result = transformer.get(fetchRequest.transform.cursorId1,
-                    fetchRequest.transform.head, fetchRequest.transform.tail);
-
-                if (!result) {
-                    const fetchReplyData: FetchReplyData = {
-                        status: Status.MISSING_CURSOR,
-                    };
-
-                    handleFetchReplyData(fetchReplyData);
-
-                    return undefined;
-                }
-
-                const [nodes, indexes] = result;
-
-                const fetchReplyData: FetchReplyData = {
-                    nodes,
-                    indexes,
-                };
-
-                handleFetchReplyData(fetchReplyData);
-
-                return undefined;
-            }
-        }
+    protected createTransformer(fetchRequest: FetchRequest,
+        sendResponse: SendResponseFn<FetchResponse>): Transformer | undefined {
 
         if (!this.allowAnotherTransformer()) {
             const fetchReplyData: FetchReplyData = {
@@ -1338,7 +1434,9 @@ export class Storage {
                 error: "Out of memory to create transformer",
             };
 
-            const handleFetchReplyData = this.handleFetchReplyDataFactory(sendResponse, undefined, fetchRequest.query.preserveTransient);
+            const handleFetchReplyData = this.handleFetchReplyDataFactory(sendResponse,
+                undefined, fetchRequest.query.preserveTransient);
+
             handleFetchReplyData(fetchReplyData);
 
             return undefined;
@@ -1351,15 +1449,11 @@ export class Storage {
 
     protected getReadyTransformer(fetchRequest: FetchRequest): Transformer | undefined {
         const key = Transformer.HashKey(fetchRequest);
-        const idStr = fetchRequest.query.triggerNodeId.toString("hex");
-        const triggers = this.triggers[idStr] ?? [];
 
-        const triggersLength = triggers.length;
-        for (let index=0; index<triggersLength; index++) {
-            const trigger = triggers[index];
-            if (trigger.key === key && trigger.hasFetched) {
-                return trigger.transformer;
-            }
+        const trigger = this.getTrigger(fetchRequest.query.triggerNodeId, key);
+
+        if (trigger) {
+            return trigger.transformer;
         }
 
         return undefined;

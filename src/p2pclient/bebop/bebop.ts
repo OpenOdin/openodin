@@ -278,14 +278,15 @@ export interface IFetchQuery {
   limit: number;
   cutoffTime: bigint;
   rootNodeId1: Uint8Array;
+  discardRoot: boolean;
   parentId: Uint8Array;
   targetPublicKey: Uint8Array;
   sourcePublicKey: Uint8Array;
-  triggerNodeId: Uint8Array;
-  onlyTrigger: boolean;
   match: Array<IMatch>;
-  discardRoot: boolean;
   embed: Array<IAllowEmbed>;
+  triggerNodeId: Uint8Array;
+  triggerInterval: number;
+  onlyTrigger: boolean;
   descending: boolean;
   orderByStorageTime: boolean;
   ignoreInactive: boolean;
@@ -309,11 +310,10 @@ export const FetchQuery = {
       view.writeInt32(message.limit);
       view.writeInt64(message.cutoffTime);
       view.writeBytes(message.rootNodeId1);
+      view.writeByte(Number(message.discardRoot));
       view.writeBytes(message.parentId);
       view.writeBytes(message.targetPublicKey);
       view.writeBytes(message.sourcePublicKey);
-      view.writeBytes(message.triggerNodeId);
-      view.writeByte(Number(message.onlyTrigger));
       {
         const length0 = message.match.length;
         view.writeUint32(length0);
@@ -321,7 +321,6 @@ export const FetchQuery = {
           Match.encodeInto(message.match[i0], view)
         }
       }
-      view.writeByte(Number(message.discardRoot));
       {
         const length0 = message.embed.length;
         view.writeUint32(length0);
@@ -329,6 +328,9 @@ export const FetchQuery = {
           AllowEmbed.encodeInto(message.embed[i0], view)
         }
       }
+      view.writeBytes(message.triggerNodeId);
+      view.writeUint16(message.triggerInterval);
+      view.writeByte(Number(message.onlyTrigger));
       view.writeByte(Number(message.descending));
       view.writeByte(Number(message.orderByStorageTime));
       view.writeByte(Number(message.ignoreInactive));
@@ -355,38 +357,38 @@ export const FetchQuery = {
     field2 = view.readInt64();
     let field3: Uint8Array;
     field3 = view.readBytes();
-    let field4: Uint8Array;
-    field4 = view.readBytes();
+    let field4: boolean;
+    field4 = !!view.readByte();
     let field5: Uint8Array;
     field5 = view.readBytes();
     let field6: Uint8Array;
     field6 = view.readBytes();
     let field7: Uint8Array;
     field7 = view.readBytes();
-    let field8: boolean;
-    field8 = !!view.readByte();
-    let field9: Array<IMatch>;
+    let field8: Array<IMatch>;
     {
       let length0 = view.readUint32();
-      field9 = new Array<IMatch>(length0);
+      field8 = new Array<IMatch>(length0);
       for (let i0 = 0; i0 < length0; i0++) {
         let x0: IMatch;
         x0 = Match.readFrom(view);
-        field9[i0] = x0;
+        field8[i0] = x0;
       }
     }
-    let field10: boolean;
-    field10 = !!view.readByte();
-    let field11: Array<IAllowEmbed>;
+    let field9: Array<IAllowEmbed>;
     {
       let length0 = view.readUint32();
-      field11 = new Array<IAllowEmbed>(length0);
+      field9 = new Array<IAllowEmbed>(length0);
       for (let i0 = 0; i0 < length0; i0++) {
         let x0: IAllowEmbed;
         x0 = AllowEmbed.readFrom(view);
-        field11[i0] = x0;
+        field9[i0] = x0;
       }
     }
+    let field10: Uint8Array;
+    field10 = view.readBytes();
+    let field11: number;
+    field11 = view.readUint16();
     let field12: boolean;
     field12 = !!view.readByte();
     let field13: boolean;
@@ -397,30 +399,33 @@ export const FetchQuery = {
     field15 = !!view.readByte();
     let field16: boolean;
     field16 = !!view.readByte();
-    let field17: string;
-    field17 = view.readString();
+    let field17: boolean;
+    field17 = !!view.readByte();
     let field18: string;
     field18 = view.readString();
+    let field19: string;
+    field19 = view.readString();
     let message: IFetchQuery = {
       depth: field0,
       limit: field1,
       cutoffTime: field2,
       rootNodeId1: field3,
-      parentId: field4,
-      targetPublicKey: field5,
-      sourcePublicKey: field6,
-      triggerNodeId: field7,
-      onlyTrigger: field8,
-      match: field9,
-      discardRoot: field10,
-      embed: field11,
-      descending: field12,
-      orderByStorageTime: field13,
-      ignoreInactive: field14,
-      ignoreOwn: field15,
-      preserveTransient: field16,
-      region: field17,
-      jurisdiction: field18,
+      discardRoot: field4,
+      parentId: field5,
+      targetPublicKey: field6,
+      sourcePublicKey: field7,
+      match: field8,
+      embed: field9,
+      triggerNodeId: field10,
+      triggerInterval: field11,
+      onlyTrigger: field12,
+      descending: field13,
+      orderByStorageTime: field14,
+      ignoreInactive: field15,
+      ignoreOwn: field16,
+      preserveTransient: field17,
+      region: field18,
+      jurisdiction: field19,
     };
     return message;
   },
@@ -428,13 +433,11 @@ export const FetchQuery = {
 
 export interface IFetchTransform {
   algos: Array<number>;
+  msgId: Uint8Array;
   reverse: boolean;
-  cursorId1: Uint8Array;
   head: number;
   tail: number;
-  cachedTriggerNodeId: Uint8Array;
-  cacheId: number;
-  includeDeleted: boolean;
+  cursorId1: Uint8Array;
 }
 
 export const FetchTransform = {
@@ -454,13 +457,11 @@ export const FetchTransform = {
           view.writeUint16(message.algos[i0]);
         }
       }
+      view.writeBytes(message.msgId);
       view.writeByte(Number(message.reverse));
-      view.writeBytes(message.cursorId1);
       view.writeInt32(message.head);
       view.writeInt32(message.tail);
-      view.writeBytes(message.cachedTriggerNodeId);
-      view.writeInt16(message.cacheId);
-      view.writeByte(Number(message.includeDeleted));
+      view.writeBytes(message.cursorId1);
     const after = view.length;
     return after - before;
   },
@@ -482,29 +483,23 @@ export const FetchTransform = {
         field0[i0] = x0;
       }
     }
-    let field1: boolean;
-    field1 = !!view.readByte();
-    let field2: Uint8Array;
-    field2 = view.readBytes();
+    let field1: Uint8Array;
+    field1 = view.readBytes();
+    let field2: boolean;
+    field2 = !!view.readByte();
     let field3: number;
     field3 = view.readInt32();
     let field4: number;
     field4 = view.readInt32();
     let field5: Uint8Array;
     field5 = view.readBytes();
-    let field6: number;
-    field6 = view.readInt16();
-    let field7: boolean;
-    field7 = !!view.readByte();
     let message: IFetchTransform = {
       algos: field0,
-      reverse: field1,
-      cursorId1: field2,
+      msgId: field1,
+      reverse: field2,
       head: field3,
       tail: field4,
-      cachedTriggerNodeId: field5,
-      cacheId: field6,
-      includeDeleted: field7,
+      cursorId1: field5,
     };
     return message;
   },
@@ -521,8 +516,9 @@ export enum Status {
   NOT_ALLOWED = 8,
   MISMATCH = 9,
   EXISTS = 10,
-  TRY_AGAIN = 11,
+  TRANSFORMER_INVALIDATED = 11,
   MISSING_CURSOR = 12,
+  DROPPED_TRIGGER = 13,
 }
 
 export interface IFetchResult {
@@ -599,8 +595,7 @@ export const FetchResult = {
 };
 
 export interface ITransformResult {
-  deletedNodesId1: Array<Uint8Array>;
-  indexes: Array<number>;
+  delta: Uint8Array;
   extra: string;
 }
 
@@ -614,20 +609,7 @@ export const TransformResult = {
 
   encodeInto(message: ITransformResult, view: BebopView): number {
     const before = view.length;
-      {
-        const length0 = message.deletedNodesId1.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          view.writeBytes(message.deletedNodesId1[i0]);
-        }
-      }
-      {
-        const length0 = message.indexes.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          view.writeInt32(message.indexes[i0]);
-        }
-      }
+      view.writeBytes(message.delta);
       view.writeString(message.extra);
     const after = view.length;
     return after - before;
@@ -640,32 +622,13 @@ export const TransformResult = {
   },
 
   readFrom(view: BebopView): ITransformResult {
-    let field0: Array<Uint8Array>;
-    {
-      let length0 = view.readUint32();
-      field0 = new Array<Uint8Array>(length0);
-      for (let i0 = 0; i0 < length0; i0++) {
-        let x0: Uint8Array;
-        x0 = view.readBytes();
-        field0[i0] = x0;
-      }
-    }
-    let field1: Array<number>;
-    {
-      let length0 = view.readUint32();
-      field1 = new Array<number>(length0);
-      for (let i0 = 0; i0 < length0; i0++) {
-        let x0: number;
-        x0 = view.readInt32();
-        field1[i0] = x0;
-      }
-    }
-    let field2: string;
-    field2 = view.readString();
+    let field0: Uint8Array;
+    field0 = view.readBytes();
+    let field1: string;
+    field1 = view.readString();
     let message: ITransformResult = {
-      deletedNodesId1: field0,
-      indexes: field1,
-      extra: field2,
+      delta: field0,
+      extra: field1,
     };
     return message;
   },

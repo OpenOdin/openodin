@@ -8,7 +8,7 @@ import {
     Hash,
     BlobEvent,
     ParseUtil,
-    TransformerItem,
+    TRANSFORMER_EVENT,
     AbstractStreamReader,
     Service,
     Thread,
@@ -136,21 +136,34 @@ async function main() {
             targets: [keyPair1.publicKey]});
 
         const responseAPI = serverThread.stream();
-        responseAPI.onChange( async (item: TransformerItem) => {
+        responseAPI.onChange( async (event) => {
+            if (event.added.length === 0) {
+                return;
+            }
+
             messageCounter++;
 
-            const dataNode = item.node as DataInterface;
+            assert(event.added.length === 1);
+
+            const id1 = event.added[0];
+
+            const dataNode = responseAPI.getTransformer().getNode(id1);
+
+            assert(dataNode);
 
             const message = dataNode.getData()?.toString();
 
             consoleServer.info(message);
 
             if (dataNode.hasBlob()) {
-                const {blobDataPromise} = serverThread!.downloadFull(dataNode);
+                // TODO: remove this timeout when we fixed better retries in the blob streamers.
+                setTimeout( async () => {
+                    const {blobDataPromise} = serverThread!.downloadFull(dataNode);
 
-                const blobData = await blobDataPromise;
+                    const blobData = await blobDataPromise;
 
-                blobResolve && blobResolve(Buffer.concat(blobData));
+                    blobResolve && blobResolve(Buffer.concat(blobData));
+                }, 100);
             }
         });
 
@@ -198,10 +211,22 @@ async function main() {
 
         const responseAPI = clientThread.stream();
 
-        responseAPI.onChange( (item: TransformerItem, changeType: string) => {
+        responseAPI.onChange( (event) => {
+            if (event.added.length === 0) {
+                return;
+            }
+
             messageCounter++;
 
-            const message = (item.node as DataInterface).getData()?.toString();
+            assert(event.added.length === 1);
+
+            const id1 = event.added[0];
+
+            const dataNode = responseAPI.getTransformer().getNode(id1);
+
+            assert(dataNode);
+
+            const message = dataNode.getData()?.toString();
             consoleClient.info(message);
         });
     });

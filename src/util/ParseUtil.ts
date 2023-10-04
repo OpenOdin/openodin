@@ -804,7 +804,7 @@ export class ParseUtil {
 
         const onlyTrigger = ParseUtil.ParseVariable("query onlyTrigger must be boolean, if set", query.onlyTrigger, "boolean", true) ?? false;
         const triggerNodeId = ParseUtil.ParseVariable("query triggerNodeId must be hex-string or Buffer, if set", query.triggerNodeId, "hex", true) ?? Buffer.alloc(0);
-        const triggerInterval = ParseUtil.ParseVariable("query interval must be number, if set", query.interval, "number", true) ?? 0;
+        const triggerInterval = ParseUtil.ParseVariable("query interval must be number, if set", query.triggerInterval, "number", true) ?? 0;
         const match = ParseUtil.ParseMatch(ParseUtil.ParseVariable("query match must be object[], if set", query.match, "object[]", true) ?? []);
         const depth = ParseUtil.ParseVariable("query depth must be number, if set", query.depth, "number", true) ?? -1;
         const limit = ParseUtil.ParseVariable("query limit must be number, if set", query.limit, "number", true) ?? -1;
@@ -873,9 +873,7 @@ export class ParseUtil {
      *  cursorId1?: hexstring | Buffer,
      *  head?: number,
      *  tail?: number,
-     *  cachedTriggerNodeId?: hexstring | Buffer,
-     *  cacheId?: number,
-     *  includeDeleted?: boolean,
+     *  msgId?: hexstring | Buffer,
      *
      * }
      * @returns FetchTransform
@@ -886,13 +884,11 @@ export class ParseUtil {
             throw new Error("Expecting transform to be object.");
         }
 
-        const cachedTriggerNodeId = ParseUtil.ParseVariable("transform cachedTriggerNodeId must be hex-string or Buffer, if set", transform.cachedTriggerNodeId, "hex", true) ?? Buffer.alloc(0);
-        const cacheId = ParseUtil.ParseVariable("transform cacheId must be number, if set", transform.cacheId, "number", true) ?? 0;
+        const msgId = ParseUtil.ParseVariable("transform msgId must be hex-string or Buffer, if set", transform.msgId, "hex", true) ?? Buffer.alloc(0);
         const algos = ParseUtil.ParseVariable("transform algos must be number[], if set", transform.algos, "number[]", true) ?? [];
         const head = ParseUtil.ParseVariable("transform head must be number, if set", transform.head, "number", true) ?? 0;
         const tail = ParseUtil.ParseVariable("transform tail must be number, if set", transform.tail, "number", true) ?? 0;
         const reverse = ParseUtil.ParseVariable("transform reverse must be boolean, if set", transform.reverse, "boolean", true) ?? false;
-        const includeDeleted = ParseUtil.ParseVariable("transform includeDeleted must be boolean, if set", transform.includeDeleted, "boolean", true) ?? false;
         const cursorId1 = ParseUtil.ParseVariable("transform cursorId1 must be hex-string or Buffer, if set", transform.cursorId1, "hex", true) ?? Buffer.alloc(0);
 
         return {
@@ -901,9 +897,7 @@ export class ParseUtil {
             cursorId1,
             head,
             tail,
-            cachedTriggerNodeId,
-            cacheId,
-            includeDeleted,
+            msgId,
         };
     }
 

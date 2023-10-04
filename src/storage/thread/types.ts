@@ -9,9 +9,11 @@ import {
 import {
     DataParams,
     LicenseParams,
+    NodeInterface,
 } from "../../datamodel";
 
 import {
+    FetchRequest,
     FetchResponse,
     FetchQuery,
     FetchTransform,
@@ -84,7 +86,6 @@ export type ThreadTransformerParams = {
     head?:              number,
     tail?:              number,
     cursorId1?:         Buffer,
-    includeDeleted?:    boolean,
 };
 
 /**
@@ -152,13 +153,53 @@ export type ThreadDefaults = {
     validSeconds?: number,
 };
 
-export type ThreadResponseAPI = {
-    onAdd:      (...parameters: Parameters<TransformerCache["onAdd"]>) => ThreadResponseAPI,
-    onUpdate:   (...parameters: Parameters<TransformerCache["onUpdate"]>) => ThreadResponseAPI,
-    onInsert:   (...parameters: Parameters<TransformerCache["onInsert"]>) => ThreadResponseAPI,
-    onDelete:   (...parameters: Parameters<TransformerCache["onDelete"]>) => ThreadResponseAPI,
-    onChange:   (...parameters: Parameters<TransformerCache["onChange"]>) => ThreadResponseAPI,
-    onClose:    (...parameters: Parameters<TransformerCache["onClose"]>) => ThreadResponseAPI,
+export type UpdateStreamParams = {
+    head: number | undefined, tail: number | undefined, cursorId1: Buffer | undefined, reverse: boolean | undefined, triggerInterval: number | undefined
+};
+
+/**
+ * This is returend when calling thread.stream().
+ */
+export type ThreadStreamResponseAPI = {
+    /** onChange events from the TransformerCache model. */
+    onChange: (...parameters: Parameters<TransformerCache["onChange"]>) => ThreadStreamResponseAPI,
+
+    /** Nodes incoming in getResponse.onReply. */
+    onData: (cb: (nodes: NodeInterface[]) => void) => ThreadStreamResponseAPI,
+
+    /**
+     * Propagated from GetResponse.onCancel() and is called when the stream has been ended
+     * either by error, from an unsubscribe call or when the socket has closed.
+     */
+    onCancel: (cb: () => void) => ThreadStreamResponseAPI,
+
+    /**
+     * Unsubscribe from the stream.
+     */
+    stopStream: () => void,
+
+    /**
+     * Update the running fetch request for this stream.
+     */
+    updateStream: (updateStreamParams: UpdateStreamParams) => void,
+
     getResponse: () => GetResponse<FetchResponse>,
-    getTransformer: () => TransformerCache | undefined,
+
+    getTransformer: () => TransformerCache,
+};
+
+/**
+ * This is returend when calling thread.query().
+ */
+export type ThreadQueryResponseAPI = {
+    /** Nodes incoming in getResponse.onReply. */
+    onData: (cb: (nodes: NodeInterface[]) => void) => ThreadQueryResponseAPI,
+
+    /**
+     * Propagated from GetResponse.onCancel() and is called when the
+     * query was cancelled due to an error or when the socket has closed.
+     */
+    onCancel: (cb: () => void) => ThreadQueryResponseAPI,
+
+    getResponse: () => GetResponse<FetchResponse>,
 };

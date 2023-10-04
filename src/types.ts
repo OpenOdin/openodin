@@ -9,9 +9,10 @@ export {EventType};
 
 /**
  * Define size of when messages are split into multiple messages.
- * MESSAGE_MAX_BYTES bytes is the max message size allowed in pocket-messaging, the subtraction is to take our own serialization overhead into account.
+ * MESSAGE_MAX_BYTES bytes is the max message size allowed in pocket-messaging,
+ * the subtraction is to take our own serialization overhead into account.
  */
-export const MESSAGE_SPLIT_BYTES = MESSAGE_MAX_BYTES - 3*1024;
+export const MESSAGE_SPLIT_BYTES = MESSAGE_MAX_BYTES - 3*1024;  // 67 KiB.
 
 /**
  * How many parents up do we look for parent licenses.

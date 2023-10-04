@@ -29,7 +29,7 @@ export class AlgoRefId implements AlgoInterface {
 
     protected maxLength: number;
 
-    constructor(maxLength: number = 10000) {
+    constructor(maxLength: number = MAX_TRANSFORMER_LENGTH) {
         this.nodeById1 = {};
         this.childrenPerParent = {};
         this.levels = [];
@@ -223,12 +223,15 @@ export class AlgoRefId implements AlgoInterface {
 
         for (let levelIndex=0; levelIndex<this.levels.length; levelIndex++) {
             level = this.levels[levelIndex];
+
             if (!level) {
                 return undefined;
             }
-            if (aggregatedCount + level.length > index) {
+
+            if (aggregatedCount + level.length >= index) {
                 break;
             }
+
             aggregatedCount = aggregatedCount + level.length;
         }
 
@@ -287,67 +290,87 @@ export class AlgoRefId implements AlgoInterface {
     /**
      * @returns undefined if cursor node does not exist.
      */
-    public get(cursorId1: Buffer | undefined, head: number, tail: number): [NodeInterface[], number[]] | undefined {
-        const nodes: NodeInterface[] = [];
-        const indexes: number[] = [];
+    public get(cursorId1: Buffer | undefined, head: number, tail: number, reverse: boolean):
+        [NodeInterface[], number[]] | undefined {
 
-        if (tail === 0 && head === 0) {
+        if ((tail === 0 && head === 0) || (tail !== 0 && head !== 0)) {
             return [[], []];
         }
 
-        const length = this.getLength();
-
-        let index;
-        let step;
-        let limit;
-
         if (head !== 0) {
-            index = 0;
-            step = 1;
-            if (head === -1) {
-                limit = MAX_TRANSFORMER_LENGTH;
+            if (head <= -1) {
+                head = MAX_TRANSFORMER_LENGTH;
             }
             else {
-                limit = Math.min(head, MAX_TRANSFORMER_LENGTH);
+                head = Math.min(head, MAX_TRANSFORMER_LENGTH);
             }
         }
-        else {
-            index = length - 1;
-            step = -1;
-            if (tail === -1) {
-                limit = MAX_TRANSFORMER_LENGTH;
+
+        if (tail !== 0) {
+            if (tail <= -1) {
+                tail = MAX_TRANSFORMER_LENGTH;
             }
             else {
-                limit = Math.min(tail, MAX_TRANSFORMER_LENGTH);
+                tail = Math.min(tail, MAX_TRANSFORMER_LENGTH);
             }
+        }
+
+        if (reverse) {
+            [tail, head] = [head, tail];
+        }
+
+        let startIndex  = 0;
+        let endIndex    = head;
+
+        if (tail) {
+            endIndex = this.getLength();
+            startIndex = Math.max(endIndex - tail, 0);
         }
 
         if (cursorId1 && cursorId1.length > 0) {
             const id1Str = cursorId1.toString("hex");
+
             const cursorNode = this.nodeById1[id1Str];
-            if (!cursorNode) {
+
+            if (cursorNode === undefined) {
                 return undefined;
             }
+
             try {
-                index = this.getIndexes([cursorNode])[0];
+                const cursorIndex = this.getIndexes([cursorNode])[0];
+
+                if (head) {
+                    startIndex = cursorIndex + 1;
+                    endIndex = startIndex + head;
+                }
+                else {
+                    endIndex = cursorIndex;
+                    startIndex = Math.max(endIndex - tail, 0);
+                }
             }
             catch(e) {
                 return undefined;
             }
-
-            index = index + step;
         }
 
-        while (index >= 0 && index < length && nodes.length < limit) {
+        const nodes: NodeInterface[] = [];
+        const indexes: number[] = [];
+
+        for (let index = startIndex; index < endIndex; index++) {
             const node = this.getNodeAtIndex(index);
+
             if (!node) {
                 break;
             }
 
             nodes.push(node);
-            indexes.push(index);
 
-            index = index + step;
+            indexes.push(index);
+        }
+
+        if (reverse) {
+            nodes.reverse();
+            indexes.reverse();
         }
 
         return [nodes, indexes];
