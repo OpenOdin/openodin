@@ -5,6 +5,10 @@ import {
     AbstractStreamReader,
 } from "./AbstractStreamReader";
 
+import {
+    StreamStatus,
+} from "./types";
+
 const stat = util.promisify(fs.stat);
 const read = util.promisify(fs.read);
 const close = util.promisify(fs.close);
@@ -15,11 +19,10 @@ const open = util.promisify(fs.open);
  */
 export class FileStreamReader extends AbstractStreamReader {
     protected filepath: string;
-    protected fd?: number;
-    protected size: bigint;
 
-    /** Maximum chunk of bytes to read from file each time. */
-    protected chunkSize: number;
+    protected fd?: number;
+
+    protected size: bigint;
 
     /**
      * @param filepath of the file.
@@ -27,14 +30,11 @@ export class FileStreamReader extends AbstractStreamReader {
      * @param chunkSize the chunk size in bytes to batch read.
      */
     constructor(filepath: string, pos: bigint = 0n, chunkSize: number = 1024 * 1024) {
-        super(pos);
-        this.filepath = filepath;
-        this.chunkSize = chunkSize;
-        this.size = 0n;
+        super(pos, chunkSize);
 
-        if (chunkSize <= 0) {
-            throw new Error("chunkSize must be > 0");
-        }
+        this.filepath = filepath;
+
+        this.size = 0n;
     }
 
     /**
@@ -55,43 +55,82 @@ export class FileStreamReader extends AbstractStreamReader {
      */
     protected async open(): Promise<bigint> {
         if (this.fd !== undefined) {
-            throw new Error("File is already open");
+            return 0n;
         }
 
         try {
             const stats: fs.BigIntStats = await stat(this.filepath, {bigint: true});
+
+            if (!stats.isFile()) {
+                return 0n;
+            }
+
             this.fd = await open(this.filepath, "r");  // Open for reading
 
             return stats.size;
         }
         catch(e) {
-            throw new Error(`The file could not be opened for reading: ${this.filepath}. ${e}`);
+            // this.fd will not have been set which does indicate an error.
+            return 0n;
         }
     }
 
-    /**
-     * Attempts to read more data into the buffer.
-     * @throws on unrecoverable error
-     */
-    protected async read(chunkSize?: number): Promise<void> {
-        if (this.isClosed) {
-            throw new Error("Reader is closed");
-        }
-
-        if (!this.fd) {
+    protected async read(chunkSize?: number): Promise<boolean> {
+        if (this.fd === undefined) {
             this.size = await this.open();
+
+            if (this.fd === undefined) {
+                this.buffered.push({
+                    status: StreamStatus.UNRECOVERABLE,
+                    error: `FileStreamReader could not open the file: ${this.filepath}`,
+                    data: Buffer.alloc(0),
+                    pos: 0n,
+                    size: 0n,
+                });
+
+                return false;
+            }
         }
 
-        if (!this.fd) {
-            throw new Error(`Reader could not open the file: ${this.filepath}`);
+        if (this.pos === this.size) {
+            this.buffered.push({
+                status: StreamStatus.EOF,
+                size: this.size,
+                data: Buffer.alloc(0),
+                pos: this.pos,
+                error: "",
+            });
+
+            return false;
         }
 
         if (this.pos > this.size) {
-            throw new Error(`Position has been seeked beyond file '${this.filepath}'. Run without resume to overwrite target to avoid seeking`);
-            return;
+            const error = `Position has been seeked beyond file '${this.filepath}'. Run without resume to overwrite target`;
+
+            this.buffered.push({
+                status: StreamStatus.UNRECOVERABLE,
+                error,
+                data: Buffer.alloc(0),
+                pos: 0n,
+                size: 0n,
+            });
+
+            return false;
         }
 
         chunkSize = chunkSize ?? this.chunkSize;
+
+        if (chunkSize < 1) {
+            this.buffered.push({
+                status: StreamStatus.UNRECOVERABLE,
+                error: "chunkSize must be > 0",
+                data: Buffer.alloc(0),
+                pos: 0n,
+                size: 0n,
+            });
+
+            return false;
+        }
 
         try {
             const length = Math.min(chunkSize, Number(this.size - this.pos));
@@ -100,12 +139,42 @@ export class FileStreamReader extends AbstractStreamReader {
 
             const {bytesRead} = await read(this.fd, data, 0, data.length, Number(this.pos));
 
-            this.buffered.push({size: this.size, data: data.slice(0, bytesRead), pos: this.pos});
+            this.buffered.push({
+                status: StreamStatus.RESULT,
+                size: this.size,
+                data: data.slice(0, bytesRead),
+                pos: this.pos,
+                error: "",
+            });
 
             this.pos = this.pos + BigInt(bytesRead);
+
+            if (this.pos === this.size) {
+                this.buffered.push({
+                    status: StreamStatus.EOF,
+                    size: this.size,
+                    data: Buffer.alloc(0),
+                    pos: this.pos,
+                    error: "",
+                });
+
+                return false;
+            }
+
+            return true;
         }
         catch(e) {
-            throw new Error(`Could not read from file: ${this.filepath}: ${e}`);
+            const error = `FileStreamReader could not read from file: ${this.filepath}: ${e}`;
+
+            this.buffered.push({
+                status: StreamStatus.UNRECOVERABLE,
+                error,
+                data: Buffer.alloc(0),
+                pos: 0n,
+                size: 0n,
+            });
+
+            return false;
         }
     }
 }

@@ -6,7 +6,8 @@ import {
 } from "./AbstractStreamWriter";
 
 import {
-    ReadData,
+    StreamReadData,
+    StreamStatus,
     StreamReaderInterface,
 } from "./types";
 
@@ -23,6 +24,8 @@ export class FileStreamWriter extends AbstractStreamWriter {
     protected filepath: string;
     protected fd?: number;
 
+    protected readPosOffset: bigint;
+
     /**
      * @param filepath of the file.
      * @param streamReader the reader to consume.
@@ -30,7 +33,14 @@ export class FileStreamWriter extends AbstractStreamWriter {
      */
     constructor(filepath: string, streamReader: StreamReaderInterface, allowResume: boolean = true) {
         super(streamReader, allowResume);
+
         this.filepath = filepath;
+
+        if (streamReader.getPos() !== 0n && allowResume) {
+            throw new Error("StreamReader must start at position 0 when using allowResume");
+        }
+
+        this.readPosOffset = streamReader.getPos();
     }
 
     /**
@@ -41,28 +51,38 @@ export class FileStreamWriter extends AbstractStreamWriter {
             close(this.fd);
             delete this.fd;
         }
+
         super.close();
     }
 
     /**
      * Opens file for writing
-     * @return size of current target file if this.allowResume is set
+     * @return size of current target file if this.allowResume is set.
+     * this.fd will be set on success.
      */
     protected async open(): Promise<bigint> {
         if (this.fd !== undefined) {
             return 0n;
         }
+
         try {
             let size: bigint = 0n;
+
             if (this.allowResume) {
                 try {
                     const stats: fs.BigIntStats = await stat(this.filepath, {bigint: true});
+
+                    if (!stats.isFile()) {
+                        return 0n;
+                    }
+
                     size = stats.size;
                 }
                 catch(e) {
-                    // Do nothing
+                    // Fall through
                 }
             }
+
             if (size === 0n) {
                 this.fd = await open(this.filepath, "w");  // Creates file for writing (truncates also)
             }
@@ -73,37 +93,42 @@ export class FileStreamWriter extends AbstractStreamWriter {
             return size;
         }
         catch(e) {
-            const message = (typeof (e as any)?.message) === "string" ? (e as any).message : "";
-            throw new Error(`File ${this.filepath} could not be opened for writing: ${message}`);
+            // this.fd is still undefined which indicates an error opening the file.
+            return 0n;
         }
     }
 
-    /**
-     * Write data to target file.
-     * @param readData the data to write.
-     * @returns promise which will resolve on success or reject on error.
-     * On success a boolean is returned, if false then the write was discarded due to an fseek.
-     */
-    protected async write(readData: ReadData): Promise<boolean> {
+    protected async write(readData: StreamReadData): Promise<[StreamStatus, string, bigint?]> {
         if (this.fd === undefined) {
-            const fseek = await this.open();  // Throws
-            if (fseek > 0) {
-                this.streamReader.seek(fseek);
+            const fseek = await this.open();
+
+            if (this.fd === undefined) {
+                const error = `FileStreamWriter could not open the file: ${this.filepath}`;
+
+                return [StreamStatus.UNRECOVERABLE, error];
+            }
+
+            if (fseek > 0n) {
                 // Discard this readData and wait for next call since we have seeked in the reader.
-                return false;
+                return [StreamStatus.RESULT, "", fseek];
             }
         }
 
-        if (!this.fd) {
-            throw new Error(`Writer could not open the file: ${this.filepath}`);
+        const pos = readData.pos - this.readPosOffset;
+
+        if (pos < 0) {
+            return [StreamStatus.ERROR, "StreamReader has been reset behind its initial pos."];
         }
 
-        const {bytesWritten} = await write(this.fd, readData.data, 0, readData.data.length, Number(readData.pos));
+        const {bytesWritten} = await write(this.fd, readData.data, 0,
+            readData.data.length, Number(pos));
 
         if (bytesWritten !== readData.data.length) {
-            throw new Error(`All data could not be written to the file: ${this.filepath}. Disk full?`);
+            const error = `All data could not be written to the file: ${this.filepath}. Disk full?`;
+
+            return [StreamStatus.ERROR, error];
         }
 
-        return true;
+        return [StreamStatus.RESULT, ""];
     }
 }

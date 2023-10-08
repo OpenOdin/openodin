@@ -2,7 +2,9 @@ import {
     StreamReaderInterface,
     StreamWriterInterface,
     WriteStats,
-    ReadData,
+    StreamReadData,
+    StreamStatus,
+    StreamWriteData,
     OnStatsFn,
 } from "./types";
 
@@ -11,28 +13,42 @@ import {
  */
 export abstract class AbstractStreamWriter implements StreamWriterInterface {
     protected streamReader: StreamReaderInterface;
+
     protected allowResume: boolean;
-    protected runPromise: {promise?: Promise<void>, resolve?: (...args: any) => void, reject?: (...args: any) => void};
-    protected pausedPromise: {promise?: Promise<void>, resolve?: (...args: any) => void, reject?: (...args: any) => void};
-    protected isClosed: boolean;
+
+    protected pausedPromise: {promise?: Promise<void>, resolve?: () => void} = {};
+
+    protected _isClosed: boolean = false;
+
+    //@ts-ignore TS2564: This does get initialized in the constructor by calling initState().
     protected stats: WriteStats;
+
     protected statsFn?: OnStatsFn;
-    protected pausedTime: number;
-    protected readChunkSize?: number;
+
+    protected pausedTime: number = 0;
+
+    protected error: string = "";
 
     /**
-     * @param streamReader the reader to consume data on
+     * @param streamReader the reader to consume data on it is automatically closed upon completion or error.
      * @param allowResume if set to true then detect if target has unfinished write and seek the reader forward.
-     *
      */
     constructor(streamReader: StreamReaderInterface, allowResume: boolean) {
         this.streamReader = streamReader;
         this.allowResume = allowResume;
+
+        this.initState();
+    }
+
+    protected initState() {
         this.pausedPromise = {};
-        this.runPromise = {};
-        this.isClosed = false;
+
+        this._isClosed = false;
+
         this.pausedTime = 0;
+
         this.stats = {
+            resumed: false,
             written: 0n,
             pos: 0n,
             size: 0n,
@@ -44,6 +60,33 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
             duration: 0,
             finishTime: undefined,
         };
+
+        this.streamReader.setAutoClose(false);
+    }
+
+    public reinit() {
+        if (!this._isClosed) {
+            throw new Error("StreamWriter reinit() can only be called after being closed");
+        }
+
+        this.streamReader.reinit();
+
+        this.initState();
+    }
+
+    public isClosed(): boolean {
+        return this._isClosed;
+    }
+
+    /**
+     * @returns the error message which also was returned in run() after streamer got closed.
+     */
+    public getError(): string {
+        if (this._isClosed) {
+            return this.error;
+        }
+
+        return "";
     }
 
     protected triggerStats() {
@@ -58,7 +101,7 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
     }
 
     /**
-     * Pause the write until run() is called again.
+     * Pause the write until unpause() or close() is called.
      */
     public pause() {
         if (this.pausedPromise.promise) {
@@ -76,15 +119,31 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
         this.triggerStats();
     }
 
+    public unpause() {
+        if (this.pausedPromise.resolve) {
+            // If currently paused then resume now
+            const pausedResolve = this.pausedPromise.resolve;
+            delete this.pausedPromise.resolve;
+
+            this.stats.isPaused = false;
+
+            this.stats.pausedDuration += Date.now() - this.pausedTime;
+
+            this.pausedTime = 0;
+
+            pausedResolve();
+        }
+    }
+
     /**
      * Close this writer and the reader.
      */
     public close() {
-        if (this.isClosed) {
+        if (this._isClosed) {
             return;
         }
 
-        this.isClosed = true;
+        this._isClosed = true;
 
         this.streamReader.close();
 
@@ -101,10 +160,13 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
 
     /**
      * Write to the underlaying medium.
+     *
      * @param readData the data to write
-     * @throws
+     * @returns [StreamStatus, error: string, fseek?: number]
+     *  Stream read status is either RESULT, ERROR or UNRECOVERABLE.
+     *  If fseek is set that indicates an fseek should be done and that the write must start over.
      */
-    protected abstract write(readData: ReadData): Promise<boolean>;
+    protected abstract write(readData: StreamReadData): Promise<[StreamStatus, string, bigint?]>;
 
     /**
      * Hook event to get notified on data throughput stats.
@@ -115,95 +177,172 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
 
     /**
      * Start writing by streaming data from the read stream and writing to the write stream.
-     * @return Promise which resolves upon success or rejects upon failure.
-     * @throws object of {errorOnRead: boolean, message: string} on error.
+     * Both this StreamWriter and the provided StreamReader will be closed automatically,
+     * both on success and on error.
+     *
+     * @return Promise<StreamWriteData> which resolves upon success and failure.
+     *
+     * StreamWriteData is:
+     * status == RESULT
+     *  success
+     * stats is set
+     *
+     * status == NOT_ALLOWED
+     *  Reader does not have permissions to the source it self, or the source does not exist.
+     * error is set
+     *
+     * status == NOT_AVAILABLE
+     *  data is not availble (at the moment, worth retrying in a while).
+     * error is set
+     *
+     * status == ERROR
+     *  any error, see error message for details.
+     * error is set
+     *
+     * status == UNRECOVERABLE
+     *  unrecoverable error, see error message for details.
+     * error is set
+     *
+     * @param retryTimeout if set > 0 then retry repeatedly until retryTimeout milliseconds
+     * have passed, then return error. Retry is only done when the StreamReader returns
+     * NOT_AVAILABLE status. Default is 10000 ms.
+     * @param retryDelay how many milliseconds to delay until retrying again. Requires
+     * that retryTimeout > 0. Default is 1000 ms.
      */
-    public async run(): Promise<void> {
-        if (this.isClosed) {
-            return Promise.reject({errorOnRead: false, message: "Writer is closed"});
+    public async run(retryTimeout: number = 10000, retryDelay: number = 1000): Promise<StreamWriteData> {
+        if (this._isClosed) {
+            this.error = "StreamWriter is closed";
+
+            return {
+                status: StreamStatus.ERROR,
+                error: this.error,
+            };
         }
 
-        if (this.runPromise.promise) {
-            if (this.pausedPromise.resolve) {
-                // If currently paused then resume now
-                const pausedResolve = this.pausedPromise.resolve;
-                delete this.pausedPromise.resolve;
+        let firstRetryTimestamp = 0;
 
-                pausedResolve();
+        while (true) {
+            if (this._isClosed) {
+                this.error = "StreamWriter closed unexpectedly";
 
-                this.stats.isPaused = false;
-                this.stats.pausedDuration += Date.now() - this.pausedTime;
-                this.triggerStats();
+                return({
+                    status: StreamStatus.ERROR,
+                    stats: this.stats,
+                    error: this.error,
+                });
             }
 
-            return this.runPromise.promise;
-        }
+            if (this.pausedPromise.promise) {
+                await this.pausedPromise.promise;
 
-        this.runPromise.promise = new Promise<void>( async (resolve, reject) => {  // eslint-disable-line no-async-promise-executor
-            this.runPromise.resolve = resolve;
-            this.runPromise.reject = reject;
+                this.pausedPromise = {};
 
-            while (!this.isClosed) {
-                if (this.pausedPromise.resolve) {
-                    await this.pausedPromise.promise;
-                    this.pausedPromise = {};
+                this.triggerStats();
+
+                continue;
+            }
+
+            const readData = await this.streamReader.next();
+
+            if (readData.status === StreamStatus.NOT_AVAILABLE) {
+                const ts = Date.now();
+
+                if (firstRetryTimestamp === 0) {
+                    firstRetryTimestamp = ts;
+                }
+
+                if (ts - firstRetryTimestamp < retryTimeout) {
+                    this.pause();
+
+                    setTimeout( () => this.unpause(), retryDelay);
+
                     continue;
                 }
 
-                let readData: ReadData | undefined;
+                // Fall through.
+            }
 
-                try {
-                    readData = await this.streamReader.next(this.readChunkSize);  // Throws on error
+            if (readData.status === StreamStatus.EOF) {
+                this.close();
 
-                    if (!readData) {
-                        // Reached EOL, but unexpectedly (which should not happen).
-                        this.close();  // Will also triggerStats
-                        reject({errorOnRead: true, message: "Stream reader reached EOL prematurely"});
-                        return;
-                    }
-                }
-                catch(e) {
-                    this.stats.error = true;
-                    this.close();  // Will also triggerStats
-                    reject({errorOnRead: true, message: `${e}`});
-                    return;
-                }
+                return({
+                    status: StreamStatus.RESULT,
+                    error: "",
+                    stats: this.stats,
+                });
+            }
+            else if (readData.status === StreamStatus.RESULT) {
+                // Fall through to write
+            }
+            else {
+                this.error = readData.error || "Unknown error";
 
-                try {
-                    if (!(await this.write(readData))) {
-                        continue;
-                    }
-                }
-                catch(e) {
-                    this.stats.error = true;
-                    this.close();  // Will also triggerStats
-                    reject({errorOnRead: false, message: `${e}`});
-                    return;
-                }
+                this.stats.error = true;
+                this.close();  // Will also triggerStats
 
+                return({
+                    status: readData.status,
+                    error: this.error,
+                    stats: this.stats,
+                    readError: true,
+                });
+            }
+
+            const [streamStatus, error, fseek] = await this.write(readData);
+
+            if (fseek !== undefined) {
+                // an fseek happened, start over.
+
+                this.streamReader.seek(fseek);
+
+                this.stats.resumed = true;
+
+                continue;
+            }
+
+            if (streamStatus === StreamStatus.RESULT) {
                 // Update stats
                 this.stats.size = readData.size;
-                this.stats.written += BigInt(readData.data.length);
-                this.stats.pos = readData.pos + BigInt(readData.data.length);
-                this.stats.duration = Date.now() - this.stats.startTime - this.stats.pausedDuration;
-                this.stats.throughput = Math.ceil(1000 * Number(this.stats.written) / Math.max(this.stats.duration, 1));
 
-                // Check if done.
-                if (readData.pos >= readData.size) {
-                    this.close();  // Will also triggerStats
-                    resolve();
-                    return;
-                }
+                this.stats.written += BigInt(readData.data.length);
+
+                this.stats.pos = readData.pos + BigInt(readData.data.length);
+
+                this.stats.duration = Date.now() - this.stats.startTime - this.stats.pausedDuration;
+
+                this.stats.throughput =
+                    Math.ceil(1000 * Number(this.stats.written) / Math.max(this.stats.duration, 1));
 
                 this.triggerStats();
             }
+            else if (streamStatus === StreamStatus.EOF) {
+                // Do nothing, can't happen.
+            }
+            else {
+                this.error = error || "Unknown error";
 
-            this.stats.error = true;
-            this.triggerStats();
+                this.stats.error = true;
 
-            reject({errorOnRead: false, message: "Closed while streaming"});
-        });
+                this.close();  // Will also triggerStats
 
-        return this.runPromise.promise;
+                return({
+                    status: streamStatus,
+                    error: this.error,
+                    stats: this.stats,
+                });
+            }
+        }
+    }
+
+    /**
+     * Re run the streaming process from start.
+     * Can only be called after closed.
+     */
+    public rerun(retryTimeout: number = 10000, retryDelay: number = 1000):
+        Promise<StreamWriteData> {
+
+        this.reinit();
+
+        return this.run(retryTimeout, retryDelay);
     }
 }

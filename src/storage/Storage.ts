@@ -1372,6 +1372,23 @@ export class Storage {
 
             const data = await this.blobDriver.readBlob(nodeId1, pos, length);
 
+            if (!data) {
+                // Blob data does not exist (in its finalized state).
+                const readBlobResponse = {
+                    status: Status.FETCH_FAILED,
+                    data: Buffer.alloc(0),
+                    seq: 0,
+                    endSeq: 0,
+                    blobLength: 0n,
+                    error: "Blob data does not exist",
+                };
+
+                sendResponse(readBlobResponse);
+
+                return;
+            }
+
+
             if (data.length === 0) {
                 const readBlobResponse = {
                     status: Status.RESULT,

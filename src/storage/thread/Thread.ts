@@ -64,6 +64,8 @@ import {
 import {
     StreamReaderInterface,
     StreamWriterInterface,
+    BlobStreamWriter,
+    BlobStreamReader,
 } from "../../datastreamer";
 
 export class Thread {
@@ -348,74 +350,17 @@ export class Thread {
     }
 
     /**
-     * Store a blob into storage by using a StreamReaderInterface.
+     * @returns StreamWriterInterface for writing blob data.
      */
-    public upload(nodeId1: Buffer, streamReader: StreamReaderInterface): StreamWriterInterface {
-        const storageUtil = new StorageUtil(this.storageClient);
-
-        return storageUtil.streamStoreBlob(nodeId1, streamReader);
+    public getBlobStreamWriter(nodeId1: Buffer, streamReader: StreamReaderInterface): StreamWriterInterface {
+        return new BlobStreamWriter(nodeId1, streamReader, this.storageClient);
     }
 
     /**
-     * @returns a StreamReaderInterface for blob
+     * @returns StreamReaderInterface for reading blob data.
      */
-    public download(nodeId1: Buffer): StreamReaderInterface {
-        const storageUtil   = new StorageUtil(this.storageClient);
-
-        const streamReader  = storageUtil.getBlobStreamReader(nodeId1);
-
-        return streamReader;
-    }
-
-    /**
-     * Download the full blob and then return it as a Buffer.
-     * Note that this should be used with care for larger blobs.
-     *
-     * Data is returned as array of Buffers since that is how it is read
-     * and joining that buffer might put unnecessary strain on memory so we don't do it automatically.
-     *
-     * @returns the complete data for a blob.
-     */
-    public downloadFull(node: NodeInterface): {blobDataPromise: Promise<Buffer[]>, streamReader: StreamReaderInterface} {
-        const storageUtil = new StorageUtil(this.storageClient);
-        const streamReader = storageUtil.getBlobStreamReader(node.getId1()!);
-
-        const blobLength = node.getBlobLength();
-
-        if (blobLength === undefined) {
-            throw new Error("Missing blob length");
-        }
-
-        const blobDataPromise = new Promise<Buffer[]>( async (resolve) => {
-
-            const blobData: Buffer[] = [];
-
-            let readLength = 0;
-
-            try {
-                while (readLength < blobLength) {
-                    const readData = await streamReader.next();
-
-                    if (!readData) {
-                        throw new Error("Could not read from blob stream");
-                    }
-
-                    blobData.push(readData.data);
-
-                    readLength += readData.data.length;
-                }
-            }
-            catch(e) {
-                throw e;
-            }
-            finally {
-                streamReader.close();
-            }
-
-            resolve(blobData);
-        });
-
-        return {blobDataPromise, streamReader};
+    public getBlobStreamReader(nodeId1: Buffer): StreamReaderInterface {
+        return new BlobStreamReader(nodeId1, [this.storageClient]);
     }
 
     protected parsePostLicense(node: NodeInterface, threadLicenseParams: ThreadLicenseParams): LicenseParams {

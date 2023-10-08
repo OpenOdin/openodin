@@ -1,6 +1,7 @@
 import {
     StreamReaderInterface,
-    ReadData,
+    StreamReadData,
+    StreamStatus,
 } from "./types";
 
 /**
@@ -9,65 +10,150 @@ import {
  */
 export abstract class AbstractStreamReader implements StreamReaderInterface {
     protected pos: bigint;
-    protected isClosed: boolean;
-    protected buffered: ReadData[];
+
+    protected initPos: bigint;
+
+    /** Maximum chunk of bytes to read from file each time. */
+    protected chunkSize: number;
+
+    protected _isClosed: boolean;
+
+    protected buffered: StreamReadData[];
+
+    protected autoClose: boolean = true;
 
     /**
-     * @param pos the preferred starting position in the stream
+     * @param pos the starting position in the stream to start reading from.
+     *  If this StreamReader is passed to a StreamWriter pos is often requried to be 0.
+     * @param chunkSize the chunk size in bytes to attempt to read.
+     * This should not be set when using 
      */
-    constructor (pos: bigint) {
-        this.pos = pos;
-        this.buffered = [];
-        this.isClosed = false;
-
+    constructor(pos: bigint, chunkSize: number) {
         if (pos < 0) {
             throw new Error("pos must be >= 0");
         }
+
+        if (chunkSize < 1) {
+            throw new Error("chunkSize must be > 0");
+        }
+
+        this.pos = pos;
+
+        this.initPos = pos;
+
+        this.chunkSize = chunkSize;
+
+        this.buffered = [];
+
+        this._isClosed = false;
+    }
+
+    public reinit() {
+        if (!this._isClosed) {
+            throw new Error("StreamReader reinit() can only be called after being closed");
+        }
+
+        this.pos = this.initPos;
+
+        this.buffered = [];
+
+        this._isClosed = false;
+    }
+
+    /**
+     * @param autoClose if true (default) then automatically close read stream when EOF is reached.
+     * If wanting to seek back after reading auto close can be set to false to not have it accidentally closed.
+     */
+    public setAutoClose(autoClose: boolean) {
+        this.autoClose = autoClose;
+    }
+
+    public getPos(): bigint {
+        return this.pos;
+    }
+
+    public getChunkSize(): number {
+        return this.chunkSize;
+    }
+
+    public setChunkSize(chunkSize: number) {
+        if (chunkSize < 1) {
+            throw new Error("chunkSize must be > 0");
+        }
+
+        this.chunkSize = chunkSize;
+    }
+
+    public isClosed(): boolean {
+        return this._isClosed;
     }
 
     /*
      * Read data from the source and adds to the `buffered` property.
      * Add data to this.buffered.
      * Must advance this.pos as it reads.
-     * @throws on error
+     * Will try next peer in list if current one fails.
+     * @return true if to keep reading, or false if to close streamer.
      */
-    protected abstract read(chunkSize?: number): Promise<void>;
+    protected abstract read(chunkSize?: number): Promise<boolean>;
 
     /**
      * Closes all open file descriptions/resources.
      */
     public close() {
-        this.isClosed = true;
+        if (this._isClosed === true) {
+            return;
+        }
+
+        this._isClosed = true;
     }
 
     /**
-     * Return a ReadData struct read from the source.
-     * @returns Promise on ReadData or undefined if EOF reached.
-     * @throws on error
+     * Return a StreamReadData struct read from the source.
+     *
+     * status == RESULT
+     *  comes with data
+     *
+     * status == EOF
+     *  indicates end of stream and carries no data
+     *  Always call next() until EOF is returned to have it properly closed.
+     *
+     * status == NOT_ALLOWED
+     *  Reader does not have access to the node itself, or the node does not exist.
+     *
+     * status == NOT_AVAILABLE
+     *  Blob data is not availble (at the moment, worth retrying in a while).
+     *
+     * status == ERROR
+     *  error, see error message for details.
+     *
+     * status == UNRECOVERABLE
+     *  unrecoverable error, see error message for details.
+     *
+     * @returns Promise<StreamReadData>
      */
-    public async next(chunkSize?: number): Promise<ReadData | undefined> {
-        if (this.isClosed) {
-            throw new Error("StreamReader is closed");
+    public async next(chunkSize?: number): Promise<StreamReadData> {
+        if (this.buffered.length > 0) {
+            return this.buffered.shift() as StreamReadData;
         }
 
-        if (this.buffered.length === 0) {
-            // Throws on error
-            try {
-                await this.read(chunkSize);
-            }
-            catch(e) {
-                this.close();
-                throw e;
-            }
+        if (this._isClosed) {
+            return {
+                status: StreamStatus.ERROR,
+                error: "StreamReader is closed",
+                data: Buffer.alloc(0),
+                pos: 0n,
+                size: 0n,
+            };
         }
 
-        if (this.buffered.length === 0) {
-            // No more data available
+        const keepAlive = await this.read(chunkSize);
+
+        if (!keepAlive && this.autoClose) {
             this.close();
-            return undefined;
         }
 
-        return this.buffered.shift();
+        return this.buffered.shift() as StreamReadData;
     }
 
     /**

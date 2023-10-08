@@ -38,6 +38,7 @@ import {
     TABLES,
     BLOB_TABLES,
     Status,
+    StreamStatus,
 } from "../../src";
 
 
@@ -157,19 +158,11 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
         let fileReadStreamer = new FileStreamReader(filepath1);
         let blobWriteStreamer = new BlobStreamWriter(nodeId1, fileReadStreamer, clientP2pClient);
 
-        let error: any;
+        let writeData = await blobWriteStreamer.run();
 
-        try {
-            await blobWriteStreamer.run();
-        }
-        catch(e) {
-            error = e;
-        }
-
-        assert(error);
-        assert(error.message === "Error: Storage peer returned error in response: write blob failed: Error: node not found or not allowed");
-
-        fileReadStreamer.close();
+        assert(writeData.status === StreamStatus.NOT_ALLOWED);
+        assert(writeData.error === "write blob failed: Error: node not found or not allowed");
+        assert(!writeData.readError);
 
         // Store node
         //
@@ -200,38 +193,25 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
 
         // Try writing blob again
         //
-        error = undefined;
         fileReadStreamer = new FileStreamReader(filepath1);
         blobWriteStreamer = new BlobStreamWriter(node1.getId1() as Buffer, fileReadStreamer, clientP2pClient);
 
-        try {
-            await blobWriteStreamer.run();
-        }
-        catch(e) {
-            error = e;
-        }
+        writeData = await blobWriteStreamer.run();
 
-        assert(!error);
-
-        fileReadStreamer.close();
+        assert(writeData.status === StreamStatus.RESULT);
+        assert(writeData.error === "");
+        assert(!writeData.readError);
 
         // Now, try downloading blob into a file, but lacking permissions.
         //
         let readBlobStreamer = new BlobStreamReader(node1.getId1() as Buffer, [clientP2pClient]);
         let writeFileStreamer = new FileStreamWriter(filepath2, readBlobStreamer);
 
-        error = undefined;
-        try {
-            await writeFileStreamer.run();
-        }
-        catch(e) {
-            error = e;
-        }
+        writeData = await writeFileStreamer.run();
 
-        writeFileStreamer.close();
-
-        assert(error);
-        assert(error.message === "Error: read blob failed: Error: node not found or not allowed");
+        assert(writeData.status === StreamStatus.NOT_ALLOWED);
+        assert(writeData.error === "read blob failed: Error: node not found or not allowed");
+        assert(writeData.readError);
 
 
         // Store license
@@ -267,22 +247,19 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
         readBlobStreamer = new BlobStreamReader(node1.getId1() as Buffer, [clientP2pClient]);
         writeFileStreamer = new FileStreamWriter(filepath2, readBlobStreamer);
 
-        error = undefined;
-        try {
-            await writeFileStreamer.run();
-        }
-        catch(e) {
-            error = e;
-        }
+        writeData = await writeFileStreamer.run();
 
-        writeFileStreamer.close();
+        assert(writeData.status === StreamStatus.RESULT);
+        assert(writeData.error === "");
+        assert(!writeData.readError);
 
-        assert(!error);
         const content1 = fs.readFileSync(filepath1);
         const content2 = fs.readFileSync(filepath2);
 
         assert(content2.equals(content1));
     });
+
+    //TODO test StreamWriter.rerun();
 
     it.skip("BlobStreamReader and BlobStreamWriter should work together", async function() {
         // TODO

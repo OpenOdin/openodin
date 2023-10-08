@@ -1,3 +1,5 @@
+import { strict as assert } from "assert";
+
 import {
     EventType,
 } from "pocket-messaging";
@@ -5,6 +7,10 @@ import {
 import {
     AbstractStreamReader,
 } from "./AbstractStreamReader";
+
+import {
+    StreamStatus,
+} from "./types";
 
 import {
     ReadBlobRequest,
@@ -23,74 +29,106 @@ import {
 
 const console = PocketConsole({module: "BlobStreamReader"});
 
-enum ReadError  {
-    NONE = 0,
-    PEER_ERROR = 1,
-    UNRECOVERABLE = 2,
-}
 
 export class BlobStreamReader extends AbstractStreamReader {
     protected nodeId1: Buffer;
-    protected peers: P2PClient[];
-    protected peer?: P2PClient;
 
-    /** Maximum chunk of bytes to read from storage in each sequence. */
-    protected chunkSize: number;
+    protected peers: P2PClient[];
 
     constructor(nodeId1: Buffer, peers: P2PClient[], pos: bigint = 0n, chunkSize: number = 1024 * 1024) {
-        super(pos);
+        if (peers.length < 1) {
+            throw new Error("At least one peer must be provided in constructor");
+        }
+
+        super(pos, chunkSize);
+
         this.nodeId1 = nodeId1;
-        this.peers = peers.slice();  // Copy array since we will be modding it.
-        this.peer = this.peers.shift();
-        this.chunkSize = chunkSize;
 
-        if (chunkSize <= 0) {
-            throw new Error("chunkSize must be > 0");
-        }
+        this.peers = peers.slice();
     }
 
-    /**
-     * Attempts to read more data into the buffer.
-     * Will try next peer in list if current one fails.
-     *
-     * @throws on unrecoverable error
-     */
-    protected async read(chunkSize?: number): Promise<void> {
-        if (this.isClosed) {
-            throw new Error("Reader is closed");
-        }
+    protected async read(chunkSize?: number): Promise<boolean> {
+        const peers = this.peers.slice();
 
-        let lastError: string | undefined;
+        let peer = peers.shift();
+
+        let lastError = "";
+
+        const savedErrors: [StreamStatus, string][] = [];
+
         while (true) {
-            if (!this.peer) {
-                throw new Error("All peers to read blob from are offline");
+            assert(peer);
+
+            const [readBlobStatus, error] = await this.readBlobFromPeer(peer, chunkSize);
+
+            if (readBlobStatus === StreamStatus.RESULT) {
+                return true;
             }
-            try {
-                await this.readBlobFromPeer(this.peer, chunkSize);
-                return;
+            else if (readBlobStatus === StreamStatus.EOF) {
+                return false;
             }
-            catch(e) {
-                const error = e as {message: string, error: ReadError};
-                lastError = error.message;
-                if (error.error === ReadError.UNRECOVERABLE) {
-                    // Unrecoverable
-                    throw new Error(`Unrecoverable error reading blob: ${lastError}`);
+            else if (readBlobStatus === StreamStatus.ERROR) {
+                lastError = error;
+                // Fall through to try next peer.
+            }
+            else if (readBlobStatus === StreamStatus.NOT_ALLOWED) {
+                // The second most interesting error
+                savedErrors.push([readBlobStatus, error]);
+
+                // Fall through to try next peer.
+            }
+            else if (readBlobStatus === StreamStatus.NOT_AVAILABLE) {
+                // The most interesting error
+                savedErrors.unshift([readBlobStatus, error]);
+
+                // Fall through to try next peer.
+            }
+            else {
+                // Unrecoverable
+                this.buffered.push({
+                    status: StreamStatus.UNRECOVERABLE,
+                    error,
+                    data: Buffer.alloc(0),
+                    pos: 0n,
+                    size: 0n,
+                });
+
+                return false;
+            }
+
+            // Try next peer, if any.
+            //
+            peer = peers.shift();
+
+            if (!peer) {
+                // Return the most useful error message from all peers
+                let [readBlobStatus, error] = savedErrors.shift() ?? [];
+
+                if (readBlobStatus === undefined || error === undefined) {
+                    readBlobStatus = StreamStatus.ERROR;
+                    error = lastError;
                 }
 
-                // Try next peer
-                this.peer = this.peers.shift();
-                if (!this.peer) {
-                    throw new Error(lastError);
-                }
+                this.buffered.push({
+                    status: readBlobStatus,
+                    error,
+                    data: Buffer.alloc(0),
+                    pos: 0n,
+                    size: 0n,
+                });
 
-                // Fall through
+                return false;
             }
         }
     }
 
-    protected readBlobFromPeer(peer: P2PClient, chunkSize?: number): Promise<void> {
-        return new Promise<void>( (resolve, reject) => {
+    protected readBlobFromPeer(peer: P2PClient, chunkSize?: number): Promise<[StreamStatus, string]> {
+        return new Promise<[StreamStatus, string]>( (resolve, reject) => {
             chunkSize = chunkSize ?? this.chunkSize;
+
+            if (chunkSize < 1) {
+                resolve([StreamStatus.UNRECOVERABLE, "Bad chunkSize provided"]);
+            }
 
             const readBlobRequest: ReadBlobRequest = {
                 nodeId1: this.nodeId1,
@@ -105,8 +143,7 @@ export class BlobStreamReader extends AbstractStreamReader {
             if (!getResponse) {
                 // Try next peer
 
-                reject({error: ReadError.PEER_ERROR, message: "Other error"});
-
+                resolve([StreamStatus.ERROR, ""]);
                 return;
             }
 
@@ -115,33 +152,54 @@ export class BlobStreamReader extends AbstractStreamReader {
                     const data = readBlobResponse.data;
                     const blobLength = readBlobResponse.blobLength;
 
-                    this.buffered.push({data, pos: this.pos, size: blobLength});
+                    this.buffered.push({
+                        status: StreamStatus.RESULT,
+                        data,
+                        pos: this.pos,
+                        size: blobLength,
+                        error: "",
+                    });
 
                     this.pos = this.pos + BigInt(data.length);
 
                     if (readBlobResponse.seq === readBlobResponse.endSeq) {
                         // Sequence done
 
-                        // We need to send a final notice.
-                        this.buffered.push({data: Buffer.alloc(0), pos: this.pos, size: blobLength});
+                        if (this.pos === blobLength) {
+                            this.buffered.push({
+                                status: StreamStatus.EOF,
+                                data: Buffer.alloc(0),
+                                pos: this.pos,
+                                size: blobLength,
+                                error: "",
+                            });
 
-                        resolve();
+                            resolve([StreamStatus.EOF, ""]);
+                        }
+                        else {
+                            resolve([StreamStatus.RESULT, ""]);
+                        }
                     }
                 }
                 else if (readBlobResponse.status === Status.ERROR) {
                     // Try next peer
                     console.debug("Could not read blob from peer:", readBlobResponse);
-                    reject({error: ReadError.PEER_ERROR, message: readBlobResponse.error});
+                    resolve([StreamStatus.ERROR, readBlobResponse.error]);
                 }
-                else if (readBlobResponse.status === Status.FETCH_FAILED || readBlobResponse.status === Status.NOT_ALLOWED) {
+                else if (readBlobResponse.status === Status.NOT_ALLOWED) {
                     // Try next peer
                     console.debug("Could not read blob from peer:", readBlobResponse);
-                    reject({error: ReadError.PEER_ERROR, message: readBlobResponse.error});
+                    resolve([StreamStatus.NOT_ALLOWED, readBlobResponse.error]);
+                }
+                else if (readBlobResponse.status === Status.FETCH_FAILED) {
+                    // Try next peer
+                    console.debug("Could not read blob from peer:", readBlobResponse);
+                    resolve([StreamStatus.NOT_AVAILABLE, readBlobResponse.error]);
                 }
                 else {
                     // Unrecoverable error
                     console.debug("Could not read blob from peer:", readBlobResponse);
-                    reject({error: ReadError.UNRECOVERABLE, message: readBlobResponse.error});
+                    resolve([StreamStatus.UNRECOVERABLE, readBlobResponse.error]);
                 }
             });
 
@@ -154,7 +212,7 @@ export class BlobStreamReader extends AbstractStreamReader {
                 // Socket error, close, message timeout. Try next peer
                 console.debug(`Could not read blob from peer, event type = ${anyData.type}`);
 
-                reject({error: ReadError.PEER_ERROR, message: "Other error"});
+                resolve([StreamStatus.ERROR, "Other error"]);
             });
         });
     }

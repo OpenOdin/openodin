@@ -156,12 +156,9 @@ export type P2PClientStorePermissions = {
 /**
  * Event emitted when downloading and storing blobs.
  * if error is set then an error occoured,
- * then if isRead is true the error is for fetching the blob,
- * if isRead===false then the error is for storing the blob,
- * is isRead===undefined then the error is something else internally.
  * If only nodeId1 is set that means a successfull download and store of the blob.
  */
-export type BlobEvent = {nodeId1: Buffer, error?: {errorOnRead: boolean | undefined, message: string}};
+export type BlobEvent = {nodeId1: Buffer, error?: string};
 
 export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     allowUncheckedAccess: true,

@@ -608,6 +608,7 @@ function setupBlobTests(config: any) {
         // Try to read more data than finalized to get all data.
         //
         let readData = await driver.readBlob(nodeId1, 0, 1024*1024);
+        assert(readData);
         assert(readData.length === BLOB_FRAGMENT_SIZE + 1024);
     });
 
@@ -701,16 +702,14 @@ function setupBlobTests(config: any) {
 
                 const dataId = Hash([nodeId1, clientPublicKey]);
 
-                await expectAsyncException(
-                    driver.readBlob(nodeId1, 0, 10),
-                    "node blob data does not exist in finalized state");
+                let readData = await driver.readBlob(nodeId1, 0, 10);
+                assert(readData === undefined);
 
                 for(let fragment of blobWrite.write) {
                     await driver.writeBlob(dataId, fragment.pos, fragment.data);
 
-                    await expectAsyncException(
-                        driver.readBlob(nodeId1, 0, 10),
-                        "node blob data does not exist in finalized state");
+                    const readData = await driver.readBlob(nodeId1, 0, 10);
+                    assert(readData === undefined);
                 }
 
                 let blobLength = blobWrite.finalData.length;
@@ -718,7 +717,7 @@ function setupBlobTests(config: any) {
 
                 await driver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
 
-                let readData = await driver.readBlob(nodeId1, 0, blobLength);
+                readData = await driver.readBlob(nodeId1, 0, blobLength);
 
                 assert(readData);
                 assert(readData.equals(blobWrite.finalData));
@@ -760,19 +759,21 @@ function setupBlobTests(config: any) {
 
         await driver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
 
-        await expectAsyncNoException(driver.readBlob(nodeId1, 0, 10));
+        let readData = await driver.readBlob(nodeId1, 0, 10);
+        assert(readData);
 
-        await expectAsyncException(
-            driver.readBlob(nodeId2, 0, 10),
-            "node blob data does not exist in finalized state");
+        readData = await driver.readBlob(nodeId2, 0, 10);
+        assert(!readData);
 
         let result = await driver.copyBlob(nodeId1, nodeId2, now);
         assert(result);
 
-        let data1 = await expectAsyncNoException(driver.readBlob(nodeId1, 0, blobLength));
+        let data1 = await driver.readBlob(nodeId1, 0, blobLength);
+        assert(data1);
         assert(data1.equals(fullData));
 
-        let data2 = await expectAsyncNoException(driver.readBlob(nodeId2, 0, blobLength));
+        let data2 = await driver.readBlob(nodeId2, 0, blobLength);
+        assert(data2);
         assert(data2.equals(fullData));
 
         let dataId2 = await driver.getBlobDataId(nodeId1);
@@ -786,15 +787,15 @@ function setupBlobTests(config: any) {
         dataId2 = await driver.getBlobDataId(nodeId1);
         assert(dataId2 === undefined);
 
-        await expectAsyncException(
-            driver.readBlob(nodeId1, 0, 10),
-            "node blob data does not exist in finalized state");
+        readData = await driver.readBlob(nodeId1, 0, 10);
+        assert(!readData);
 
         dataId2 = await driver.getBlobDataId(nodeId2);
         assert(dataId2);
         assert(dataId2.equals(dataId));
 
-        data2 = await expectAsyncNoException(driver.readBlob(nodeId2, 0, blobLength));
+        data2 = await driver.readBlob(nodeId2, 0, blobLength);
+        assert(data2);
         assert(data2.equals(fullData));
 
         result = await driver.copyBlob(nodeId1, nodeId3, now);
@@ -803,7 +804,8 @@ function setupBlobTests(config: any) {
         result = await driver.copyBlob(nodeId2, nodeId3, now);
         assert(result);
 
-        let data3 = await expectAsyncNoException(driver.readBlob(nodeId3, 0, blobLength));
+        let data3 = await driver.readBlob(nodeId3, 0, blobLength);
+        assert(data3);
         assert(data3.equals(fullData));
 
         await driver.deleteBlobs([nodeId1, nodeId2, nodeId3]);
@@ -839,11 +841,13 @@ function setupBlobTests(config: any) {
         await driver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
 
         let data2 = await driver.readBlob(nodeId1, 0, blobLength);
+        assert(data2);
         assert(data2.length === data.length);
         assert(data2[data2.length-4096] === 98);
         assert(data2[data2.length-1] === 99);
 
         data2 = await driver.readBlob(nodeId1, 79931-4096, 4096);
+        assert(data2);
         assert(data2.length === 4096);
         assert(data2[0] === 98);
         assert(data2[data2.length-1] === 99);

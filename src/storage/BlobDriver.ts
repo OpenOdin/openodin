@@ -190,13 +190,13 @@ export class BlobDriver implements BlobDriverInterface {
     /**
      * @see BlobDriverInterface.
      */
-    public async readBlob(nodeId1: Buffer, pos: number, length: number): Promise<Buffer> {
+    public async readBlob(nodeId1: Buffer, pos: number, length: number): Promise<Buffer | undefined> {
         assert(this.blobDb, "Blob driver is not available");
 
         const dataId = await this.getBlobDataId(nodeId1);
 
         if (!dataId) {
-            throw new Error("node blob data does not exist in finalized state");
+            return undefined;
         }
 
         let fragmentIndex = Math.floor(pos / BLOB_FRAGMENT_SIZE);

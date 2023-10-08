@@ -41,10 +41,6 @@ import {
     BlobStreamWriter,
 } from "../datastreamer";
 
-import {
-    MAX_READBLOB_LENGTH,
-} from "../storage/types";
-
 export type FetchRequestQueryParams = {
     match?: {
         limitField?: LimitField,
@@ -157,25 +153,16 @@ export class StorageUtil {
     }
 
     /**
-     * Helper function to create and store a blob using a StreamReader,
+     * Helper function to create a BlobStreamWriter.
      *
-     * The given streamReader is automatically closed when finished (also on error).
-     *
-     * This function runs in the background and it immediately returns the StreamWriter.
+     * The provided streamReader is automatically closed when finished (also on error).
      *
      * @param nodeId1
      * @param streamReader a ready to go stream reader to read data from.
-     * @return StreamWriterInterface
+     * @return StreamWriterInterface ready to run().
      */
-    public streamStoreBlob(nodeId1: Buffer, streamReader: StreamReaderInterface): StreamWriterInterface {
+    public getBlobStreamWriter(nodeId1: Buffer, streamReader: StreamReaderInterface): StreamWriterInterface {
         const streamWriter = new BlobStreamWriter(nodeId1, streamReader, this.storageClient);
-
-        streamWriter.run().catch(e => {
-            console.error(e);
-
-            throw e;
-        });
-
         return streamWriter;
     }
 
@@ -239,90 +226,6 @@ export class StorageUtil {
         }
 
         return undefined;
-    }
-
-    /**
-     * Helper function to create and store a small blob.
-     * Maximum size allowed is 60 KiB, for larger blobs use the stream upload function.
-     *
-     * @param nodeId1
-     * @param data the full data of the blob, maximum size allowed is 60 KiB.
-     * @throws on error
-     */
-    public async storeBlob(nodeId1: Buffer, data: Buffer) {
-        if (data.length > 1024 * 60) {
-            throw new Error("Maximum blob size allowed is 60 KiB. For larger blobs use a stream uploader");
-        }
-
-        const writeBlobRequest = StorageUtil.CreateWriteBlobRequest({nodeId1, data});
-
-        const {getResponse} = this.storageClient.writeBlob(writeBlobRequest);
-
-        if (!getResponse) {
-            throw new Error("Could not communicate as expected.");
-        }
-
-        const anyData = await getResponse.onceAny();
-
-        if (anyData.type === EventType.REPLY) {
-            const writeBlobResponse = anyData.response;
-
-            if (!writeBlobResponse || writeBlobResponse.status !== Status.EXISTS) {
-                throw new Error(`Could not store blob: ${writeBlobResponse?.error}`);
-            }
-        }
-        else {
-            throw new Error(`Could not store blob: ${anyData.error}`);
-        }
-    }
-
-    /**
-     * Read blob contents, maximum MAX_READBLOB_LENGTH (1 MiB) at a time.
-     */
-    public readBlob(nodeId1: Buffer, length?: number, pos?: bigint): Promise<Buffer> {
-        length = length ?? MAX_READBLOB_LENGTH;
-
-        if (length > MAX_READBLOB_LENGTH) {
-            throw new Error(`Maximum blob read length is ${MAX_READBLOB_LENGTH}. For larger requests call readBlob multiple times or use the streamBlob function.`);
-        }
-
-        pos = pos ?? 0n;
-
-        const readBlobRequest = StorageUtil.CreateReadBlobRequest({
-            nodeId1,
-            length,
-            pos,
-        });
-
-        const {getResponse} = this.storageClient.readBlob(readBlobRequest);
-
-        if (!getResponse) {
-            throw new Error("Could not communicate as expected.");
-        }
-
-        return new Promise( (resolve, reject) => {
-            const buffers: Buffer[] = [];
-
-            getResponse.onAny( (anyData: AnyData<ReadBlobResponse>) => {
-                if (anyData.type === EventType.REPLY) {
-                    const readBlobResponse = anyData.response;
-
-                    if (readBlobResponse?.status === Status.RESULT) {
-                        buffers.push(readBlobResponse.data);
-
-                        if (readBlobResponse.seq === readBlobResponse.endSeq) {
-                            resolve(Buffer.concat(buffers));
-                        }
-
-                        return;
-                    }
-                }
-
-                console.debug("Unexpected reply in readBlob()", anyData);
-
-                reject("Unexpected reply in readblob()");
-            });
-        });
     }
 
     /**

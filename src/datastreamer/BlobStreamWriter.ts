@@ -7,7 +7,8 @@ import {
 } from "./AbstractStreamWriter";
 
 import {
-    ReadData,
+    StreamReadData,
+    StreamStatus,
     StreamReaderInterface,
 } from "./types";
 
@@ -43,20 +44,27 @@ export class BlobStreamWriter extends AbstractStreamWriter {
         this.peer = peer;
         this.muteMsgIds = muteMsgIds ?? [];
         this.retries = 0;
-        this.readChunkSize = 60*1024;
+
+        // We need to restrict chunk size because sending WriteBlobRequests
+        // cannot exceed the maximum messaging envelope size.
+        if (streamReader.getChunkSize() > 60 * 1024) {
+            streamReader.setChunkSize(60 * 1024);
+        }
+
+        if (streamReader.getPos() !== 0n) {
+            throw new Error("StreamReader must start at position 0");
+        }
     }
 
-    /**
-     * @param readData the data to write.
-     * @returns promise which will resolve on success or reject on error.
-     * On success a boolean is returned, if false then the write was discarded due to an fseek.
-     */
-    protected async write(readData: ReadData): Promise<boolean> {
+    protected async write(readData: StreamReadData): Promise<[StreamStatus, string, bigint?]> {
         const pos = readData.pos;
         const data = readData.data;
 
-        if (data.length > 60*1024) {
-            throw new Error("BlobStreamWriter fed too large data chunk. Maximum 60 KiB chunk size allowed.");
+        // TODO: add logic too split up and handle larger datasets.
+        //
+        if (data.length > 60 * 1024) {
+            const error = "BlobStreamWriter fed too large data chunk. Maximum 60 KiB chunk size allowed.";
+            return [StreamStatus.UNRECOVERABLE, error];
         }
 
         const writeBlobRequest: WriteBlobRequest = {
@@ -73,13 +81,15 @@ export class BlobStreamWriter extends AbstractStreamWriter {
 
         if (!getResponse) {
             // Abort because our Storage is not working
-            throw new Error("Could not send request to storage peer");
+            const error = "Could not send request to storage peer";
+            return [StreamStatus.ERROR, error];
         }
 
         const anyData = await getResponse.onceAny();
 
         if (anyData.type !== EventType.REPLY || !anyData.response) {
-            throw new Error("Storage peer returned error");
+            const error = "Storage peer error";
+            return [StreamStatus.ERROR, error];
         }
 
         const writeBlobResponse: WriteBlobResponse = anyData.response;
@@ -88,28 +98,38 @@ export class BlobStreamWriter extends AbstractStreamWriter {
             // The written data's hash did not match.
             // Retry the full writing once from the start.
             if (this.retries++ === 0) {
+                // Force to not resume on the next try.
                 this.allowResume = false;
-                this.streamReader.seek(0n);
-                return false;
+
+                return [StreamStatus.RESULT, "", 0n];
             }
             else {
-                throw new Error("Hash of written data did not match, even after a retry.");
+                const error = "Hash of written data did not match, even after a retry.";
+
+                return [StreamStatus.UNRECOVERABLE, error];
             }
         }
+        else if (writeBlobResponse.status === Status.NOT_ALLOWED) {
+            return [StreamStatus.NOT_ALLOWED, writeBlobResponse.error];
+        }
+        else if (writeBlobResponse.status === Status.MALFORMED) {
+            return [StreamStatus.UNRECOVERABLE, writeBlobResponse.error];
+        }
         else if (![Status.RESULT, Status.EXISTS].includes(writeBlobResponse.status)) {
-            throw new Error(`Storage peer returned error in response: ${writeBlobResponse.error}`);
+            return [StreamStatus.ERROR, writeBlobResponse.error];
         }
         else {
             // Check if to resume upload at a position forward.
             if (this.allowResume) {
                 const currentLength = writeBlobResponse.currentLength;
+
                 if (currentLength > pos + BigInt(data.length)) {
-                    this.streamReader.seek(currentLength);
-                    return false;
+
+                    return [StreamStatus.RESULT, "", currentLength];
                 }
             }
         }
 
-        return true;
+        return [StreamStatus.RESULT, ""];
     }
 }

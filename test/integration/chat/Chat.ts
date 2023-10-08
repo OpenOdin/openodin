@@ -15,6 +15,9 @@ import {
     StorageUtil,
     UniverseConf,
     WalletConf,
+    BufferStreamWriter,
+    BufferStreamReader,
+    StreamStatus,
 } from "../../../";
 
 import {
@@ -34,22 +37,6 @@ import {
 const BLOB_DATA = Buffer.concat([Buffer.alloc(1024 * 20).fill(0xa0),
     Buffer.alloc(1024 * 20).fill(0xb0),
     Buffer.alloc(1024 * 20).fill(0xc0)]);
-
-class StreamReader extends AbstractStreamReader {
-    constructor(protected data: Buffer) {
-        super(0n);
-    }
-
-    protected async read() {
-        if (this.pos === 0n) {
-            this.buffered.push({size: BigInt(this.data.length), data: this.data, pos: this.pos});
-            this.pos = BigInt(this.data.length);
-        }
-        else {
-            this.buffered.push({size: BigInt(this.data.length), data: Buffer.alloc(0), pos: this.pos});
-        }
-    }
-}
 
 async function main() {
     const consoleMain = PocketConsole({module: "Main  "});
@@ -108,6 +95,10 @@ async function main() {
                 chatClient.stop();
             }, 500);
         }
+        else {
+            consoleMain.error("Not exact nr of messages (4) recieved", messageCounter);
+            process.exit(1);
+        }
     };
 
     let blobResolve: Function | undefined;
@@ -156,14 +147,23 @@ async function main() {
             consoleServer.info(message);
 
             if (dataNode.hasBlob()) {
-                // TODO: remove this timeout when we fixed better retries in the blob streamers.
-                setTimeout( async () => {
-                    const {blobDataPromise} = serverThread!.downloadFull(dataNode);
+                const streamReader = serverThread!.getBlobStreamReader(dataNode.getId1()!);
 
-                    const blobData = await blobDataPromise;
+                const streamWriter = new BufferStreamWriter(streamReader);
 
-                    blobResolve && blobResolve(Buffer.concat(blobData));
-                }, 100);
+                const writeData = await streamWriter.run();
+
+                if (writeData.status === StreamStatus.RESULT) {
+                    const blobData = Buffer.concat(streamWriter.getBuffers());
+
+                    blobResolve && blobResolve(blobData);
+
+                    return;
+                }
+
+                consoleServer.error(`Could not download blob: ${streamWriter.getError()}`);
+
+                blobResolve && blobResolve();
             }
         });
 
@@ -216,18 +216,16 @@ async function main() {
                 return;
             }
 
-            messageCounter++;
+            event.added.forEach( id1 => {
+                messageCounter++;
 
-            assert(event.added.length === 1);
+                const dataNode = responseAPI.getTransformer().getNode(id1);
 
-            const id1 = event.added[0];
+                assert(dataNode);
 
-            const dataNode = responseAPI.getTransformer().getNode(id1);
-
-            assert(dataNode);
-
-            const message = dataNode.getData()?.toString();
-            consoleClient.info(message);
+                const message = dataNode.getData()?.toString();
+                consoleClient.info(message);
+            });
         });
     });
 
@@ -235,13 +233,16 @@ async function main() {
         consoleMain.info("Connection connected to client, send message from Client side");
         const blobLength = BigInt(BLOB_DATA.length);
         const blobHash = Hash(BLOB_DATA);
-        const streamReader = new StreamReader(BLOB_DATA);
+        const streamReader = new BufferStreamReader(BLOB_DATA);
         const [node] = await clientThread!.post({blobHash, blobLength, data: Buffer.from("Hello from Client with attachment")});
         if (node) {
             clientThread!.postLicense(node);
 
             const nodeId1 = node.getId1();
-            clientThread!.upload(nodeId1!, streamReader);
+
+            const streamWriter = clientThread!.getBlobStreamWriter(nodeId1!, streamReader);
+
+            const writeData = await streamWriter.run();
         }
     });
 
@@ -252,10 +253,12 @@ async function main() {
     await chatClient.start();
 
     const blobData = await blobPromise as Buffer;
+    assert(blobData);
     assert(blobData.equals(BLOB_DATA));
 
     consoleServer.aced("Downloaded blob successfully");
-    checkToQuit();
+
+    setTimeout( () => checkToQuit(), 100 );
 }
 
 main();

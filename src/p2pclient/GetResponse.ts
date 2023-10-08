@@ -125,6 +125,10 @@ export class GetResponse<ResponseDataType> {
                 if (this.isStream) {
                     // The message in reply is expecting streaming responses.
 
+                    // NOTE: Here we break out of the generics to do a dirty check on the response object.
+                    // We know in this code path that the response is with FetchResponse or ReadBlobResponse.
+                    // Both those have seq and endSeq attributes to them, which we want to read.
+
                     // We do a dirty check on the response object to look if it has the
                     // "seq" and "endSeq" attributes.
                     // seq must be set, must be > 0 and must be equal to endSeq.

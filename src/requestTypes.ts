@@ -361,7 +361,7 @@ export enum Status {
     /** If a storeRequest or writeBlobRequest could not succeed. */
     STORE_FAILED        = 4,
 
-    /** If a readBlobRequest fails. */
+    /** If a readBlobRequest fails because blob data is not available. */
     FETCH_FAILED        = 5,
 
     /**
@@ -765,7 +765,7 @@ export type ReadBlobResponse = {
      * Status.ERROR if some error or exception occurred.
      * Status.NOT_ALLOWED if read permissions to the node is not allowed for the client,target combo or
      *  if allowReadBlob is set to false, or if the node is not found.
-     * Status.FETCH_FAILED if data is not available.
+     * Status.FETCH_FAILED if blob data is not (yet) available.
      * Status.MALFORMED if input values are wrong or if the node is fetched on id2, or if node is not configured for blob.
      * Status.RESULT on successful read.
      */

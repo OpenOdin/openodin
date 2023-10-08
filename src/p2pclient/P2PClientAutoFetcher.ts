@@ -26,6 +26,7 @@ import {
 import {
     BlobStreamWriter,
     BlobStreamReader,
+    StreamStatus,
 } from "../datastreamer";
 
 import {
@@ -240,7 +241,7 @@ export class P2PClientAutoFetcher {
 
         // When getting nodes from the peer we can also download blob data, if any.
         if (syncBlobs) {
-            this.downloadBlobs(Object.values(missingBlobId1s));
+            Object.values(missingBlobId1s).forEach( nodeId1 => this.downloadBlob(nodeId1) );
         }
     }
 
@@ -253,63 +254,33 @@ export class P2PClientAutoFetcher {
     }
 
     /**
-     * Download blobs from serverClient.
-     */
-    protected async downloadBlobs(nodeId1s: Buffer[]) {
-        for (let i=0; i<nodeId1s.length; i++) {
-            const nodeId1 = nodeId1s[i];
-            if (!nodeId1) {
-                continue;
-            }
-
-            try {
-                await this.downloadBlob(nodeId1);
-                this.emitBlobEvent({nodeId1});
-            }
-            catch(blobEvent) {
-                // NOTE: this is not beyond beautiful since we are parsing the error string,
-                // we should add an error code.
-                if ((blobEvent as any).error?.message?.indexOf("finalized") > -1) {
-                    console.debug("Could not read blob:", blobEvent);
-                }
-                else {
-                    console.error("Could not download/write blob:", blobEvent);
-                }
-                this.emitBlobEvent(blobEvent as any as BlobEvent);
-            }
-        }
-    }
-
-    /**
      * @param nodeId1 the ID1 of the node who's blob we want to download and save to the storage.
      * @returns Promise which resolves on success when blob is stored to storage.
      */
     protected downloadBlob(nodeId1: Buffer): Promise<void> {
         const nodeId1Str = nodeId1.toString("hex");
+
         let promise = this.downloadingBlobs[nodeId1Str];
+
         if (promise) {
             return promise;
         }
 
-        promise = new Promise<void>( (resolve, reject) => {
-            try {
-                const blobReader = new BlobStreamReader(nodeId1, [this.serverClient]);
-                const blobWriter = new BlobStreamWriter(nodeId1, blobReader, this.storageClient, /*allowResume=*/true, this.muteMsgIds);
+        promise = new Promise<void>( () => {
+            const blobReader = new BlobStreamReader(nodeId1, [this.serverClient]);
+            const blobWriter = new BlobStreamWriter(nodeId1, blobReader, this.storageClient, /*allowResume=*/true, this.muteMsgIds);
 
-                blobWriter.run().then( () => {
-                    delete this.downloadingBlobs[nodeId1Str];
-                    resolve();
-                }).catch( (error) => {
-                    delete this.downloadingBlobs[nodeId1Str];
-                    reject({nodeId1, error});
-                });
-            }
-            catch(e) {
-                reject({nodeId1, error: {message: `${e}`}});
-            }
-            finally {
+            blobWriter.run(3600 * 1000).then( writeData => {
                 delete this.downloadingBlobs[nodeId1Str];
-            }
+
+                if (writeData.status === StreamStatus.RESULT) {
+                    this.emitBlobEvent({nodeId1});
+                }
+                else {
+                    // TODO: should we resume retrying later?
+                    this.emitBlobEvent({nodeId1, error: writeData.error || "Unknown error"});
+                }
+            });
         });
 
         this.downloadingBlobs[nodeId1Str] = promise;

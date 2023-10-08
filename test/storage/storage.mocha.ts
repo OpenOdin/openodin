@@ -1283,8 +1283,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.ERROR);
-        assert(response.error === "read blob failed: Error: node blob data does not exist in finalized state");
+        assert(response.status === Status.FETCH_FAILED);
 
 
         writeBlobRequest = {

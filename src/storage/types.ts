@@ -310,11 +310,12 @@ export type BlobDriverInterface = {
      * @param length the nr of bytes to read from starting position. It is OK to
      * request more bytes than actually finalized to read the full length.
      *
-     * @returns finalized blob data requested.
+     * @returns finalized blob data requested, or undefined if blob does not
+     * exists or is not finalized.
      *
-     * @throws if blob db not available or blob data has not been finalized.
+     * @throws if blob db not available.
      */
-    readBlob(nodeId1: Buffer, pos: number, length: number): Promise<Buffer>;
+    readBlob(nodeId1: Buffer, pos: number, length: number): Promise<Buffer | undefined>;
 
     /**
      * Read the current size of the intermediary non-finalized storage.
