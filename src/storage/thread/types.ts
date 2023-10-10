@@ -154,7 +154,11 @@ export type ThreadDefaults = {
 };
 
 export type UpdateStreamParams = {
-    head: number | undefined, tail: number | undefined, cursorId1: Buffer | undefined, reverse: boolean | undefined, triggerInterval: number | undefined
+    head?: number,
+    tail?: number,
+    cursorId1?: Buffer,
+    reverse?: boolean,
+    triggerInterval?: number,
 };
 
 /**

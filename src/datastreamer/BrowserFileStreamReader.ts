@@ -79,7 +79,6 @@ export class BrowserFileStreamReader extends AbstractStreamReader {
                 return false;
             }
 
-            // NOTE: FIXME: Is this performant?
             const value = (await this.file.slice(Number(this.pos)).stream().getReader().read()).value;
 
             if (!value) {

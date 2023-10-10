@@ -266,7 +266,7 @@ export class P2PClientAutoFetcher {
             return promise;
         }
 
-        promise = new Promise<void>( () => {
+        promise = new Promise<void>( (resolve, reject) => {
             const blobReader = new BlobStreamReader(nodeId1, [this.serverClient]);
             const blobWriter = new BlobStreamWriter(nodeId1, blobReader, this.storageClient, /*allowResume=*/true, this.muteMsgIds);
 
@@ -275,10 +275,12 @@ export class P2PClientAutoFetcher {
 
                 if (writeData.status === StreamStatus.RESULT) {
                     this.emitBlobEvent({nodeId1});
+                    resolve();
                 }
                 else {
                     // TODO: should we resume retrying later?
                     this.emitBlobEvent({nodeId1, error: writeData.error || "Unknown error"});
+                    reject();
                 }
             });
         });

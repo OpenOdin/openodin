@@ -146,24 +146,30 @@ export class BlobDriver implements BlobDriverInterface {
         try {
             // Handle first fragment
             //
+
             const res = await this.calcBlobStartFragment(dataId, pos, data);
 
             const {fragment, startFragmentIndex} = res;
+
             let index = res.index;
+
+            assert(fragment.length <= BLOB_FRAGMENT_SIZE);
 
             await this.writeBlobFragment(dataId, fragment, startFragmentIndex);
 
+            // calc end index, not including.
+            const endFragmentIndex = Math.ceil((pos + data.length) / BLOB_FRAGMENT_SIZE);
 
-            // Handle middle fragments.
-            //
-            const countFragments = Math.ceil((pos + data.length) / BLOB_FRAGMENT_SIZE);
+            const countFragments = endFragmentIndex - startFragmentIndex;
 
             let fragmentIndex = startFragmentIndex + 1;
 
-            while (fragmentIndex < startFragmentIndex + countFragments - 1) {
+            // Handle middle fragments, not last fragment.
+            //
+            while (fragmentIndex < endFragmentIndex - 1) {
                 const fragment = data.slice(index, index + BLOB_FRAGMENT_SIZE);
 
-                index += BLOB_FRAGMENT_SIZE;
+                index += fragment.length;
 
                 await this.writeBlobFragment(dataId, fragment, fragmentIndex);
 
@@ -173,10 +179,10 @@ export class BlobDriver implements BlobDriverInterface {
             // Handle last fragment.
             //
             if (countFragments > 1 && index < data.length) {
-                const {fragment, endFragmentIndex} =
+                const {fragment, lastFragmentIndex} =
                     await this.calcBlobEndFragment(dataId, pos, index, data);
 
-                await this.writeBlobFragment(dataId, fragment, endFragmentIndex);
+                await this.writeBlobFragment(dataId, fragment, lastFragmentIndex);
             }
 
             await this.blobDb.exec("COMMIT;");
@@ -229,10 +235,13 @@ export class BlobDriver implements BlobDriverInterface {
      * @param dataId
      * @param pos position in blob
      * @param data meant to be written starting at blob position.
-     * @returns data of first fragment and the fragment index.
+     * @returns data of first fragment, the fragment index and the index used up within the fragment.
      */
-    protected async calcBlobStartFragment(dataId: Buffer, pos: number, data: Buffer): Promise<{fragment: Buffer, startFragmentIndex: number, index: number}> {
+    protected async calcBlobStartFragment(dataId: Buffer, pos: number, data: Buffer):
+        Promise<{fragment: Buffer, startFragmentIndex: number, index: number}> {
+
         const startFragmentIndex = Math.floor(pos / BLOB_FRAGMENT_SIZE);
+
         const boundaryDiff = pos - startFragmentIndex * BLOB_FRAGMENT_SIZE;
 
         const index = Math.min(BLOB_FRAGMENT_SIZE - boundaryDiff, data.length);
@@ -240,6 +249,8 @@ export class BlobDriver implements BlobDriverInterface {
         const dataSlice = data.slice(0, index);
 
         let fragment: Buffer | undefined;
+
+        assert(dataSlice.length <= BLOB_FRAGMENT_SIZE);
 
         if (dataSlice.length < BLOB_FRAGMENT_SIZE) {
             fragment = await this.readBlobFragment(dataId, startFragmentIndex);
@@ -269,28 +280,38 @@ export class BlobDriver implements BlobDriverInterface {
      * @param dataId
      * @param startPos the original start position in the blob for the writing.
      * @param index the index of data reached so far.
-     * @param data the unmodifed data buffer to write.
+     * @param data the unmodifed data buffer to write from.
      *
      * @returns data of last fragment and the fragment index of last fragment.
      * @throws on invalid input parameters.
      */
-    protected async calcBlobEndFragment(dataId: Buffer, startPos: number, index: number, data: Buffer): Promise<{fragment: Buffer, endFragmentIndex: number}> {
-        const countFragments = Math.ceil((startPos + data.length) / BLOB_FRAGMENT_SIZE);
-        const posFragmentIndex = Math.floor((startPos + index) / BLOB_FRAGMENT_SIZE);
-        const endFragmentIndex = countFragments - 1;
+    protected async calcBlobEndFragment(dataId: Buffer, startPos: number, index: number,
+        data: Buffer): Promise<{fragment: Buffer, lastFragmentIndex: number}> {
+
+        const startFragmentIndex = Math.floor(startPos / BLOB_FRAGMENT_SIZE);
+
+        // not including
+        const endFragmentIndex = Math.ceil((startPos + data.length) / BLOB_FRAGMENT_SIZE);
+
+        const lastFragmentIndex = endFragmentIndex - 1;
+
+        const countFragments = endFragmentIndex - startFragmentIndex;
+
+        const currentFragmentIndex = Math.floor((startPos + index) / BLOB_FRAGMENT_SIZE);
 
         if (index >= data.length) {
             throw new Error("End of data reached");
         }
-        else if (countFragments <= 1 || posFragmentIndex === 0) {
+        else if (startFragmentIndex === currentFragmentIndex) {
             throw new Error("This is not the end fragment, looks like the start fragment");
         }
-        else if (posFragmentIndex !== endFragmentIndex) {
+        else if (currentFragmentIndex < lastFragmentIndex) {
             throw new Error("This is not the end fragment, looks like a middle fragment");
         }
-        else if (posFragmentIndex * BLOB_FRAGMENT_SIZE !== startPos + index) {
+        else if (lastFragmentIndex * BLOB_FRAGMENT_SIZE !== startPos + index) {
             throw new Error("The end fragment must begin on the exact fragment boundary");
         }
+
 
         let fragment: Buffer | undefined;
 
@@ -300,7 +321,7 @@ export class BlobDriver implements BlobDriverInterface {
         else {
             const dataSlice = data.slice(index);
 
-            fragment = await this.readBlobFragment(dataId, endFragmentIndex);
+            fragment = await this.readBlobFragment(dataId, lastFragmentIndex);
 
             if (!fragment) {
                 fragment = dataSlice;
@@ -312,7 +333,7 @@ export class BlobDriver implements BlobDriverInterface {
             }
         }
 
-        return {fragment, endFragmentIndex};
+        return {fragment, lastFragmentIndex};
     }
 
     /**

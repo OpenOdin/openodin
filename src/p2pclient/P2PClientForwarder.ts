@@ -57,9 +57,10 @@ export class P2PClientForwarder {
 
     /**
      * TODO
-     * @param resetSender if set then reset targetPublicKey and sourcePublicKey fields before forwarding the request.
-     * This is necessary in the cases when the receiving P2PClient does not have allowUncheckAccess set, for instance
-     * when forwarding to a remote storage.
+     * @param resetSender if set then reset targetPublicKey and sourcePublicKey fields before
+     * forwarding the request.
+     * This is necessary in the cases when the receiving P2PClient does not have allowUncheckAccess
+     * set, for instance when forwarding to a remote storage.
      */
     constructor(senderClient: P2PClient, targetClient: P2PClient, muteMsgIds?: Buffer[], resetSender?: boolean) {
         this.senderClient = senderClient;
@@ -80,13 +81,41 @@ export class P2PClientForwarder {
 
     /**
      */
-    protected handleFetch(fetchRequest: FetchRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>)  {
-        const isSubscription = fetchRequest.query.triggerNodeId.length > 0 || fetchRequest.query.triggerInterval > 0;
+    protected handleFetch(fetchRequest: FetchRequest, senderClient: P2PClient, fromMsgId: Buffer,
+        expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>)  {
+
+        const isSubscription = (fetchRequest.query.triggerNodeId.length > 0 ||
+            fetchRequest.query.triggerInterval > 0) && fetchRequest.transform.msgId.length === 0;
+
+        if (fetchRequest.transform.msgId.length > 0) {
+            // Translate msgId
+            const msgId = fetchRequest.transform.msgId;
+            fetchRequest.transform.msgId = Buffer.alloc(0);
+
+            for (let i=0; i<this.subscriptionMaps.length; i++) {
+                const subscriptionMap = this.subscriptionMaps[i];
+
+                if (subscriptionMap.fromMsgId.equals(msgId) &&
+                    subscriptionMap.targetPublicKey.equals(fetchRequest.query.targetPublicKey)) {
+
+                    fetchRequest.transform.msgId = CopyBuffer(subscriptionMap.originalMsgId);
+
+                    break;
+                }
+            }
+
+            if (fetchRequest.transform.msgId.length === 0) {
+                console.debug(`Could not map msgId=${msgId}. Likely already unsubscribed.`);
+                return;
+            }
+        }
 
         const {getResponse} = this.targetClient.fetch(fetchRequest);
+
         if (!getResponse) {
             return;
         }
+
 
         if (isSubscription) {
             // Save msgId associated in the Storage to use for unsubscription on close.
@@ -160,10 +189,16 @@ export class P2PClientForwarder {
 
     /**
      */
-    protected handleUnsubscribe(unsubscribeRequest: UnsubscribeRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<UnsubscribeResponse>) {
+    protected handleUnsubscribe(unsubscribeRequest: UnsubscribeRequest, senderClient: P2PClient,
+        fromMsgId: Buffer, expectingReply: ExpectingReply,
+        sendResponse?: SendResponseFn<UnsubscribeResponse>) {
+
         for (let i=0; i<this.subscriptionMaps.length; i++) {
             const subscriptionMap = this.subscriptionMaps[i];
-            if (subscriptionMap.fromMsgId.equals(unsubscribeRequest.originalMsgId) && subscriptionMap.targetPublicKey.equals(unsubscribeRequest.targetPublicKey)) {
+
+            if (subscriptionMap.fromMsgId.equals(unsubscribeRequest.originalMsgId) &&
+                subscriptionMap.targetPublicKey.equals(unsubscribeRequest.targetPublicKey)) {
+
                 this.subscriptionMaps.slice(i, 1);
                 const {originalMsgId, targetPublicKey} = subscriptionMap;
 

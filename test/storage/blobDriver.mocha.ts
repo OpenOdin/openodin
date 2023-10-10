@@ -26,7 +26,7 @@ class BlobDriverTestWrapper extends BlobDriver {
         return super.calcBlobStartFragment(dataId, pos, data);
     }
 
-    public async calcBlobEndFragment(dataId: Buffer, pos: number, index: number, data: Buffer): Promise<{fragment: Buffer, endFragmentIndex: number}> {
+    public async calcBlobEndFragment(dataId: Buffer, pos: number, index: number, data: Buffer): Promise<{fragment: Buffer, lastFragmentIndex: number}> {
         return super.calcBlobEndFragment(dataId, pos, index, data);
     }
 
@@ -432,12 +432,38 @@ function setupBlobTests(config: any) {
         await expectAsyncException(
             driver.calcBlobEndFragment(dataId, BLOB_FRAGMENT_SIZE, 0,
             Buffer.alloc(BLOB_FRAGMENT_SIZE+1)),
-            "This is not the end fragment, looks like a middle fragment");
+            "This is not the end fragment, looks like the start fragment");
 
         await expectAsyncException(
             driver.calcBlobEndFragment(dataId, BLOB_FRAGMENT_SIZE*2, 1000,
             Buffer.alloc(BLOB_FRAGMENT_SIZE*2)),
+            "This is not the end fragment, looks like the start fragment");
+
+        await expectAsyncNoException(
+            driver.calcBlobEndFragment(dataId, 0, BLOB_FRAGMENT_SIZE,
+            Buffer.alloc(BLOB_FRAGMENT_SIZE*2)));
+
+        await expectAsyncNoException(
+            driver.calcBlobEndFragment(dataId, BLOB_FRAGMENT_SIZE, BLOB_FRAGMENT_SIZE,
+            Buffer.alloc(BLOB_FRAGMENT_SIZE*2)));
+
+        await expectAsyncException(
+            driver.calcBlobEndFragment(dataId, 1, BLOB_FRAGMENT_SIZE,
+            Buffer.alloc(BLOB_FRAGMENT_SIZE*2)),
             "This is not the end fragment, looks like a middle fragment");
+
+        await expectAsyncNoException(
+            driver.calcBlobEndFragment(dataId, 0, BLOB_FRAGMENT_SIZE,
+            Buffer.alloc(BLOB_FRAGMENT_SIZE*2)));
+
+        await expectAsyncException(
+            driver.calcBlobEndFragment(dataId, BLOB_FRAGMENT_SIZE*2-1, BLOB_FRAGMENT_SIZE,
+            Buffer.alloc(BLOB_FRAGMENT_SIZE*2)),
+            "This is not the end fragment, looks like a middle fragment");
+
+        await expectAsyncNoException(
+            driver.calcBlobEndFragment(dataId, BLOB_FRAGMENT_SIZE*2, BLOB_FRAGMENT_SIZE,
+            Buffer.alloc(BLOB_FRAGMENT_SIZE*2)));
 
         await expectAsyncException(
             driver.calcBlobEndFragment(dataId, BLOB_FRAGMENT_SIZE-10, 11,
@@ -447,32 +473,17 @@ function setupBlobTests(config: any) {
 
         //////
         let startPos = BLOB_FRAGMENT_SIZE;
-        let index = 0;
-        let data = Buffer.alloc(10);
+        let data = Buffer.alloc(BLOB_FRAGMENT_SIZE*2);
 
         for (let i=0; i<data.length; i++) {
             data[i] = i%256;
         }
 
-        let {fragment, endFragmentIndex} = await driver.calcBlobEndFragment(dataId, startPos, index, data);
+        let index = BLOB_FRAGMENT_SIZE;
 
-        assert(endFragmentIndex === 1);
-        assert(fragment.length === 10);
-        assert(fragment.equals(data));
+        let {fragment, lastFragmentIndex} = await driver.calcBlobEndFragment(dataId, startPos, index, data);
 
-
-        //////
-        data = Buffer.alloc(BLOB_FRAGMENT_SIZE*2);
-
-        for (let i=0; i<data.length; i++) {
-            data[i] = i%256;
-        }
-
-        index = BLOB_FRAGMENT_SIZE;
-
-        ({fragment, endFragmentIndex} = await driver.calcBlobEndFragment(dataId, startPos, index, data));
-
-        assert(endFragmentIndex === 2);
+        assert(lastFragmentIndex === 2);
         assert(fragment.length === BLOB_FRAGMENT_SIZE);
         assert(fragment.equals(data.slice(index, index + BLOB_FRAGMENT_SIZE)));
 

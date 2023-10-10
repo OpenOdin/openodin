@@ -399,8 +399,8 @@ export class Transformer {
             fetchRequest.query.preserveTransient,
             fetchRequest.query.region,
             fetchRequest.query.jurisdiction,
-            fetchRequest.transform.algos,
             fetchRequest.query.triggerNodeId,
+            fetchRequest.transform.algos,
             fetchRequest.transform.msgId,
         ];
 

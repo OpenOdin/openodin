@@ -192,7 +192,8 @@ export type FetchQuery = {
     embed: AllowEmbed[],
 
     /**
-     * If set then the query will init a subscription which is run whenever a node is added/changed below the triggerNodeId.
+     * If set then the query will init a subscription which is run whenever a node is
+     * added/changed below the triggerNodeId.
      * triggerNodeId is the parentId of the nodes to observe, it does not need to be related to
      * the parentId or the rootNodeId1 of the query.
      * The Storage is not required to support this feature and if it does not support this feature

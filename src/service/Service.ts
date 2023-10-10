@@ -1495,7 +1495,7 @@ export class Service {
 
         // These variables are shared across instances using the same underlaying P2PClient,
         // so that an AutoFetcher fetching from remote will not trigger the remotes
-        // subscriptions it may have on on the storage the AutoFetcher it storing to.
+        // subscriptions it may have on the storage the AutoFetcher it storing to.
         const muteMsgIds: Buffer[] = [];
         const reverseMuteMsgIds: Buffer[] = [];
 

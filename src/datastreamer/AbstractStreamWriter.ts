@@ -163,7 +163,7 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
      *
      * @param readData the data to write
      * @returns [StreamStatus, error: string, fseek?: number]
-     *  Stream read status is either RESULT, ERROR or UNRECOVERABLE.
+     *  StreamStatus is either RESULT, ERROR or UNRECOVERABLE.
      *  If fseek is set that indicates an fseek should be done and that the write must start over.
      */
     protected abstract write(readData: StreamReadData): Promise<[StreamStatus, string, bigint?]>;
@@ -208,6 +208,8 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
      * NOT_AVAILABLE status. Default is 10000 ms.
      * @param retryDelay how many milliseconds to delay until retrying again. Requires
      * that retryTimeout > 0. Default is 1000 ms.
+     *
+     * @throws if an unexpected EOF stream response status is ever retrieved
      */
     public async run(retryTimeout: number = 10000, retryDelay: number = 1000): Promise<StreamWriteData> {
         if (this._isClosed) {
@@ -316,7 +318,8 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
                 this.triggerStats();
             }
             else if (streamStatus === StreamStatus.EOF) {
-                // Do nothing, can't happen.
+                // Can't happen.
+                throw new Error("Unexpected EOF response.");
             }
             else {
                 this.error = error || "Unknown error";

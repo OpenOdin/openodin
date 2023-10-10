@@ -165,6 +165,23 @@ export class TransformerCache {
         return this.model.datas[id1Str];
     }
 
+    /**
+     * Update or create data object.
+     * This can be used to pre-create the object with pre-populated data.
+     * If data object not set then set to given data param object.
+     */
+    public setData(id1: Buffer, data: {[key: string]: any}) {
+        const id1Str = id1.toString("hex");
+
+        const data2 = this.model.datas[id1Str] ?? data;
+
+        this.model.datas[id1Str] = data2;
+
+        for (const key in data) {
+            data2[key] = data[key];
+        }
+    }
+
     public getLastItem(): TransformerItem | undefined {
         return this.getItem(this.model.list.length - 1);
     }

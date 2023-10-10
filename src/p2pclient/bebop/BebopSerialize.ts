@@ -34,6 +34,9 @@ import {
     CopyToBuffer,
 } from "./util";
 
+import {
+    DeepCopy,
+} from "../../util/common";
 
 /**
  * Class of functions used to serialize request structures into buffers using Bebop.
@@ -45,7 +48,7 @@ export class BebopSerialize {
      * @throws
      */
     public FetchRequest(fetchRequest: FetchRequest): Buffer {
-        const obj = fetchRequest as any;
+        const obj = DeepCopy(fetchRequest) as any;
         if (!obj || !obj.query) {
             throw new Error("Could not serialize FetchRequest");
         }

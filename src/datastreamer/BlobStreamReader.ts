@@ -193,7 +193,7 @@ export class BlobStreamReader extends AbstractStreamReader {
                 }
                 else if (readBlobResponse.status === Status.FETCH_FAILED) {
                     // Try next peer
-                    console.debug("Could not read blob from peer:", readBlobResponse);
+                    // Do not output debug message here since it might spam.
                     resolve([StreamStatus.NOT_AVAILABLE, readBlobResponse.error]);
                 }
                 else {
