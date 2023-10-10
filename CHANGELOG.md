@@ -2,6 +2,12 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.6.7] - 20231010
+BREAKING CHANGES.  
+Improve DataStreamers. Fix bugs. Add new Buffer streamers.  
+Improve Transformer. Add fossil-delta for diff.  
+Fix expired example certs.  
+
 ## [0.6.6] - 20230925
 
 BREAKING CHANGE: Make Universe RPC client work with multiple instances on the same port.  
