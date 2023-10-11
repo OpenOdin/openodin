@@ -206,9 +206,9 @@ describe("Transformer AlgoRefId", function() {
 
         const keyPair = Node.GenKeyPair();
 
-        const node1 = await nodeUtil.createDataNode({creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
-        const node1_1 = await nodeUtil.createDataNode({creationTime: 9, refId: node1.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
-        const node1_1_1 = await nodeUtil.createDataNode({creationTime: 0, refId: node1_1.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+        const node1 = await nodeUtil.createDataNode({data: Buffer.from("node1"), creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+        const node1_1 = await nodeUtil.createDataNode({data: Buffer.from("node1_1"), creationTime: 9, refId: node1.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+        const node1_1_1 = await nodeUtil.createDataNode({data: Buffer.from("node1_1_1"), creationTime: 0, refId: node1_1.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
 
         let [addedNodes, transientNodes] = algo.add([node1, node1_1, node1_1_1]);
         assert(addedNodes.length === 3);
@@ -221,8 +221,8 @@ describe("Transformer AlgoRefId", function() {
         assert(indexes[2] === 2);
 
 
-        const node0 = await nodeUtil.createDataNode({creationTime: 9, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
-        const node0_1 = await nodeUtil.createDataNode({creationTime: 120, refId: node0.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+        const node0 = await nodeUtil.createDataNode({data: Buffer.from("node0"), creationTime: 9, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+        const node0_1 = await nodeUtil.createDataNode({data: Buffer.from("node0_1"), creationTime: 120, refId: node0.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
 
 
         // Insert orphan
@@ -250,5 +250,72 @@ describe("Transformer AlgoRefId", function() {
         assert(indexes[2] === 3);
         assert(indexes[3] === 2);
         assert(indexes[4] === 4);
+
+        let nodes;
+
+        /// head
+        [nodes, indexes] = algo.get(undefined, 1, 0, false);
+        assert(indexes.length === 1);
+        assert(nodes[0] === node0);
+
+        [nodes, indexes] = algo.get(undefined, -1, 0, false);
+        assert(indexes.length === 5);
+        assert(nodes[0] === node0);
+        assert(nodes[1] === node1);
+        assert(nodes[2] === node1_1);
+        assert(nodes[3] === node0_1);
+        assert(nodes[4] === node1_1_1);
+
+        [nodes, indexes] = algo.get(undefined, 4, 0, true);
+        assert(indexes.length === 4);
+        assert(nodes[0] === node1_1_1);
+        assert(nodes[1] === node0_1);
+        assert(nodes[2] === node1_1);
+        assert(nodes[3] === node1);
+
+        [nodes, indexes] = algo.get(node0_1.getId1(), -1, 0, true);
+        assert(indexes.length === 3);
+        assert(nodes[0] === node1_1);
+        assert(nodes[1] === node1);
+        assert(nodes[2] === node0);
+
+        /// tail
+        [nodes, indexes] = algo.get(undefined, 0, 1, false);
+        assert(indexes.length === 1);
+        assert(nodes[0] === node1_1_1);
+
+        [nodes, indexes] = algo.get(undefined, 0, -1, false);
+        assert(indexes.length === 5);
+        assert(nodes[0] === node0);
+        assert(nodes[1] === node1);
+        assert(nodes[2] === node1_1);
+        assert(nodes[3] === node0_1);
+        assert(nodes[4] === node1_1_1);
+
+        [nodes, indexes] = algo.get(node0_1.getId1(), 0, -1, false);
+        assert(indexes.length === 3);
+        assert(nodes[0] === node0);
+        assert(nodes[1] === node1);
+        assert(nodes[2] === node1_1);
+
+        [nodes, indexes] = algo.get(undefined, 0, 4, true);
+        assert(indexes.length === 4);
+        assert(nodes[3] === node0);
+        assert(nodes[2] === node1);
+        assert(nodes[1] === node1_1);
+        assert(nodes[0] === node0_1);
+
+        [nodes, indexes] = algo.get(undefined, 0, -1, true);
+        assert(indexes.length === 5);
+        assert(nodes[4] === node0);
+        assert(nodes[3] === node1);
+        assert(nodes[2] === node1_1);
+        assert(nodes[1] === node0_1);
+        assert(nodes[0] === node1_1_1);
+
+        [nodes, indexes] = algo.get(node1_1.getId1(), 0, -1, true);
+        assert(indexes.length === 2);
+        assert(nodes[1] === node0_1);
+        assert(nodes[0] === node1_1_1);
     });
 });

@@ -67,7 +67,7 @@ export class AlgoSorted implements AlgoInterface {
      */
     public add(nodes: NodeInterface[]): [NodeInterface[], NodeInterface[]] {
         if (this.getLength() + nodes.length > this.maxLength) {
-            throw new Error(`maximum length of transformer (${this.maxLength}) overflown`);
+            throw new Error(`maximum length of transformer (${this.maxLength}) overflowed`);
         }
 
         const newNodes: NodeInterface[] = [];

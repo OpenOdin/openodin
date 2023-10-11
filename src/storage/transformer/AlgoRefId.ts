@@ -82,7 +82,7 @@ export class AlgoRefId implements AlgoInterface {
      */
     public add(nodes: NodeInterface[]): [NodeInterface[], NodeInterface[]] {
         if (this.getLength() + nodes.length > this.maxLength) {
-            throw new Error(`maximum length of transformer (${this.maxLength}) overflown`);
+            throw new Error(`maximum length of transformer (${this.maxLength}) overflowed`);
         }
 
         // Nodes already existing but with changed transient values.
@@ -228,11 +228,13 @@ export class AlgoRefId implements AlgoInterface {
                 return undefined;
             }
 
-            if (aggregatedCount + level.length >= index) {
+            if (aggregatedCount + level.length > index) {
                 break;
             }
 
             aggregatedCount = aggregatedCount + level.length;
+
+            level = undefined;
         }
 
         if (!level) {
