@@ -2,6 +2,9 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.6.8] - 20231011
+Bug fix in AlgoRefId.  
+
 ## [0.6.7] - 20231010
 BREAKING CHANGES.  
 Improve DataStreamers. Fix bugs. Add new Buffer streamers.  
