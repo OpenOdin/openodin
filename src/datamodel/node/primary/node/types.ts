@@ -64,6 +64,7 @@ export type NodeParams = {
     hasDynamicEmbedding?: boolean,
     isPublic?: boolean,
     isLicensed?: boolean,
+    isPrivate?: boolean,  // Note that is for convenience only. It will make sure that isPublic and isLicensed are not set.
     hasRightsByAssociation?: boolean,
     allowEmbed?: boolean,
     allowEmbedMove?: boolean,

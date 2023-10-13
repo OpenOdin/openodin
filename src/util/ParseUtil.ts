@@ -1120,6 +1120,7 @@ export class ParseUtil {
      *  hasDynamicEmbedding?: boolean,
      *  isPublic?: boolean,
      *  isLicensed?: boolean,
+     *  isPrivate?: boolean,
      *  allowEmbed?: boolean,
      *  allowEmbedMove?: boolean,
      *  isUnique?: boolean,
@@ -1170,6 +1171,7 @@ export class ParseUtil {
         const hasDynamicEmbedding = ParseUtil.ParseVariable("hasDynamicEmbedding must be boolean, if set", params.hasDynamicEmbedding, "boolean", true);
         const isPublic = ParseUtil.ParseVariable("isPublic must be boolean, if set", params.isPublic, "boolean", true);
         const isLicensed = ParseUtil.ParseVariable("isLicensed must be boolean, if set", params.isLicensed, "boolean", true);
+        const isPrivate = ParseUtil.ParseVariable("isPrivate must be boolean, if set", params.isPrivate, "boolean", true);
         const allowEmbed = ParseUtil.ParseVariable("allowEmbed must be boolean, if set", params.allowEmbed, "boolean", true);
         const allowEmbedMove = ParseUtil.ParseVariable("allowEmbedMove must be boolean, if set", params.allowEmbedMove, "boolean", true);
         const isUnique = ParseUtil.ParseVariable("isUnique must be boolean, if set", params.isUnique, "boolean", true);
@@ -1213,6 +1215,7 @@ export class ParseUtil {
             hasDynamicEmbedding,
             isPublic,
             isLicensed,
+            isPrivate,
             allowEmbed,
             allowEmbedMove,
             isUnique,

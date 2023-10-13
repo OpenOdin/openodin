@@ -2481,6 +2481,15 @@ export abstract class Node implements NodeInterface {
         if (params.isLicensed !== undefined) {
             this.setLicensed(params.isLicensed);
         }
+        if (params.isPrivate === true) {
+            // Note that isPrivate is a convenience feature, it is not stored in the node.
+            if (params.isPublic) {
+                throw new Error("node params isPrivate cannot be set if isPublic is set.");
+            }
+            if (params.isLicensed) {
+                throw new Error("node params isPrivate cannot be set if isLicensed is set.");
+            }
+        }
         if (params.hasRightsByAssociation !== undefined) {
             this.setHasRightsByAssociation(params.hasRightsByAssociation);
         }
@@ -2581,6 +2590,8 @@ export abstract class Node implements NodeInterface {
         const onlyOwnChildren = this.onlyOwnChildren();
         const disallowPublicChildren = this.disallowPublicChildren();
 
+        const isPrivate = !isLicensed && !isPublic;
+
         return {
             modelType,
             id1,
@@ -2611,6 +2622,7 @@ export abstract class Node implements NodeInterface {
             hasDynamicEmbedding,
             isPublic,
             isLicensed,
+            isPrivate,
             hasRightsByAssociation,
             allowEmbed,
             allowEmbedMove,
