@@ -64,7 +64,7 @@ import {
 } from "../util/RegionUtil";
 
 import {
-    LocalStorageConfig,
+    DatabaseConfig,
     ConnectionConfig,
     ExposeStorageToApp,
     HandshakeFactoryFactoryInterface,
@@ -140,11 +140,11 @@ type ServiceConfig = {
     /** Certificates used for signing new nodes when having authenticated using an Auth Cert. */
     nodeCerts: PrimaryNodeCertInterface[],
 
-    /** Set if using a local storage (either in-mem or disk backed). Mutually exclusive to storageConnectionConfigs. */
-    localStorage?: LocalStorageConfig,
+    /** Set if using a database (either in-mem or disk-backed). Mutually exclusive to storageConnectionConfigs. */
+    databaseConfig?: DatabaseConfig,
 
     /**
-     * Added to if using a remote storage connected to over socket. Mutually exclusive to localStorage.
+     * Added to if using a remote storage connected to over socket. Mutually exclusive to databaseConfig.
      * There can be many connection factories but only one connected socket will be allowed.
      */
     storageConnectionConfigs: ConnectionConfig[],
@@ -183,7 +183,7 @@ type ServiceState = {
     peerConnectionFactories: HandshakeFactoryInterface[],
 
     /**
-     * Initially this value gtes copied from localStorage.driver.reconnectDelay.
+     * Initially this value gtes copied from databaseConfig.driver.reconnectDelay.
      * If it is set to 0 or undefined then reconnect is cancelled.
      */
     localDatabaseReconnectDelay?: number,
@@ -414,7 +414,7 @@ export class Service {
             this.addStorageConnectionConfig(this.walletConf.storage.peer);
         }
         else if (this.walletConf.storage.database) {
-            this.setLocalStorage(this.walletConf.storage.database);
+            this.setDatabaseConfig(this.walletConf.storage.database);
         }
         else {
             throw new Error("Missing walletConf.storage configuration");
@@ -673,17 +673,17 @@ export class Service {
 
     /**
      * Set (and replace current local/remote) storage.
-     * @param localStorage
+     * @param databaseConfig
      * @throws if running.
      */
-    public setLocalStorage(localStorage: LocalStorageConfig | undefined) {
+    public setDatabaseConfig(databaseConfig: DatabaseConfig | undefined) {
         if (this._isRunning) {
-            throw new Error("Cannot set local storage while running.");
+            throw new Error("Cannot set databaseConfig while running.");
         }
 
-        this.config.localStorage = localStorage;
+        this.config.databaseConfig = databaseConfig;
 
-        this.state.localDatabaseReconnectDelay = this.config.localStorage?.driver.reconnectDelay;
+        this.state.localDatabaseReconnectDelay = this.config.databaseConfig?.driver.reconnectDelay;
     }
 
     public makeThread(name: string, defaults: ThreadDefaults = {}): Thread {
@@ -755,7 +755,7 @@ export class Service {
 
         this.config.storageConnectionConfigs.push(connectionConfig);
 
-        if (this._isRunning && !this.config.localStorage) {
+        if (this._isRunning && !this.config.databaseConfig) {
             this.initStorageFactories();
         }
     }
@@ -949,8 +949,8 @@ export class Service {
      * @throws
      */
     protected async initStorage() {
-        if (this.config.localStorage) {
-            this.initLocalStorage(this.config.localStorage);
+        if (this.config.databaseConfig) {
+            this.initDatabase(this.config.databaseConfig);
         }
         else if (this.config.storageConnectionConfigs.length > 0) {
             await this.initStorageFactories();
@@ -1052,38 +1052,38 @@ export class Service {
      * Create Storage.
      * @throws on error.
      */
-    protected initLocalStorage(localStorage: LocalStorageConfig) {
-        if (!localStorage.driver.sqlite && !localStorage.driver.pg) {
-            throw new Error("Driver not properly configured. Expecting localStorage.driver.sqlite/pg to be set.");
+    protected initDatabase(databaseConfig: DatabaseConfig) {
+        if (!databaseConfig.driver.sqlite && !databaseConfig.driver.pg) {
+            throw new Error("Driver not properly configured. Expecting databaseConfig.driver.sqlite/pg to be set.");
         }
 
-        if (localStorage.driver.sqlite && localStorage.driver.pg) {
-            throw new Error("Driver not properly configured. Expecting only one of localStorage.driver.sqlite/pg to be set.");
+        if (databaseConfig.driver.sqlite && databaseConfig.driver.pg) {
+            throw new Error("Driver not properly configured. Expecting only one of databaseConfig.driver.sqlite/pg to be set.");
         }
 
-        if (localStorage.blobDriver?.sqlite && localStorage.blobDriver?.pg) {
-            throw new Error("Driver not properly configured. Expecting maxium one of localStorage.driver.sqlite/pg to be set.");
+        if (databaseConfig.blobDriver?.sqlite && databaseConfig.blobDriver?.pg) {
+            throw new Error("Driver not properly configured. Expecting maxium one of databaseConfig.driver.sqlite/pg to be set.");
         }
 
         // Do not await this.
-        this.connectLocalStorage(localStorage);
+        this.connectDatabase(databaseConfig);
     }
 
     /**
      * This function does not return unless disconnected and not supposed to reconnect.
      *
      */
-    protected async connectLocalStorage(localStorage: LocalStorageConfig) {
+    protected async connectDatabase(databaseConfig: DatabaseConfig) {
         // The PeerProps which the Storage sees as the this side.
         // The publicKey set here is what dictatates the permissions we have in the Storage.
         const localProps = this.makePeerProps();
 
         // The PeerProps of the Storage "sent" to this side in the handshake.
-        // When using a local storage the storage uses the same keys for identity as the client side.
+        // When using a database the storage uses the same keys for identity as the client side.
         const remoteProps = this.makePeerProps();
 
         while (true) {
-            const [driver, blobDriver] = await this.connectToDatabase(localStorage);
+            const [driver, blobDriver] = await this.connectToDatabase(databaseConfig);
 
             if (driver) {
                 // Create virtual paired sockets.
@@ -1091,7 +1091,7 @@ export class Service {
                 const messaging1 = new Messaging(socket1, 0);
                 const messaging2 = new Messaging(socket2, 0);
 
-                const p2pStorage = new P2PClient(messaging1, remoteProps, localProps, localStorage.permissions);
+                const p2pStorage = new P2PClient(messaging1, remoteProps, localProps, databaseConfig.permissions);
 
                 const storage = new Storage(p2pStorage, this.signatureOffloader, driver, blobDriver);
 
@@ -1117,7 +1117,7 @@ export class Service {
                 // Set permissions on this to limit the local app's access to the storage.
                 const intermediaryStorageClient =
                     new P2PClient(messaging3, this.makePeerProps(), this.makePeerProps(),
-                        localStorage.appPermissions);
+                        databaseConfig.appPermissions);
 
                 // This client only initiates requests and does not need any permissions to it.
                 const externalStorageClient =
@@ -1155,30 +1155,30 @@ export class Service {
         }
     }
 
-    protected async connectToDatabase(localStorage: LocalStorageConfig): Promise<[DriverInterface | undefined, BlobDriverInterface | undefined]> {
+    protected async connectToDatabase(databaseConfig: DatabaseConfig): Promise<[DriverInterface | undefined, BlobDriverInterface | undefined]> {
         let driver: DriverInterface | undefined;
         let blobDriver: BlobDriverInterface | undefined;
 
         try {
-            if (localStorage.driver.sqlite) {
+            if (databaseConfig.driver.sqlite) {
                 const db = isBrowser ?
                     await DatabaseUtil.OpenSQLiteJS() :
-                    await DatabaseUtil.OpenSQLite(localStorage.driver.sqlite);
+                    await DatabaseUtil.OpenSQLite(databaseConfig.driver.sqlite);
                 driver = new Driver(new DBClient(db));
             }
-            else if (localStorage.driver.pg) {
-                const connection = await DatabaseUtil.OpenPG(localStorage.driver.pg);
+            else if (databaseConfig.driver.pg) {
+                const connection = await DatabaseUtil.OpenPG(databaseConfig.driver.pg);
                 driver = new Driver(new DBClient(connection));
             }
 
-            if (localStorage.blobDriver?.sqlite) {
+            if (databaseConfig.blobDriver?.sqlite) {
                 const db = isBrowser ?
                     await DatabaseUtil.OpenSQLiteJS(false) :
-                    await DatabaseUtil.OpenSQLite(localStorage.blobDriver.sqlite, false);
+                    await DatabaseUtil.OpenSQLite(databaseConfig.blobDriver.sqlite, false);
                 blobDriver = new BlobDriver(new DBClient(db));
             }
-            else if (localStorage.blobDriver?.pg) {
-                const connection = await DatabaseUtil.OpenPG(localStorage.blobDriver.pg, false);
+            else if (databaseConfig.blobDriver?.pg) {
+                const connection = await DatabaseUtil.OpenPG(databaseConfig.blobDriver.pg, false);
                 blobDriver = new BlobDriver(new DBClient(connection));
             }
         }

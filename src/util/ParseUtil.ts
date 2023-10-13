@@ -52,7 +52,7 @@ import {
 } from "../p2pclient/types";
 
 import {
-    LocalStorageConfig,
+    DatabaseConfig,
     ConnectionConfig,
     DriverConfig,
     UniverseConf,
@@ -331,7 +331,7 @@ export class ParseUtil {
             storage.peer = ParseUtil.ParseConfigConnectionConfig(conf.storage.peer);
         }
         else {
-            storage.database = ParseUtil.ParseConfigLocalStorage(conf.storage?.database ?? {});
+            storage.database = ParseUtil.ParseConfigDatabase(conf.storage?.database ?? {});
         }
 
         return {
@@ -399,10 +399,10 @@ export class ParseUtil {
      *  driver?: DriverConfig,
      *  blobDriver?: DriverConfig,
      * }
-     * @returns LocalStorageConfig
+     * @returns DatabaseConfig
      * @throws if malconfigured
      */
-    public static ParseConfigLocalStorage(obj: any): LocalStorageConfig {
+    public static ParseConfigDatabase(obj: any): DatabaseConfig {
         const permissions = ParseUtil.ParseP2PClientPermissions(obj.permissions ?? UNCHECKED_PERMISSIVE_PERMISSIONS);
         const appPermissions = ParseUtil.ParseP2PClientPermissions(obj.appPermissions ?? PERMISSIVE_PERMISSIONS);
 
@@ -417,16 +417,16 @@ export class ParseUtil {
         };
 
         if (obj.driver) {
-            const sqlite = ParseUtil.ParseVariable("local storage config driver.sqlite must be string, if set", obj.driver.sqlite, "string", true);
-            const pg = ParseUtil.ParseVariable("local storage config driver.pg must be string, if set", obj.driver.pg, "string", true);
-            const reconnectDelay = ParseUtil.ParseVariable("local storage config driver.reconnectDelay must be number, if set", obj.driver.reconnectDelay, "number", true);
+            const sqlite = ParseUtil.ParseVariable("databaseConfig.driver.sqlite must be string, if set", obj.driver.sqlite, "string", true);
+            const pg = ParseUtil.ParseVariable("databaseConfig.driver.pg must be string, if set", obj.driver.pg, "string", true);
+            const reconnectDelay = ParseUtil.ParseVariable("databaseConfig.driver.reconnectDelay must be number, if set", obj.driver.reconnectDelay, "number", true);
 
             if (sqlite && pg) {
-                throw new Error("local storage driver cannot have both 'sqlite' and 'pg' set");
+                throw new Error("databaseConfig.driver cannot have both 'sqlite' and 'pg' set");
             }
 
             if (!sqlite && !pg) {
-                throw new Error("local storage driver must have either 'sqlite' or 'pg' set");
+                throw new Error("databaseConfig.driver must have either 'sqlite' or 'pg' set");
             }
 
             if (sqlite) {
@@ -444,12 +444,12 @@ export class ParseUtil {
         }
 
         if (obj.blobDriver) {
-            const sqlite = ParseUtil.ParseVariable("local storage config blobDriver.sqlite must be string, if set", obj.blobDriver.sqlite, "string", true);
-            const pg = ParseUtil.ParseVariable("local storage config blobDriver.pg must be string, if set", obj.blobDriver.pg, "string", true);
-            const reconnectDelay = ParseUtil.ParseVariable("local storage config blobDriver.reconnectDelay must be number, if set", obj.blobDriver.reconnectDelay, "number", true);
+            const sqlite = ParseUtil.ParseVariable("databaseConfig.blobDriver.sqlite must be string, if set", obj.blobDriver.sqlite, "string", true);
+            const pg = ParseUtil.ParseVariable("databaseConfig.blobDriver.pg must be string, if set", obj.blobDriver.pg, "string", true);
+            const reconnectDelay = ParseUtil.ParseVariable("databaseConfig.blobDriver.reconnectDelay must be number, if set", obj.blobDriver.reconnectDelay, "number", true);
 
             if (sqlite && pg) {
-                throw new Error("local storage blobDriver cannot have both 'sqlite' and 'pg' set");
+                throw new Error("databaseConfig.blobDriver cannot have both 'sqlite' and 'pg' set");
             }
 
             if (sqlite) {
@@ -469,7 +469,7 @@ export class ParseUtil {
             }
         }
 
-        const local: LocalStorageConfig = {
+        const local: DatabaseConfig = {
             permissions,
             appPermissions,
             driver,
@@ -496,8 +496,8 @@ export class ParseUtil {
         let jurisdiction: string | undefined;
 
         if (connectionConfig !== undefined) {
-            region = ParseUtil.ParseVariable("local storage region must be string, if set", connectionConfig.region, "string", true);
-            jurisdiction = ParseUtil.ParseVariable("local storage jurisdiction must be string, if set", connectionConfig.jurisdiction, "string", true);
+            region = ParseUtil.ParseVariable("connectionConfig.region must be string, if set", connectionConfig.region, "string", true);
+            jurisdiction = ParseUtil.ParseVariable("connectionConfig.jurisdiction must be string, if set", connectionConfig.jurisdiction, "string", true);
         }
 
         if (connectionConfig.permissions === undefined) {

@@ -111,7 +111,7 @@ export type P2PClientPermissions = {
      * This feature is useful when chaining together P2PClients to tunnel requests unaltered,
      * but it comes with security implications if not used properly.
      *
-     * Local storages has this by default set to true, and the permissions handling is done in the Service layer.
+     * Databases have this by default set to true, and the permissions handling is done in the Service layer.
      */
     allowUncheckedAccess: boolean,
 

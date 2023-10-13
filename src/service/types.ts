@@ -60,15 +60,15 @@ export type DriverConfig = {
     reconnectDelay?: number,
 };
 
-export type LocalStorageConfig = {
+export type DatabaseConfig = {
     /**
-     * The permissions the local storage allows on incoming requests.
+     * The permissions the database allows on incoming requests.
      * This is usually unchecked since peer and app permissions are enforced already.
      */
     permissions: P2PClientPermissions,
 
     /**
-     * The permissions the local application is allowed to the local storage.
+     * The permissions the local application is allowed to the database.
      * This is usually permissive but should not be unchecked without good reason
      * so that the app is not tricked into exposing data.
      */
@@ -94,7 +94,7 @@ export type PeerConf = {
 
 export type StorageConf = {
     peer?:      PeerConf,
-    database?:  LocalStorageConfig,
+    database?:  DatabaseConfig,
 };
 
 export type SyncConf = {

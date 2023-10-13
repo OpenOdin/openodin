@@ -77,7 +77,7 @@ export class P2PClientAutoFetcher {
 
     /**
      * If set then reverse serverClient and storageClient, and only match non reverse AutoFetch objects.
-     * This makes the auto fetcher fetch from local storage and store to remote storage.
+     * This makes the auto fetcher fetch from the storage and store to remote peer.
      */
     protected reverse: boolean;
 
