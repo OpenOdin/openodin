@@ -73,6 +73,7 @@ import {
     PeerConf,
     SyncConf,
     WalletConf,
+    ThreadSyncConf,
 } from "./types";
 
 import {
@@ -836,42 +837,36 @@ export class Service {
      * This is a suger function over addAutoFetch which uses an instantiated Thread.
      * @param threadFetchParams same as when calling query() or stream() directly on the thread instance.
      */
-    public addThreadSync(thread: Thread,
-        threadFetchParams: ThreadFetchParams = {},
-        stream: boolean = true,
-        direction: "pull" | "push" | "both" = "both",
-        blobSizeMaxLimit: number = -1,
-        peerPublicKeys?: Buffer[]) {
+    public addThreadSync(thread: Thread, threadFetchParams: ThreadFetchParams = {},
+        threadSyncConf: ThreadSyncConf = {}) {
 
-        this.threadToAutoFetch(thread, threadFetchParams, stream, direction, blobSizeMaxLimit, peerPublicKeys)
+        this.threadToAutoFetch(thread, threadFetchParams, threadSyncConf)
             .forEach( autoFetch => this.addAutoFetch(autoFetch) );
     }
 
     /**
      * Remove sync added with addThreadSync.
      */
-    public removeThreadSync(thread: Thread,
-        threadFetchParams: ThreadFetchParams = {},
-        stream: boolean = true,
-        direction: "pull" | "push" | "both" = "both",
-        blobSizeMaxLimit: number = -1,
-        peerPublicKeys?: Buffer[]) {
+    public removeThreadSync(thread: Thread, threadFetchParams: ThreadFetchParams = {},
+        threadSyncConf: ThreadSyncConf = {}) {
 
-        this.threadToAutoFetch(thread, threadFetchParams, stream, direction, blobSizeMaxLimit, peerPublicKeys)
+        this.threadToAutoFetch(thread, threadFetchParams, threadSyncConf)
             .forEach( autoFetch => this.removeAutoFetch(autoFetch) );
     }
 
-    protected threadToAutoFetch(thread: Thread,
-        threadFetchParams: ThreadFetchParams = {},
-        stream: boolean = true,
-        direction: "pull" | "push" | "both" = "both",
-        blobSizeMaxLimit: number = -1,
-        peerPublicKeys?: Buffer[]): AutoFetch[] {
+    protected threadToAutoFetch(thread: Thread, threadFetchParams: ThreadFetchParams = {},
+        threadSyncConf: ThreadSyncConf = {}) {
 
-        const autoFetchers: AutoFetch[] = [];
+        const stream = threadSyncConf.stream ?? true;
+
+        const direction = threadSyncConf.direction ?? "both";
+
+        const blobSizeMaxLimit = threadSyncConf.blobSizeMaxLimit ?? -1;
 
         // Default is to match every remote public key.
-        peerPublicKeys = peerPublicKeys ?? [Buffer.alloc(0)];
+        const peerPublicKeys = threadSyncConf.peerPublicKeys ?? [Buffer.alloc(0)];
+
+        const autoFetchers: AutoFetch[] = [];
 
         threadFetchParams = DeepCopy(threadFetchParams);
 

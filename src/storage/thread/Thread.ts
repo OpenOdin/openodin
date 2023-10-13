@@ -166,8 +166,8 @@ export class Thread {
 
     /**
      */
-    public async post(threadDataParams: ThreadDataParams = {}): Promise<DataInterface[]> {
-        const dataParams = this.parsePost(threadDataParams);
+    public async post(name: string, threadDataParams: ThreadDataParams = {}): Promise<DataInterface[]> {
+        const dataParams = this.parsePost(name, threadDataParams);
 
         const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey);
 
@@ -320,10 +320,12 @@ export class Thread {
      * @param threadLicenseParams params to overwrite template values with.
      * Note that properties set to `undefined` will still overwrite template values.
      */
-    public async postLicense(node: NodeInterface, threadLicenseParams: ThreadLicenseParams = {}): Promise<Buffer[]> {
+    public async postLicense(name: string, node: NodeInterface, threadLicenseParams: ThreadLicenseParams = {}): Promise<Buffer[]> {
+        const template = this.threadTemplate.postLicense[name] ?? {};
+
         const targets: Buffer[] | undefined =
             Thread.CollapseProperty([threadLicenseParams, this.defaults,
-                this.threadTemplate.postLicense ?? {}], "targets") as (Buffer[] | undefined);
+                template], "targets") as (Buffer[] | undefined);
 
         if (!node.isLicensed() || node.getLicenseMinDistance() !== 0 || !targets) {
             return [];
@@ -335,7 +337,7 @@ export class Thread {
         for (let i=0; i<targetsLength; i++) {
             const targetPublicKey = targets[i];
 
-            const licenseParams = this.parsePostLicense(node, {
+            const licenseParams = this.parsePostLicense(name, node, {
                 ...threadLicenseParams,
                 targetPublicKey,
             });
@@ -363,14 +365,14 @@ export class Thread {
         return new BlobStreamReader(nodeId1, [this.storageClient]);
     }
 
-    protected parsePostLicense(node: NodeInterface, threadLicenseParams: ThreadLicenseParams): LicenseParams {
+    protected parsePostLicense(name: string, node: NodeInterface, threadLicenseParams: ThreadLicenseParams): LicenseParams {
         const nodeId1   = node.getId1();
         const parentId  = node.getParentId();
 
         assert(nodeId1);
         assert(parentId);
 
-        const template = this.threadTemplate.postLicense ?? {};
+        const template = this.threadTemplate.postLicense[name] ?? {};
 
         let creationTime: number | undefined =
             Thread.CollapseProperty([threadLicenseParams, template],
@@ -407,12 +409,12 @@ export class Thread {
         const owner = this.publicKey;
 
         return ParseUtil.ParseLicenseParams(
-            Thread.MergeParams([threadLicenseParams, this.threadTemplate.postLicense ?? {},
+            Thread.MergeParams([threadLicenseParams, template,
                 {nodeId1, parentId, creationTime, expireTime, owner}]));
     }
 
-    protected parsePost(threadDataParams: ThreadDataParams): DataParams {
-        const template = this.threadTemplate.post ?? {};
+    protected parsePost(name: string, threadDataParams: ThreadDataParams): DataParams {
+        const template = this.threadTemplate.post[name] ?? {};
 
         const creationTime: number | undefined =
             Thread.CollapseProperty([threadDataParams, template],

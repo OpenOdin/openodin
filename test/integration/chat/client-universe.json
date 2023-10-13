@@ -16,11 +16,15 @@
                 "head": -1
             },
             "post": {
-                "contentType": "app/chat/message",
-                "isLicensed": true
+                "message": {
+                    "contentType": "app/chat/message",
+                    "isLicensed": true
+                }
             },
             "postLicense": {
-                "extensions": 1
+                "message": {
+                    "extensions": 1
+                }
             }
         }
     },

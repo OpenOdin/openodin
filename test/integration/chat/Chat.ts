@@ -170,9 +170,9 @@ async function main() {
         // Here we send as soon as Storage is connected, peer might or might
         // not be connected yet.
         consoleMain.info("Storage connected, send message from Server side");
-        const [node] = await serverThread.post({data: Buffer.from("Hello from Server")});
+        const [node] = await serverThread.post("message", {data: Buffer.from("Hello from Server")});
         if (node) {
-            serverThread.postLicense(node);
+            serverThread.postLicense("message", node);
         }
     });
 
@@ -234,9 +234,9 @@ async function main() {
         const blobLength = BigInt(BLOB_DATA.length);
         const blobHash = Hash(BLOB_DATA);
         const streamReader = new BufferStreamReader(BLOB_DATA);
-        const [node] = await clientThread!.post({blobHash, blobLength, data: Buffer.from("Hello from Client with attachment")});
+        const [node] = await clientThread!.post("message", {blobHash, blobLength, data: Buffer.from("Hello from Client with attachment")});
         if (node) {
-            clientThread!.postLicense(node);
+            clientThread!.postLicense("message", node);
 
             const nodeId1 = node.getId1();
 

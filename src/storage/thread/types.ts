@@ -37,18 +37,18 @@ export type ThreadTemplate = {
     transform?: FetchTransform,
 
     /**
-     * Default parameters for when posting new data nodes.
-     * Not required to be set to post, but then all parameters
-     * must be passed as arguments to post() instead.
+     * Declare default parameters for each post type.
+     * Not required to be set, but then all arguments must be
+     * passed as post(name, params) instead.
      */
-    post?: ThreadDataParams,
+    post: {[name: string]: ThreadDataParams},
 
     /**
-     * Default parameters for when posting new license nodes.
-     * Not required to be set to post licenses, but then all required parameters
-     * must be passed as arguments to postLicense() instead.
+     * Declare default parameters for each postLicense type.
+     * Not required to be set, but then all arguments must be
+     * passed as postLicense(name, node, params) instead.
      */
-    postLicense?: ThreadLicenseParams,
+    postLicense: {[name: string]: ThreadLicenseParams},
 };
 
 export type ThreadTemplates = {[name: string]: ThreadTemplate};

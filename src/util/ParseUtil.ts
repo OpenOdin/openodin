@@ -134,8 +134,24 @@ export class ParseUtil {
 
             const query     = ParseUtil.ParseQuery(threadTemplate.query ?? {});
             const transform = ParseUtil.ParseTransform(threadTemplate.transform);
-            const post      = ParseUtil.ParseThreadDataParams(threadTemplate.post);
-            const postLicense = ParseUtil.ParseThreadLicenseParams(threadTemplate.postLicense);
+
+            const post: {[name: string]: ThreadDataParams} = {};
+
+            Object.keys(threadTemplate.post).forEach( name => {
+                const params = threadTemplate.post[name];
+                if (params) {
+                    post[name] = ParseUtil.ParseThreadDataParams(params) ?? {};
+                }
+            });
+
+            const postLicense: {[name: string]: ThreadLicenseParams} = {};
+
+            Object.keys(threadTemplate.postLicense ?? {}).forEach( name => {
+                const params = threadTemplate.postLicense[name];
+                if (params) {
+                    postLicense[name] = ParseUtil.ParseThreadLicenseParams(params) ?? {};
+                }
+            });
 
             threads[name] = {
                 query,

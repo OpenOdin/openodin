@@ -108,6 +108,17 @@ export type SyncConf = {
     }[],
 };
 
+/**
+ * This is an alternative approach of adding auto sync
+ * using an instantiated thread as template.
+ */
+export type ThreadSyncConf = {
+    stream?: boolean,  // defaults to true
+    direction?: "pull" | "push" | "both",  // defaults to "both"
+    blobSizeMaxLimit?:  number,  // defaults to -1
+    peerPublicKeys?:    Buffer[],  // defaults to [Buffer.alloc(0)] to match every remote public key
+};
+
 export type UniverseConf = {
     format:         1,
     name:           string,

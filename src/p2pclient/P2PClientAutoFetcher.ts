@@ -110,7 +110,7 @@ export class P2PClientAutoFetcher {
      * If we requested transient values and they are returned they will be passed along to the storage.
      *
      * @param autoFetch
-     * @return Buffer msgId or undefined on error or if the autoFetch has already been added.
+     * @return Buffer msgId or undefined on error or undefined when the autoFetch has already been added.
      */
     protected fetch(autoFetch: AutoFetch): Buffer | undefined {
         autoFetch = DeepCopy(autoFetch);
