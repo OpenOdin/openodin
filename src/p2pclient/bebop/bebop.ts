@@ -927,6 +927,7 @@ export interface IBopStoreResponse {
   status?: Status;
   storedId1S?: Array<Uint8Array>;
   missingBlobId1S?: Array<Uint8Array>;
+  missingBlobSizes?: Array<bigint>;
   error?: string;
 }
 
@@ -966,8 +967,18 @@ export const BopStoreResponse = {
         }
       }
       }
-      if (message.error != null) {
+      if (message.missingBlobSizes != null) {
         view.writeByte(4);
+        {
+        const length0 = message.missingBlobSizes.length;
+        view.writeUint32(length0);
+        for (let i0 = 0; i0 < length0; i0++) {
+          view.writeInt64(message.missingBlobSizes[i0]);
+        }
+      }
+      }
+      if (message.error != null) {
+        view.writeByte(5);
         view.writeString(message.error);
       }
       view.writeByte(0);
@@ -1021,6 +1032,18 @@ export const BopStoreResponse = {
           break;
 
         case 4:
+          {
+        let length0 = view.readUint32();
+        message.missingBlobSizes = new Array<bigint>(length0);
+        for (let i0 = 0; i0 < length0; i0++) {
+          let x0: bigint;
+          x0 = view.readInt64();
+          message.missingBlobSizes[i0] = x0;
+        }
+      }
+          break;
+
+        case 5:
           message.error = view.readString();
           break;
 

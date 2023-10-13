@@ -110,6 +110,7 @@ export class BebopDeserialize {
             status: obj.status as Status,
             storedId1s: (obj.storedId1S || []).map( MakeIntoBuffer ),
             missingBlobId1s: (obj.missingBlobId1S || []).map( MakeIntoBuffer ),
+            missingBlobSizes: obj.missingBlobSizes ?? [],
         };
 
         return storeResponse;

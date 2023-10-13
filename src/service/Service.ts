@@ -52,6 +52,10 @@ import {
 } from "../datamodel";
 
 import {
+    StreamWriterInterface,
+} from "../datastreamer";
+
+import {
     Status,
 } from "../types";
 
@@ -309,8 +313,6 @@ export type StorageFactoryCreateCallback = (e: {handshakeFactory: HandshakeFacto
 
 export type StorageParseErrorCallback = (e: {error: Error, localProps: PeerProps, remoteProps: PeerProps}) => void;
 export type StorageAuthCertErrorCallback = (e: {p2pClient: P2PClient}) => void;
-
-export type BlobCallback = (blobEvent: BlobEvent) => void;
 
 /**
  */
@@ -772,7 +774,7 @@ export class Service {
         const autoFetchers: AutoFetch[] = [];
 
         sync.peerPublicKeys.forEach( (remotePublicKey: Buffer) => {
-            const downloadBlobs = sync.blobSizeMaxLimit !== 0;  //TODO
+            const blobSizeMaxLimit = sync.blobSizeMaxLimit;
 
             sync.threads.forEach( syncThread => {
                 const threadTemplate = this.threadTemplates[syncThread.name];
@@ -797,7 +799,7 @@ export class Service {
                     autoFetchers.push({
                         remotePublicKey,
                         fetchRequest,
-                        downloadBlobs,
+                        blobSizeMaxLimit,
                         reverse: false,
                     });
                 }
@@ -806,7 +808,7 @@ export class Service {
                     autoFetchers.push({
                         remotePublicKey,
                         fetchRequest,
-                        downloadBlobs,
+                        blobSizeMaxLimit,
                         reverse: true,
                     });
                 }
@@ -868,8 +870,6 @@ export class Service {
 
         const autoFetchers: AutoFetch[] = [];
 
-        const downloadBlobs = blobSizeMaxLimit !== 0;  //TODO
-
         // Default is to match every remote public key.
         peerPublicKeys = peerPublicKeys ?? [Buffer.alloc(0)];
 
@@ -890,7 +890,7 @@ export class Service {
                 autoFetchers.push({
                     remotePublicKey,
                     fetchRequest,
-                    downloadBlobs,
+                    blobSizeMaxLimit,
                     reverse: false,
                 });
             }
@@ -899,7 +899,7 @@ export class Service {
                 autoFetchers.push({
                     remotePublicKey,
                     fetchRequest,
-                    downloadBlobs,
+                    blobSizeMaxLimit,
                     reverse: true,
                 });
             }
@@ -1108,6 +1108,7 @@ export class Service {
 
                 storage.init();
 
+                // This client only initiates requests and does not need any permissions to it.
                 const internalStorageClient = new P2PClient(messaging2, localProps, remoteProps);
 
                 messaging1.open();
@@ -1127,6 +1128,10 @@ export class Service {
                 const externalStorageClient =
                     new P2PClient(messaging4, this.makePeerProps(), this.makePeerProps());
 
+                // externalStorageClient (as client) (messaging4->messaging3) ->
+                //  intermediaryStorageClient (as server) ->
+                //      internalStorageClient (as client) (messaging->messaging1) ->
+                //          p2pStorage (as server).
                 new P2PClientForwarder(intermediaryStorageClient, internalStorageClient);
 
                 messaging3.open();
@@ -1512,6 +1517,8 @@ export class Service {
 
         const permissions = p2pClient.getPermissions();
 
+        // If our permissions (as server) allow us to embed we spawn an extender server.
+        //
         if (permissions.fetchPermissions.allowEmbed.length > 0) {
             const storageExtender = new P2PClientExtender(p2pClient, this.state.storageClient, this.publicKey,
                 this.config.nodeCerts,
@@ -1592,6 +1599,45 @@ export class Service {
 
     public getConnectionFactories(): HandshakeFactoryInterface[] {
         return this.state.connectionFactories;
+    }
+
+    /**
+     * Attempt to sync a specific blob from each connected peer to our storage.
+     *
+     * Note that this has no size limit on the blob.
+     *
+     * @returns Generator with return type {promise: Promise<boolean>, streamWriter: StreamWriterInterface}.
+     */
+    public *syncBlob(nodeId1: Buffer) {
+
+        // First check if any AutoFetcher is already syncing.
+        for (let i=0; i<this.state.autoFetchers.length; i++) {
+            const autoFetcher = this.state.autoFetchers[i];
+
+            if (!autoFetcher || autoFetcher.isClosed() || autoFetcher.isReverse()) {
+                continue;
+            }
+
+            const ret = autoFetcher.getSyncingBlob(nodeId1);
+
+            if (ret) {
+
+                yield ret;
+
+                break;
+            }
+        }
+
+        // Run through the list again from the top (list could have changed by now).
+        for (let i=0; i<this.state.autoFetchers.length; i++) {
+            const autoFetcher = this.state.autoFetchers[i];
+
+            if (!autoFetcher || autoFetcher.isClosed() || autoFetcher.isReverse()) {
+                continue;
+            }
+
+            yield autoFetcher.syncBlob(nodeId1, false);
+        }
     }
 
     /**
@@ -1684,8 +1730,27 @@ export class Service {
         this.hookEvent(EVENTS.CONNECTION_ERROR.name, callback);
     }
 
-    public onBlob(callback: BlobCallback) {
-        this.hookEvent(EVENTS.BLOB.name, callback);
+    /**
+     * Event triggered when a blob has successfully been synced to the storage.
+     * The event is only fired once and then removed.
+     *
+     * @param id1 the id1 we are listening for.
+     * @param callback the callback to call when blob for id1 is available.
+     * @returns fn to call to unhook the given callback from this event.
+     */
+    public onBlob(id1: Buffer, callback: () => void): () => void {
+        const fn = (blobEvent: BlobEvent) => {
+            if (id1.equals(blobEvent.nodeId1)) {
+                this.unhookEvent(EVENTS.BLOB.name, fn);
+                callback();
+            }
+        };
+
+        this.hookEvent(EVENTS.BLOB.name, fn);
+
+        return () => {
+            this.unhookEvent(EVENTS.BLOB.name, fn);
+        };
     }
 
     /**

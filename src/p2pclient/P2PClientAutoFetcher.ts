@@ -21,12 +21,14 @@ import {
 import {
     AutoFetch,
     BlobEvent,
+    P2PClientPermissions,
 } from "./types";
 
 import {
     BlobStreamWriter,
     BlobStreamReader,
     StreamStatus,
+    StreamWriterInterface,
 } from "../datastreamer";
 
 import {
@@ -48,8 +50,11 @@ export class P2PClientAutoFetcher {
 
     protected blobHandlers: BlobEventHandler[];
 
-    /** Keep track of blobs being downloaded. */
-    protected downloadingBlobs: {[key: string]: Promise<void>};
+    /** Keep track of blobs being synced. */
+    protected syncingBlobs: {[key: string]: {
+        promise: Promise<boolean>,
+        streamWriter: StreamWriterInterface,
+    }};
 
     /**
      * A given list of message IDs which we will mute when storing.
@@ -91,7 +96,7 @@ export class P2PClientAutoFetcher {
         this.reverseMuteMsgIds = reverseMuteMsgIds ?? [];
         this.reverse = reverse;
         this.autoFetchSubscriptions = [];
-        this.downloadingBlobs = {};
+        this.syncingBlobs = {};
         this.queuedImageChunks = [];
         this.busyProcessing = false;
         this.blobHandlers = [];
@@ -105,7 +110,7 @@ export class P2PClientAutoFetcher {
      * If we requested transient values and they are returned they will be passed along to the storage.
      *
      * @param autoFetch
-     * @return Buffer msgId or undefined on error
+     * @return Buffer msgId or undefined on error or if the autoFetch has already been added.
      */
     protected fetch(autoFetch: AutoFetch): Buffer | undefined {
         autoFetch = DeepCopy(autoFetch);
@@ -113,10 +118,16 @@ export class P2PClientAutoFetcher {
         const fetchRequest = autoFetch.fetchRequest;
 
         const targetPublicKey = this.reverse ?
-            this.storageClient.getRemotePublicKey() : this.serverClient.getLocalPublicKey();
+            // If reverse then this is the publicKey of where we are storing to.
+            this.storageClient.getRemotePublicKey() :
+            // If not reverse we are the target of the fetch.
+            this.serverClient.getLocalPublicKey();
 
         const sourcePublicKey = this.reverse ?
-            this.serverClient.getLocalPublicKey() : this.serverClient.getRemotePublicKey();
+            // If reverse the source is our side.
+            this.serverClient.getLocalPublicKey() :
+            // If not reverse the source is the remote side.
+            this.serverClient.getRemotePublicKey();
 
         fetchRequest.query.sourcePublicKey = sourcePublicKey;
         fetchRequest.query.targetPublicKey = targetPublicKey;
@@ -150,10 +161,12 @@ export class P2PClientAutoFetcher {
             if (fetchResponse.status === Status.RESULT) {
                 // If we requested transient values to be kept on the nodes when fetching from peer,
                 // we try to preserve them into the Storage (this requires that the Storage is OK with that).
-                this.processFetch(fetchResponse.result.nodes, autoFetch.downloadBlobs, fetchRequest.query.preserveTransient);
+                this.processFetch(fetchResponse.result.nodes, autoFetch.blobSizeMaxLimit,
+                    fetchRequest.query.preserveTransient);
             }
             else if (fetchResponse.error) {
                 console.debug("AutoFetcher got error on response:", fetchResponse.error);
+                this.removeFetch(autoFetch);
             }
         });
 
@@ -162,13 +175,16 @@ export class P2PClientAutoFetcher {
 
             this.autoFetchSubscriptions.push({autoFetch, msgId, targetPublicKey});
 
-            const isSubscription = fetchRequest.query.triggerNodeId.length > 0 || fetchRequest.query.triggerInterval > 0;
+            const isSubscription = (fetchRequest.query.triggerNodeId.length > 0 ||
+                fetchRequest.query.triggerInterval > 0) && fetchRequest.transform.msgId.length === 0;
 
             if (isSubscription) {
                 if (this.reverse) {
+                    // This is so that other non reverse AutoFetchers do not trigger this subscription when storing.
                     this.muteMsgIds.push(msgId);
                 }
                 else {
+                    // This is so that other reverse AutoFetchers do not trigger this subscription when storing.
                     this.reverseMuteMsgIds.push(msgId);
                 }
             }
@@ -177,7 +193,7 @@ export class P2PClientAutoFetcher {
         return msgId;
     }
 
-    protected async processFetch(images: Buffer[], syncBlobs: boolean, preserveTransient: boolean) {
+    protected async processFetch(images: Buffer[], blobSizeMaxLimit: number, preserveTransient: boolean) {
         // For all subscriptions the serverClient P2PClient has to the storage we mute those subscriptions
         // when storing data because the data comes from the serverClient and there is no point echoing it back.
         const imagesChunks = this.splitImages(images);
@@ -199,11 +215,17 @@ export class P2PClientAutoFetcher {
                 continue;
             }
 
+            const muteMsgIds = this.reverse ?
+                // When fetching in reverse we do not want to trigger the reverseMuteMsgIds.
+                this.reverseMuteMsgIds :
+                // When fetching in normal we do not want to trigger the muteMsgIds.
+                this.muteMsgIds;
+
             const storeRequest: StoreRequest = {
                 nodes: images,
                 targetPublicKey: this.storageClient.getLocalPublicKey(),
                 sourcePublicKey: this.serverClient.getRemotePublicKey(),
-                muteMsgIds: this.reverse ? this.reverseMuteMsgIds : this.muteMsgIds,
+                muteMsgIds,
                 preserveTransient,
             };
 
@@ -226,11 +248,20 @@ export class P2PClientAutoFetcher {
             storedId1s.push(...anyData.response.storedId1s);
 
             const l = anyData.response.missingBlobId1s.length;
+
             for (let i=0; i<l; i++) {
                 const id1: Buffer = anyData.response.missingBlobId1s[i];
                 const id1Str = id1.toString("hex");
-                if (!this.downloadingBlobs[id1Str]) {
-                    missingBlobId1s[id1Str] = id1;
+
+                const blobSize = anyData.response.missingBlobSizes[i];
+
+                if (!this.syncingBlobs[id1Str] && blobSize !== undefined) {
+
+                    if (blobSizeMaxLimit < 0 ||
+                        (blobSizeMaxLimit > 0 && blobSizeMaxLimit >= blobSize)) {
+
+                        missingBlobId1s[id1Str] = id1;
+                    }
                 }
             }
         }
@@ -239,10 +270,9 @@ export class P2PClientAutoFetcher {
         this.queuedImageChunks.length = 0;
         this.busyProcessing = false;
 
-        // When getting nodes from the peer we can also download blob data, if any.
-        if (syncBlobs) {
-            Object.values(missingBlobId1s).forEach( nodeId1 => this.downloadBlob(nodeId1) );
-        }
+        // When getting nodes from the peer we can also sync blob data, if any.
+        //
+        Object.values(missingBlobId1s).forEach( nodeId1 => this.syncBlob(nodeId1) );
     }
 
     /**
@@ -254,45 +284,71 @@ export class P2PClientAutoFetcher {
     }
 
     /**
-     * @param nodeId1 the ID1 of the node who's blob we want to download and save to the storage.
-     * @returns Promise which resolves on success when blob is stored to storage.
+     * Attempt to sync a blob from the peer.
+     *
+     * @param nodeId1 the ID1 of the node who's blob we want to sync and save to the storage.
+     * @param retry if true then retry forever
+     * @returns Promise which resolves with boolean true when blob is stored to storage.
      */
-    protected downloadBlob(nodeId1: Buffer): Promise<void> {
+    public syncBlob(nodeId1: Buffer, retry: boolean = true):
+        {promise: Promise<boolean>, streamWriter: StreamWriterInterface} {
+
         const nodeId1Str = nodeId1.toString("hex");
 
-        let promise = this.downloadingBlobs[nodeId1Str];
+        if (retry) {
+            const ret = this.syncingBlobs[nodeId1Str];
 
-        if (promise) {
-            return promise;
+            if (ret) {
+                return ret;
+            }
         }
 
-        promise = new Promise<void>( (resolve, reject) => {
-            const blobReader = new BlobStreamReader(nodeId1, [this.serverClient]);
-            const blobWriter = new BlobStreamWriter(nodeId1, blobReader, this.storageClient, /*allowResume=*/true, this.muteMsgIds);
+        const muteMsgIds = this.reverse ?
+            // When fetching in reverse we do not want to trigger the reverseMuteMsgIds.
+            this.reverseMuteMsgIds :
+            // When fetching in normal we do not want to trigger the muteMsgIds.
+            this.muteMsgIds;
 
-            blobWriter.run(3600 * 1000).then( writeData => {
-                delete this.downloadingBlobs[nodeId1Str];
+        const blobReader = new BlobStreamReader(nodeId1, [this.serverClient]);
+
+        const streamWriter = new BlobStreamWriter(nodeId1, blobReader,
+            this.storageClient, /*allowResume=*/true, muteMsgIds);
+
+        const promise = new Promise<boolean>( (resolve) => {
+            // -1 means retry forever.
+            streamWriter.run(retry ? -1 : 0).then( writeData => {
+                if (retry) {
+                    delete this.syncingBlobs[nodeId1Str];
+                }
 
                 if (writeData.status === StreamStatus.RESULT) {
-                    this.emitBlobEvent({nodeId1});
-                    resolve();
+                    this.triggerBlobEvent({nodeId1});
+                    resolve(true);
                 }
                 else {
-                    // TODO: should we resume retrying later?
-                    this.emitBlobEvent({nodeId1, error: writeData.error || "Unknown error"});
-                    reject();
+                    resolve(false);
                 }
             });
         });
 
-        this.downloadingBlobs[nodeId1Str] = promise;
+        if (retry) {
+            this.syncingBlobs[nodeId1Str] = {promise, streamWriter};
+        }
 
-        return promise;
+        return {promise, streamWriter};
+    }
+
+    public getSyncingBlob(nodeId1: Buffer):
+        {promise: Promise<boolean>, streamWriter: StreamWriterInterface} | undefined {
+
+        const nodeId1Str = nodeId1.toString("hex");
+        return this.syncingBlobs[nodeId1Str];
     }
 
     /**
      * This function provides a structured way of issuing fetch and subscription requests to the server client.
-     * @param autoFetches array of AutoFetch objects to check if they trigger against the server, and if so issue the fetch/subscription requests.
+     * @param autoFetches array of AutoFetch objects to check if they trigger against the server, and if so issue
+     * the fetch/subscription requests.
      */
     public addFetch(autoFetches: AutoFetch[]) {
         autoFetches.forEach( autoFetch => {
@@ -302,7 +358,8 @@ export class P2PClientAutoFetcher {
 
             // Take into account if the clients are reversed.
             // We always want the auto fetch to filter on the actual remote client.
-            const remotePublicKey = this.reverse ? this.storageClient.getRemotePublicKey() : this.serverClient.getRemotePublicKey();
+            const remotePublicKey = this.reverse ? this.storageClient.getRemotePublicKey() :
+                this.serverClient.getRemotePublicKey();
 
             if (autoFetch.remotePublicKey.length === 0 || remotePublicKey?.equals(autoFetch.remotePublicKey)) {
                 this.fetch(autoFetch);
@@ -315,34 +372,55 @@ export class P2PClientAutoFetcher {
             const item = this.autoFetchSubscriptions[i];
             if (DeepEquals(item.autoFetch, autoFetch)) {
                 this.autoFetchSubscriptions.splice(i, 1);
+
                 this.unsubscribe({originalMsgId: item.msgId, targetPublicKey: item.targetPublicKey});
-                const index = this.reverseMuteMsgIds.findIndex( msgId2 => msgId2.equals(item.msgId) );
+
+                let index = this.reverseMuteMsgIds.findIndex( msgId2 => msgId2.equals(item.msgId) );
+
                 if (index > -1) {
                     this.reverseMuteMsgIds.splice(index, 1);
                 }
+
+                index = this.muteMsgIds.findIndex( msgId2 => msgId2.equals(item.msgId) );
+
+                if (index > -1) {
+                    this.muteMsgIds.splice(index, 1);
+                }
+
                 break;
             }
         }
     }
 
     /**
-     * Unsubscribe from all subscriptions.
-     * Note that any downloading blobs will not be cancelled, unless the socket it self is closed.
+     * Unsubscribe from all subscriptions and cancel any ongoing or pending blob syncings.
      */
     public close() {
         while (this.autoFetchSubscriptions.length > 0) {
             const item = this.autoFetchSubscriptions[0];
             this.removeFetch(item.autoFetch);
         }
+
+        Object.keys(this.syncingBlobs).forEach( id1Str => {
+            const ret = this.syncingBlobs[id1Str];
+
+            ret?.streamWriter.close();
+
+            delete this.syncingBlobs[id1Str];
+        });
     }
 
     public isClosed(): boolean {
         return this.serverClient.isClosed() || this.storageClient.isClosed();
     }
 
+    public isReverse(): boolean {
+        return this.reverse;
+    }
+
     /**
      * Event handler for blob events.
-     * Blob successfully downloaded and stored,
+     * Blob successfully synced and stored,
      * blob failed in fetching, or
      * blob failed in storing.
      *
@@ -352,7 +430,7 @@ export class P2PClientAutoFetcher {
         this.blobHandlers.push(callback);
     }
 
-    protected emitBlobEvent(blobEvent: BlobEvent) {
+    protected triggerBlobEvent(blobEvent: BlobEvent) {
         this.blobHandlers.forEach( blobHandler => {
             blobHandler(blobEvent, this);
         });

@@ -586,6 +586,11 @@ export type StoreResponse = {
     missingBlobId1s: Buffer[],
 
     /**
+     * Corresponds to missingBlobId1s and gives the size of the blob in bytes.
+     */
+    missingBlobSizes: bigint[],
+
+    /**
      * If there was an error reported in Status an error message could be provided.
      */
     error: string,

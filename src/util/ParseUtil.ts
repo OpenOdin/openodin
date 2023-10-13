@@ -379,6 +379,7 @@ export class ParseUtil {
      * @param obj object with properties:
      * {
      *  permissions?: P2PClientPermissions,
+     *  appPermissions?: P2PClientPermissions,
      *  driver?: DriverConfig,
      *  blobDriver?: DriverConfig,
      * }
@@ -749,14 +750,14 @@ export class ParseUtil {
      *  remotePublicKey?: hexstring | Buffer,   // undefined or empty string means match ALL public keys.
      *  query: FetchQuery,
      *  transform: FetchTransform,
-     *  downloadBlobs?: boolean,
+     *  blobSizeMaxLimit?: number,
      *  reverse?: boolean
      * }
      * @returns AutoFetch
      * @throws on unparseable data
      */
     public static ParseConfigAutoFetch(autoFetch: any): AutoFetch {
-        const downloadBlobs = ParseUtil.ParseVariable("autoFetch downloadBlobs must be boolean, if set", autoFetch.downloadBlobs, "boolean", true) ?? false;
+        const blobSizeMaxLimit = ParseUtil.ParseVariable("autoFetch blobSizeMaxLimit must be integer, if set", autoFetch.blobSizeMaxLimit, "number", true) ?? -1;
         const reverse = ParseUtil.ParseVariable("autoFetch reverse must be boolean, if set", autoFetch.reverse, "boolean", true) ?? false;
         const remotePublicKey = ParseUtil.ParseVariable("autoFetch remotePublicKey must be hex-string or Buffer, if set", autoFetch.remotePublicKey, "hex", true) ?? Buffer.alloc(0);
         const query = ParseUtil.ParseQuery(autoFetch.query);
@@ -765,7 +766,7 @@ export class ParseUtil {
         return {
             remotePublicKey,
             fetchRequest: {query, transform},
-            downloadBlobs,
+            blobSizeMaxLimit,
             reverse,
         };
     }

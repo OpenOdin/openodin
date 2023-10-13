@@ -206,12 +206,18 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
      * @param retryTimeout if set > 0 then retry repeatedly until retryTimeout milliseconds
      * have passed, then return error. Retry is only done when the StreamReader returns
      * NOT_AVAILABLE status. Default is 10000 ms.
+     * If set to <0 then retry forever.
      * @param retryDelay how many milliseconds to delay until retrying again. Requires
-     * that retryTimeout > 0. Default is 1000 ms.
+     * that retryTimeout > 0. Default is 1000 ms. Lowest value allowed is 100.
+     * If retryTimeout is < 0 (retry forever) then the retryDelay value will increase over time.
      *
      * @throws if an unexpected EOF stream response status is ever retrieved
      */
     public async run(retryTimeout: number = 10000, retryDelay: number = 1000): Promise<StreamWriteData> {
+        retryDelay = Math.max(retryDelay, 100);
+
+        const originalRetryDelay = retryDelay;
+
         if (this._isClosed) {
             this.error = "StreamWriter is closed";
 
@@ -234,6 +240,14 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
                 });
             }
 
+            if (retryTimeout < 0) {
+                if (firstRetryTimestamp > 0) {
+                    const diff = Date.now() - firstRetryTimestamp;
+                    // Double the delay for each 10 seconds. But have a maximum 1 hour delay.
+                    retryDelay = Math.min(originalRetryDelay * Math.ceil(diff/10000), 3600*1000);
+                }
+            }
+
             if (this.pausedPromise.promise) {
                 await this.pausedPromise.promise;
 
@@ -253,7 +267,7 @@ export abstract class AbstractStreamWriter implements StreamWriterInterface {
                     firstRetryTimestamp = ts;
                 }
 
-                if (ts - firstRetryTimestamp < retryTimeout) {
+                if (ts - firstRetryTimestamp < retryTimeout || retryTimeout < 0) {
                     this.pause();
 
                     setTimeout( () => this.unpause(), retryDelay);

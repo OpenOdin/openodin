@@ -68,8 +68,8 @@ class StorageWrapper extends Storage {
         return super.uncorkTrigger(trigger);
     }
 
-    public emitInsertEvent(triggerNodeIds: Buffer[], muteMsgIds: Buffer[]): Promise<number>[] {
-        return super.emitInsertEvent(triggerNodeIds, muteMsgIds);
+    public triggerInsertEvent(triggerNodeIds: Buffer[], muteMsgIds: Buffer[]): Promise<number>[] {
+        return super.triggerInsertEvent(triggerNodeIds, muteMsgIds);
     }
 
     public createTransformer(fetchRequest: FetchRequest, sendResponse: SendResponseFn<FetchResponse>): Transformer | undefined {
@@ -212,7 +212,7 @@ describe("Storage: triggers", function() {
         assert(storage.triggers[triggerNodeIdStr] === undefined);
     });
 
-    it("#addTrigger, #uncorkTrigger, #emitInsertEvent, #dropTrigger", async function() {
+    it("#addTrigger, #uncorkTrigger, #triggerInsertEvent, #dropTrigger", async function() {
         assert(storage);
         assert(db);
         assert(driver);
@@ -281,15 +281,15 @@ describe("Storage: triggers", function() {
         assert(storage.triggers[triggerNodeIdStr][0] === trigger);
 
         response = undefined;
-        let promises = storage.emitInsertEvent([Buffer.alloc(32)], []);
+        let promises = storage.triggerInsertEvent([Buffer.alloc(32)], []);
         await Promise.all(promises);
         assert(response === undefined);
 
-        promises = storage.emitInsertEvent([triggerNodeId], [msgId]);
+        promises = storage.triggerInsertEvent([triggerNodeId], [msgId]);
         await Promise.all(promises);
         assert(response === undefined);
 
-        promises = storage.emitInsertEvent([triggerNodeId], []);
+        promises = storage.triggerInsertEvent([triggerNodeId], []);
         await Promise.all(promises);
         assert(response);
     });

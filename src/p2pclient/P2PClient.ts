@@ -249,7 +249,7 @@ export class P2PClient {
         try {
             switch(routeEvent.target) {
                 case RouteAction.STORE:
-                    this.route<StoreRequest, StoreResponse>(RouteAction.STORE, routeEvent, this.handlerStore, this.limitStoreRequest, this.deserialize.StoreRequest, this.serialize.StoreResponse, this.deserialize.StoreResponse, {storedId1s: [], missingBlobId1s: [], status: Status.ERROR, error: ""});
+                    this.route<StoreRequest, StoreResponse>(RouteAction.STORE, routeEvent, this.handlerStore, this.limitStoreRequest, this.deserialize.StoreRequest, this.serialize.StoreResponse, this.deserialize.StoreResponse, {storedId1s: [], missingBlobId1s: [], missingBlobSizes: [], status: Status.ERROR, error: ""});
                     break;
                 case RouteAction.FETCH:
                     this.route<FetchRequest, FetchResponse>(RouteAction.FETCH, routeEvent, this.handlerFetch, this.limitFetchRequest, this.deserialize.FetchRequest, this.serialize.FetchResponse, this.deserialize.FetchResponse, {seq: 0, endSeq: 0, result: {nodes: [], embed: [], cutoffTime: 0n}, transformResult: {delta: Buffer.alloc(0), extra: ""}, status: Status.ERROR, error: "", rowCount: 0});
@@ -541,6 +541,7 @@ export class P2PClient {
                     status: Status.ERROR,
                     storedId1s: [],
                     missingBlobId1s: [],
+                    missingBlobSizes: [],
                     error: "Store not allowed",
                 };
 

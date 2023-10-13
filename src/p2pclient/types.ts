@@ -90,8 +90,12 @@ export type AutoFetch = {
     /** The fetch/subscription to request */
     fetchRequest: FetchRequest,
 
-    /** If true then automatically also download blob data for nodes who have blobs */
-    downloadBlobs: boolean,
+    /**
+     * If >0 then automatically fetch blob data for nodes who have blobs at maximum this size limit.
+     * If ==0 then do not automatically sync blobs.
+     * If <0 then sync without any limits.
+     * */
+    blobSizeMaxLimit: number,
 
     /** If true then reverse the fetch and store so we fetch from storage and store to remote. */
     reverse: boolean,
@@ -154,11 +158,9 @@ export type P2PClientStorePermissions = {
 };
 
 /**
- * Event emitted when downloading and storing blobs.
- * if error is set then an error occoured,
- * If only nodeId1 is set that means a successfull download and store of the blob.
+ * Event emitted when successfully synced blob to storage.
  */
-export type BlobEvent = {nodeId1: Buffer, error?: string};
+export type BlobEvent = {nodeId1: Buffer};
 
 export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     allowUncheckedAccess: true,

@@ -323,7 +323,8 @@ export class Driver implements DriverInterface {
      *
      * This function wraps the calls inside a transaction.
      *
-     * @returns [id1s, parentIds]
+     * @returns [id1s, parentIds, blobId1s]
+     * blobId1s are the node ID1s of the nodes who have blobs and are stored (or already stored).
      * @throws on error
      * If the exception indicates a BUSY error then the caller should retry the store.
      * This can happen for concurrent transaction between processes.

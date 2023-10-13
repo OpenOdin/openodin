@@ -236,6 +236,7 @@ export class Storage {
                         status: Status.MALFORMED,
                         storedId1s: [],
                         missingBlobId1s: [],
+                        missingBlobSizes: [],
                         error,
                     };
 
@@ -306,6 +307,7 @@ export class Storage {
                 const [storedId1s, parentIds, blobId1s] = result;
 
                 let missingBlobId1s: Buffer[] = [];
+                let missingBlobSizes: bigint[] = [];
 
                 if (blobId1s.length > 0 && this.blobDriver) {
                     const existingBlobId1s = await this.blobDriver.blobExists(blobId1s);
@@ -322,22 +324,28 @@ export class Storage {
                     for (let i=0; i<blobId1sLength; i++) {
                         const blobId1 = blobId1s[i];
                         if (!existingMap[blobId1.toString("hex")]) {
-                            missingBlobId1s.push(blobId1);
+
+                            const node = verifiedNodes.find( node => node.getId1()?.equals(blobId1) );
+
+                            const blobSize = node?.getBlobLength();
+
+                            if (blobSize !== undefined) {
+                                missingBlobId1s.push(blobId1);
+                                missingBlobSizes.push(blobSize);
+                            }
                         }
                     }
                 }
-                else {
-                    missingBlobId1s = blobId1s;
-                }
 
                 if (parentIds.length > 0) {
-                    setImmediate( () => this.emitInsertEvent(parentIds, storeRequest.muteMsgIds) );
+                    setImmediate( () => this.triggerInsertEvent(parentIds, storeRequest.muteMsgIds) );
                 }
 
                 storeResponse = {
                     status: Status.RESULT,
                     storedId1s,
                     missingBlobId1s,
+                    missingBlobSizes,
                     error: "",
                 };
             }
@@ -347,6 +355,7 @@ export class Storage {
                     status: Status.STORE_FAILED,
                     storedId1s: [],
                     missingBlobId1s: [],
+                    missingBlobSizes: [],
                     error: "Failed storing nodes, database busy.",
                 };
             }
@@ -363,6 +372,7 @@ export class Storage {
                     status: Status.ERROR,
                     storedId1s: [],
                     missingBlobId1s: [],
+                    missingBlobSizes: [],
                     error,
                 };
 
@@ -386,7 +396,7 @@ export class Storage {
     /**
      * @returns list of promises used for testing purposes.
      */
-    protected emitInsertEvent(triggerNodeIds: Buffer[], muteMsgIds: Buffer[]): Promise<number>[] {
+    protected triggerInsertEvent(triggerNodeIds: Buffer[], muteMsgIds: Buffer[]): Promise<number>[] {
         const promises: Promise<number>[] = [];
 
         const triggerNodeIdsLength = triggerNodeIds.length;
@@ -1175,7 +1185,7 @@ export class Storage {
 
                     sendResponse(writeBlobResponse);
 
-                    setImmediate( () => this.emitInsertEvent([parentId], writeBlobRequest.muteMsgIds) );
+                    setImmediate( () => this.triggerInsertEvent([parentId], writeBlobRequest.muteMsgIds) );
                 }
 
                 return;
@@ -1263,7 +1273,7 @@ export class Storage {
 
                     sendResponse(writeBlobResponse);
 
-                    setImmediate( () => this.emitInsertEvent([parentId], writeBlobRequest.muteMsgIds) );
+                    setImmediate( () => this.triggerInsertEvent([parentId], writeBlobRequest.muteMsgIds) );
                 }
 
                 return;
