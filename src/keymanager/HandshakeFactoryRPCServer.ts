@@ -5,10 +5,6 @@ import {
 } from "./RPC";
 
 import {
-    PeerData,
-} from "../p2pclient";
-
-import {
     HandshakeFactory,
     HandshakeFactoryConfig,
     Messaging,

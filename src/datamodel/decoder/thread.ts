@@ -16,7 +16,7 @@ import {
     SignedResult,
 } from "./types";
 
-const sodium = require("libsodium-wrappers");
+const sodium = require("libsodium-wrappers");  //eslint-disable-line @typescript-eslint/no-var-requires
 
 type MessageEvent = {
     data: {
@@ -30,11 +30,10 @@ type MessageEvent = {
  * This function is to be run in a separate thread/worker and it communicates with its
  * parent via events.
  */
-const isNode = typeof process !== "undefined" && process?.versions?.node;
 function main (self?: any) {
     let ready = false;
 
-    let keyPairs: KeyPair[] = [];
+    const keyPairs: KeyPair[] = [];
 
     /**
      * Receive message from parent thread.
@@ -113,8 +112,10 @@ function main (self?: any) {
                     if (crypto === "ed25519") {
                         try {
                             // use sodium to sign
-                            const signature = sodium.crypto_sign_detached(Buffer.from(message), Buffer.from(secretKey));
-                            result.push({index, signature});
+                            const signature = sodium.crypto_sign_detached(Buffer.from(message),
+                                Buffer.from(secretKey));
+
+                            result.push({index, signature: Buffer.from(signature)});
                         }
                         catch(e) {
                             // Abort

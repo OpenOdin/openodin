@@ -7,16 +7,15 @@
  *  be loaded by the Worker().
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-const sodium = require("libsodium-wrappers");
+const sodium = require("libsodium-wrappers"); //eslint-disable-line @typescript-eslint/no-var-requires
 /**
  * This function reponds to events and can either verify signatures or sign messages.
  * This function is to be run in a separate thread/worker and it communicates with its
  * parent via events.
  */
-const isNode = typeof process !== "undefined" && process?.versions?.node;
 function main(self) {
     let ready = false;
-    let keyPairs = [];
+    const keyPairs = [];
     /**
      * Receive message from parent thread.
      * @returns list of id1 which have all valid signatures
@@ -89,7 +88,7 @@ function main(self) {
                         try {
                             // use sodium to sign
                             const signature = sodium.crypto_sign_detached(Buffer.from(message), Buffer.from(secretKey));
-                            result.push({ index, signature });
+                            result.push({ index, signature: Buffer.from(signature) });
                         }
                         catch (e) {
                             // Abort

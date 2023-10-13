@@ -266,7 +266,7 @@ export class Driver implements DriverInterface {
                     ]
                 }});
 
-                const handleFetchReplyData: HandleFetchReplyData = (fetchReplyData: FetchReplyData) => {
+                const handleFetchReplyData: HandleFetchReplyData = () => {
                     // Do nothing.
                 };
 

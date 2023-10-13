@@ -129,7 +129,7 @@ export class ParseUtil {
 
         const threads: {[name: string]: ThreadTemplate} = {};
         const threadTemplates = ParseUtil.ParseVariable("universeConf.threads must be object, if set", conf.threads, "object", true) ?? {};
-        for (let name in threadTemplates) {
+        for (const name in threadTemplates) {
             const threadTemplate = threadTemplates[name];
 
             const query     = ParseUtil.ParseQuery(threadTemplate.query ?? {});
@@ -245,13 +245,13 @@ export class ParseUtil {
             ...licenseParams,
         };
 
-        if (conf.hasOwnProperty("validSeconds")) {
+        if (Object.prototype.hasOwnProperty.call(conf, "validSeconds")) {
             threadLicenseParams.validSeconds =
                 ParseUtil.ParseVariable("ThreadLicenseParams.validSeconds must be number, if set",
                     conf.validSeconds, "number", true);  // allow undefined.
         }
 
-        if (conf.hasOwnProperty("targets")) {
+        if (Object.prototype.hasOwnProperty.call(conf, "targets")) {
             threadLicenseParams.targets =
                 ParseUtil.ParseVariable("ThreadLicenseParams.targets must be hex-string or Buffer array, if set",
                     conf.targets, "hex[]", true);  // allow undefined
@@ -279,7 +279,7 @@ export class ParseUtil {
             ...dataParams,
         };
 
-        if (conf.hasOwnProperty("validSeconds")) {
+        if (Object.prototype.hasOwnProperty.call(conf, "validSeconds")) {
             threadDataParams.validSeconds =
                 ParseUtil.ParseVariable("ThreadDataParams.validSeconds must be number, if set",
                     conf.validSeconds, "number", true);  // allow undefined.

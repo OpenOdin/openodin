@@ -13,7 +13,6 @@ import {
 } from "../../datamodel";
 
 import {
-    FetchRequest,
     FetchResponse,
     FetchQuery,
     FetchTransform,

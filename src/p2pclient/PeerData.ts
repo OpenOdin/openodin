@@ -2,7 +2,6 @@ import {
     Model,
     Fields,
     FieldType,
-    Hash,
 } from "../datamodel";
 
 /**

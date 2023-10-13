@@ -7,10 +7,6 @@ import {
 } from "./P2PClient";
 
 import {
-    Decoder,
-} from "../datamodel";
-
-import {
     FetchResponse,
     StoreRequest,
     UnsubscribeRequest,
@@ -21,7 +17,6 @@ import {
 import {
     AutoFetch,
     BlobEvent,
-    P2PClientPermissions,
 } from "./types";
 
 import {

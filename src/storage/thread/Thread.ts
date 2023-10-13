@@ -49,7 +49,6 @@ import {
 
 import {
     ThreadTemplate,
-    ThreadTemplates,
     ThreadQueryParams,
     ThreadTransformerParams,
     ThreadFetchParams,
@@ -183,7 +182,7 @@ export class Thread {
     protected threadQueryResponseAPI(getResponse: GetResponse<FetchResponse>): ThreadQueryResponseAPI {
         const onDataCBs: Array<(nodes: NodeInterface[]) => void> = [];
 
-        getResponse.onReply( (fetchResponse: FetchResponse, peer: P2PClient) => {
+        getResponse.onReply( (fetchResponse: FetchResponse) => {
             if (fetchResponse.status === Status.RESULT) {
                 const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse);
                 onDataCBs.forEach( cb => cb(nodes.slice()) );
@@ -209,7 +208,7 @@ export class Thread {
         };
 
         return threadResponse;
-    };
+    }
 
     protected threadStreamResponseAPI(getResponse: GetResponse<FetchResponse>,
         transformerCache: TransformerCache | undefined,
@@ -217,7 +216,7 @@ export class Thread {
 
         const onDataCBs: Array<(nodes: NodeInterface[]) => void> = [];
 
-        getResponse.onReply( (fetchResponse: FetchResponse, peer: P2PClient) => {
+        getResponse.onReply( (fetchResponse: FetchResponse) => {
             if (fetchResponse.status === Status.MISSING_CURSOR) {
                 // cursordId1 is missing for transformer.
                 // Clear out cache, but keep alive and wait for more data.

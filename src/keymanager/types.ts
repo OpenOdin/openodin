@@ -1,7 +1,3 @@
-import {
-    KeyPair,
-} from "../datamodel";
-
 export type ClientConfig = {
     clientId: string,
     localAddress?: string,

@@ -9,7 +9,6 @@ import {
     DataInterface,
     LicenseInterface,
     PrimaryNodeCertInterface,
-    KeyPair,
     DataCertInterface,
     LicenseCertInterface,
     DataParams,

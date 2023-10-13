@@ -2,19 +2,22 @@ import {
     RPCMessage,
 } from "./types";
 
+type Callback = (...args: any) => void;
+
 export class RPC {
-    protected eventHandlers: {[name: string]: Function} = {};
-    protected postMessage: Function;
-    protected listenMessage: Function;
+    protected eventHandlers: {[name: string]: Callback} = {};
+    protected postMessage: (message: RPCMessage) => void;
+    protected listenMessage: (cb: (message: RPCMessage) => void) => void;
     protected rpcId: string;
-    protected promises: {[messageId: string]: [Function, Function]} = {};
+    protected promises: {[messageId: string]: [(response: any) => void, (error: string) => void]} = {};
     protected messageCounter = 0;
     protected forkCounter = 0;
 
     /**
      * @param postMessage to send to the RPC server.
      */
-    constructor(postMessage: Function, listenMessage: Function, rpcId: string = "") {
+    constructor(postMessage: (message: RPCMessage) => void,
+        listenMessage: ( cb: (message: RPCMessage) => void) => void, rpcId: string = "") {
         this.postMessage = postMessage;
         this.listenMessage = listenMessage;
         this.rpcId = rpcId;
@@ -140,7 +143,7 @@ export class RPC {
         }
     }
 
-    public onCall(name: string, eventHandler: Function) {
+    public onCall(name: string, eventHandler: Callback) {
         this.eventHandlers[name] = eventHandler;
     }
 

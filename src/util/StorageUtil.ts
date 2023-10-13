@@ -25,13 +25,11 @@ import {
 
 import {
     P2PClient,
-    AnyData,
 } from "../p2pclient";
 
 import {
     Status,
     EventType,
-    ReadBlobResponse,
 } from "../types";
 
 import {

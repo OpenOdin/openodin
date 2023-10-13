@@ -31,13 +31,14 @@ import {
     SocketRPCClient,
 } from "./SocketRPCClient";
 
+type Callback = (...args: any) => void;
 
 export class HandshakeFactoryRPCClient implements HandshakeFactoryInterface {
     protected rpc: RPC;
     protected _isClosed = false;
     protected _isShutdown = false;
     protected userHandshakeFactoryConfig: HandshakeFactoryConfig;
-    protected handlers: {[type: string]: Function[]} = {};
+    protected handlers: {[type: string]: Callback[]} = {};
     protected sockets: SocketRPCClient[] = [];
 
     constructor(rpc: RPC, userHandshakeFactoryConfig: HandshakeFactoryConfig) {
@@ -251,12 +252,12 @@ export class HandshakeFactoryRPCClient implements HandshakeFactoryInterface {
 
     protected triggerEvent(type: string, ...args: any) {
         const cbs = this.handlers[type] || [];
-        cbs.forEach( (callback: Function) => {
+        cbs.forEach( (callback: Callback) => {
             callback(...args);
         });
     }
 
-    protected hookEvent(type: string, callback: Function) {
+    protected hookEvent(type: string, callback: Callback) {
         const cbs = this.handlers[type] || [];
         this.handlers[type] = cbs;
         cbs.push(callback);

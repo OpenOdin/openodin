@@ -1,17 +1,11 @@
 import {
     HandshakeFactoryConfig,
-    HandshakeFactory,
     HandshakeFactoryInterface,
-    PeerDataGeneratorFunctionInterface,
 } from "pocket-messaging";
 
 import {
     PeerProps,
 } from "../p2pclient";
-
-import {
-    DeepCopy,
-} from "../util/common";
 
 import {
     RPC,

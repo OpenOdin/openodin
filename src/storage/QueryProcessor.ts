@@ -37,7 +37,6 @@ import {
     SelectLicenseeHash,
     LicenseNodeEntry,
     SelectFriendCertPair,
-    FetchReplyData,
     MAX_BATCH_SIZE,
 } from "./types";
 
@@ -1362,7 +1361,7 @@ export class QueryProcessor {
         const nodesPerParent: {[parentId: string]: NodeInterface[]} = {};
         const parentIdsMap: {[id1Str: string]: Buffer} = {};
 
-        const handleFetchReplyData: HandleFetchReplyData = (fetchReplyData: FetchReplyData) => {
+        const handleFetchReplyData: HandleFetchReplyData = () => {
             // Do nothing
         };
 

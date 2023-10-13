@@ -4,10 +4,6 @@ import {
 } from "../datamodel/decoder";
 
 import {
-    KeyPair,
-} from "../datamodel/node";
-
-import {
     BaseCertInterface,
     AuthCert,
     AuthCertConstraintValues,

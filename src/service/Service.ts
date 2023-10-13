@@ -8,7 +8,6 @@ import {
 import {
     Messaging,
     HandshakeFactoryInterface,
-    HandshakeFactoryConfig,
     HandshakeResult,
     EventType,
 } from "pocket-messaging";
@@ -52,10 +51,6 @@ import {
 } from "../datamodel";
 
 import {
-    StreamWriterInterface,
-} from "../datastreamer";
-
-import {
     Status,
 } from "../types";
 
@@ -66,21 +61,13 @@ import {
 import {
     DatabaseConfig,
     ConnectionConfig,
-    ExposeStorageToApp,
     HandshakeFactoryFactoryInterface,
     UniverseConf,
-    StorageConf,
     PeerConf,
     SyncConf,
     WalletConf,
     ThreadSyncConf,
 } from "./types";
-
-import {
-    UNCHECKED_PERMISSIVE_PERMISSIONS,
-    PERMISSIVE_PERMISSIONS,
-    LOCKED_PERMISSIONS,
-} from "../p2pclient/types";
 
 import {
     DeepCopy,
@@ -420,7 +407,7 @@ export class Service {
             throw new Error("Missing walletConf.storage configuration");
         }
 
-        for(let name in this.universeConf.threads) {
+        for(const name in this.universeConf.threads) {
             this.addThreadTemplate(name, this.universeConf.threads[name]);
         }
 
@@ -1134,7 +1121,7 @@ export class Service {
 
                 const closePromise = PromiseCallback();
 
-                internalStorageClient.onClose( (peer: P2PClient) => {
+                internalStorageClient.onClose( () => {
                     closePromise.cb();
                 });
 

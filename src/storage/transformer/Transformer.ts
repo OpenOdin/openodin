@@ -30,7 +30,7 @@ import {
     Status,
 } from "../../types";
 
-const fossilDelta = require("fossil-delta");
+import * as fossilDelta from "fossil-delta";
 
 /**
  * Transformers ignore any nodes who are not of DATA_NODE_TYPE,
@@ -212,9 +212,6 @@ export class Transformer {
                 const isFullRefetch = !this.isPristine &&
                     this.fetchRequest.query.cutoffTime === 0n;
 
-                const isSingleQuery = this.fetchRequest.query.triggerNodeId.length === 0 &&
-                    this.fetchRequest.query.triggerInterval === 0;
-
                 if (isFullRefetch && fetchReplyData.isFirst) {
                     // Note that here is room for optimization if the model
                     // can signal if there are no untouched nodes then we know
@@ -328,7 +325,9 @@ export class Transformer {
                     return;
                 }
 
-                const delta = fossilDelta.create(nodeModelStr, nodeModel2Str);
+                // Note casting to any here due to the types being restrictive,
+                // but fossil-delta does accept strings as input.
+                const delta = fossilDelta.create(nodeModelStr as any, nodeModel2Str as any);
 
                 nodeModel = nodeModel2;
 

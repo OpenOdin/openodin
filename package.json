@@ -39,7 +39,7 @@
         "@tsconfig/node12": "^1.0.1",
         "@types/blake2b": "^2.1.0",
         "@types/chai": "^4.3.1",
-        "@types/libsodium-wrappers": "^0.7.9",
+        "@types/fossil-delta": "^1.0.0",
         "@types/mocha": "^9.1.1",
         "@types/node": "^14.17.21",
         "@types/sql.js": "^1.4.4",

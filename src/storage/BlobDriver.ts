@@ -295,8 +295,6 @@ export class BlobDriver implements BlobDriverInterface {
 
         const lastFragmentIndex = endFragmentIndex - 1;
 
-        const countFragments = endFragmentIndex - startFragmentIndex;
-
         const currentFragmentIndex = Math.floor((startPos + index) / BLOB_FRAGMENT_SIZE);
 
         if (index >= data.length) {

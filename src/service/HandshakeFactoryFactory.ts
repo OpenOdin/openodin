@@ -2,7 +2,6 @@ import {
     HandshakeFactoryConfig,
     HandshakeFactory,
     HandshakeFactoryInterface,
-    PeerDataGeneratorFunctionInterface,
 } from "pocket-messaging";
 
 import {

@@ -14,10 +14,12 @@ import {
     ClientConfig,
 } from "./types";
 
+type Callback = (...args: any) => void;
+
 export class SocketRPCClient implements ClientInterface {
     protected rpc: RPC;
     protected clientConfig: ClientConfig;
-    protected handlers: {[type: string]: Function[]} = {};
+    protected handlers: {[type: string]: Callback[]} = {};
     protected isClosed: boolean = false;
     protected rpcPrefix: string;
 
@@ -140,19 +142,19 @@ export class SocketRPCClient implements ClientInterface {
 
     protected triggerEvent(type: string, ...args: any) {
         const cbs = this.handlers[type] || [];
-        cbs.forEach( (callback: Function) => {
+        cbs.forEach( (callback: Callback) => {
             callback(...args);
         });
     }
 
-    protected hookEvent(type: string, callback: Function) {
+    protected hookEvent(type: string, callback: Callback) {
         const cbs = this.handlers[type] || [];
         this.handlers[type] = cbs;
         cbs.push(callback);
     }
 
-    protected unhookEvent(type: string, callback: Function) {
-        const cbs = (this.handlers[type] || []).filter( (cb: Function) => callback !== cb );
+    protected unhookEvent(type: string, callback: Callback) {
+        const cbs = (this.handlers[type] || []).filter( cb => callback !== cb );
         this.handlers[type] = cbs;
     }
 

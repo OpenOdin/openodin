@@ -5,7 +5,6 @@ import {
     ReplyEvent,
     CloseEvent,
     ErrorEvent,
-    TimeoutEvent,
     AnyEvent,
     EventType,
     ExpectingReply,

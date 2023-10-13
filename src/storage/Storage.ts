@@ -306,8 +306,8 @@ export class Storage {
             if (result) {
                 const [storedId1s, parentIds, blobId1s] = result;
 
-                let missingBlobId1s: Buffer[] = [];
-                let missingBlobSizes: bigint[] = [];
+                const missingBlobId1s: Buffer[] = [];
+                const missingBlobSizes: bigint[] = [];
 
                 if (blobId1s.length > 0 && this.blobDriver) {
                     const existingBlobId1s = await this.blobDriver.blobExists(blobId1s);

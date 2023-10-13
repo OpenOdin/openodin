@@ -123,7 +123,7 @@ export class BlobStreamReader extends AbstractStreamReader {
     }
 
     protected readBlobFromPeer(peer: P2PClient, chunkSize?: number): Promise<[StreamStatus, string]> {
-        return new Promise<[StreamStatus, string]>( (resolve, reject) => {
+        return new Promise<[StreamStatus, string]>( (resolve) => {
             chunkSize = chunkSize ?? this.chunkSize;
 
             if (chunkSize < 1) {

@@ -18,7 +18,7 @@ import {
     TRANSFORMER_EVENT,
 } from "./types";
 
-const fossilDelta = require("fossil-delta");
+import * as fossilDelta from "fossil-delta";
 
 type ONCHANGE_CALLBACK = (transformerEvents: TRANSFORMER_EVENT) => void;
 
@@ -74,8 +74,11 @@ export class TransformerCache {
 
             const delta2 = JSON.parse(delta.slice(1).toString());
 
+            // Note casting to any here due to the types being restrictive,
+            // but fossil-delta does accept strings as input.
             const newList = fossilDelta.apply(
-                this.model.list.map( id1 => id1.toString("hex")).join(" "), delta2);
+                this.model.list.map( id1 => id1.toString("hex")).join(" ") as any,
+                delta2 as any);
 
             this.model.list = newList.join("").split(" ").map(
                 (id1Str: string) => Buffer.from(id1Str, "hex"));
