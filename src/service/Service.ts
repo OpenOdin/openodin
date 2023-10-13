@@ -151,7 +151,7 @@ type ServiceConfig = {
 
     /**
      */
-    connectionConfigs: ConnectionConfig[],
+    peerConnectionConfigs: ConnectionConfig[],
 
     /** AutoFetch objects to initiate on autoFetcher clients. */
     autoFetch: AutoFetch[],
@@ -177,10 +177,10 @@ type ServiceState = {
     storageConnectionFactories: HandshakeFactoryInterface[],
 
     /**
-     * The connections factories instantiated from the connectionConfigs.
-     * Matches config.connectionConfigs on index.
+     * The connections factories instantiated from the peerConnectionConfigs.
+     * Matches config.peerConnectionConfigs on index.
      */
-    connectionFactories: HandshakeFactoryInterface[],
+    peerConnectionFactories: HandshakeFactoryInterface[],
 
     /**
      * Initially this value gtes copied from localStorage.driver.reconnectDelay.
@@ -241,24 +241,24 @@ export const EVENTS = {
         subEvents: [...HANDSHAKEFACTORY_EVENTS.ERROR.subEvents, "STORAGE_CLIENT_PARSE_ERROR", "STORAGE_CLIENT_AUTHCERT_ERROR"],
     },
 
-    CONNECTION_FACTORY_CREATE: {
-       name: "CONNECTION_FACTORY_CREATE",
+    PEER_FACTORY_CREATE: {
+       name: "PEER_FACTORY_CREATE",
     },
-    CONNECTION_CONNECT: {
-       name: "CONNECTION_CONNECT",
+    PEER_CONNECT: {
+       name: "PEER_CONNECT",
     },
-    CONNECTION_CLOSE: {
-       name: "CONNECTION_CLOSE",
+    PEER_CLOSE: {
+       name: "PEER_CLOSE",
     },
-    CONNECTION_AUTHCERT_ERROR: {
-       name: "CONNECTION_AUTHCERT_ERROR",
+    PEER_AUTHCERT_ERROR: {
+       name: "PEER_AUTHCERT_ERROR",
     },
-    CONNECTION_PARSE_ERROR: {
-       name: "CONNECTION_PARSE_ERROR",
+    PEER_PARSE_ERROR: {
+       name: "PEER_PARSE_ERROR",
     },
-    CONNECTION_ERROR: {
+    PEER_ERROR: {
         ...HANDSHAKEFACTORY_EVENTS.ERROR,
-        subEvents: [...HANDSHAKEFACTORY_EVENTS.ERROR.subEvents, "CONNECTION_PARSE_ERROR", "CONNECTION_AUTHCERT_ERROR"],
+        subEvents: [...HANDSHAKEFACTORY_EVENTS.ERROR.subEvents, "PEER_PARSE_ERROR", "PEER_AUTHCERT_ERROR"],
     },
 }
 
@@ -271,27 +271,27 @@ export type StopCallback = () => void;
 /**
  * Event emitted when there is an error on socket, handshake or validating an auth cert.
  */
-export type ConnectionErrorCallback = (e: {subEvent: string, e: any}) => void;
+export type PeerErrorCallback = (e: {subEvent: string, e: any}) => void;
 
 /**
  * Event emitted when a connected peer has closed.
  */
-export type ConnectionCloseCallback = (e: {p2pClient: P2PClient}) => void;
+export type PeerCloseCallback = (e: {p2pClient: P2PClient}) => void;
 
 /**
  * Event emitted when a peer has connected.
  */
-export type ConnectionConnectCallback = (e: {p2pClient: P2PClient}) => void;
+export type PeerConnectCallback = (e: {p2pClient: P2PClient}) => void;
 
 /**
  * Event emitted when the handshake factory for a peer connection has been setup.
  * This factory can be used to more closely monitor events directly on the factory,
  * and also to tune and set parameters such as blocked IP addresses.
  */
-export type ConnectionFactoryCreateCallback = (e: {handshakeFactory: HandshakeFactoryInterface}) => void;
+export type PeerFactoryCreateCallback = (e: {handshakeFactory: HandshakeFactoryInterface}) => void;
 
-export type ConnectionParseErrorCallback = (e: {error: Error, localProps: PeerProps, remoteProps: PeerProps}) => void;
-export type ConnectionAuthCertErrorCallback = (e: {p2pClient: P2PClient}) => void;
+export type PeerParseErrorCallback = (e: {error: Error, localProps: PeerProps, remoteProps: PeerProps}) => void;
+export type PeerAuthCertErrorCallback = (e: {p2pClient: P2PClient}) => void;
 
 /**
  * Event emitted when there is an error on socket, handshake or validating an auth cert.
@@ -371,7 +371,7 @@ export class Service {
 
         this.config = {
             nodeCerts: [],
-            connectionConfigs: [],
+            peerConnectionConfigs: [],
             storageConnectionConfigs: [],
             autoFetch: [],
         };
@@ -381,7 +381,7 @@ export class Service {
             storageServers: [],
             extenderServers: [],
             storageConnectionFactories: [],
-            connectionFactories: [],
+            peerConnectionFactories: [],
             localDatabaseReconnectDelay: undefined,
         };
     }
@@ -425,7 +425,7 @@ export class Service {
         }
 
         this.universeConf.peers.forEach( (peerConf: PeerConf) => {
-            this.addConnectionConfig(peerConf);
+            this.addPeerConnectionConfig(peerConf);
         });
 
         this.universeConf.sync.forEach( (sync: SyncConf) => {
@@ -475,7 +475,7 @@ export class Service {
         }
         this._isRunning = false;
         this.closeEverythingStorage();
-        this.closeConnectionFactories();
+        this.closePeerConnectionFactories();
         this.triggerEvent(EVENTS.STOP.name);
     }
 
@@ -711,20 +711,20 @@ export class Service {
      * If existing storage client and service started then immediately init the connection factory.
      * @param connectionConfig object
      */
-    public addConnectionConfig(connectionConfig: ConnectionConfig) {
+    public addPeerConnectionConfig(connectionConfig: ConnectionConfig) {
         if (!connectionConfig.handshakeFactoryConfig.socketFactoryStats) {
             connectionConfig.handshakeFactoryConfig.socketFactoryStats = this.sharedStorageFactoriesSocketFactoryStats;
         }
 
-        if (this.config.connectionConfigs.some( (connectionConfig2: any) => DeepEquals(connectionConfig, connectionConfig2) )) {
+        if (this.config.peerConnectionConfigs.some( (connectionConfig2: any) => DeepEquals(connectionConfig, connectionConfig2) )) {
             // Already exists.
             return;
         }
 
-        this.config.connectionConfigs.push(connectionConfig);
+        this.config.peerConnectionConfigs.push(connectionConfig);
 
         if (this._isRunning && this.state.storageClient) {
-            this.initConnectionFactories();
+            this.initPeerConnectionFactories();
         }
     }
 
@@ -733,9 +733,9 @@ export class Service {
      *
      * @param index of the connection config to remove
      */
-    public removeConnectionConfig(index: number) {
-        this.config.connectionConfigs.splice(index, 1);
-        const connectionFactory = this.state.connectionFactories.splice(index, 1)[0];
+    public removePeerConnectionConfig(index: number) {
+        this.config.peerConnectionConfigs.splice(index, 1);
+        const connectionFactory = this.state.peerConnectionFactories.splice(index, 1)[0];
         connectionFactory?.close();
     }
 
@@ -964,18 +964,18 @@ export class Service {
      * Create and start any peer connection factory yet not started.
      * Idempotent function, can be run again after a new peer config has been added to connect to that peer.
      */
-    public async initConnectionFactories() {
+    public async initPeerConnectionFactories() {
         if (!this.state.storageClient) {
             throw new Error("Cannot init peer connection factories unless connected to storage.");
         }
 
-        const configsToInit = this.config.connectionConfigs.slice(this.state.connectionFactories.length);
+        const configsToInit = this.config.peerConnectionConfigs.slice(this.state.peerConnectionFactories.length);
 
         const configsToInitLength = configsToInit.length;
         for (let i=0; i<configsToInitLength; i++) {
             const configToInit = configsToInit[i];
-            const handshakeFactory = await this.initConnectionFactory(configToInit);
-            this.state.connectionFactories.push(handshakeFactory);
+            const handshakeFactory = await this.initPeerConnectionFactory(configToInit);
+            this.state.peerConnectionFactories.push(handshakeFactory);
             handshakeFactory.init();
         }
     }
@@ -983,14 +983,14 @@ export class Service {
     /**
      * Setup and initiate a peer connection factory.
      */
-    protected async initConnectionFactory(config: ConnectionConfig): Promise<HandshakeFactoryInterface> {
+    protected async initPeerConnectionFactory(config: ConnectionConfig): Promise<HandshakeFactoryInterface> {
         const localProps = this.makePeerProps(config.region, config.jurisdiction);
 
         let remoteProps: PeerProps | undefined;
 
         const handshakeFactory = await this.handshakeFactoryFactory(config.handshakeFactoryConfig, localProps);
 
-        this.triggerEvent(EVENTS.CONNECTION_FACTORY_CREATE.name, {handshakeFactory});
+        this.triggerEvent(EVENTS.PEER_FACTORY_CREATE.name, {handshakeFactory});
 
         handshakeFactory.onConnect( () => {
             // Update the timestamp for each beginning handshake.
@@ -1016,8 +1016,8 @@ export class Service {
                 // Note that the auth cert at this point is already cryptographically verified and validated against the target,
                 // here we also check so that it verifies online (if it has any such properties).
                 if (remoteProps.authCert && await this.validateAuthCert(remoteProps.authCert, this.state.storageClient) !== 0) {
-                    this.triggerEvent(EVENTS.CONNECTION_AUTHCERT_ERROR.name, {p2pClient});
-                    this.triggerEvent(EVENTS.CONNECTION_ERROR.name, {subEvent: EVENTS.CONNECTION_AUTHCERT_ERROR.name, e: {p2pClient}});
+                    this.triggerEvent(EVENTS.PEER_AUTHCERT_ERROR.name, {p2pClient});
+                    this.triggerEvent(EVENTS.PEER_ERROR.name, {subEvent: EVENTS.PEER_AUTHCERT_ERROR.name, e: {p2pClient}});
                     e.messaging.close();
                     return;
                 }
@@ -1025,27 +1025,27 @@ export class Service {
                 // Open after all hooks have been set.
                 setImmediate( () => e.messaging.open() );
 
-                this.connected(p2pClient);
+                this.peerConnected(p2pClient);
             }
             catch (error) {
-                this.triggerEvent(EVENTS.CONNECTION_PARSE_ERROR.name, {error, localProps, remoteProps});
-                this.triggerEvent(EVENTS.CONNECTION_ERROR.name, {subEvent: EVENTS.CONNECTION_PARSE_ERROR.name, e: {error, localProps, remoteProps}});
+                this.triggerEvent(EVENTS.PEER_PARSE_ERROR.name, {error, localProps, remoteProps});
+                this.triggerEvent(EVENTS.PEER_ERROR.name, {subEvent: EVENTS.PEER_PARSE_ERROR.name, e: {error, localProps, remoteProps}});
                 e.messaging.close();
             }
         });
         handshakeFactory.onError( (e: {subEvent: string, e: object}) => {
-            this.triggerEvent(EVENTS.CONNECTION_ERROR.name, e);
+            this.triggerEvent(EVENTS.PEER_ERROR.name, e);
         });
 
         return handshakeFactory;
     }
 
-    protected closeConnectionFactories() {
-        this.state.connectionFactories.forEach( (factory?: HandshakeFactoryInterface) => {
+    protected closePeerConnectionFactories() {
+        this.state.peerConnectionFactories.forEach( (factory?: HandshakeFactoryInterface) => {
             factory?.close();
         });
 
-        this.state.connectionFactories = [];
+        this.state.peerConnectionFactories = [];
     }
 
     /**
@@ -1486,7 +1486,7 @@ export class Service {
      * A connection has been established.
      * @param p2pClient
      */
-    protected connected(p2pClient: P2PClient) {
+    protected peerConnected(p2pClient: P2PClient) {
         if (!this.state.storageClient) {
             console.debug("Storage not setup properly, closing incoming socket.");
             p2pClient.close();
@@ -1531,10 +1531,10 @@ export class Service {
 
         p2pClient.onClose( () => {
             this.garbageCollectClients();
-            this.triggerEvent(EVENTS.CONNECTION_CLOSE.name, {p2pClient});
+            this.triggerEvent(EVENTS.PEER_CLOSE.name, {p2pClient});
         });
 
-        this.triggerEvent(EVENTS.CONNECTION_CONNECT.name, {p2pClient});
+        this.triggerEvent(EVENTS.PEER_CONNECT.name, {p2pClient});
     }
 
     /**
@@ -1558,11 +1558,11 @@ export class Service {
         this.state.storageClient.onClose( () => {
             delete this.state.storageClient;
             this.triggerEvent(EVENTS.STORAGE_CLOSE.name, {p2pClient: externalStorageClient});
-            this.closeConnectionFactories();
+            this.closePeerConnectionFactories();
             // Note: we do not delete storageFactory here, because it might spawn a new connection for us.
         });
 
-        await this.initConnectionFactories();
+        await this.initPeerConnectionFactories();
 
         this.triggerEvent(EVENTS.STORAGE_CONNECT.name, {p2pClient: externalStorageClient});
     }
@@ -1592,8 +1592,8 @@ export class Service {
         return this.state.storageConnectionFactories;
     }
 
-    public getConnectionFactories(): HandshakeFactoryInterface[] {
-        return this.state.connectionFactories;
+    public getPeerConnectionFactories(): HandshakeFactoryInterface[] {
+        return this.state.peerConnectionFactories;
     }
 
     /**
@@ -1692,37 +1692,37 @@ export class Service {
      * This factory can be used to more closely monitor events directly on the factory,
      * and also to tune and set parameters such as blocked IP addresses.
      */
-    public onConnectionFactoryCreate(callback: ConnectionFactoryCreateCallback) {
-        this.hookEvent(EVENTS.CONNECTION_FACTORY_CREATE.name, callback);
+    public onPeerFactoryCreate(callback: PeerFactoryCreateCallback) {
+        this.hookEvent(EVENTS.PEER_FACTORY_CREATE.name, callback);
     }
 
-    public onConnectionParseError(callback: ConnectionParseErrorCallback) {
-        this.hookEvent(EVENTS.CONNECTION_PARSE_ERROR.name, callback);
+    public onPeerParseError(callback: PeerParseErrorCallback) {
+        this.hookEvent(EVENTS.PEER_PARSE_ERROR.name, callback);
     }
 
-    public onConnectionAuthCertError(callback: ConnectionAuthCertErrorCallback) {
-        this.hookEvent(EVENTS.CONNECTION_AUTHCERT_ERROR.name, callback);
+    public onPeerAuthCertError(callback: PeerAuthCertErrorCallback) {
+        this.hookEvent(EVENTS.PEER_AUTHCERT_ERROR.name, callback);
     }
 
     /**
      * Event emitted when a peer has connected.
      */
-    public onConnectionConnect(callback: ConnectionConnectCallback) {
-        this.hookEvent(EVENTS.CONNECTION_CONNECT.name, callback);
+    public onPeerConnect(callback: PeerConnectCallback) {
+        this.hookEvent(EVENTS.PEER_CONNECT.name, callback);
     }
 
     /**
      * Event emitted when a connected peer has closed.
      */
-    public onConnectionClose(callback: ConnectionCloseCallback) {
-        this.hookEvent(EVENTS.CONNECTION_CLOSE.name, callback);
+    public onPeerClose(callback: PeerCloseCallback) {
+        this.hookEvent(EVENTS.PEER_CLOSE.name, callback);
     }
 
     /**
      * Event emitted when there is an error on socket, handshake or validating an auth cert.
      */
-    public onConnectionError(callback: ConnectionErrorCallback) {
-        this.hookEvent(EVENTS.CONNECTION_ERROR.name, callback);
+    public onPeerError(callback: PeerErrorCallback) {
+        this.hookEvent(EVENTS.PEER_ERROR.name, callback);
     }
 
     /**
@@ -1753,8 +1753,8 @@ export class Service {
      * This factory can be used to more closely monitor events directly on the factory,
      * and also to tune and set parameters such as blocked IP addresses.
      */
-    public onClientStorageFactoryCreate(callback: ConnectionFactoryCreateCallback) {
-        this.hookEvent(EVENTS.CONNECTION_FACTORY_CREATE.name, callback);
+    public onClientStorageFactoryCreate(callback: PeerFactoryCreateCallback) {
+        this.hookEvent(EVENTS.PEER_FACTORY_CREATE.name, callback);
     }
 
     protected hookEvent(name: string, callback: ( (...args: any) => void)) {

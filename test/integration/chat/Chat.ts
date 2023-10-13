@@ -115,8 +115,8 @@ async function main() {
 
     await chatServer.init();
 
-    chatServer.onConnectionError( (e) => {
-        consoleMain.error("Connection error in server", e);
+    chatServer.onPeerError( (e) => {
+        consoleMain.error("Peer connection error in server", e);
         process.exit(1);
     });
 
@@ -176,8 +176,8 @@ async function main() {
         }
     });
 
-    chatServer.onConnectionConnect( () => {
-        consoleMain.info("Connection connected to server");
+    chatServer.onPeerConnect( () => {
+        consoleMain.info("Peer connected to server");
     });
 
     chatServer.onStop( () => {
@@ -196,8 +196,8 @@ async function main() {
 
     await chatClient.init();
 
-    chatClient.onConnectionError( (e) => {
-        consoleMain.error("Connection error in client", e);
+    chatClient.onPeerError( (e) => {
+        consoleMain.error("Peer error in client", e);
         process.exit(1);
     });
 
@@ -229,8 +229,8 @@ async function main() {
         });
     });
 
-    chatClient.onConnectionConnect( async () => {
-        consoleMain.info("Connection connected to client, send message from Client side");
+    chatClient.onPeerConnect( async () => {
+        consoleMain.info("Peer connected to client, send message from Client side");
         const blobLength = BigInt(BLOB_DATA.length);
         const blobHash = Hash(BLOB_DATA);
         const streamReader = new BufferStreamReader(BLOB_DATA);
