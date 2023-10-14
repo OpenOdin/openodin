@@ -12,6 +12,7 @@ import {
 
 import {
     PromiseCallback,
+    sleep,
 } from "./common";
 
 export class DatabaseUtil {
@@ -35,8 +36,12 @@ export class DatabaseUtil {
             }
 
             if (walMode) {
+                await sleep(10);
+
                 await db.exec("PRAGMA journal_mode=WAL;");
             }
+
+            await sleep(100);
 
             return db;
         }
@@ -58,6 +63,8 @@ export class DatabaseUtil {
                 await client.execute(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL READ COMMITTED; SET SESSION lock_timeout = '1s'; SET SESSION idle_in_transaction_session_timeout = '2s';`);
             }
 
+            await sleep(100);
+
             return client;
         }
         catch(e) {
@@ -72,8 +79,12 @@ export class DatabaseUtil {
             const db = new SQL.Database();
 
             if (walMode) {
+                await sleep(10);
+
                 await db.exec("PRAGMA journal_mode=WAL;");
             }
+
+            await sleep(100);
 
             return db;
         }
