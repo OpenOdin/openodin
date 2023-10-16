@@ -2,6 +2,15 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.7.0] - 20231016
+BREAKING CHANGES.  
+Improve blob syncing, add max auto sync size, allow apps to request blobs not synced.  
+Improve Thread API, support multiple post/postLicense in same Thead.  
+Refactor some names for better readability.  
+Add Node params isPrivate flag as a convenience.  
+Fix initial instability when opening SQLite in WAL-mode.  
+Address all linting errors.  
+
 ## [0.6.8] - 20231011
 Bug fix in AlgoRefId.  
 
