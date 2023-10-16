@@ -41,8 +41,6 @@ export class DatabaseUtil {
                 await db.exec("PRAGMA journal_mode=WAL;");
             }
 
-            await sleep(100);
-
             return db;
         }
         catch(e) {
@@ -63,8 +61,6 @@ export class DatabaseUtil {
                 await client.execute(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL READ COMMITTED; SET SESSION lock_timeout = '1s'; SET SESSION idle_in_transaction_session_timeout = '2s';`);
             }
 
-            await sleep(100);
-
             return client;
         }
         catch(e) {
@@ -83,8 +79,6 @@ export class DatabaseUtil {
 
                 await db.exec("PRAGMA journal_mode=WAL;");
             }
-
-            await sleep(100);
 
             return db;
         }
