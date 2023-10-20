@@ -2,6 +2,9 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.7.1] - 20231020
+Fix bug in db connection synchronization.  
+
 ## [0.7.0] - 20231016
 BREAKING CHANGES.  
 Improve blob syncing, add max auto sync size, allow apps to request blobs not synced.  
