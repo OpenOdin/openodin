@@ -184,8 +184,6 @@ export class QueryProcessor {
     /** Count each row returned performing select query. */
     protected addRowCount = 0;
 
-    protected isFlushing = false;
-
     protected flushCount: number = 0;
 
     protected _error: Error | undefined;
@@ -321,7 +319,7 @@ export class QueryProcessor {
                         break;
                     }
 
-                    await this.flushRest();
+                    await this.flush();
 
                     if (this.addRowCount < limit || this.addRowCount === 0) {
                         // If no more rows to be fetched on current query then
@@ -392,11 +390,10 @@ export class QueryProcessor {
                     // Abort the cursor.
                     return true;
                 }
-
-                this.flush();
             }
         }
         catch(e) {
+            console.debug("Exception in QueryProcessor.addRow", e);
             // Do nothing
         }
 
@@ -557,159 +554,157 @@ export class QueryProcessor {
      * Flushes are batched by MAX_BATCH_SIZE.
      */
     protected async flush() {
-        if (this.isFlushing) {
-            return;
-        }
+        while (true) {
+            let maxNodesLeft = this.fetchQuery.limit > -1 ?
+                this.fetchQuery.limit - this.nodeCount : MAX_QUERY_ROWS_LIMIT;
 
-        let maxNodesLeft = this.fetchQuery.limit > -1 ?
-            this.fetchQuery.limit - this.nodeCount : MAX_QUERY_ROWS_LIMIT;
+            const currentRows = this.currentRows.splice(0, MAX_BATCH_SIZE);
 
-        this.isFlushing = true;
+            const embed: NodeInterface[] = [];
+            let nodesToFlush: NodeInterface[] = [];
 
-        const currentRows = this.currentRows.splice(0, MAX_BATCH_SIZE);
+            // Note: we do not check any permissions at all when fetching upwards.
+            //
+            if (this.level > 0 && this.reverseFetch === ReverseFetch.OFF) {
+                const currentRows2 = await this.filterRestrictiveMode(currentRows);
 
-        const embed: NodeInterface[] = [];
-        let nodesToFlush: NodeInterface[] = [];
+                const permissionsResult = await this.filterPermissions(currentRows2);
 
-        // Note: we do not check any permissions at all when fetching upwards.
-        //
-        if (this.level > 0 && this.reverseFetch === ReverseFetch.OFF) {
-            const currentRows2 = await this.filterRestrictiveMode(currentRows);
-
-            const permissionsResult = await this.filterPermissions(currentRows2);
-
-            // These are nodes we are willing to flush out,
-            // if they pass the stateful part of the matching.
-            nodesToFlush = this.matchSecond(permissionsResult.nodes, this.currentLevelMatches);
+                // These are nodes we are willing to flush out,
+                // if they pass the stateful part of the matching.
+                nodesToFlush = this.matchSecond(permissionsResult.nodes, this.currentLevelMatches);
 
 
-            // We also want to match and alter match state for the nodes being embedded.
-            const originalNodes = permissionsResult.embed.map( tuple => tuple.originalNode );
+                // We also want to match and alter match state for the nodes being embedded.
+                const originalNodes = permissionsResult.embed.map( tuple => tuple.originalNode );
 
-            const nodesToEmbed = this.matchSecond(originalNodes,
-                this.currentLevelMatches).filter(
-                    embeddable => {
-                        const idStr = (embeddable.getId() as Buffer).toString("hex");
-                        const id1Str = (embeddable.getId1() as Buffer).toString("hex");
-                        const obj = this.alreadyProcessedNodes[idStr] ?? {matched: [], id1s: {}};
-                        const obj1 = obj.id1s[id1Str];
+                const nodesToEmbed = this.matchSecond(originalNodes,
+                    this.currentLevelMatches).filter(
+                        embeddable => {
+                            const idStr = (embeddable.getId() as Buffer).toString("hex");
+                            const id1Str = (embeddable.getId1() as Buffer).toString("hex");
+                            const obj = this.alreadyProcessedNodes[idStr] ?? {matched: [], id1s: {}};
+                            const obj1 = obj.id1s[id1Str];
 
-                        if (!obj1) {
-                            return true;
+                            if (!obj1) {
+                                return true;
+                            }
+
+                            if (!obj1.discard && obj1.updateTime >= this.fetchQuery.cutoffTime) {
+                                return true;
+                            }
+
+                            return false;
+                        });
+
+
+                const embeddedNodesLength = permissionsResult.embed.length;
+                const nodesToEmbedLength = nodesToEmbed.length;
+
+                for (let i=0; i<nodesToEmbedLength; i++) {
+                    if (maxNodesLeft <= 0) {
+                        break;
+                    }
+
+                    const node = nodesToEmbed[i];
+
+                    for (let i=0; i<embeddedNodesLength; i++) {
+                        const {originalNode, embeddedNode} = permissionsResult.embed[i];
+                        if ((originalNode.getId1() as Buffer).equals(node.getId1() as Buffer)) {
+                            embed.push(embeddedNode);
+                            maxNodesLeft--;
                         }
+                    }
+                }
+            }
+            else {
+                nodesToFlush = currentRows;
+            }
 
-                        if (!obj1.discard && obj1.updateTime >= this.fetchQuery.cutoffTime) {
-                            return true;
-                        }
+            const nodes: NodeInterface[] = [];
 
-                        return false;
-                    });
-
-
-            const embeddedNodesLength = permissionsResult.embed.length;
-            const nodesToEmbedLength = nodesToEmbed.length;
-
-            for (let i=0; i<nodesToEmbedLength; i++) {
+            const nodesLength = nodesToFlush.length;
+            for (let index=0; index<nodesLength; index++) {
                 if (maxNodesLeft <= 0) {
                     break;
                 }
 
-                const node = nodesToEmbed[i];
+                const node = nodesToFlush[index];
 
-                for (let i=0; i<embeddedNodesLength; i++) {
-                    const {originalNode, embeddedNode} = permissionsResult.embed[i];
-                    if ((originalNode.getId1() as Buffer).equals(node.getId1() as Buffer)) {
-                        embed.push(embeddedNode);
-                        maxNodesLeft--;
-                    }
-                }
-            }
-        }
-        else {
-            nodesToFlush = currentRows;
-        }
+                const idStr = (node.getId() as Buffer).toString("hex");
+                const id1Str = (node.getId1() as Buffer).toString("hex");
 
-        const nodes: NodeInterface[] = [];
+                const obj = this.alreadyProcessedNodes[idStr] ?? {matched: [], id1s: {}};
+                const obj1 = obj.id1s[id1Str];
 
-        const nodesLength = nodesToFlush.length;
-        for (let index=0; index<nodesLength; index++) {
-            if (maxNodesLeft <= 0) {
-                break;
-            }
-
-            const node = nodesToFlush[index];
-
-            const idStr = (node.getId() as Buffer).toString("hex");
-            const id1Str = (node.getId1() as Buffer).toString("hex");
-
-            const obj = this.alreadyProcessedNodes[idStr] ?? {matched: [], id1s: {}};
-            const obj1 = obj.id1s[id1Str];
-
-            if (!obj1) {
-                nodes.push(node);
-                maxNodesLeft--;
-                continue;
-            }
-
-            obj1.passed = true;
-
-            if (!obj1.discard && obj1.updateTime >= this.fetchQuery.cutoffTime) {
-                if (!obj1.flushed) {
+                if (!obj1) {
                     nodes.push(node);
                     maxNodesLeft--;
-                    obj1.flushed = true;
+                    continue;
                 }
-            }
 
-            // Populate next level IDs.
-            //
-            if (this.reverseFetch === ReverseFetch.OFF) {
-                if (!obj1.bottom && this.fetchQuery.cutoffTime <= obj1.trailUpdateTime) {
-                    if (!node.isLeaf() &&
-                        (!node.hasDynamicSelf() || node.isDynamicSelfActive())) {
+                obj1.passed = true;
 
-                        this.nextLevelIds[(node.getId() as Buffer).toString("hex")] =
-                            node.getId() as Buffer;
+                if (!obj1.discard && obj1.updateTime >= this.fetchQuery.cutoffTime) {
+                    if (!obj1.flushed) {
+                        nodes.push(node);
+                        maxNodesLeft--;
+                        obj1.flushed = true;
                     }
                 }
-            }
-            else if (this.reverseFetch === ReverseFetch.ALL_PARENTS) {
-                // NOTE: criterias are handled in the SQL-query.
+
+                // Populate next level IDs.
                 //
-                const parentId = node.getParentId();
-                if (parentId) {
-                    this.nextLevelIds[parentId.toString("hex")] = parentId;
+                if (this.reverseFetch === ReverseFetch.OFF) {
+                    if (!obj1.bottom && this.fetchQuery.cutoffTime <= obj1.trailUpdateTime) {
+                        if (!node.isLeaf() &&
+                            (!node.hasDynamicSelf() || node.isDynamicSelfActive())) {
+
+                            this.nextLevelIds[(node.getId() as Buffer).toString("hex")] =
+                                node.getId() as Buffer;
+                        }
+                    }
                 }
-            }
-            else if (this.reverseFetch === ReverseFetch.ONLY_LICENSED) {
-                // NOTE: criterias are handled in the SQL-query.
-                //
-                if (node.usesParentLicense() && !node.hasDynamicSelf() &&
-                    (!node.isDynamic() || node.isDynamicActive())) {
-
+                else if (this.reverseFetch === ReverseFetch.ALL_PARENTS) {
+                    // NOTE: criterias are handled in the SQL-query.
+                    //
                     const parentId = node.getParentId();
-
                     if (parentId) {
                         this.nextLevelIds[parentId.toString("hex")] = parentId;
                     }
                 }
+                else if (this.reverseFetch === ReverseFetch.ONLY_LICENSED) {
+                    // NOTE: criterias are handled in the SQL-query.
+                    //
+                    if (node.usesParentLicense() && !node.hasDynamicSelf() &&
+                        (!node.isDynamic() || node.isDynamicActive())) {
 
+                        const parentId = node.getParentId();
+
+                        if (parentId) {
+                            this.nextLevelIds[parentId.toString("hex")] = parentId;
+                        }
+                    }
+
+                }
             }
-        }
 
-        const isFirst = this.flushCount === 0;
+            const isFirst = this.flushCount === 0;
 
-        this.nodeLevelCount = this.nodeLevelCount + nodes.length + embed.length;
+            this.nodeLevelCount = this.nodeLevelCount + nodes.length + embed.length;
 
-        this.nodeCount = this.nodeCount + nodes.length + embed.length;
+            this.nodeCount = this.nodeCount + nodes.length + embed.length;
 
-        this.isFlushing = false;
+            if (isFirst || nodes.length > 0 || embed.length > 0) {
+                this.flushCount++;
 
-        if (isFirst || nodes.length > 0 || embed.length > 0) {
-            this.flushCount++;
+                this.handleFetchReplyData({
+                    status: Status.RESULT, nodes, embed, rowCount: this.rowCount, now: this.now, isFirst});
+            }
 
-            this.handleFetchReplyData({
-                status: Status.RESULT, nodes, embed, rowCount: this.rowCount, now: this.now, isFirst});
+            if (this.currentRows.length === 0) {
+                break;
+            }
         }
     }
 
@@ -1072,12 +1067,6 @@ export class QueryProcessor {
         }
 
         return nodesMatched;
-    }
-
-    protected async flushRest() {
-        while (this.currentRows.length > 0) {
-            await this.flush();
-        }
     }
 
     /**

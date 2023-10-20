@@ -52,7 +52,6 @@ import {
 import {
     CopyBuffer,
     DeepCopy,
-    PromiseCallback,
     sleep,
 } from "../util/common";
 
@@ -63,6 +62,16 @@ import {
 import {
     PocketConsole,
 } from "pocket-console";
+
+type Lock = {
+    name: string,
+    p: Promise<void> | undefined,
+};
+
+type InnerLock = {
+    lock: Lock,
+    resolve: (() => void) | undefined,
+};
 
 /** How many retries to do if database is busy. */
 const MAX_BUSY_RETRIES = 3;
@@ -141,8 +150,7 @@ export class Storage {
 
     protected triggerTimeoutInterval = 10000;
 
-    protected lockQueue: (() => void)[] = [];
-    protected lockBlobQueue: (() => void)[] = [];
+    protected locks: {[name: string]: InnerLock[]} = {};
 
     /**
      * @param p2pClient the connection to the client.
@@ -214,13 +222,10 @@ export class Storage {
     protected handleStore: HandlerFn<StoreRequest, StoreResponse> = async (storeRequest: StoreRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) => {
         let ts: number | undefined;
 
-        try {
-            const p = PromiseCallback();
-            this.lockQueue.push(p.cb);
-            if (this.lockQueue.length > 1) {
-                await p.promise;
-            }
+        // Collect all locks here in case finally needs to release all locks.
+        const locks: Lock[] = [];
 
+        try {
             if (storeRequest.targetPublicKey.length === 0) {
                 throw new Error("targetPublicKey expected to be set");
             }
@@ -285,6 +290,14 @@ export class Storage {
 
             let result = undefined;
 
+            const lock1 = this.acquireLock("driver");
+
+            locks.push(lock1);
+
+            if (lock1.p) {
+                await lock1.p;
+            }
+
             for (let retry=0; retry<=MAX_BUSY_RETRIES; retry++) {
                 try {
                     result = await this.driver.store(verifiedNodes, ts, storeRequest.preserveTransient);
@@ -301,6 +314,8 @@ export class Storage {
                 }
             }
 
+            this.releaseLock(lock1);
+
             let storeResponse: StoreResponse;
 
             if (result) {
@@ -310,7 +325,17 @@ export class Storage {
                 const missingBlobSizes: bigint[] = [];
 
                 if (blobId1s.length > 0 && this.blobDriver) {
+                    const lock2 = this.acquireLock("blobDriver");
+
+                    locks.push(lock2);
+
+                    if (lock2.p) {
+                        await lock2.p;
+                    }
+
                     const existingBlobId1s = await this.blobDriver.blobExists(blobId1s);
+
+                    this.releaseLock(lock2);
 
                     const existingMap: {[id1: string]: boolean} = {};
 
@@ -384,12 +409,9 @@ export class Storage {
                 this.timeFreeze.unfreeze(ts);
             }
 
-            this.lockQueue.shift();
-
-            const cb = this.lockQueue[0];
-            if (cb) {
-                cb();
-            }
+            locks.forEach( lock => {
+                this.releaseLock(lock);
+            });
         }
     };
 
@@ -426,13 +448,10 @@ export class Storage {
         let trigger: Trigger | undefined;
         let status: Status | undefined;
 
-        try {
-            const p = PromiseCallback();
-            this.lockQueue.push(p.cb);
-            if (this.lockQueue.length > 1) {
-                await p.promise;
-            }
+        // Collect all locks here in case finally needs to release all locks.
+        const locks: Lock[] = [];
 
+        try {
             // Deep copy the fetch request object since we might update some properties property.
             const fetchRequestCopy = DeepCopy(fetchRequest) as FetchRequest;
 
@@ -603,7 +622,17 @@ export class Storage {
             if (doFetch) {
                 const now = this.timeFreeze.read();
 
+                const lock1 = this.acquireLock("driver");
+
+                locks.push(lock1);
+
+                if (lock1.p) {
+                    await lock1.p;
+                }
+
                 await this.driver.fetch(fetchRequestCopy.query, now, handleFetchReplyData);
+
+                this.releaseLock(lock1);
 
                 if (trigger?.closed) {
                     this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.targetPublicKey);
@@ -643,12 +672,9 @@ export class Storage {
             sendResponse(errorFetchResponse);
         }
         finally {
-            this.lockQueue.shift();
-
-            const cb = this.lockQueue[0];
-            if (cb) {
-                cb();
-            }
+            locks.forEach( lock => {
+                this.releaseLock(lock);
+            });
         }
     };
 
@@ -740,14 +766,18 @@ export class Storage {
 
         const now = this.timeFreeze.read();
 
+        let lock1;
+
         try {
-            const p = PromiseCallback();
-            this.lockQueue.push(p.cb);
-            if (this.lockQueue.length > 1) {
-                await p.promise;
+            lock1 = this.acquireLock("driver");
+
+            if (lock1.p) {
+                await lock1.p;
             }
 
             await this.driver.fetch(trigger.fetchRequest.query, now, trigger.handleFetchReplyData);
+
+            this.releaseLock(lock1);
         }
         catch(e) {
             // Note that error response has already been sent by the QueryProcessor.
@@ -755,11 +785,8 @@ export class Storage {
             return 3;
         }
         finally {
-            this.lockQueue.shift();
-
-            const cb = this.lockQueue[0];
-            if (cb) {
-                cb();
+            if (lock1) {
+                this.releaseLock(lock1);
             }
         }
 
@@ -1018,13 +1045,10 @@ export class Storage {
     protected handleWriteBlob: HandlerFn<WriteBlobRequest, WriteBlobResponse> = async (writeBlobRequest: WriteBlobRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<WriteBlobResponse>) => {
         let status: Status | undefined;
 
-        try {
-            const p = PromiseCallback();
-            this.lockBlobQueue.push(p.cb);
-            if (this.lockBlobQueue.length > 1) {
-                await p.promise;
-            }
+        // Collect all locks here in case finally needs to release all locks.
+        const locks: Lock[] = [];
 
+        try {
             if (!this.blobDriver) {
                 throw new Error("Blob driver is not configured");
             }
@@ -1049,6 +1073,22 @@ export class Storage {
 
             const now = this.timeFreeze.read();
 
+            const lock1 = this.acquireLock("blobDriver");
+
+            locks.push(lock1);
+
+            if (lock1.p) {
+                await lock1.p;
+            }
+
+            const lock2 = this.acquireLock("driver");
+
+            locks.push(lock2);
+
+            if (lock2.p) {
+                await lock2.p;
+            }
+
             let node = await this.driver.getNodeById1(nodeId1, now);
 
             if (!node) {
@@ -1064,6 +1104,11 @@ export class Storage {
                 node = await this.driver.fetchSingleNode(nodeId1, now,
                     writeBlobRequest.targetPublicKey, writeBlobRequest.sourcePublicKey);
             }
+
+            this.releaseLock(lock2);
+
+
+
 
             if (!node) {
                 status = Status.NOT_ALLOWED;
@@ -1089,8 +1134,6 @@ export class Storage {
                 throw new Error("write out of bounds");
             }
 
-            const dataId = Hash([nodeId1, writeBlobRequest.sourcePublicKey]);
-
             if (await this.blobDriver.getBlobDataId(nodeId1)) {
                 if (sendResponse) {
                     const writeBlobResponse = {
@@ -1109,6 +1152,14 @@ export class Storage {
                 // Copy blob data from other existing node.
                 // Hashes must match and writer needs read permissions to the given source node.
 
+                const lock3 = this.acquireLock("driver");
+
+                locks.push(lock3);
+
+                if (lock3.p) {
+                    await lock3.p;
+                }
+
                 // Check first if client is owner then directly allow copy.
                 // This is so owners can directly write and manage blobs even
                 // if no licenses are created yet.
@@ -1126,6 +1177,8 @@ export class Storage {
                     copyFromNode = await this.driver.fetchSingleNode(writeBlobRequest.copyFromId1,
                         now, writeBlobRequest.targetPublicKey, writeBlobRequest.sourcePublicKey);
                 }
+
+                this.releaseLock(lock3);
 
                 if (!copyFromNode) {
                     status = Status.NOT_ALLOWED;
@@ -1181,40 +1234,54 @@ export class Storage {
 
                     assert(parentId);
 
+                    const lock4 = this.acquireLock("driver");
+
+                    locks.push(lock4);
+
+                    if (lock4.p) {
+                        await lock4.p;
+                    }
+
                     await this.driver.bumpBlobNode(node, now);
+
+                    this.releaseLock(lock4);
 
                     sendResponse(writeBlobResponse);
 
                     setImmediate( () => this.triggerInsertEvent([parentId], writeBlobRequest.muteMsgIds) );
                 }
 
+                this.releaseLock(lock2);
+
                 return;
             }
-            else {
-                let done = false;
 
-                for (let retry=0; retry<=MAX_BUSY_RETRIES; retry++) {
-                    try {
-                        await this.blobDriver.writeBlob(dataId, pos, data);
-                        done = true;
-                        break;
-                    }
-                    catch(e) {
-                        if (BUSY_ERRORS.includes((e as Error).message)) {
-                            console.debug("Database BUSY on writeBlob. Sleep and retry.");
-                            await sleep(100);
-                            continue;
-                        }
 
-                        throw e;
-                    }
+            const dataId = Hash([nodeId1, writeBlobRequest.sourcePublicKey]);
+
+            let done = false;
+
+            for (let retry=0; retry<=MAX_BUSY_RETRIES; retry++) {
+                try {
+                    await this.blobDriver.writeBlob(dataId, pos, data);
+                    done = true;
+                    break;
                 }
+                catch(e) {
+                    if (BUSY_ERRORS.includes((e as Error).message)) {
+                        console.debug("Database BUSY on writeBlob. Sleep and retry.");
+                        await sleep(100);
+                        continue;
+                    }
 
-                if (!done) {
-                    console.debug("Database BUSY on writeBlob, all retries failed.");
-                    status = Status.STORE_FAILED;
-                    throw new Error("Database BUSY, all retries failed.");
+                    throw e;
                 }
+            }
+
+            if (!done) {
+                console.debug("Database BUSY on writeBlob, all retries failed.");
+                status = Status.STORE_FAILED;
+                throw new Error("Database BUSY, all retries failed.");
             }
 
 
@@ -1269,15 +1336,28 @@ export class Storage {
 
                     assert(parentId);
 
+                    const lock5 = this.acquireLock("driver");
+
+                    locks.push(lock5);
+
+                    if (lock5.p) {
+                        await lock5.p;
+                    }
+
                     await this.driver.bumpBlobNode(node, now);
+
+                    this.releaseLock(lock5);
 
                     sendResponse(writeBlobResponse);
 
                     setImmediate( () => this.triggerInsertEvent([parentId], writeBlobRequest.muteMsgIds) );
                 }
 
+                this.releaseLock(lock1);
+
                 return;
             }
+
 
             if (sendResponse) {
                 const writeBlobResponse = {
@@ -1289,6 +1369,7 @@ export class Storage {
                 sendResponse(writeBlobResponse);
             }
 
+            this.releaseLock(lock1);
         }
         catch(e) {
             console.debug("handleWriteBlob", e);
@@ -1304,12 +1385,9 @@ export class Storage {
             }
         }
         finally {
-            this.lockBlobQueue.shift();
-
-            const cb = this.lockBlobQueue[0];
-            if (cb) {
-                cb();
-            }
+            locks.forEach( lock => {
+                this.releaseLock(lock);
+            });
         }
     };
 
@@ -1320,13 +1398,10 @@ export class Storage {
 
         let status: Status | undefined;
 
-        try {
-            const p = PromiseCallback();
-            this.lockBlobQueue.push(p.cb);
-            if (this.lockBlobQueue.length > 1) {
-                await p.promise;
-            }
+        // Collect all locks here in case finally needs to release all locks.
+        const locks: Lock[] = [];
 
+        try {
             if (!this.blobDriver) {
                 throw new Error("Blob driver is not configured");
             }
@@ -1351,8 +1426,26 @@ export class Storage {
 
             const now = this.timeFreeze.read();
 
+            const lock1 = this.acquireLock("blobDriver");
+
+            locks.push(lock1);
+
+            if (lock1.p) {
+                await lock1.p;
+            }
+
+            const lock2 = this.acquireLock("driver");
+
+            locks.push(lock2);
+
+            if (lock2.p) {
+                await lock2.p;
+            }
+
             const node = await this.driver.fetchSingleNode(nodeId1, now,
                 readBlobRequest.sourcePublicKey, readBlobRequest.targetPublicKey);
+
+            this.releaseLock(lock2);
 
             if (!node) {
                 status = Status.NOT_ALLOWED;
@@ -1381,6 +1474,8 @@ export class Storage {
             length = Math.min(length, MAX_READBLOB_LENGTH, blobLength - pos);
 
             const data = await this.blobDriver.readBlob(nodeId1, pos, length);
+
+            this.releaseLock(lock1);
 
             if (!data) {
                 // Blob data does not exist (in its finalized state).
@@ -1443,12 +1538,9 @@ export class Storage {
             sendResponse(errorReadBlobResponse);
         }
         finally {
-            this.lockBlobQueue.shift();
-
-            const cb = this.lockBlobQueue[0];
-            if (cb) {
-                cb();
-            }
+            locks.forEach( lock => {
+                this.releaseLock(lock);
+            });
         }
     };
 
@@ -1499,6 +1591,46 @@ export class Storage {
             }
 
             return count < MAX_TRANSFORMERS_BROWSER;
+        }
+    }
+
+    protected acquireLock(name: string): Lock {
+        const lock: Lock = {
+            name,
+            p: undefined,
+        };
+
+        const innerLock: InnerLock = {
+            lock,
+            resolve: undefined
+        };
+
+        const locks = this.locks[name] ?? [];
+        this.locks[name] = locks;
+
+        locks.push(innerLock);
+
+        if (locks.length > 1) {
+            lock.p = new Promise( resolve => {
+                innerLock.resolve = resolve;
+            });
+        }
+
+        return lock;
+    }
+
+    protected releaseLock(lock: Lock) {
+        const locks = this.locks[lock.name] ?? [];
+
+        if (locks.length > 0) {
+            if (locks[0].lock === lock) {
+                locks.shift();
+                if (locks.length > 0) {
+                    if (locks[0].resolve) {
+                        locks[0].resolve();
+                    }
+                }
+            }
         }
     }
 }
