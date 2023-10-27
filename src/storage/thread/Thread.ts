@@ -315,15 +315,26 @@ export class Thread {
     }
 
     /**
+     * @param name of the thread.
      * @param node to create licenses for.
      * @param threadLicenseParams params to overwrite template values with.
-     * Note that properties set to `undefined` will still overwrite template values.
+     * @returns Promise containing an array with all successfully stored licenses.
+     *
+     * Order of precedence for properties:
+     * targets property has precendce in threadLicenseParams, then defaults, then template.
+     * threadLicenseParams, defaults, template.
+     * Where expireTime has precedence over validSeconds,
+     * expireTime defaults to 30 days, if not set,
+     * further more it will be set to same as node.getExpireTime() if that is set and smaller.
+     * creationTime defaults to node.getCreationTime(), if not set.
+     * nodeId1 and parentId are taken from the node.
+     * owner is always set to current publicKey.
      */
-    public async postLicense(name: string, node: NodeInterface, threadLicenseParams: ThreadLicenseParams = {}): Promise<Buffer[]> {
+    public async postLicense(name: string, node: NodeInterface, threadLicenseParams: ThreadLicenseParams = {}): Promise<LicenseInterface[]> {
         const template = this.threadTemplate.postLicense[name] ?? {};
 
         const targets: Buffer[] | undefined =
-            Thread.CollapseProperty([threadLicenseParams, this.defaults,
+            Thread.PickFirstProperty([threadLicenseParams, this.defaults,
                 template], "targets") as (Buffer[] | undefined);
 
         if (!node.isLicensed() || node.getLicenseMinDistance() !== 0 || !targets) {
@@ -347,7 +358,12 @@ export class Thread {
             licenseNodes.push(licenseNode);
         }
 
-        return this.storeNodes(licenseNodes);
+        const storedId1s = await this.storeNodes(licenseNodes);
+
+        return licenseNodes.filter( license => {
+            const id1 = license.getId1()!;
+            return storedId1s.findIndex( id1b => id1.equals(id1) ) > -1;
+        });
     }
 
     /**
@@ -364,6 +380,21 @@ export class Thread {
         return new BlobStreamReader(nodeId1, [this.storageClient]);
     }
 
+    /**
+     * @param name of the thread
+     * @param node to create license for
+     * @param threadLicenseParams
+     * @returns LicenseParams
+     *
+     * Order of precedence for properties:
+     * threadLicenseParams, defaults, template.
+     * Where expireTime has precedence over validSeconds,
+     * expireTime defaults to 30 days, if not set,
+     * further more it will be set to same as node.getExpireTime() if that is set and smaller.
+     * creationTime defaults to node.getCreationTime(), if not set.
+     * nodeId1 and parentId are taken from the node.
+     * owner is always set to current publicKey.
+     */
     protected parsePostLicense(name: string, node: NodeInterface, threadLicenseParams: ThreadLicenseParams): LicenseParams {
         const nodeId1   = node.getId1();
         const parentId  = node.getParentId();
@@ -374,7 +405,7 @@ export class Thread {
         const template = this.threadTemplate.postLicense[name] ?? {};
 
         let creationTime: number | undefined =
-            Thread.CollapseProperty([threadLicenseParams, template],
+            Thread.PickFirstProperty([threadLicenseParams, template],
                 "creationTime") as (number | undefined);
 
         if (creationTime === undefined) {
@@ -382,18 +413,12 @@ export class Thread {
         }
 
         let expireTime: number | undefined =
-            Thread.CollapseProperty([threadLicenseParams, this.defaults, template],
+            Thread.PickFirstProperty([threadLicenseParams, this.defaults, template],
                 "expireTime") as (number | undefined);
-
-        const nodeExpireTime = node.getExpireTime();
-
-        if (expireTime === undefined) {
-            expireTime = nodeExpireTime;
-        }
 
         if (expireTime === undefined) {
             const validSeconds: number | undefined =
-                Thread.CollapseProperty([threadLicenseParams, this.defaults, template],
+                Thread.PickFirstProperty([threadLicenseParams, this.defaults, template],
                     "validSeconds") as (number | undefined);
 
             if (validSeconds !== undefined) {
@@ -401,31 +426,49 @@ export class Thread {
             }
         }
 
-        if (expireTime !== undefined && nodeExpireTime !== undefined) {
+        if (expireTime === undefined) {
+            expireTime = Date.now() + 30 * 24 * 3600;
+        }
+
+        const nodeExpireTime = node.getExpireTime();
+
+        if (nodeExpireTime !== undefined) {
             expireTime = Math.min(expireTime, nodeExpireTime);
         }
 
         const owner = this.publicKey;
 
         return ParseUtil.ParseLicenseParams(
-            Thread.MergeParams([threadLicenseParams, template,
-                {nodeId1, parentId, creationTime, expireTime, owner}]));
+            Thread.MergeProperties([{nodeId1, parentId, creationTime, expireTime, owner},
+                threadLicenseParams, template]));
     }
 
+    /**
+     * @param name of the thread
+     * @param threadDataParams
+     * @returns DataParams
+     *
+     * Order of precedence for properties:
+     * threadDataParams, defaults, template.
+     * Where expireTime has precedence over validSeconds.
+     * Note that expireTime has no default value for nodes and if not set
+     * will be able to exist indefinitely.
+     * owner is always set to current publicKey.
+     */
     protected parsePost(name: string, threadDataParams: ThreadDataParams): DataParams {
         const template = this.threadTemplate.post[name] ?? {};
 
         const creationTime: number | undefined =
-            Thread.CollapseProperty([threadDataParams, template],
+            Thread.PickFirstProperty([threadDataParams, template],
                 "creationTime") as (number | undefined);
 
         let expireTime: number | undefined =
-            Thread.CollapseProperty([threadDataParams, this.defaults, template],
+            Thread.PickFirstProperty([threadDataParams, this.defaults, template],
                 "expireTime") as (number | undefined);
 
         if (expireTime === undefined) {
             const validSeconds: number | undefined =
-                Thread.CollapseProperty([threadDataParams, this.defaults, template],
+                Thread.PickFirstProperty([threadDataParams, this.defaults, template],
                     "validSeconds") as (number | undefined);
 
             if (validSeconds !== undefined) {
@@ -435,7 +478,7 @@ export class Thread {
 
         const owner = this.publicKey;
 
-        const dataParams: DataParams = Thread.MergeParams([{creationTime, expireTime, owner},
+        const dataParams: DataParams = Thread.MergeProperties([{creationTime, expireTime, owner},
             threadDataParams, {parentId: this.defaults.parentId}, template]) as DataParams;
 
         if (!dataParams.parentId) {
@@ -445,6 +488,13 @@ export class Thread {
         return ParseUtil.ParseDataParams(dataParams);
     }
 
+    /**
+     * @param threadTemplate default properties coming from template.
+     *  default value parentId have precedence over threadTemplate.
+     * @param threadQueryParams have precedence over threadTemplate properties and default parentId.
+     * @returns FetchQuery
+     *
+     */
     protected static ParseQuery(threadTemplate: ThreadTemplate,
         threadQueryParams: ThreadQueryParams, defaults: ThreadDefaults): FetchQuery {
 
@@ -452,7 +502,7 @@ export class Thread {
             throw new Error("Missing query template in Thread");
         }
 
-        const queryParams = Thread.MergeParams([threadQueryParams,
+        const queryParams = Thread.MergeProperties([threadQueryParams,
             {parentId: defaults.parentId}, threadTemplate.query]);
 
         if (queryParams.includeLicenses) {
@@ -480,11 +530,15 @@ export class Thread {
         return ParseUtil.ParseQuery(queryParams);
     }
 
+    /**
+     * @params threadTemplate parameters have precedence over the transformer template properties.
+     * @returns FetchTransform
+     */
     protected static ParseTransform(threadTemplate: ThreadTemplate,
         threadTransformerParams: ThreadTransformerParams): FetchTransform {
 
         return ParseUtil.ParseTransform(
-            Thread.MergeParams([threadTransformerParams, (threadTemplate.transform ?? {})]));
+            Thread.MergeProperties([threadTransformerParams, (threadTemplate.transform ?? {})]));
     }
 
     /**
@@ -517,7 +571,12 @@ export class Thread {
         }
     }
 
-    protected static MergeParams(objects: any): any {
+    /**
+     * Merge a given list of property objects into a new object.
+     * Keep the first value encountered in the list of objects (in order given).
+     * undefined values and empty Buffers are ignored.
+     */
+    protected static MergeProperties(objects: any[]): any {
         const merged: any = {};
 
         const objectsLength = objects.length;
@@ -535,20 +594,18 @@ export class Thread {
 
                 const value = object[key];
 
-                if (value !== undefined) {
-                    if (Buffer.isBuffer(value) && value.length === 0) {
-                        continue;
-                    }
-
-                    merged[key] = value;
+                if (value === undefined || (Buffer.isBuffer(value) && value.length === 0)) {
+                    continue;
                 }
+
+                merged[key] = value;
             }
         }
 
         return merged;
     }
 
-    protected static CollapseProperty(objects: any, propertyName: string): any {
+    protected static PickFirstProperty(objects: any[], propertyName: string): any {
         const objectsLength = objects.length;
         for (let i=0; i<objectsLength; i++) {
             const object = objects[i];

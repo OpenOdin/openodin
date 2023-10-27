@@ -234,7 +234,9 @@ export class P2PClientAutoFetcher {
             const anyData = await getResponse.onceAny();
 
             if (anyData.type !== EventType.REPLY || anyData.response?.status !== Status.RESULT) {
-                console.error(`Could not store the incoming fetched data to Storage. Store response type: ${anyData.type}. Response status: ${anyData.response?.status}. Error: ${anyData.response?.error}`);
+                const reverse = this.reverse ? " (reverse store) " : "";
+
+                console.error(`Could not store the incoming fetched data to Storage${reverse}. Store response type: ${anyData.type}. Response status: ${anyData.response?.status}. Error: ${anyData.response?.error}`);
                 // Abort the storage operation.
                 break;
             }

@@ -3,10 +3,6 @@
  * used to keep a subset of the transformer model up to date.
  */
 
-//
-// TODO purge nodes and ext who are old
-//
-
 import {
     DataInterface,
 } from "../../datamodel";
@@ -54,9 +50,13 @@ export class TransformerCache {
             // Always replace the node in case it has updated transient values.
             this.model.nodes[id1Str] = node;
 
-            // If there has been lingering data keep it.
+            // If there has been lingering/preset data keep it.
             if (!this.model.datas[id1Str]) {
                 this.model.datas[id1Str] = {};
+            }
+            else {
+                // But in case it already was tagged for deletion we untag it.
+                delete this.model.datas[id1Str]._deleted;
             }
         });
 
@@ -95,12 +95,38 @@ export class TransformerCache {
 
             if (listNodeId1s[nodeId1Str] === undefined) {
                 delete this.model.nodes[nodeId1Str];
+
                 deletedNodesId1s.push(Buffer.from(nodeId1Str, "hex"));
-                // Note: we are leaving the datas[nodeId1Str] alive for some time.
+
+                const data = this.model.datas[nodeId1Str];
+
+                if (data) {
+                    // Set timestamp so purge can remove it.
+                    data._deleted = Date.now();
+                }
             }
         });
 
         this.triggerOnChange(addedNodesId1s, updatedNodesId1s, deletedNodesId1s);
+    }
+
+    /**
+     * Purge deleted data items and return them to let the caller clear up any resources associated.
+     */
+    public purge(age: number = 0): any[] {
+        const datas: any[] = [];
+
+        for (const id1Str in this.model.datas) {
+            const data = this.model.datas[id1Str];
+
+            if (data._deleted !== undefined && Date.now() - data._deleted >= age) {
+                delete this.model.datas[id1Str];
+
+                datas.push(data);
+            }
+        }
+
+        return datas;
     }
 
     public triggerOnChange(added: Buffer[], updated: Buffer[], deleted: Buffer[]) {
@@ -156,6 +182,25 @@ export class TransformerCache {
         };
     }
 
+    /**
+     * Find item in view of items.
+     */
+    public findItem(id1: Buffer): TransformerItem | undefined {
+        const items = this.getItems();
+
+        const itemsLength = items.length;
+
+        for (let i=0; i<itemsLength; i++) {
+            const item = items[i];
+
+            if (item.id1.equals(id1)) {
+                return item;
+            }
+        }
+
+        return undefined;
+    }
+
     public getNode(id1: Buffer): DataInterface | undefined {
         const id1Str = id1.toString("hex");
 
@@ -177,6 +222,9 @@ export class TransformerCache {
         const id1Str = id1.toString("hex");
 
         const data2 = this.model.datas[id1Str] ?? data;
+
+        // In case it was set we remove it.
+        delete data2._deleted;
 
         this.model.datas[id1Str] = data2;
 

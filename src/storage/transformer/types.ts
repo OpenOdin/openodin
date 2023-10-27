@@ -21,6 +21,9 @@ export interface AlgoInterface {
 
 /**
  * Optional storage are for the consumer to use.
+ *
+ * Property _deleted?: number as timestamp, used for GC.
+ *  _deleted?: number
  */
 export type TransformerExternalData = {[key: string]: any};
 
