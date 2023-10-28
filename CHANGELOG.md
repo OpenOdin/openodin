@@ -2,6 +2,9 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.7.2] - 20231028
+Improve thread and transformer cache.  
+
 ## [0.7.1] - 20231020
 Fix bug in db connection synchronization.  
 
