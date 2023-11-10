@@ -11,8 +11,8 @@
                     }
                 ]
             },
-            "transform": {
-                "algos": [2],
+            "crdt": {
+                "algo": 2,
                 "head": -1
             },
             "post": {

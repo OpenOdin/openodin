@@ -1,10 +1,6 @@
 import {
-    NodeInterface,
-} from "../../datamodel";
-
-import {
-    MAX_TRANSFORMER_LENGTH,
     AlgoInterface,
+    NodeAlgoValues,
 } from "./types";
 
 /**
@@ -13,21 +9,20 @@ import {
 export class AlgoSorted implements AlgoInterface {
     protected orderByStorageTime: boolean;
     protected nodeIndexById1: {[id1: string]: number};
-    protected nodes: NodeInterface[];
+    protected nodes: NodeAlgoValues[];
     protected _isClosed: boolean;
-    protected maxLength: number;
+    protected isDeletionTracking: boolean = false;
+    protected deletionTracking: {[id1: string]: number} = {};
 
     /**
      * @param orderByStorageTime if true then order by storage time insteadof creationTime.
-     * @param maxLength
      *
      */
-    constructor(maxLength: number = MAX_TRANSFORMER_LENGTH, orderByStorageTime: boolean = false) {
+    constructor(orderByStorageTime: boolean = false) {
         this.orderByStorageTime = orderByStorageTime;
         this.nodeIndexById1 = {};
         this.nodes = [];
         this._isClosed = true;
-        this.maxLength = maxLength;
     }
 
     public static GetId(): number {
@@ -42,17 +37,8 @@ export class AlgoSorted implements AlgoInterface {
         return this.nodes.length;
     }
 
-    public copyModel(): any {
-        return [{...this.nodeIndexById1}, this.nodes.slice()];
-    }
-
-    public setModel(model: any) {
-        this.nodeIndexById1 = model[0];
-        this.nodes = model[1];
-    }
-
-    public getAllNodes(): {[id1: string]: NodeInterface} {
-        const allNodes: {[id1: string]: NodeInterface} = {};
+    public getAllNodes(): {[id1: string]: NodeAlgoValues} {
+        const allNodes: {[id1: string]: NodeAlgoValues} = {};
 
         for (const id1 in this.nodeIndexById1) {
             allNodes[id1] = this.nodes[this.nodeIndexById1[id1]];
@@ -65,28 +51,30 @@ export class AlgoSorted implements AlgoInterface {
      * @returns [newNodes, transientUpdatesNodes][]
      * @throws on overflow
      */
-    public add(nodes: NodeInterface[]): [NodeInterface[], NodeInterface[]] {
-        if (this.getLength() + nodes.length > this.maxLength) {
-            throw new Error(`maximum length of transformer (${this.maxLength}) overflowed`);
-        }
-
-        const newNodes: NodeInterface[] = [];
-        const transientNodes: NodeInterface[] = [];
+    public add(nodes: NodeAlgoValues[]): [NodeAlgoValues[], NodeAlgoValues[]] {
+        const newNodes: NodeAlgoValues[] = [];
+        const transientNodes: NodeAlgoValues[] = [];
 
         if (nodes.length > 0) {
-            nodes.forEach( (node: NodeInterface) => {
-                const id1 = node.getId1();
+            nodes.forEach( (node: NodeAlgoValues) => {
+                const id1 = node.id1;
                 if (!id1) {
                     return;
                 }
 
                 const id1Str = id1.toString("hex");
+
+                if (this.isDeletionTracking) {
+                    delete this.deletionTracking[id1Str];
+                }
+
                 const existingIndex = this.nodeIndexById1[id1Str];
+
                 if (existingIndex !== undefined) {
                     // Node already exists in the cache.
                     // See if the transient values have changed and in such
                     // case replace the node here and return it as inserted.
-                    if (!node.hashTransient().equals(this.nodes[existingIndex].hashTransient())) {
+                    if (!node.transientHash.equals(this.nodes[existingIndex].transientHash)) {
                         this.nodes[existingIndex] = node;
                         transientNodes.push(node);
                     }
@@ -98,9 +86,9 @@ export class AlgoSorted implements AlgoInterface {
 
             this.nodes.push(...newNodes);
 
-            this.nodes.sort( (a: NodeInterface, b: NodeInterface) => {
-                const diffCreationTime = (a.getCreationTime() ?? 0) - (b.getCreationTime() ?? 0);
-                const diffStorageTime = (a.getTransientStorageTime() ?? 0) - (b.getTransientStorageTime() ?? 0);
+            this.nodes.sort( (a: NodeAlgoValues, b: NodeAlgoValues) => {
+                const diffCreationTime = (a.creationTime ?? 0) - (b.creationTime ?? 0);
+                const diffStorageTime = (a.transientStorageTime ?? 0) - (b.transientStorageTime ?? 0);
 
                 let diff = 0;
 
@@ -115,8 +103,8 @@ export class AlgoSorted implements AlgoInterface {
                 }
 
                 if (diff === 0) {
-                    const id1a = a.getId1();
-                    const id1b = b.getId1();
+                    const id1a = a.id1;
+                    const id1b = b.id1;
                     if (id1a && id1b) {
                         diff = id1a.compare(id1b);
                     }
@@ -133,31 +121,53 @@ export class AlgoSorted implements AlgoInterface {
         return [newNodes, transientNodes];
     }
 
+    public beginDeletionTracking() {
+        this.isDeletionTracking = true;
+
+        // Take copy of current nodes model.
+        this.deletionTracking = {...this.nodeIndexById1};
+    }
+
+    public commitDeletionTracking() {
+        const deletedNodeId1s = Object.keys(this.deletionTracking);
+
+        const indexes = deletedNodeId1s.map( id1Str => this.nodeIndexById1[id1Str] );
+
+        this.delete(indexes);
+
+        this.isDeletionTracking = false;
+
+        this.deletionTracking = {};
+    }
+
     /**
      * @returns undefined if cursor node does not exist.
      */
-    public get(cursorId1: Buffer | undefined, head: number, tail: number, reverse: boolean):
-        [NodeInterface[], number[]] | undefined {
+    public get(cursorId1: Buffer | undefined, cursorIndex: number, head: number, tail: number, reverse: boolean):
+        [NodeAlgoValues[], number[]] | undefined
+    {
 
         if ((tail === 0 && head === 0) || (tail !== 0 && head !== 0)) {
             return [[], []];
         }
 
+        const length = this.getLength();
+
         if (head !== 0) {
             if (head <= -1) {
-                head = MAX_TRANSFORMER_LENGTH;
+                head = length;
             }
             else {
-                head = Math.min(head, MAX_TRANSFORMER_LENGTH);
+                head = Math.min(head, length);
             }
         }
 
         if (tail !== 0) {
             if (tail <= -1) {
-                tail = MAX_TRANSFORMER_LENGTH;
+                tail = length;
             }
             else {
-                tail = Math.min(tail, MAX_TRANSFORMER_LENGTH);
+                tail = Math.min(tail, length);
             }
         }
 
@@ -173,12 +183,20 @@ export class AlgoSorted implements AlgoInterface {
             startIndex = Math.max(endIndex - tail, 0);
         }
 
-        if (cursorId1 && cursorId1.length > 0) {
-            const id1Str = cursorId1.toString("hex");
+        if ((cursorId1 && cursorId1.length > 0) || cursorIndex > -1) {
 
-            const cursorIndex = this.nodeIndexById1[id1Str];
+            if (cursorId1 && cursorId1.length > 0) {
+                const id1Str = cursorId1.toString("hex");
 
-            if (cursorIndex === undefined) {
+                const cursorIndex2 = this.nodeIndexById1[id1Str];
+
+                if (cursorIndex2 !== undefined) {
+                    cursorIndex = cursorIndex2;
+                }
+                //else fallback to use default cursorIndex, if set.
+            }
+
+            if (cursorIndex < 0) {
                 return undefined;
             }
 
@@ -212,7 +230,7 @@ export class AlgoSorted implements AlgoInterface {
             if (index !== undefined) {
                 const node = this.nodes.splice(index, 1)[0];
                 if (node) {
-                    const id1 = node.getId1();
+                    const id1 = node.id1;
                     if (!id1) {
                         return;
                     }
@@ -229,7 +247,7 @@ export class AlgoSorted implements AlgoInterface {
     protected updateIndexes(start: number = 0) {
         for (let i=start; i<this.nodes.length; i++) {
             const node = this.nodes[i];
-            const id1 = node.getId1();
+            const id1 = node.id1;
             if (!id1) {
                 continue;
             }
@@ -241,17 +259,17 @@ export class AlgoSorted implements AlgoInterface {
     /**
      * @throws if node does not exist in model
      */
-    public getIndexes(nodes: NodeInterface[]): number[] {
-        return nodes.map( (node: NodeInterface) => {
-            const id1 = node.getId1();
+    public getIndexes(nodes: NodeAlgoValues[]): number[] {
+        return nodes.map( (node: NodeAlgoValues) => {
+            const id1 = node.id1;
             if (!id1) {
                 // cannot happen
-                throw new Error("Unexpected error in transformed model");
+                throw new Error("Unexpected error in CRDT model");
             }
             const id1Str = id1.toString("hex");
             const index = this.nodeIndexById1[id1Str];
             if (index === undefined) {
-                throw new Error("Unexpected error in transformed model");
+                throw new Error("Unexpected error in CRDT model");
             }
             return index;
         });

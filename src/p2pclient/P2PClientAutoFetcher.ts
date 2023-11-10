@@ -144,14 +144,6 @@ export class P2PClientAutoFetcher {
         });
 
         getResponse.onReply( async (fetchResponse: FetchResponse) => {
-            // Transformer cache was invalidated in Storage.
-            // Attempt to fetch again.
-            if (fetchResponse.status === Status.TRANSFORMER_INVALIDATED) {
-                this.removeFetch(autoFetch);
-                this.fetch(autoFetch);
-                return;
-            }
-
             // Data is incoming from server peer, put it to storage.
             if (fetchResponse.status === Status.RESULT) {
                 // If we requested transient values to be kept on the nodes when fetching from peer,
@@ -171,7 +163,7 @@ export class P2PClientAutoFetcher {
             this.autoFetchSubscriptions.push({autoFetch, msgId, targetPublicKey});
 
             const isSubscription = (fetchRequest.query.triggerNodeId.length > 0 ||
-                fetchRequest.query.triggerInterval > 0) && fetchRequest.transform.msgId.length === 0;
+                fetchRequest.query.triggerInterval > 0) && fetchRequest.crdt.msgId.length === 0;
 
             if (isSubscription) {
                 if (this.reverse) {

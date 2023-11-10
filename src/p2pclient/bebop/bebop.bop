@@ -57,13 +57,15 @@ struct FetchQuery {
     string jurisdiction;
 }
 
-struct FetchTransform {
-    uint16[] algos;
+struct FetchCRDT {
+    uint16 algo;
+    string conf;
     byte[] msgId;
     bool reverse;
     int32 head;
     int32 tail;
     byte[] cursorId1;
+    int32 cursorIndex;
 }
 
 enum Status {
@@ -77,9 +79,8 @@ enum Status {
     NOT_ALLOWED         = 8;
     MISMATCH            = 9;
     EXISTS              = 10;
-    TRANSFORMER_INVALIDATED = 11;
-    MISSING_CURSOR      = 12;
-    DROPPED_TRIGGER     = 13;
+    MISSING_CURSOR      = 11;
+    DROPPED_TRIGGER     = 12;
 }
 
 struct FetchResult {
@@ -88,20 +89,21 @@ struct FetchResult {
     int64 cutoffTime;
 }
 
-struct TransformResult {
+struct CRDTResult {
     byte[] delta;
-    string extra;
+    int32 cursorIndex;
+    uint32 length;
 }
 
 message BopFetchRequest {
     1 -> FetchQuery query;
-    2 -> FetchTransform transform;
+    2 -> FetchCRDT crdt;
 }
 
 message BopFetchResponse {
     1 -> Status status;
     2 -> FetchResult result;
-    3 -> TransformResult transformResult;
+    3 -> CRDTResult crdtResult;
     4 -> uint16 seq;
     5 -> uint16 endSeq;
     6 -> uint16 rowCount;

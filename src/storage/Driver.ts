@@ -296,7 +296,7 @@ export class Driver implements DriverInterface {
      *
      * This function does not need or manage its own read transaction.
      *
-     * @param nodeId the ID1 of the node.
+     * @param nodeId1 the ID1 of the node.
      */
     public async getNodeById1(nodeId1: Buffer, now: number): Promise<NodeInterface | undefined> {
         const ph = this.db.generatePlaceholders(1);
@@ -306,7 +306,7 @@ export class Driver implements DriverInterface {
         }
 
         const sql = `SELECT image, storagetime FROM universe_nodes
-            WHERE id1=${ph} AND (expiretime IS NULL OR expiretime>${now}) LIMIT 1;`;
+            WHERE id1 = ${ph} AND (expiretime IS NULL OR expiretime > ${now}) LIMIT 1;`;
 
         const row = await this.db.get(sql, [nodeId1]);
 
@@ -317,6 +317,56 @@ export class Driver implements DriverInterface {
         }
 
         return undefined;
+    }
+
+    /**
+     * Get list of nodes on their id1s, preserve transient values.
+     *
+     * Nodes not found are ignored, no error is thrown on not found.
+     *
+     * This function does not need or manage its own read transaction.
+     *
+     * @param nodeId1s the ID1 of the node.
+     */
+    public async getNodesById1(nodeId1s: Buffer[], now: number): Promise<NodeInterface[]> {
+        if (nodeId1s.length > MAX_BATCH_SIZE) {
+            throw new Error(`Calling getNodesById1 with too many (${nodeId1s.length} ids), maximum allowed is ${MAX_BATCH_SIZE}.`);
+        }
+
+        if (nodeId1s.length === 0) {
+            return [];
+        }
+
+        const ph = this.db.generatePlaceholders(nodeId1s.length);
+
+        if (!Number.isInteger(now)) {
+            throw new Error("now not integer");
+        }
+
+        const sql = `SELECT image, storagetime FROM universe_nodes
+            WHERE id1 IN ${ph} AND (expiretime IS NULL OR expiretime > ${now});`;
+
+        const nodes: NodeInterface[] = [];
+
+        try {
+            const rows = await this.db.all(sql, nodeId1s);
+
+            const rowsLength = rows.length;
+            for (let index=0; index<rowsLength; index++) {
+                const row = rows[index];
+
+                const node = Decoder.DecodeNode(row.image, true);
+                node.setTransientStorageTime(row.storagetime);
+
+                nodes.push(node);
+            }
+        }
+        catch(e) {
+            console.debug("getNodesById1", e);
+            return [];
+        }
+
+        return nodes;
     }
 
     /**

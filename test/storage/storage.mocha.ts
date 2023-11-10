@@ -26,7 +26,6 @@ import {
     SendResponseFn,
     FetchRequest,
     FetchResponse,
-    Transformer,
     Trigger,
     StorageUtil,
     Data,
@@ -52,12 +51,18 @@ import {
 } from "../../src";
 
 class StorageWrapper extends Storage {
-    public allowAnotherTransformer(): boolean {
-        return super.allowAnotherTransformer();
-    }
+    public addTrigger(fetchRequest: FetchRequest, msgId: Buffer, sendResponse?: SendResponseFn<FetchResponse>): Trigger {
+        const trigger = super.addTrigger(fetchRequest, msgId);
 
-    public addTrigger(fetchRequest: FetchRequest, msgId: Buffer, sendResponse: SendResponseFn<FetchResponse>, transformer?: Transformer): Trigger {
-        return super.addTrigger(fetchRequest, msgId, sendResponse, transformer);
+        if (sendResponse) {
+            const handleFetchReplyData =
+                this.handleFetchReplyDataFactory(sendResponse, trigger,
+                    fetchRequest.query.preserveTransient);
+
+            trigger.handleFetchReplyData = handleFetchReplyData;
+        }
+
+        return trigger;
     }
 
     public async runTrigger(trigger: Trigger): Promise<number> {
@@ -70,14 +75,6 @@ class StorageWrapper extends Storage {
 
     public triggerInsertEvent(triggerNodeIds: Buffer[], muteMsgIds: Buffer[]): Promise<number>[] {
         return super.triggerInsertEvent(triggerNodeIds, muteMsgIds);
-    }
-
-    public createTransformer(fetchRequest: FetchRequest, sendResponse: SendResponseFn<FetchResponse>): Transformer | undefined {
-        return super.createTransformer(fetchRequest, sendResponse);
-    }
-
-    public getReadyTransformer(fetchRequest: FetchRequest): Transformer | undefined {
-        return super.getReadyTransformer(fetchRequest);
     }
 
     public chunkFetchResponse(fetchReplyData: FetchReplyData, seq: number): FetchResponse[] {
@@ -146,13 +143,6 @@ describe("Storage: triggers", function() {
         socket1?.close();
         socket2?.close();
         messaging1?.close();
-    });
-
-    it("#allowAnotherTransformer", function() {
-        assert(storage);
-
-        let result = storage.allowAnotherTransformer();
-        assert(result);
     });
 
     it("#addTrigger, #uncorkTrigger, #dropTrigger", async function() {
@@ -323,7 +313,7 @@ describe("Storage: triggers", function() {
 
         assert(trigger);
 
-        trigger.lastRun = Date.now() - 2000;
+        trigger.lastIntervalRun = Date.now() - 2000;
         trigger.isCorked = false;
 
         //@ts-ignore we need to clear this for the process to be able to end.
@@ -349,79 +339,6 @@ describe("Storage: triggers", function() {
         assert(response.status === Status.DROPPED_TRIGGER);
     });
 
-    it("#createTransformer", async function() {
-        assert(storage);
-
-        let sourcePublicKey = Buffer.alloc(32).fill(0x01);
-        let targetPublicKey = Buffer.alloc(32).fill(0x02);
-        let msgId = Buffer.from([1,2,3,4,5]);
-
-        let fetchRequest = StorageUtil.CreateFetchRequest({
-            query: {
-                parentId: Buffer.alloc(32),
-                triggerNodeId: Buffer.alloc(32),
-                sourcePublicKey,
-                targetPublicKey,
-                match: [
-                    {
-                        nodeType: Data.GetType(),
-                        filters: []
-                    }
-                ]
-            },
-            transform: {
-                algos: [1],
-            },
-        });
-
-        let response: any;
-        const sendResponse: any = (obj: any) => {
-            response = obj;
-        };
-
-        const fetchRequest2 = DeepCopy(fetchRequest) as FetchRequest;
-
-        let transformer = storage.createTransformer(fetchRequest, sendResponse);
-        assert(transformer);
-        assert(transformer.getAlgoFunctions().length === 1);
-        assert(!response);
-
-        let transformer2 = storage.createTransformer(fetchRequest, sendResponse);
-        assert(transformer2);
-        assert(transformer2.getAlgoFunctions().length === 1);
-        assert(!response);
-
-        assert(transformer !== transformer2);
-
-        assert(!storage.getReadyTransformer(fetchRequest));
-
-        let trigger = storage.addTrigger(fetchRequest, msgId, sendResponse, transformer);
-
-        assert(!storage.getReadyTransformer(fetchRequest));
-
-        trigger.hasFetched = true;
-
-        assert(storage.getReadyTransformer(fetchRequest));
-
-        fetchRequest.transform.msgId = Buffer.alloc(0);
-
-        assert(!storage.getReadyTransformer(fetchRequest));
-
-        assert(!storage.getReadyTransformer(fetchRequest2));
-
-        fetchRequest2.transform.msgId = msgId;
-
-        assert(storage.getReadyTransformer(fetchRequest2));
-
-        assert(!response);
-
-        fetchRequest2.transform.msgId = Buffer.alloc(0);
-
-        let transformer3 = storage.createTransformer(fetchRequest2, sendResponse);
-
-        assert(transformer3);
-    });
-
     // TODO: test handleFetchReplyDataFactory for trigger.closed
     //
 
@@ -431,7 +348,6 @@ describe("Storage: triggers", function() {
         let fetchReplyData: FetchReplyData = {
             status: Status.ERROR,
             isLast: true,
-            extra: "hello",
             delta: Buffer.alloc(1024),
             error: "some error",
         };
@@ -442,13 +358,11 @@ describe("Storage: triggers", function() {
         assert(fetchResponses[0].seq === 0);
         assert(fetchResponses[0].status === Status.ERROR);
         assert(fetchResponses[0].error === "some error");
-        assert(fetchResponses[0].transformResult.delta.length === 0);
-        assert(fetchResponses[0].transformResult.extra === "");
+        assert(fetchResponses[0].crdtResult.delta.length === 0);
 
         fetchReplyData = {
             status: Status.RESULT,
             isLast: true,
-            extra: "hello",
             delta: Buffer.alloc(1024),
             error: "bla",
         };
@@ -460,8 +374,7 @@ describe("Storage: triggers", function() {
         assert(fetchResponses[0].endSeq === 10);
         assert(fetchResponses[0].status === Status.RESULT);
         assert(fetchResponses[0].error === "");
-        assert(fetchResponses[0].transformResult.delta.length === 1024);
-        assert(fetchResponses[0].transformResult.extra === "hello");
+        assert(fetchResponses[0].crdtResult.delta.length === 1024);
 
         let nodes: NodeInterface[] = [];
         let embed: NodeInterface[] = [];
@@ -507,7 +420,6 @@ describe("Storage: triggers", function() {
         fetchReplyData = {
             status: Status.RESULT,
             isLast: true,
-            extra: "hello",
             delta: Buffer.alloc(124),
             nodes: nodes.slice(),
             embed: embed.slice(),
@@ -522,10 +434,6 @@ describe("Storage: triggers", function() {
         assert(fetchResponses[1].endSeq === 12);
         assert(fetchResponses[2].seq === 12);
         assert(fetchResponses[2].endSeq === 12);
-
-        assert(fetchResponses[0].transformResult.extra === "hello");
-        assert(fetchResponses[1].transformResult.extra === "");
-        assert(fetchResponses[2].transformResult.extra === "");
 
         assert(fetchResponses[0].result.nodes.length + fetchResponses[1].result.nodes.length === nodes.length);
         assert(fetchResponses[1].result.embed.length + fetchResponses[2].result.embed.length === embed.length);
@@ -1567,8 +1475,239 @@ function setupTests(config: any) {
         assert(response.status === Status.RESULT);
     });
 
-    // TODO
-    // test with transformers
+    it("fetch with CRDT", async function() {
+        const storage = config.storage as StorageWrapper;
+        assert(storage);
+        const p2pClient = config.p2pClient as P2PClient;
+        assert(p2pClient);
+
+        const nodeUtil = new NodeUtil();
+        const now = Date.now();
+
+        let expectingReply = ExpectingReply.NONE;  // This is not used.
+        let fromMsgId = Buffer.from([1,2,3,4,5]);
+
+        let keyPair1 = Node.GenKeyPair();
+        let keyPair2 = Node.GenKeyPair();
+
+        let parentId = Buffer.alloc(32).fill(0x00);
+        let triggerNodeId = Buffer.alloc(32).fill(0xa0);
+        let sourcePublicKey = keyPair1.publicKey;
+        let targetPublicKey = keyPair1.publicKey;
+        //let sourcePublicKey = Buffer.alloc(32).fill(0x02);
+
+        let preserveTransient = false;
+        let muteMsgIds: Buffer[] = [];
+        let nodes: Buffer[] = [];
+
+        let fetchRequest = StorageUtil.CreateFetchRequest({
+            query: {
+                parentId,
+                sourcePublicKey,
+                targetPublicKey,
+                triggerNodeId,
+                triggerInterval: 10,
+                match: [
+                    {
+                        nodeType: Data.GetType(),
+                        filters: []
+                    }
+                ]
+            },
+            crdt: {
+                algo: 1,
+                head: -1,
+            }
+        });
+
+        let counter = 0;
+        const fetchedNodes: Buffer[] = [];
+        const sendResponse: any = (obj: any) => {
+            fetchedNodes.push(...(obj.result?.nodes ?? []));
+            counter++;
+        };
+
+        await storage.handleFetchWrapped(fetchRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
+
+        const triggerNodeIdStr = triggerNodeId.toString("hex");
+
+        //@ts-ignore
+        assert(storage.triggers[triggerNodeIdStr][0] !== undefined);
+
+
+        const node2 = await nodeUtil.createDataNode({
+            parentId,
+            expireTime: now + 10000,
+            creationTime: now,
+            isPublic: true,
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        nodes.push(node2.export());
+
+        let storeRequest: StoreRequest = {
+            sourcePublicKey,
+            targetPublicKey,
+            preserveTransient,
+            nodes,
+            muteMsgIds,
+        };
+
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
+
+        await sleep(100);
+
+        assert(fetchedNodes.length === 0);
+
+        const node2b = await nodeUtil.createDataNode({
+            parentId: triggerNodeId,
+            expireTime: now + 10000,
+            creationTime: now,
+            isPublic: true,
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        nodes.length = 0;
+        nodes.push(node2b.export());
+
+        storeRequest = {
+            sourcePublicKey,
+            targetPublicKey,
+            preserveTransient,
+            nodes,
+            muteMsgIds,
+        };
+
+        fetchedNodes.length = 0;
+
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
+
+        await sleep(100);
+
+        assert(fetchedNodes.length === 1);
+        assert(fetchedNodes[0].equals(node2.export()));
+
+
+
+        const node3 = await nodeUtil.createDataNode({
+            parentId: node2.getId(),
+            expireTime: now + 10002,
+            creationTime: now,
+            isPublic: true,
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        nodes.push(node3.export());
+
+        storeRequest = {
+            sourcePublicKey,
+            targetPublicKey,
+            preserveTransient,
+            nodes,
+            muteMsgIds,
+        };
+
+        fetchedNodes.length = 0;
+
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
+
+        await sleep(100);
+
+        assert(fetchedNodes.length === 0);
+
+
+        const node2c = await nodeUtil.createDataNode({
+            parentId: triggerNodeId,
+            expireTime: now + 10001,
+            creationTime: now + 1,
+            isPublic: true,
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        nodes.length = 0;
+        nodes.push(node2c.export());
+
+        storeRequest = {
+            sourcePublicKey,
+            targetPublicKey,
+            preserveTransient,
+            nodes,
+            muteMsgIds: [],
+        };
+
+        fetchedNodes.length = 0;
+
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
+
+        await sleep(100);
+
+        assert(fetchedNodes.length === 1);
+
+        assert(fetchedNodes[0].equals(node3.export()));
+
+
+        nodes.length = 0;
+
+        const node2d = await nodeUtil.createDataNode({
+            parentId: triggerNodeId,
+            expireTime: now + 10003,
+            creationTime: now,
+            isPublic: true,
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        nodes.push(node2d.export());
+
+        storeRequest = {
+            sourcePublicKey,
+            targetPublicKey,
+            preserveTransient,
+            nodes,
+            muteMsgIds: [fromMsgId],
+        };
+
+        counter = 0;
+        fetchedNodes.length = 0;
+
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
+
+        await sleep(100);
+
+        assert(counter === 1);
+
+
+        let unsubscribeRequest: UnsubscribeRequest = {
+            originalMsgId: fromMsgId,
+            targetPublicKey,
+        };
+
+        await storage.handleUnsubscribeWrapped(unsubscribeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
+
+
+        nodes.length = 0;
+
+        const node2e = await nodeUtil.createDataNode({
+            parentId: triggerNodeId,
+            expireTime: now + 10004,
+            creationTime: now,
+            isPublic: true,
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        nodes.push(node2e.export());
+
+        storeRequest = {
+            sourcePublicKey,
+            targetPublicKey,
+            preserveTransient,
+            nodes,
+            muteMsgIds: [],
+        };
+
+        counter = 0;
+        fetchedNodes.length = 0;
+
+        await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
+
+        await sleep(100);
+
+        assert(counter === 1);
+    });
+
 }
 
 function makePeerProps(): PeerProps {

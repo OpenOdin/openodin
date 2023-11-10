@@ -3,8 +3,8 @@ import {
 } from "../../p2pclient";
 
 import {
-    TransformerCache,
-} from "../transformer";
+    CRDTView,
+} from "../crdt";
 
 import {
     DataParams,
@@ -15,7 +15,7 @@ import {
 import {
     FetchResponse,
     FetchQuery,
-    FetchTransform,
+    FetchCRDT,
 } from "../../types";
 
 /**
@@ -30,10 +30,10 @@ export type ThreadTemplate = {
     query?: FetchQuery,
 
     /**
-     * Transform can be set if query is set.
-     * Parameters match the FetchTransform data type.
+     * crdt can be set if query is set.
+     * Parameters match the FetchCRDT data type.
      */
-    transform?: FetchTransform,
+    crdt?: FetchCRDT,
 
     /**
      * Declare default parameters for each post type.
@@ -76,15 +76,16 @@ export type ThreadQueryParams = {
 };
 
 /**
- * These are the relevant properties of FetchTransform which could be
- * set to override the template and default properties of transform.
+ * These are the relevant properties of FetchCRDT which could be
+ * set to override the template and default properties of crdt.
  * Unset or undefined values are ignored.
  */
-export type ThreadTransformerParams = {
+export type ThreadCRDTParams = {
     reverse?:           boolean,
     head?:              number,
     tail?:              number,
     cursorId1?:         Buffer,
+    cursorIndex?:       number,
 };
 
 /**
@@ -94,7 +95,7 @@ export type ThreadTransformerParams = {
  */
 export type ThreadFetchParams = {
     query?: ThreadQueryParams,
-    transform?: ThreadTransformerParams,
+    crdt?: ThreadCRDTParams,
 };
 
 /**
@@ -156,6 +157,7 @@ export type UpdateStreamParams = {
     head?: number,
     tail?: number,
     cursorId1?: Buffer,
+    cursorIndex?: number,
     reverse?: boolean,
     triggerInterval?: number,
 };
@@ -164,8 +166,8 @@ export type UpdateStreamParams = {
  * This is returend when calling thread.stream().
  */
 export type ThreadStreamResponseAPI = {
-    /** onChange events from the TransformerCache model. */
-    onChange: (...parameters: Parameters<TransformerCache["onChange"]>) => ThreadStreamResponseAPI,
+    /** onChange events from the CRDTView model. */
+    onChange: (...parameters: Parameters<CRDTView["onChange"]>) => ThreadStreamResponseAPI,
 
     /** Nodes incoming in getResponse.onReply. */
     onData: (cb: (nodes: NodeInterface[]) => void) => ThreadStreamResponseAPI,
@@ -188,7 +190,7 @@ export type ThreadStreamResponseAPI = {
 
     getResponse: () => GetResponse<FetchResponse>,
 
-    getTransformer: () => TransformerCache,
+    getCRDTView: () => CRDTView,
 };
 
 /**

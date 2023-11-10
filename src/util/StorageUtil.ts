@@ -75,10 +75,12 @@ export type FetchRequestQueryParams = {
     jurisdiction?: string,
 };
 
-export type FetchRequestTransformParams = {
-    algos: number[],
+export type FetchRequestCRDTParams = {
+    algo: number,
+    conf?: string,
     reverse?: boolean,
     cursorId1?: Buffer | string,
+    cursorIndex?: number,
     head?: number,
     tail?: number,
     msgId?: Buffer | string,
@@ -86,7 +88,7 @@ export type FetchRequestTransformParams = {
 
 export type FetchRequestParams = {
     query: FetchRequestQueryParams,
-    transform?: FetchRequestTransformParams,
+    crdt?: FetchRequestCRDTParams,
 };
 
 export type StoreRequestParams = {
@@ -286,10 +288,10 @@ export class StorageUtil {
      */
     public static CreateFetchRequest(fetchRequestParams: FetchRequestParams): FetchRequest {
         const query = ParseUtil.ParseQuery(fetchRequestParams.query);
-        const transform = ParseUtil.ParseTransform(fetchRequestParams.transform ?? {});
+        const crdt = ParseUtil.ParseCRDT(fetchRequestParams.crdt ?? {});
         const fetchRequest: FetchRequest = {
             query,
-            transform,
+            crdt,
         };
 
         return fetchRequest;

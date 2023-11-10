@@ -78,6 +78,10 @@ class DriverTestWrapper extends Driver {
         return super.getNodeById1(id1, now);
     }
 
+    public async getNodesById1(nodesId1: Buffer[], now: number): Promise<NodeInterface[]> {
+        return super.getNodesById1(nodesId1, now);
+    }
+
     public async getRootNode(fetchQuery: FetchQuery, now: number): Promise<[NodeInterface | undefined, FetchReplyData | undefined]> {
         return super.getRootNode(fetchQuery, now);
     }
@@ -869,6 +873,10 @@ function setupDriverTests(config: any) {
         assert(!node.hashTransient().equals(oldTransientHash));
         assert(node.getTransientStorageTime() === now);
         assert(node.isDynamicSelfActive());
+    });
+
+    it.skip("#getNodesById1 also with transient values", async function() {
+        // TODO
     });
 
     it("#getRootNode", async function() {

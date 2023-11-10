@@ -8,4 +8,5 @@ export * from "./StorageUtil";
 export * from "./RegionUtil";
 export * from "./FileUtil";
 export * from "./JSONUtil";
+export * from "./Lock";
 export * from "./types";

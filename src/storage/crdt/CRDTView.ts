@@ -1,6 +1,6 @@
 /**
- * The client side of a transformer,
- * used to keep a subset of the transformer model up to date.
+ * The view of a CRDT model,
+ * used to keep a subset of the CRDT model up to date.
  */
 
 import {
@@ -8,26 +8,26 @@ import {
 } from "../../datamodel";
 
 import {
-    TransformerModel,
-    TransformerItem,
-    TransformerExternalData,
-    TRANSFORMER_EVENT,
+    CRDTViewModel,
+    CRDTViewItem,
+    CRDTViewExternalData,
+    CRDTVIEW_EVENT,
 } from "./types";
 
 import * as fossilDelta from "fossil-delta";
 
-type ONCHANGE_CALLBACK = (transformerEvents: TRANSFORMER_EVENT) => void;
+type ONCHANGE_CALLBACK = (crdtViewEvents: CRDTVIEW_EVENT) => void;
 
-export class TransformerCache {
+export class CRDTView {
     protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
 
-    protected model: TransformerModel = {
+    protected model: CRDTViewModel = {
         list: [],
         nodes: {},
         datas: {},
     };
 
-    public handleResponse(nodes: DataInterface[], delta: Buffer) {
+    public handleResponse(nodes: DataInterface[], delta?: Buffer) {
         const addedNodesId1s: Buffer[] = [];
 
         const updatedNodesId1s: Buffer[] = [];
@@ -55,59 +55,62 @@ export class TransformerCache {
                 this.model.datas[id1Str] = {};
             }
             else {
-                // But in case it already was tagged for deletion we untag it.
+                // In case it already was tagged for deletion we untag it.
                 delete this.model.datas[id1Str]._deleted;
             }
         });
 
-        if (delta.length === 0) {
-            // This is not a delta given.
-            // Set the model and order exactly as given.
-            this.model.list = nodes.map( node => node.getId1() as Buffer );
-        }
-        else {
+        if (delta && delta.length > 0) {
             // Apply patch.
             const deltaType = delta[0];
             if (deltaType !== 0) {
                 throw new Error("Delta type not supported");
             }
 
-            const delta2 = JSON.parse(delta.slice(1).toString());
+            const list: Buffer[] = [];
 
-            // Note casting to any here due to the types being restrictive,
-            // but fossil-delta does accept strings as input.
-            const newList = fossilDelta.apply(
-                this.model.list.map( id1 => id1.toString("hex")).join(" ") as any,
-                delta2 as any);
+            try {
+                const newMerged = Buffer.from(fossilDelta.apply(Buffer.concat(this.model.list),
+                    JSON.parse(delta.slice(1).toString()).patch));
 
-            this.model.list = newList.join("").split(" ").map(
-                (id1Str: string) => Buffer.from(id1Str, "hex"));
-        }
-
-        const listNodeId1s: {[id: string]: boolean} = {};
-
-        this.model.list.forEach( id1 => {
-            const id1Str = id1.toString("hex");
-            listNodeId1s[id1Str] = true;
-        });
-
-        Object.keys(this.model.nodes).forEach( nodeId1Str => {
-
-            if (listNodeId1s[nodeId1Str] === undefined) {
-                delete this.model.nodes[nodeId1Str];
-
-                deletedNodesId1s.push(Buffer.from(nodeId1Str, "hex"));
-
-                const data = this.model.datas[nodeId1Str];
-
-                if (data) {
-                    // Set timestamp so purge can remove it.
-                    data._deleted = Date.now();
+                // Split into seperate buffers.
+                // NOTE: Assuming IDs are 32 bytes long.
+                for (let i=0; i<newMerged.length; i+=32) {
+                    list.push(newMerged.slice(i, i + 32));
                 }
             }
-        });
+            catch(e) {
+                console.error("Error in applying patch. State might have gotten inconsistent. Please reload");
+                console.error(e);
+            }
 
-        this.triggerOnChange(addedNodesId1s, updatedNodesId1s, deletedNodesId1s);
+            this.model.list = list;
+
+            const listNodeId1s: {[id: string]: boolean} = {};
+
+            this.model.list.forEach( id1 => {
+                const id1Str = id1.toString("hex");
+                listNodeId1s[id1Str] = true;
+            });
+
+            Object.keys(this.model.nodes).forEach( nodeId1Str => {
+
+                if (listNodeId1s[nodeId1Str] === undefined) {
+                    delete this.model.nodes[nodeId1Str];
+
+                    deletedNodesId1s.push(Buffer.from(nodeId1Str, "hex"));
+
+                    const data = this.model.datas[nodeId1Str];
+
+                    if (data) {
+                        // Set timestamp so purge can remove it.
+                        data._deleted = Date.now();
+                    }
+                }
+            });
+        }
+
+        return [addedNodesId1s, updatedNodesId1s, deletedNodesId1s];
     }
 
     /**
@@ -130,20 +133,20 @@ export class TransformerCache {
     }
 
     public triggerOnChange(added: Buffer[], updated: Buffer[], deleted: Buffer[]) {
-        const transformerEvent: TRANSFORMER_EVENT = {
+        const crdtViewEvent: CRDTVIEW_EVENT = {
             added,
             deleted,
             updated,
         };
 
-        this.triggerEvent("change", transformerEvent);
+        this.triggerEvent("change", crdtViewEvent);
     }
 
     /**
      * @returns the internal items object to be used with the application as read-only.
      */
-    public getItems(): TransformerItem[] {
-        const items: TransformerItem[] = [];
+    public getItems(): CRDTViewItem[] {
+        const items: CRDTViewItem[] = [];
 
         const listLength = this.model.list.length;
 
@@ -159,7 +162,7 @@ export class TransformerCache {
         return items;
     }
 
-    public getItem(index: number): TransformerItem | undefined {
+    public getItem(index: number): CRDTViewItem | undefined {
         const id1 = this.model.list[index];
 
         if (!id1) {
@@ -185,7 +188,7 @@ export class TransformerCache {
     /**
      * Find item in view of items.
      */
-    public findItem(id1: Buffer): TransformerItem | undefined {
+    public findItem(id1: Buffer): CRDTViewItem | undefined {
         const items = this.getItems();
 
         const itemsLength = items.length;
@@ -207,7 +210,7 @@ export class TransformerCache {
         return this.model.nodes[id1Str];
     }
 
-    public getData(id1: Buffer): TransformerExternalData | undefined {
+    public getData(id1: Buffer): CRDTViewExternalData | undefined {
         const id1Str = id1.toString("hex");
 
         return this.model.datas[id1Str];
@@ -233,7 +236,7 @@ export class TransformerCache {
         }
     }
 
-    public getLastItem(): TransformerItem | undefined {
+    public getLastItem(): CRDTViewItem | undefined {
         return this.getItem(this.model.list.length - 1);
     }
 
@@ -244,7 +247,7 @@ export class TransformerCache {
         this.handleResponse([], Buffer.alloc(0));
     }
 
-    public onChange(cb: ONCHANGE_CALLBACK): TransformerCache {
+    public onChange(cb: ONCHANGE_CALLBACK): CRDTView {
         this.hookEvent("change", cb);
 
         return this;

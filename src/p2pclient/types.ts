@@ -139,8 +139,8 @@ export type P2PClientFetchPermissions = {
     /** List of node types which are allowed to be queried for by peer. The full node type is six bytes, however fewer bytes can be set to act as wildcards. */
     allowNodeTypes: Buffer[],
 
-    /** Algo IDs supported for transform requests. */
-    allowTransform: number[],
+    /** Algo IDs supported for CRDT requests. */
+    allowAlgos: number[],
 
     /** Is the peer allowed to read blob data? The peer must also have access to the node it self. */
     allowReadBlob: boolean,
@@ -173,7 +173,7 @@ export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
         ],
         allowTrigger: true,
         allowNodeTypes: ["0004" as any],
-        allowTransform: [1, 2],
+        allowAlgos: [1, 2],
         allowReadBlob: true,
     },
     storePermissions: {
@@ -193,7 +193,7 @@ export const DEFAULT_PEER_PERMISSIONS: P2PClientPermissions = {
         ],
         allowTrigger: true,
         allowNodeTypes: ["0004" as any],
-        allowTransform: [],
+        allowAlgos: [],
         allowReadBlob: true,
     },
     storePermissions: {
@@ -213,7 +213,7 @@ export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
         ],
         allowTrigger: true,
         allowNodeTypes: ["0004" as any],
-        allowTransform: [1, 2],
+        allowAlgos: [1, 2],
         allowReadBlob: true,
     },
     storePermissions: {
@@ -228,7 +228,7 @@ export const LOCKED_PERMISSIONS: P2PClientPermissions = {
         allowEmbed: [],
         allowTrigger: false,
         allowNodeTypes: [],
-        allowTransform: [],
+        allowAlgos: [],
         allowReadBlob: false,
     },
     storePermissions: {

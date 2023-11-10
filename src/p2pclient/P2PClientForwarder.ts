@@ -85,12 +85,12 @@ export class P2PClientForwarder {
         expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>)  {
 
         const isSubscription = (fetchRequest.query.triggerNodeId.length > 0 ||
-            fetchRequest.query.triggerInterval > 0) && fetchRequest.transform.msgId.length === 0;
+            fetchRequest.query.triggerInterval > 0) && fetchRequest.crdt.msgId.length === 0;
 
-        if (fetchRequest.transform.msgId.length > 0) {
+        if (fetchRequest.crdt.msgId.length > 0) {
             // Translate msgId
-            const msgId = fetchRequest.transform.msgId;
-            fetchRequest.transform.msgId = Buffer.alloc(0);
+            const msgId = fetchRequest.crdt.msgId;
+            fetchRequest.crdt.msgId = Buffer.alloc(0);
 
             for (let i=0; i<this.subscriptionMaps.length; i++) {
                 const subscriptionMap = this.subscriptionMaps[i];
@@ -98,13 +98,13 @@ export class P2PClientForwarder {
                 if (subscriptionMap.fromMsgId.equals(msgId) &&
                     subscriptionMap.targetPublicKey.equals(fetchRequest.query.targetPublicKey)) {
 
-                    fetchRequest.transform.msgId = CopyBuffer(subscriptionMap.originalMsgId);
+                    fetchRequest.crdt.msgId = CopyBuffer(subscriptionMap.originalMsgId);
 
                     break;
                 }
             }
 
-            if (fetchRequest.transform.msgId.length === 0) {
+            if (fetchRequest.crdt.msgId.length === 0) {
                 console.debug(`Could not map msgId=${msgId}. Likely already unsubscribed.`);
                 return;
             }

@@ -1,23 +1,30 @@
 import {
-    NodeInterface,
     DataInterface,
 } from "../../datamodel";
 
-export const MAX_TRANSFORMER_LENGTH = 100000;
+export type CRDTViewType = {list: Buffer[], transientHashes: {[id1: string]: Buffer}};
 
 export interface AlgoInterface {
     getId(): number;
     getLength(): number;
-    copyModel(): any;
-    setModel(model: any): void;
-    getAllNodes(): {[id1: string]: NodeInterface};
-    add(nodes: NodeInterface[]): [NodeInterface[], NodeInterface[]];
+    getAllNodes(): {[id1: string]: NodeAlgoValues};
+    add(nodes: NodeAlgoValues[]): [NodeAlgoValues[], NodeAlgoValues[]];
     delete(indexes: number[]): void;
-    get(cursorId1: Buffer | undefined, head: number, tail: number, reverse: boolean):
-        [NodeInterface[], number[]] | undefined;
-    getIndexes(nodes: NodeInterface[]): number[];
+    get(cursorId1: Buffer | undefined, cursorIndex: number, head: number, tail: number,
+        reverse: boolean): [NodeAlgoValues[], number[]] | undefined;
+    getIndexes(nodes: NodeAlgoValues[]): number[];
+    beginDeletionTracking(): void;
+    commitDeletionTracking(): void;
     close(): void;
 }
+
+export type NodeAlgoValues = {
+    id1: Buffer,
+    refId?: Buffer,
+    transientHash: Buffer,
+    creationTime?: number,
+    transientStorageTime?: number,
+};
 
 /**
  * Optional storage are for the consumer to use.
@@ -25,16 +32,16 @@ export interface AlgoInterface {
  * Property _deleted?: number as timestamp, used for GC.
  *  _deleted?: number
  */
-export type TransformerExternalData = {[key: string]: any};
+export type CRDTViewExternalData = {[key: string]: any};
 
-export type TransformerItem = {
+export type CRDTViewItem = {
     index: number,
     id1: Buffer,
     node: DataInterface,
-    data: TransformerExternalData,
+    data: CRDTViewExternalData,
 };
 
-export type TransformerModel = {
+export type CRDTViewModel = {
     /**
      * Ordered list of node Id1s.
      */
@@ -46,10 +53,10 @@ export type TransformerModel = {
     /**
      * Storage area for the controller and UI to use.
      */
-    datas: {[id1: string]: TransformerExternalData},
+    datas: {[id1: string]: CRDTViewExternalData},
 };
 
-export type TRANSFORMER_EVENT = {
+export type CRDTVIEW_EVENT = {
     /** List of node ID1s which have been added to the model. */
     added: Buffer[],
 

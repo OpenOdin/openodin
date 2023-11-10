@@ -4,5 +4,5 @@ export * from "./QueryProcessor";
 export * from "./DBClient";
 export * from "./Storage";
 export * from "./thread";
-export * from "./transformer";
+export * from "./crdt";
 export * from "./types";

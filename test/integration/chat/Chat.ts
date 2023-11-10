@@ -8,7 +8,7 @@ import {
     Hash,
     BlobEvent,
     ParseUtil,
-    TRANSFORMER_EVENT,
+    CRDTVIEW_EVENT,
     AbstractStreamReader,
     Service,
     Thread,
@@ -138,7 +138,7 @@ async function main() {
 
             const id1 = event.added[0];
 
-            const dataNode = responseAPI.getTransformer().getNode(id1);
+            const dataNode = responseAPI.getCRDTView().getNode(id1);
 
             assert(dataNode);
 
@@ -219,7 +219,7 @@ async function main() {
             event.added.forEach( id1 => {
                 messageCounter++;
 
-                const dataNode = responseAPI.getTransformer().getNode(id1);
+                const dataNode = responseAPI.getCRDTView().getNode(id1);
 
                 assert(dataNode);
 

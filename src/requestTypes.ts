@@ -121,8 +121,11 @@ export type FetchQuery = {
 
     /**
      * The cutoff timestamp to use to discard nodes from the resultset.
-     * This is used to limit the amount of data being sent again when no changes has accoured in that resultset.
+     * This is used to limit the amount of data being sent again when no changes has
+     * accoured in that resultset.
      * This value is compared to the node's storageTime and updatedTime.
+     *
+     * When fetching with CRDT this must be set to 0.
      */
     cutoffTime: bigint,
 
@@ -133,7 +136,7 @@ export type FetchQuery = {
      *
      * The root node is not allowed to be licensed, use hasRightsByAssociation or be flagged as beginRestrictiveWriterMode.
      *
-     * While the root node is self is fetched on its ID1 it's regular ID (ID2||ID1) is used as parentId for the subsequent level 1 fetch.
+     * While the root node itself is fetched on its ID1, its regular ID (ID2||ID1) is used as parentId for the subsequent level 1 fetch.
      *
      * rootNodeId1 is mutually exclusive to parentId.
      */
@@ -210,14 +213,17 @@ export type FetchQuery = {
      * The Storage is not required to support this feature and if it does not support this feature
      * then an error with the status malformed is returned.
      *
-     * If using a transformer together with a subscription triggerNodeId, then the
+     * If using a CRDT together with a subscription triggerNodeId, then the
      * triggerInterval must also be set to properly detect expired nodes.
+     * It can be set even with triggerNodeId not set.
      */
     triggerInterval: number,
 
     /**
      * Set to true to only query on trigger, meaning do not perform an initial fetch,
      * but only fetch on triggerNodeId activation and/or triggerInterval.
+     *
+     * Cannot be set if fetching with CRDT, because we need the full dataset for the CRDTs.
      */
     onlyTrigger: boolean,
 
@@ -275,42 +281,55 @@ export type FetchQuery = {
 };
 
 /**
- * A fetchRequest can have a FetchTransform to transform the result from the FetchQuery.
- * A transformer can be used as the basis of a CRDT model.
- * The current max size of a Transformer is 100000 elements.
+ * A fetchRequest can have a FetchCRDT to apply a CRDT the result from the FetchQuery.
  */
-export type FetchTransform = {
-    /** At least one ordering algorithm must be specified when using a transformer. */
-    algos: number[],
+export type FetchCRDT = {
+    /**
+     * The ID of the CRDT algo requested.
+     * The server might not allow certain or any algos.
+     * A value of 0 means CRDT is not used.
+     */
+    algo: number,
 
     /**
-     * To use this feature the property triggerNodeId must have been set in the original
-     * fetch request and set exactly the same in this request.
+     * Some algos can take configuration parameters in JSON format, provided here.
+     * However no algos so far do that.
      *
-     * 1.
-     * If this property is set and triggerInterval == 0 that dictates that this is not
-     * a new streaming request but a single query wanting to reuse an existing transformer model.
+     * Since this is arbitrary JSON data it can also be used to differentiate between
+     * different fetch requests to force identical requests to have their own underlying
+     * CRDT models, which might be useful in paging scenarios where models need to stay
+     * static over some period of time.
+     * Set a value like "{differentiator: 1}" to force uniqueness.
+     */
+    conf: string,
+
+    /**
+     * Set this property to the msgId of an active subscription request to update its properties.
      *
-     * This is done by setting this property to the msgId of the initial fetch request.
+     * All properties of the fetchRequest must be set the same as the original request,
+     * except triggerNodeId which is ignored.
      *
-     * All other parameters of the FetchRequest must be exactly the same as the original,
-     * however the properties of transformer.head, tail, cursorId1, and reverse are allowed
-     * to be set differently to extract results from the model.
+     * The properties of crdt.head, tail, cursorId1, cursorIndex and reverse
+     * are allowed to be set differently to update the view of the model, also
+     * query.triggerInterval can be set to be updated, if set to 0 then the current value is kept.
      *
-     * 2.
-     * If this property is set and triggerInterval > 0 that dictates that this is not
-     * a new streaming request but a request to update the underlying fetch request
-     * of an existing streaming request.
-     *
-     * All other parameters of the FetchRequest must be exactly the same as the original,
-     * however the properties of transformer.head, tail, cursorId1, and reverse and
-     * query.triggerInterval are allowed to be set differently to update those properties
-     * in the existing streaming request.
+     * The response on this request is an empty fetch response, but on the streaming request
+     * there will be fresh output.
      */
     msgId: Buffer,
 
     /**
-     * Sort in reverse order in the transformer model.
+     * Fetch results in reverse order.
+     * Reverse model then get view.
+     *
+     * For head fetches:
+     * If the result without reverse is a,b,c,d,e then the result using reverse will be e,d,c,b,a.
+     * Furthermore if cursor is "c", without reverse result is d,e and with reverse result is b,a.
+     *
+     * For tail fetches:
+     * If the result without reverse is a,b,c,d,e then the result using reverse will be e,d,c,b,a,
+     * furthermore if cursor is "c", without reverse result is a,b and with reverse result is e,d.
+     *
      */
     reverse: boolean,
 
@@ -335,15 +354,38 @@ export type FetchTransform = {
     tail: number,
 
     /**
-     * This can be used to page the result when fetching.
+     * This can be used to page the results when fetching.
+     *
      * The index of the node with the id1 equal to cursorId1 is the previous element in the list
      * and the first returned element is the node after the cursor node.
      *
      * If a cursor is given but not found then the fetch response status is MISSING_CURSOR.
      *
      * This value can be changed for streaming requests to change the scope of the resultset.
+     *
+     * When fetching using head, the start index will be the index of cursorId1 + 1.
+     *
+     * When fetching using tail, the end index will be the index of cursorId1 (not including),
+     * meaning the window will be moved upwards from the bottom of the list where the cursor
+     * is the last node (not included).
      */
     cursorId1: Buffer,
+
+    /**
+     * This can be used to page the results when fetching.
+     *
+     * It is the index of the presumed cursor element.
+     *
+     * This value can be set on its own or as a fallback to cursorId1 in the case the cursor
+     * element is not found on its id1.
+     *
+     * The first element retrieved is cursorOffset + 1, for head fetch.
+     * The last element retrived is cursorOffset -1, for tail fetch.
+     *
+     * Note that a value of -1 indicates this property is not used, while a value of 0
+     * means to use element at index 0 as cursor element.
+     */
+    cursorIndex: number,
 };
 
 /**
@@ -391,32 +433,20 @@ export enum Status {
     EXISTS              = 10,
 
     /**
-     * When a transformer cache got/is invalidated and the fetch needs to be re-requested.
-     *
-     * This can happen during a subscription due to the server purging cache to
-     * reduce memory footprint, as it sees fit.
-     * The remedy is to rerequest possibly trying to keep a smaller model by limiting
-     * the scope of the underlying fetch query.
-     *
-     * For single queries reusing transformer caches this happens if the cache does not exist.
-     */
-    TRANSFORMER_INVALIDATED = 11,
-
-    /**
-     * When a transform fetch is done using a cursor but the cursor does not exist, this return
-     * status is only for requests using transformers, and not applicable for query.cursordId1.
+     * When a CRDT fetch is done using a cursor but the cursor does not exist, this return
+     * status is only for requests using CRDTs, and not applicable for query.cursordId1.
      *
      * Note that this is not regarded as an error message and if the request is a trigger subscription
      * then it will not be automatically removed (as when sending any other error replies).
      */
-    MISSING_CURSOR      = 12,
+    MISSING_CURSOR      = 11,
 
     /**
      * Sent from the Storage when a trigger has been dropped.
      * Message is sent with seq=0 so that message is cleared out and onCancel()
      * is triggered on the GetResponse object.
      */
-    DROPPED_TRIGGER     = 13,
+    DROPPED_TRIGGER     = 12,
 }
 
 /**
@@ -436,23 +466,51 @@ export type FetchResult = {
     cutoffTime: bigint,
 };
 
-export type TransformResult = {
+export type CRDTResult = {
     /**
      * The delta used to patch old model to updated model.
-     * All added nodes are passed in the query response.
+     * All added nodes are passed in the query response and the delta is for patching
+     * the order of the nodes.
+     * The first byte of the delta tells us what diff algorithm has been used and how is
+     * the patch formatted.
+     * As for now we support one algo which is FossilDelta and the byte-prefix for that is a
+     * single zero byte. The rest of the data is a buffer encoded JSON string, as: {
+     *  patch: <fossilDelta patch>
+     * }
      */
     delta: Buffer,
 
     /**
-     * Extra JSON data potentially returned.
+     * The index of the last node in the view, or -1 if no nodes are in the view.
+     *
+     * If using head and reverse == false, then index will always be equal to the
+     * index of the last element in the returned.
+     *
+     * If using head and reverse == true then index will always be equal to the
+     * index of the first element in the view.
+     *
+     * If using tail and reverse == false then index will always be equal to the index of
+     * the first element in the returned view.
+     *
+     * If using tail and reverse == true then index will also always be equal to the index of
+     * the first element in the returned view.
+     *
+     * When paging this returned value of cursorIndex can be fed into the next request,
+     * unless it is -1 then no results were returned and paging has reached its end.
      */
-    extra: string,
+    cursorIndex: number,
+
+    /**
+     * The total length of the model.
+     * This can be useful when paging to show nr of pages.
+     */
+    length: number,
 };
 
 /** The struct used for performing fetch requests */
 export type FetchRequest = {
     query: FetchQuery,
-    transform: FetchTransform,
+    crdt: FetchCRDT,
 };
 
 /** The struct used for responding to fetch requests */
@@ -464,7 +522,6 @@ export type FetchResponse = {
      * Status.NOT_ALLOWED
      * Status.ROOTNODE_LICENSED
      * Status.MISSING_ROOTNODE
-     * Status.TRANSFORMER_INVALIDATED
      * Status.MISSING_CURSOR
      * Status.MALFORMED
      */
@@ -472,7 +529,7 @@ export type FetchResponse = {
 
     result: FetchResult,
 
-    transformResult: TransformResult,
+    crdtResult: CRDTResult,
 
     /**
      * Counter starting from 1 and will increase for each FetchResponse sent.

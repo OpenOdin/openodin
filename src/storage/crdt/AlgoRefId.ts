@@ -1,14 +1,10 @@
 import {
-    NodeInterface,
-} from "../../datamodel";
-
-import {
     DeepCopy,
 } from "../../util/common";
 
 import {
     AlgoInterface,
-    MAX_TRANSFORMER_LENGTH,
+    NodeAlgoValues,
 } from "./types";
 
 /**
@@ -16,8 +12,10 @@ import {
  * We guarantee that a node which references another node is sorted after the referenced node.
  */
 export class AlgoRefId implements AlgoInterface {
+    protected orderByStorageTime: boolean;
+
     /** Each node is stored here. */
-    protected nodeById1: {[id1: string]: NodeInterface};
+    protected nodeById1: {[id1: string]: NodeAlgoValues};
 
     /** Each node is clustered on its refId to build a graph, as if refId is parentId. */
     protected childrenPerParent: {[parentId1: string]: {[id1: string]: boolean}};
@@ -27,14 +25,20 @@ export class AlgoRefId implements AlgoInterface {
 
     protected _isClosed: boolean;
 
-    protected maxLength: number;
+    protected isDeletionTracking: boolean = false;
 
-    constructor(maxLength: number = MAX_TRANSFORMER_LENGTH) {
+    protected deletionTracking: {[id1: string]: NodeAlgoValues} = {};
+
+    /**
+     * @param orderByStorageTime if true then order by storage time insteadof creationTime.
+     *
+     */
+    constructor(orderByStorageTime: boolean = false) {
+        this.orderByStorageTime = orderByStorageTime;
         this.nodeById1 = {};
         this.childrenPerParent = {};
         this.levels = [];
         this._isClosed = false;
-        this.maxLength = maxLength;
     }
 
     public static GetId(): number {
@@ -53,18 +57,8 @@ export class AlgoRefId implements AlgoInterface {
         return length;
     }
 
-    public copyModel(): any {
-        return [{...this.nodeById1}, {...this.childrenPerParent}, DeepCopy(this.levels)];
-    }
-
-    public setModel(model: any) {
-        this.nodeById1          = model[0];
-        this.childrenPerParent  = model[1];
-        this.levels             = model[2];
-    }
-
-    public getAllNodes(): {[id1: string]: NodeInterface} {
-        const allNodes: {[id1: string]: NodeInterface} = {};
+    public getAllNodes(): {[id1: string]: NodeAlgoValues} {
+        const allNodes: {[id1: string]: NodeAlgoValues} = {};
 
         for (const id1 in this.nodeById1) {
             allNodes[id1] = this.nodeById1[id1];
@@ -80,25 +74,25 @@ export class AlgoRefId implements AlgoInterface {
      * @returns [newNodes, transientUpdatesNodes][]
      * @throws on overflow
      */
-    public add(nodes: NodeInterface[]): [NodeInterface[], NodeInterface[]] {
-        if (this.getLength() + nodes.length > this.maxLength) {
-            throw new Error(`maximum length of transformer (${this.maxLength}) overflowed`);
-        }
-
+    public add(nodes: NodeAlgoValues[]): [NodeAlgoValues[], NodeAlgoValues[]] {
         // Nodes already existing but with changed transient values.
         // These do not alter the tree.
-        const transientNodes: NodeInterface[] = [];
+        const transientNodes: NodeAlgoValues[] = [];
 
         // New nodes, added as leafs.
         // These do not disrupt the current tree structure.
-        const leafNodes: NodeInterface[] = [];
+        const leafNodes: NodeAlgoValues[] = [];
 
         // New nodes who happen to already be parent nodes to orphan nodes.
         // Inserting these nodes disrupts the tree and levels need to be recalculated.
-        const parentNodes: NodeInterface[] = [];
+        const parentNodes: NodeAlgoValues[] = [];
 
-        nodes.forEach( (node: NodeInterface) => {
-            const id1Str = (node.getId1() ?? Buffer.alloc(0)).toString("hex");
+        nodes.forEach( (node: NodeAlgoValues) => {
+            const id1Str = (node.id1 ?? Buffer.alloc(0)).toString("hex");
+
+            if (this.isDeletionTracking) {
+                delete this.deletionTracking[id1Str];
+            }
 
             const existingNode = this.nodeById1[id1Str];
 
@@ -117,7 +111,7 @@ export class AlgoRefId implements AlgoInterface {
                 }
 
                 // Second, add this node as child to another node to make up the tree structure.
-                const parentIdStr = (node.getRefId() ?? Buffer.alloc(0)).toString("hex");
+                const parentIdStr = (node.refId ?? Buffer.alloc(0)).toString("hex");
                 const childNodes = this.childrenPerParent[parentIdStr] ?? {};
                 this.childrenPerParent[parentIdStr] = childNodes;
                 childNodes[id1Str] = true;
@@ -127,7 +121,7 @@ export class AlgoRefId implements AlgoInterface {
             else {
                 // The node already exists in the index.
                 // Check if the node has updated transient values.
-                if (!existingNode.hashTransient().equals(node.hashTransient())) {
+                if (!existingNode.transientHash.equals(node.transientHash)) {
                     // Replace current with this node.
                     this.nodeById1[id1Str] = node;
                     transientNodes.push(node);
@@ -147,7 +141,26 @@ export class AlgoRefId implements AlgoInterface {
         return [ [...parentNodes, ...leafNodes], transientNodes];
     }
 
-    protected indexNodes(nodes: NodeInterface[]) {
+    public beginDeletionTracking() {
+        this.isDeletionTracking = true;
+
+        // Take copy of current nodes model.
+        this.deletionTracking = {...this.nodeById1};
+    }
+
+    public commitDeletionTracking() {
+        const deletedNodes = Object.values(this.deletionTracking);
+
+        const indexes = this.getIndexes(deletedNodes);
+
+        this.delete(indexes);
+
+        this.isDeletionTracking = false;
+
+        this.deletionTracking = {};
+    }
+
+    protected indexNodes(nodes: NodeAlgoValues[]) {
         // Add nodes to specific levels and re-index those levels.
 
         const levelsVisited: {[level: string]: string[]} = {};
@@ -160,7 +173,7 @@ export class AlgoRefId implements AlgoInterface {
             const levelSiblings = this.levels[levelHeight] ?? [];
             this.levels[levelHeight] = levelSiblings;
             levelsVisited[levelHeight] = levelSiblings;
-            const id1Str = (node.getId1() ?? Buffer.alloc(0)).toString("hex");
+            const id1Str = (node.id1 ?? Buffer.alloc(0)).toString("hex");
             levelSiblings.push(id1Str);
         });
 
@@ -182,11 +195,25 @@ export class AlgoRefId implements AlgoInterface {
             if (!a || !b) {
                 return 0;
             }
-            let diff = (a.getCreationTime() || 0) - (b.getCreationTime() || 0);
+
+            const diffCreationTime = (a.creationTime ?? 0) - (b.creationTime ?? 0);
+            const diffStorageTime = (a.transientStorageTime ?? 0) - (b.transientStorageTime ?? 0);
+
+            let diff = 0;
+
+            if (this.orderByStorageTime) {
+                diff = diffStorageTime;
+                if (diff === 0) {
+                    diff = diffCreationTime;
+                }
+            }
+            else {
+                diff = diffCreationTime;
+            }
 
             if (diff === 0) {
-                const id1a = a.getId1();
-                const id1b = b.getId1();
+                const id1a = a.id1;
+                const id1b = b.id1;
                 if (id1a && id1b) {
                     diff = id1a.compare(id1b);
                 }
@@ -196,8 +223,8 @@ export class AlgoRefId implements AlgoInterface {
         });
     }
 
-    protected findLevel(node: NodeInterface): number {
-        const id1Str = (node.getId1() ?? Buffer.alloc(0)).toString("hex");
+    protected findLevel(node: NodeAlgoValues): number {
+        const id1Str = (node.id1 ?? Buffer.alloc(0)).toString("hex");
 
         if (!this.nodeById1[id1Str]) {
             return -1;
@@ -206,7 +233,7 @@ export class AlgoRefId implements AlgoInterface {
         let levelHeight = 0;
 
         while (true) {
-            const parentIdStr = (node.getRefId() ?? Buffer.alloc(0)).toString("hex");
+            const parentIdStr = (node.refId ?? Buffer.alloc(0)).toString("hex");
             node = this.nodeById1[parentIdStr];
             if (!node) {
                 break;
@@ -217,7 +244,7 @@ export class AlgoRefId implements AlgoInterface {
         return levelHeight;
     }
 
-    public getNodeAtIndex(index: number): NodeInterface | undefined {
+    public getNodeAtIndex(index: number): NodeAlgoValues | undefined {
         let level: string[] | undefined;
         let aggregatedCount = 0;
 
@@ -278,7 +305,7 @@ export class AlgoRefId implements AlgoInterface {
 
             delete this.nodeById1[id1Str];
 
-            const parentIdStr = (node.getRefId() ?? Buffer.alloc(0)).toString("hex");
+            const parentIdStr = (node.refId ?? Buffer.alloc(0)).toString("hex");
             const childNodes = this.childrenPerParent[parentIdStr] ?? {};
             delete childNodes[id1Str];
             if (Object.keys(childNodes).length === 0) {
@@ -292,28 +319,31 @@ export class AlgoRefId implements AlgoInterface {
     /**
      * @returns undefined if cursor node does not exist.
      */
-    public get(cursorId1: Buffer | undefined, head: number, tail: number, reverse: boolean):
-        [NodeInterface[], number[]] | undefined {
+    public get(cursorId1: Buffer | undefined, cursorIndex: number, head: number, tail: number, reverse: boolean):
+        [NodeAlgoValues[], number[]] | undefined
+    {
 
         if ((tail === 0 && head === 0) || (tail !== 0 && head !== 0)) {
             return [[], []];
         }
 
+        const length = this.getLength();
+
         if (head !== 0) {
             if (head <= -1) {
-                head = MAX_TRANSFORMER_LENGTH;
+                head = length;
             }
             else {
-                head = Math.min(head, MAX_TRANSFORMER_LENGTH);
+                head = Math.min(head, length);
             }
         }
 
         if (tail !== 0) {
             if (tail <= -1) {
-                tail = MAX_TRANSFORMER_LENGTH;
+                tail = length;
             }
             else {
-                tail = Math.min(tail, MAX_TRANSFORMER_LENGTH);
+                tail = Math.min(tail, length);
             }
         }
 
@@ -329,33 +359,40 @@ export class AlgoRefId implements AlgoInterface {
             startIndex = Math.max(endIndex - tail, 0);
         }
 
-        if (cursorId1 && cursorId1.length > 0) {
-            const id1Str = cursorId1.toString("hex");
+        if ((cursorId1 && cursorId1.length > 0) || cursorIndex > -1) {
 
-            const cursorNode = this.nodeById1[id1Str];
+            if (cursorId1 && cursorId1.length > 0) {
+                const id1Str = cursorId1.toString("hex");
 
-            if (cursorNode === undefined) {
+                const cursorNode = this.nodeById1[id1Str];
+
+                try {
+                    if (cursorNode) {
+                        const cursorIndex2 = this.getIndexes([cursorNode])[0];
+                        cursorIndex = cursorIndex2;
+                    }
+                }
+                catch(e) {
+                    // Cursor not found
+                    // fall through to use default cursorIndex, if set.
+                }
+            }
+
+            if (cursorIndex < 0) {
                 return undefined;
             }
 
-            try {
-                const cursorIndex = this.getIndexes([cursorNode])[0];
-
-                if (head) {
-                    startIndex = cursorIndex + 1;
-                    endIndex = startIndex + head;
-                }
-                else {
-                    endIndex = cursorIndex;
-                    startIndex = Math.max(endIndex - tail, 0);
-                }
+            if (head) {
+                startIndex = cursorIndex + 1;
+                endIndex = startIndex + head;
             }
-            catch(e) {
-                return undefined;
+            else {
+                endIndex = cursorIndex;
+                startIndex = Math.max(endIndex - tail, 0);
             }
         }
 
-        const nodes: NodeInterface[] = [];
+        const nodes: NodeAlgoValues[] = [];
         const indexes: number[] = [];
 
         for (let index = startIndex; index < endIndex; index++) {
@@ -381,23 +418,23 @@ export class AlgoRefId implements AlgoInterface {
     /**
      * @throws if node does not exist in model
      */
-    public getIndexes(nodes: NodeInterface[]): number[] {
-        return nodes.map( (node: NodeInterface) => {
-            const id1 = node.getId1();
+    public getIndexes(nodes: NodeAlgoValues[]): number[] {
+        return nodes.map( (node: NodeAlgoValues) => {
+            const id1 = node.id1;
             if (!id1) {
                 // cannot happen
-                throw new Error("Unexpected error in transformed model");
+                throw new Error("Unexpected error in CRDT model");
             }
             const id1Str = id1.toString("hex");
             const level = this.findLevel(node);
             if (level < 0) {
-                throw new Error("Unexpected error in transformed model");
+                throw new Error("Unexpected error in CRDT model");
             }
 
             const levelSiblings = this.levels[level];
 
             if (!levelSiblings) {
-                throw new Error("Unexpected error in transformed model");
+                throw new Error("Unexpected error in CRDT model");
             }
 
             let aggregatedIndex = 0;
@@ -414,7 +451,7 @@ export class AlgoRefId implements AlgoInterface {
                 }
             }
 
-            throw new Error("Unexpected error in transformed model");
+            throw new Error("Unexpected error in CRDT model");
         });
     }
 

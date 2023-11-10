@@ -24,7 +24,7 @@
     "main": "./build/index.js",
     "types": "./build/index.d.ts",
     "scripts": {
-        "build": "./node_modules/.bin/bebopc && ./node_modules/.bin/tsc && ./node_modules/.bin/browserify -i ./build/src/datastreamer/FileStreamWriter.js -i ./build/src/datastreamer/FileStreamReader.js ./build/src/datamodel/decoder/thread.js -o ./build/src/datamodel/decoder/thread-browser.js && cp ./build/src/datamodel/decoder/thread.js ./src/datamodel/decoder/thread.js",
+        "build": "./node_modules/.bin/bebopc && ./node_modules/.bin/tsc && ./node_modules/.bin/browserify -i ./build/src/datastreamer/FileStreamWriter.js -i ./build/src/datastreamer/FileStreamReader.js ./build/src/datamodel/decoder/thread.js -o ./build/src/datamodel/decoder/thread-browser.js && cp ./build/src/datamodel/decoder/thread.js ./src/datamodel/decoder/thread.js && ./node_modules/.bin/browserify -i ./build/src/datastreamer/FileStreamWriter.js -i ./build/src/datastreamer/FileStreamReader.js ./build/src/storage/crdt/crdt-worker.js -o ./build/src/storage/crdt/crdt-worker-browser.js",
         "tsc": "./node_modules/.bin/tsc",
         "clean": "rm -rf ./build",
         "prepublishOnly": "[ -z \"$(git status --porcelain)\" ] && npm run build",

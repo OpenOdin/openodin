@@ -38,7 +38,7 @@ import {
     FetchQuery,
     Match,
     LimitField,
-    FetchTransform,
+    FetchCRDT,
 } from "../types";
 
 import {
@@ -133,7 +133,7 @@ export class ParseUtil {
             const threadTemplate = threadTemplates[name];
 
             const query     = ParseUtil.ParseQuery(threadTemplate.query ?? {});
-            const transform = ParseUtil.ParseTransform(threadTemplate.transform);
+            const crdt      = ParseUtil.ParseCRDT(threadTemplate.crdt);
 
             const post: {[name: string]: ThreadDataParams} = {};
 
@@ -155,7 +155,7 @@ export class ParseUtil {
 
             threads[name] = {
                 query,
-                transform,
+                crdt,
                 post,
                 postLicense,
             };
@@ -669,7 +669,7 @@ export class ParseUtil {
             allowNodeTypes: [],
             allowTrigger: false,
             allowEmbed: [],
-            allowTransform: [],
+            allowAlgos: [],
             allowReadBlob: false,
         };
 
@@ -720,7 +720,7 @@ export class ParseUtil {
      *  allowEmbed: {nodeType: hexstring | Buffer, filters: Filter[]}[],
      *  allowTrigger: boolean,
      *  allowNodeTypes: string[] | Buffer[],
-     *  allowTransform: number[],
+     *  allowAlgos: number[],
      *  allowReadBlob?: boolean,
      * }
      * @returns P2PClientFetchPermissions object
@@ -746,7 +746,7 @@ export class ParseUtil {
         }
 
         const allowTrigger = ParseUtil.ParseVariable("permissions allowTrigger must be boolean, if set", permissions.allowTrigger, "boolean", true) ?? false;
-        const allowTransform = ParseUtil.ParseVariable("permissions transform must be number[], if set", permissions.allowTransform, "number[]", true) ?? [];
+        const allowAlgos = ParseUtil.ParseVariable("permissions allowAlgos must be number[], if set", permissions.allowAlgos, "number[]", true) ?? [];
         const allowNodeTypes: Buffer[] = ParseUtil.ParseVariable("permissions allowNodeTypes must be hex-string[] or Buffer[]", permissions.allowNodeTypes, "hex[]");
 
         const allowReadBlob = ParseUtil.ParseVariable("permissions allowReadBlob must be boolean, if set", permissions.allowReadBlob, "boolean", true) ?? false;
@@ -755,7 +755,7 @@ export class ParseUtil {
             allowEmbed,
             allowTrigger,
             allowNodeTypes,
-            allowTransform,
+            allowAlgos,
             allowReadBlob,
         };
     }
@@ -765,7 +765,7 @@ export class ParseUtil {
      * {
      *  remotePublicKey?: hexstring | Buffer,   // undefined or empty string means match ALL public keys.
      *  query: FetchQuery,
-     *  transform: FetchTransform,
+     *  crdt: FetchCRDT,
      *  blobSizeMaxLimit?: number,
      *  reverse?: boolean
      * }
@@ -777,11 +777,11 @@ export class ParseUtil {
         const reverse = ParseUtil.ParseVariable("autoFetch reverse must be boolean, if set", autoFetch.reverse, "boolean", true) ?? false;
         const remotePublicKey = ParseUtil.ParseVariable("autoFetch remotePublicKey must be hex-string or Buffer, if set", autoFetch.remotePublicKey, "hex", true) ?? Buffer.alloc(0);
         const query = ParseUtil.ParseQuery(autoFetch.query);
-        const transform = ParseUtil.ParseTransform(autoFetch.transform ?? {});
+        const crdt = ParseUtil.ParseCRDT(autoFetch.crdt ?? {});
 
         return {
             remotePublicKey,
-            fetchRequest: {query, transform},
+            fetchRequest: {query, crdt},
             blobSizeMaxLimit,
             reverse,
         };
@@ -883,35 +883,40 @@ export class ParseUtil {
     }
 
     /**
-     * @param transform as:
+     * @param crdt as:
      * {
-     *  algos: number[],
+     *  algo: number,
      *  reverse?: boolean,
      *  cursorId1?: hexstring | Buffer,
+     *  cursorIndex?: number,
      *  head?: number,
      *  tail?: number,
      *  msgId?: hexstring | Buffer,
      *
      * }
-     * @returns FetchTransform
+     * @returns FetchCRDT
      * @throws on unparseable data
      */
-    public static ParseTransform(transform: any): FetchTransform {
-        if (typeof transform !== "object" || transform.constructor !== Object) {
-            throw new Error("Expecting transform to be object.");
+    public static ParseCRDT(crdt: any): FetchCRDT {
+        if (typeof crdt !== "object" || crdt.constructor !== Object) {
+            throw new Error("Expecting crdt to be object.");
         }
 
-        const msgId = ParseUtil.ParseVariable("transform msgId must be hex-string or Buffer, if set", transform.msgId, "hex", true) ?? Buffer.alloc(0);
-        const algos = ParseUtil.ParseVariable("transform algos must be number[], if set", transform.algos, "number[]", true) ?? [];
-        const head = ParseUtil.ParseVariable("transform head must be number, if set", transform.head, "number", true) ?? 0;
-        const tail = ParseUtil.ParseVariable("transform tail must be number, if set", transform.tail, "number", true) ?? 0;
-        const reverse = ParseUtil.ParseVariable("transform reverse must be boolean, if set", transform.reverse, "boolean", true) ?? false;
-        const cursorId1 = ParseUtil.ParseVariable("transform cursorId1 must be hex-string or Buffer, if set", transform.cursorId1, "hex", true) ?? Buffer.alloc(0);
+        const msgId = ParseUtil.ParseVariable("crdt msgId must be hex-string or Buffer, if set", crdt.msgId, "hex", true) ?? Buffer.alloc(0);
+        const algo = ParseUtil.ParseVariable("crdt algo must be number, if set", crdt.algo, "number", true) ?? 0;
+        const conf = ParseUtil.ParseVariable("crdt conf must be string, if set", crdt.conf, "string", true) ?? "";
+        const head = ParseUtil.ParseVariable("crdt head must be number, if set", crdt.head, "number", true) ?? 0;
+        const tail = ParseUtil.ParseVariable("crdt tail must be number, if set", crdt.tail, "number", true) ?? 0;
+        const reverse = ParseUtil.ParseVariable("crdt reverse must be boolean, if set", crdt.reverse, "boolean", true) ?? false;
+        const cursorId1 = ParseUtil.ParseVariable("crdt cursorId1 must be hex-string or Buffer, if set", crdt.cursorId1, "hex", true) ?? Buffer.alloc(0);
+        const cursorIndex = ParseUtil.ParseVariable("crdt cursorIndex must be number, if set", crdt.cursorIndex, "number", true) ?? -1;
 
         return {
-            algos,
+            algo,
+            conf,
             reverse,
             cursorId1,
+            cursorIndex,
             head,
             tail,
             msgId,
@@ -935,7 +940,7 @@ export class ParseUtil {
      *   cursorId1?: hexstring | Buffer,
      *  }
      * ]
-     * @returns Macth[]
+     * @returns Match[]
      * @throws on unparseable data
      */
     public static ParseMatch(matches: any[]): Match[] {

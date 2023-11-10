@@ -5,6 +5,10 @@ import {
 } from "pocket-messaging";
 
 import {
+    CRDTManager,
+} from "./crdt/CRDTManager";
+
+import {
     P2PClient,
     HandlerFn,
     SendResponseFn,
@@ -23,6 +27,7 @@ import {
 import {
     NodeInterface,
     Hash,
+    DATA_NODE_TYPE,
 } from "../datamodel";
 
 import {
@@ -47,6 +52,7 @@ import {
     BlobDriverInterface,
     Trigger,
     MAX_READBLOB_LENGTH,
+    MAX_BATCH_SIZE,
 } from "./types";
 
 import {
@@ -56,22 +62,13 @@ import {
 } from "../util/common";
 
 import {
-    Transformer,
-} from "./transformer/Transformer";
+    Mutex,
+    Lock,
+} from "../util/Lock";
 
 import {
     PocketConsole,
 } from "pocket-console";
-
-type Lock = {
-    name: string,
-    p: Promise<void> | undefined,
-};
-
-type InnerLock = {
-    lock: Lock,
-    resolve: (() => void) | undefined,
-};
 
 /** How many retries to do if database is busy. */
 const MAX_BUSY_RETRIES = 3;
@@ -86,12 +83,6 @@ if (typeof process !== "undefined" && process?.versions?.node) {
     osModule = require("os");
 }
 
-/** When running in browser allow maximum amount of transformers. */
-const MAX_TRANSFORMERS_BROWSER = 20;
-
-/** When running in nodejs this is minimum amount of free RAM required to allow another transformer. */
-const MIN_TRANSFORMER_FREE_MEM = 100 * 1024 * 1024;
-
 const EMPTY_FETCHRESPONSE: FetchResponse = {
     status: Status.RESULT,
     result: {
@@ -99,9 +90,10 @@ const EMPTY_FETCHRESPONSE: FetchResponse = {
         embed: [],
         cutoffTime: 0n,
     },
-    transformResult: {
+    crdtResult: {
         delta: Buffer.alloc(0),
-        extra: "",
+        length: 0,
+        cursorIndex: -1,
     },
     rowCount: 0,
     error: "",
@@ -123,14 +115,18 @@ export class Storage {
     protected blobDriver?: BlobDriverInterface;
 
     /**
-     * Transient values are properties which a node can hold but is not necessarily persisted to storage and is never part of the hashing a node.
+     * Transient values are properties which a node can hold but is not necessarily persisted to
+     * storage and is never part of the hashing a node.
      *
-     * Transient values represent states a node can hold although the data of the node is still immutable.
+     * Transient values represent states a node can hold although the data of the node is still
+     * immutable.
      *
      * A fetch request can request that transient values are preserved over serialization boundaries,
-     * while a store request can request the transient properties of the nodes it is storing be preserved to the storage.
+     * while a store request can request the transient properties of the nodes it is storing be
+     * preserved to the storage.
      *
-     * The allowPreserveTransient property of the Storage must be set to true to allow store requests to preserve transient properties.
+     * The allowPreserveTransient property of the Storage must be set to true to allow store
+     * requests to preserve transient properties.
      */
     protected allowPreserveTransient: boolean;
 
@@ -140,25 +136,26 @@ export class Storage {
 
     protected triggers: {[parentId: string]: Trigger[]} = {};
 
-    protected maxTransformerLength: number;
-
     /**
-     * TimeFreeze is used to keep track of timestamps used for cutoff of results to minimize the duplication of nodes in return data sets.
+     * TimeFreeze is used to keep track of timestamps used for cutoff of results to minimize
+     * the duplication of nodes in return data sets.
      * This is an at-least-once system.
      */
     protected timeFreeze: TimeFreeze;
 
     protected triggerTimeoutInterval = 10000;
 
-    protected locks: {[name: string]: InnerLock[]} = {};
+    protected crdtManager: CRDTManager;
+
+    protected lock: Lock;
 
     /**
      * @param p2pClient the connection to the client.
      * @param signatureOffloader
      * @param driver
      * @param blobDriver if provided it must not use the same underlaying connection as the driver.
-     * @param allowPreserveTransient set to true to allow store requests to also store the transient values of the nodes.
-     * @param maxTransformerLength set to the maximum allowed transformer internal length. Default is 100000.
+     * @param allowPreserveTransient set to true to allow store requests to also store the transient
+     * values of the nodes.
      * @throws on misconfiguration
      */
     constructor(
@@ -167,7 +164,6 @@ export class Storage {
         driver: DriverInterface,
         blobDriver?: BlobDriverInterface,
         allowPreserveTransient: boolean = false,
-        maxTransformerLength: number = 100000,
     ) {
         this.p2pClient = p2pClient;
 
@@ -175,10 +171,13 @@ export class Storage {
         this.driver = driver;
         this.blobDriver = blobDriver;
         this.allowPreserveTransient = allowPreserveTransient;
-        this.maxTransformerLength = maxTransformerLength;
 
         this.timeFreeze = new TimeFreeze();
         this.triggerTimeout = setTimeout( this.triggersTimeout, this.triggerTimeoutInterval );
+
+        this.crdtManager = new CRDTManager();
+
+        this.lock = new Lock();
     }
 
     /**
@@ -199,14 +198,16 @@ export class Storage {
     /**
      * Close the Storage by closing the connection to the client.
      * Note that the database instance is not automatically closed when the storage is closed,
-     * but the storage is automatically closed when the database is closed or when the p2pclient is closed.
+     * but the storage is automatically closed when the database is closed or when the p2pclient
+     * is closed.
      */
     public close() {
         this.p2pClient.close();
     }
 
     /**
-     * Add on close event handler to the p2pClient object to get notified when the storage instance closes.
+     * Add on close event handler to the p2pClient object to get notified when the
+     * storage instance closes.
      */
     public onClose(cb: (peer: P2PClient) => void) {
         this.p2pClient.onClose(cb);
@@ -217,13 +218,18 @@ export class Storage {
             clearTimeout(this.triggerTimeout);
             this.triggerTimeout = undefined;
         }
+
+        this.crdtManager.close();
     };
 
-    protected handleStore: HandlerFn<StoreRequest, StoreResponse> = async (storeRequest: StoreRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) => {
+    protected handleStore: HandlerFn<StoreRequest, StoreResponse> =
+        async (storeRequest: StoreRequest, peer: P2PClient, fromMsgId: Buffer,
+            expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) => {
+
         let ts: number | undefined;
 
         // Collect all locks here in case finally needs to release all locks.
-        const locks: Lock[] = [];
+        const locks: Mutex[] = [];
 
         try {
             if (storeRequest.targetPublicKey.length === 0) {
@@ -262,7 +268,9 @@ export class Storage {
                     const node = Decoder.DecodeNode(image, storeRequest.preserveTransient);
 
                     if (node.isPrivate()) {
-                        if (!node.canReceivePrivately(storeRequest.sourcePublicKey, storeRequest.targetPublicKey)) {
+                        if (!node.canReceivePrivately(storeRequest.sourcePublicKey,
+                            storeRequest.targetPublicKey)) {
+
                             continue;
                         }
                     }
@@ -284,23 +292,26 @@ export class Storage {
             }
 
             // Cryptographically verify all nodes.
-            const verifiedNodes = await this.signatureOffloader.verify(decodedNodes) as NodeInterface[];
+            const verifiedNodes =
+                await this.signatureOffloader.verify(decodedNodes) as NodeInterface[];
 
             ts = this.timeFreeze.freeze();
 
             let result = undefined;
 
-            const lock1 = this.acquireLock("driver");
+            const mutex1 = this.lock.acquire("driver");
 
-            locks.push(lock1);
+            locks.push(mutex1);
 
-            if (lock1.p) {
-                await lock1.p;
+            if (mutex1.p) {
+                await mutex1.p;
             }
 
             for (let retry=0; retry<=MAX_BUSY_RETRIES; retry++) {
                 try {
-                    result = await this.driver.store(verifiedNodes, ts, storeRequest.preserveTransient);
+                    result = await this.driver.store(verifiedNodes, ts,
+                        storeRequest.preserveTransient);
+
                     break;
                 }
                 catch(e) {
@@ -314,7 +325,7 @@ export class Storage {
                 }
             }
 
-            this.releaseLock(lock1);
+            this.lock.release(mutex1);
 
             let storeResponse: StoreResponse;
 
@@ -325,17 +336,17 @@ export class Storage {
                 const missingBlobSizes: bigint[] = [];
 
                 if (blobId1s.length > 0 && this.blobDriver) {
-                    const lock2 = this.acquireLock("blobDriver");
+                    const mutex2 = this.lock.acquire("blobDriver");
 
-                    locks.push(lock2);
+                    locks.push(mutex2);
 
-                    if (lock2.p) {
-                        await lock2.p;
+                    if (mutex2.p) {
+                        await mutex2.p;
                     }
 
                     const existingBlobId1s = await this.blobDriver.blobExists(blobId1s);
 
-                    this.releaseLock(lock2);
+                    this.lock.release(mutex2);
 
                     const existingMap: {[id1: string]: boolean} = {};
 
@@ -410,7 +421,7 @@ export class Storage {
             }
 
             locks.forEach( lock => {
-                this.releaseLock(lock);
+                this.lock.release(lock);
             });
         }
     };
@@ -418,7 +429,9 @@ export class Storage {
     /**
      * @returns list of promises used for testing purposes.
      */
-    protected triggerInsertEvent(triggerNodeIds: Buffer[], muteMsgIds: Buffer[]): Promise<number>[] {
+    protected triggerInsertEvent(triggerNodeIds: Buffer[], muteMsgIds: Buffer[]):
+        Promise<number>[] {
+
         const promises: Promise<number>[] = [];
 
         const triggerNodeIdsLength = triggerNodeIds.length;
@@ -440,7 +453,10 @@ export class Storage {
         return promises;
     }
 
-    protected handleFetch: HandlerFn<FetchRequest, FetchResponse> = async (fetchRequest: FetchRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>) => {
+    protected handleFetch: HandlerFn<FetchRequest, FetchResponse> =
+        async (fetchRequest: FetchRequest, peer: P2PClient, fromMsgId: Buffer,
+            expectingReply: ExpectingReply, sendResponse?: SendResponseFn<FetchResponse>) => {
+
         if (!sendResponse) {
             return;
         }
@@ -449,11 +465,15 @@ export class Storage {
         let status: Status | undefined;
 
         // Collect all locks here in case finally needs to release all locks.
-        const locks: Lock[] = [];
+        const locks: Mutex[] = [];
 
         try {
-            // Deep copy the fetch request object since we might update some properties property.
+            // Deep copy the fetch request object since we might update some properties.
             const fetchRequestCopy = DeepCopy(fetchRequest) as FetchRequest;
+
+            //
+            // Verify all properties.
+            //
 
             if (fetchRequestCopy.query.sourcePublicKey.length === 0) {
                 status = Status.MALFORMED;
@@ -465,70 +485,90 @@ export class Storage {
                 throw new Error("targetPublicKey expected to be set");
             }
 
-            if (fetchRequestCopy.query.rootNodeId1.length > 0 && fetchRequestCopy.query.parentId.length > 0) {
+            if (fetchRequestCopy.query.rootNodeId1.length > 0 &&
+                fetchRequestCopy.query.parentId.length > 0) {
+
                 status = Status.MALFORMED;
                 throw new Error("rootNodeId1 and parentId are exclusive to each other, set only one");
             }
 
-            if (fetchRequestCopy.query.triggerInterval > 0) {
-                fetchRequestCopy.query.triggerInterval = Math.max(fetchRequestCopy.query.triggerInterval, 60);
+            // Don't allow smaller triggerInterval than 60 seconds.
+            if (fetchRequestCopy.query.triggerInterval !== 0) {
+                fetchRequestCopy.query.triggerInterval =
+                    Math.max(fetchRequestCopy.query.triggerInterval, 60);
             }
 
-            if (fetchRequestCopy.transform.algos.length > 0) {
+            if (fetchRequestCopy.crdt.algo > 0) {
                 if (fetchRequestCopy.query.cutoffTime !== 0n) {
                     status = Status.MALFORMED;
-                    throw new Error("query.cutoffTime must be 0 when fetching with transform");
+                    throw new Error("query.cutoffTime must be set to 0 when fetching with CRDT");
                 }
 
                 if (fetchRequestCopy.query.onlyTrigger) {
                     status = Status.MALFORMED;
-                    throw new Error("onlyTrigger cannot be true when fetching with transform");
+                    throw new Error("onlyTrigger cannot be true when fetching with CRDT");
                 }
 
-                if (fetchRequestCopy.transform.msgId.length === 0) {
-                    // Regular call, not reusing or updating request.
+                if (fetchRequestCopy.crdt.msgId.length === 0) {
+                    // Regular call, not updating request.
                     //
-                    if (fetchRequestCopy.query.triggerNodeId.length > 0 && fetchRequestCopy.query.triggerInterval === 0) {
+                    if (fetchRequestCopy.query.triggerNodeId.length > 0 &&
+                        fetchRequestCopy.query.triggerInterval === 0) {
+
                         status = Status.MALFORMED;
-                        throw new Error("triggerInterval must be set when fetching with transform and triggerNodeId.");
+                        throw new Error("triggerInterval must be set when fetching with CRDT and triggerNodeId.");
                     }
 
-                    // Note that triggerInterval can be set regardless of triggerNodeId.
-                    if (fetchRequestCopy.query.triggerInterval < 60 || fetchRequestCopy.query.triggerInterval > 600) {
+                    // Note that triggerInterval must be set regardless of triggerNodeId.
+                    if (fetchRequestCopy.query.triggerInterval < 60 ||
+                        fetchRequestCopy.query.triggerInterval > 600) {
+
                         status = Status.MALFORMED;
-                        throw new Error("triggerInterval must be set within 60 to 600 seconds when fetching with transform.");
+                        throw new Error("triggerInterval must be set within 60 to 600 seconds when fetching with CRDT.");
                     }
                 }
                 else {
-                    // Reusing transformer for single query or updating the request.
-                    if (fetchRequestCopy.query.triggerNodeId.length === 0) {
+                    // Updating the request.
+                    if (fetchRequestCopy.query.triggerInterval !== 0 &&
+                        (fetchRequestCopy.query.triggerInterval < 60 ||
+                        fetchRequestCopy.query.triggerInterval > 600)) {
+
                         status = Status.MALFORMED;
-                        throw new Error("triggerNodeId must be set if msgId is set");
+                        throw new Error("triggerInterval must be set within 60 to 600 seconds when updating the CRDT fetch request.");
                     }
                 }
             }
 
 
-            // This is a request to update the underlaying fetch request.
             //
-            if (fetchRequestCopy.transform.algos.length > 0 &&
-                fetchRequestCopy.query.triggerNodeId.length > 0 &&
-                fetchRequestCopy.query.triggerInterval > 0 &&
-                fetchRequestCopy.transform.msgId.length > 0) {
+            // This is a request to update the underlying fetch request.
+            //
+            if (fetchRequestCopy.crdt.algo > 0 &&
+                fetchRequestCopy.crdt.msgId.length > 0) {
 
-                const key = Transformer.HashKey(fetchRequestCopy);
+                const key = CRDTManager.HashKey(fetchRequestCopy);
 
-                const trigger = this.getTrigger(fetchRequestCopy.query.triggerNodeId, key, false);
+                const trigger = this.getTrigger(key, fetchRequestCopy.crdt.msgId);
 
                 if (trigger) {
-                    trigger.fetchRequest.query.cutoffTime       = 0n;
-                    trigger.fetchRequest.query.triggerInterval  = fetchRequestCopy.query.triggerInterval;
-                    trigger.fetchRequest.transform.head         = fetchRequestCopy.transform.head;
-                    trigger.fetchRequest.transform.tail         = fetchRequestCopy.transform.tail;
-                    trigger.fetchRequest.transform.cursorId1    = CopyBuffer(fetchRequestCopy.transform.cursorId1);
-                    trigger.fetchRequest.transform.reverse      = fetchRequestCopy.transform.reverse;
+                    if (fetchRequestCopy.query.triggerInterval > 0) {
+                        trigger.fetchRequest.query.triggerInterval =
+                            fetchRequestCopy.query.triggerInterval;
+                    }
+
+                    trigger.fetchRequest.crdt.head        = fetchRequestCopy.crdt.head;
+
+                    trigger.fetchRequest.crdt.tail        = fetchRequestCopy.crdt.tail;
+
+                    trigger.fetchRequest.crdt.reverse     = fetchRequestCopy.crdt.reverse;
+
+                    trigger.fetchRequest.crdt.cursorId1   =
+                        CopyBuffer(fetchRequestCopy.crdt.cursorId1);
+
+                    trigger.fetchRequest.crdt.cursorIndex = fetchRequestCopy.crdt.cursorIndex;
 
                     const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
+
                     sendResponse(fetchResponse);
 
                     // Rerun the trigger using the updated query.
@@ -536,130 +576,45 @@ export class Storage {
                 }
                 else {
                     const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
-                    fetchResponse.status = Status.TRANSFORMER_INVALIDATED;
+                    fetchResponse.status = Status.MALFORMED;
+                    fetchResponse.error  = "Trigger does not exist";
                     sendResponse(fetchResponse);
                 }
 
                 return;
             }
 
-            let transformer: Transformer | undefined;
-
-            // Check for transformer algorithms to be run.
+            // Check if to create a trigger?
             //
-            if (fetchRequestCopy.transform.algos.length > 0) {
+            let trigger;
 
-                // This is a single query trying to reuse a model.
-                // Return nodes but do not return any delta.
-                if (fetchRequestCopy.query.triggerNodeId.length > 0 &&
-                    fetchRequestCopy.query.triggerInterval === 0 &&
-                    fetchRequestCopy.transform.msgId.length > 0) {
+            if (fetchRequestCopy.query.triggerNodeId.length > 0 ||
+                fetchRequestCopy.query.triggerInterval > 0) {
 
-                    const transformer = this.getReadyTransformer(fetchRequestCopy);
-
-                    if (transformer) {
-                        const handleFetchReplyData = this.handleFetchReplyDataFactory(sendResponse,
-                            undefined, fetchRequestCopy.query.preserveTransient);
-
-                        const result = transformer.get(fetchRequestCopy.transform.cursorId1,
-                            fetchRequestCopy.transform.head, fetchRequestCopy.transform.tail,
-                            fetchRequestCopy.transform.reverse);
-
-                        if (!result) {
-                            const fetchReplyData: FetchReplyData = {
-                                status: Status.MISSING_CURSOR,
-                            };
-
-                            handleFetchReplyData(fetchReplyData);
-                        }
-                        else {
-                            const [nodes] = result;
-
-                            const fetchReplyData: FetchReplyData = {
-                                nodes,
-                            };
-
-                            handleFetchReplyData(fetchReplyData);
-                        }
-                    }
-                    else {
-                        // Send error message.
-                        const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
-                        fetchResponse.status = Status.TRANSFORMER_INVALIDATED;
-                        sendResponse(fetchResponse);
-                    }
-
-                    return;
-                }
-
-                transformer = this.createTransformer(fetchRequestCopy, sendResponse);
-
-                if (!transformer) {
-                    // Error response already sent.
-                    return;
-                }
+                trigger = this.addTrigger(fetchRequestCopy, fromMsgId);
             }
 
-            let handleFetchReplyData: HandleFetchReplyData | undefined;
+            const handleFetchReplyData =
+                this.handleFetchReplyDataFactory(sendResponse, trigger,
+                    fetchRequestCopy.query.preserveTransient);
 
-            if (fetchRequestCopy.query.triggerNodeId.length > 0 || fetchRequestCopy.query.triggerInterval > 0) {
-                trigger = this.addTrigger(fetchRequestCopy, fromMsgId, sendResponse, transformer);
-                handleFetchReplyData = trigger.handleFetchReplyData;
-            }
-            else {
-                const handleFetchReplyData0 = this.handleFetchReplyDataFactory(sendResponse, undefined, fetchRequestCopy.query.preserveTransient);
-
-                handleFetchReplyData = transformer ?
-                    transformer.handleFetchReplyDataFactory(handleFetchReplyData0) : handleFetchReplyData0;
+            if (trigger) {
+                trigger.handleFetchReplyData = handleFetchReplyData;
             }
 
-            if (!handleFetchReplyData) {
-                return;
-            }
-
+            // Check if to perform a fetch?
             const doFetch = !fetchRequestCopy.query.onlyTrigger;
 
             if (doFetch) {
-                const now = this.timeFreeze.read();
-
-                const lock1 = this.acquireLock("driver");
-
-                locks.push(lock1);
-
-                if (lock1.p) {
-                    await lock1.p;
-                }
-
-                await this.driver.fetch(fetchRequestCopy.query, now, handleFetchReplyData);
-
-                this.releaseLock(lock1);
-
-                if (trigger?.closed) {
-                    this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.targetPublicKey);
-                    trigger = undefined;
-                    transformer?.close();
-                }
-
-                if (!trigger && transformer) {
-                    transformer.close();
-                }
-
-                if (trigger) {
-                    trigger.hasFetched = true;
-                }
-
-                fetchRequestCopy.query.cutoffTime = BigInt(now);
+                await this.fetch(fetchRequestCopy, handleFetchReplyData, trigger);
             }
 
+            // If a trigger was created it is time to uncork it now.
             if (trigger) {
                 this.uncorkTrigger(trigger);
             }
         }
         catch(e) {
-            if (trigger) {
-                this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.targetPublicKey);
-            }
-
             console.debug("Exception in handleFetch", e);
             const error = `${e}`;
 
@@ -671,13 +626,68 @@ export class Storage {
 
             sendResponse(errorFetchResponse);
         }
-        finally {
-            locks.forEach( lock => {
-                this.releaseLock(lock);
-            });
-        }
     };
 
+    protected async fetch(fetchRequest: FetchRequest, handleFetchReplyData: HandleFetchReplyData,
+        trigger?: Trigger) {
+
+        const locks: Mutex[] = [];
+
+        try {
+            const now = this.timeFreeze.read();
+
+            const mutex1 = this.lock.acquire("driver");
+
+            locks.push(mutex1);
+
+            if (mutex1.p) {
+                await mutex1.p;
+            }
+
+            const usesCrdt = fetchRequest.crdt.algo > 0;
+
+            if (usesCrdt) {
+                const key = CRDTManager.HashKey(fetchRequest);
+
+                const mutex2 = this.lock.acquire(`crdt_${key}`);
+
+                locks.push(mutex2);
+
+                if (mutex2.p) {
+                    await mutex2.p;
+                }
+
+                await this.updateCRDTModel(fetchRequest, now,
+                    handleFetchReplyData, trigger);
+
+                this.lock.release(mutex2);
+            }
+            else {
+                await this.driver.fetch(fetchRequest.query, now, handleFetchReplyData);
+            }
+
+            this.lock.release(mutex1);
+
+            if (trigger?.closed) {
+                this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.targetPublicKey);
+            }
+
+            fetchRequest.query.cutoffTime = BigInt(now);
+        }
+        catch(e) {
+            console.debug(e);
+
+            locks.forEach( lock => {
+                this.lock.release(lock);
+            });
+
+            if (trigger) {
+                this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.targetPublicKey);
+            }
+
+            throw e;
+        }
+    }
 
     protected dropTrigger(msgId: Buffer, targetPublicKey: Buffer) {
         for (const parentId in this.triggers) {
@@ -696,10 +706,6 @@ export class Storage {
             if (index > -1) {
                 const trigger = triggers.splice(index, 1)[0];
 
-                if (trigger.transformer) {
-                    trigger.transformer.close();
-                }
-
                 if (triggers.length === 0) {
                     delete this.triggers[parentId];
                 }
@@ -711,10 +717,11 @@ export class Storage {
         }
     }
 
-    protected addTrigger(fetchRequest: FetchRequest, msgId: Buffer, sendResponse: SendResponseFn<FetchResponse>, transformer?: Transformer): Trigger {
-        fetchRequest.transform.msgId = CopyBuffer(msgId);
+    protected addTrigger(fetchRequest: FetchRequest, msgId: Buffer): Trigger {
 
-        const key = Transformer.HashKey(fetchRequest);
+        fetchRequest.crdt.msgId = CopyBuffer(msgId);
+
+        const key = CRDTManager.HashKey(fetchRequest);
 
         const trigger: Trigger = {
             key,
@@ -723,10 +730,9 @@ export class Storage {
             isRunning: false,
             isPending: false,
             isCorked: true,
-            transformer,
-            lastRun: 0,
+            lastIntervalRun: 0,
             closed: false,
-            hasFetched: false,
+            crdtView: {list: [], transientHashes: {}},
         };
 
         // Note that if triggerInterval is set but not triggerNodeId then idStr will be "",
@@ -734,15 +740,10 @@ export class Storage {
         const idStr = fetchRequest.query.triggerNodeId.toString("hex");
 
         const triggers = this.triggers[idStr] ?? [];
+
         triggers.push(trigger);
+
         this.triggers[idStr] = triggers;
-
-        const handleFetchReplyData0 = this.handleFetchReplyDataFactory(sendResponse, trigger, fetchRequest.query.preserveTransient);
-
-        const handleFetchReplyData = transformer ?
-            transformer.handleFetchReplyDataFactory(handleFetchReplyData0) : handleFetchReplyData0;
-
-        trigger.handleFetchReplyData = handleFetchReplyData;
 
         return trigger;
     }
@@ -764,50 +765,25 @@ export class Storage {
         trigger.isPending = false;
         trigger.isRunning = true;
 
-        const now = this.timeFreeze.read();
-
-        let lock1;
-
         try {
-            lock1 = this.acquireLock("driver");
-
-            if (lock1.p) {
-                await lock1.p;
-            }
-
-            await this.driver.fetch(trigger.fetchRequest.query, now, trigger.handleFetchReplyData);
-
-            this.releaseLock(lock1);
+            await this.fetch(trigger.fetchRequest, trigger.handleFetchReplyData, trigger);
         }
         catch(e) {
             // Note that error response has already been sent by the QueryProcessor.
-            this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.targetPublicKey);
+            // Trigger has also already been dropped.
             return 3;
-        }
-        finally {
-            if (lock1) {
-                this.releaseLock(lock1);
-            }
         }
 
         trigger.isRunning = false;
 
         if (trigger.closed) {
-            this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.targetPublicKey);
+            // Trigger has already been dropped.
             return 4;
-        }
-
-        trigger.fetchRequest.query.cutoffTime = BigInt(now);
-
-        if (trigger.fetchRequest.transform.algos.length === 0) {
-            // Only update this here if not using a subscription with transformer.
-            // since that trigger we always want run periodically full reftech to detect deleted nodes.
-            trigger.lastRun = Date.now();
         }
 
         if (trigger.isPending) {
             trigger.isPending = false;
-            this.runTrigger(trigger);
+            return this.runTrigger(trigger);
         }
 
         return 0;
@@ -826,13 +802,15 @@ export class Storage {
             for (const trigger of triggers) {
                 const interval = trigger.fetchRequest.query.triggerInterval * 1000;
 
-                if (interval > 0 && now - trigger.lastRun > interval) {
+                if (interval > 0 && now - trigger.lastIntervalRun > interval) {
                     if (!trigger.isRunning) {
-                        if (trigger.fetchRequest.transform.algos.length > 0) {
-                            // Do full refetch when using transformer and subscription.
+
+                        if (trigger.fetchRequest.crdt.algo > 0) {
+                            // Do full refetch when using CRDT and subscription.
                             trigger.fetchRequest.query.cutoffTime = 0n;
-                            trigger.lastRun = Date.now();
                         }
+
+                        trigger.lastIntervalRun = Date.now();
 
                         this.runTrigger(trigger);
                     }
@@ -843,7 +821,9 @@ export class Storage {
         this.triggerTimeout = setTimeout( this.triggersTimeout, this.triggerTimeoutInterval );
     };
 
-    protected handleFetchReplyDataFactory(sendResponse: SendResponseFn<FetchResponse>, trigger?: Trigger, preserveTransient: boolean = false): HandleFetchReplyData {
+    protected handleFetchReplyDataFactory(sendResponse: SendResponseFn<FetchResponse>,
+        trigger?: Trigger, preserveTransient: boolean = false): HandleFetchReplyData {
+
         let seq = 1;
 
         return (fetchReplyData: FetchReplyData) => {
@@ -865,41 +845,35 @@ export class Storage {
         };
     }
 
-    protected chunkFetchResponse(fetchReplyData: FetchReplyData, seq: number, preserveTransient: boolean): FetchResponse[] {
+    protected chunkFetchResponse(fetchReplyData: FetchReplyData, seq: number,
+        preserveTransient: boolean): FetchResponse[]
+    {
+
         const fetchResponses: FetchResponse[] = [];
 
         const status                = fetchReplyData.status ?? Status.RESULT;
         const error                 = fetchReplyData.error;
         const nodes                 = fetchReplyData.nodes ?? [];
         const embed                 = fetchReplyData.embed ?? [];
-        let extra1                  = fetchReplyData.extra ?? "";
         let delta1                  = fetchReplyData.delta ?? Buffer.alloc(0);
         const rowCount              = fetchReplyData.rowCount ?? 0;
         const cutoffTime            = BigInt(fetchReplyData.now ?? 0);
+        const length                = fetchReplyData.length ?? 0;
+        const cursorIndex           = fetchReplyData.cursorIndex ?? -1;
 
         if (status === Status.RESULT || status === Status.MISSING_CURSOR) {
             while (true) {
                 const images: Buffer[]          = [];
                 const imagesToEmbed: Buffer[]   = [];
 
-                let extra = "";
                 let delta = Buffer.alloc(0);
                 let responseSize = 0;
                 while (responseSize < MESSAGE_SPLIT_BYTES) {
-                    if (delta1.length > 0) {
+                    if (delta.length === 0 && delta1.length > 0) {
                         const max = MESSAGE_SPLIT_BYTES - responseSize;
                         delta = delta1.slice(0, max);
-                        responseSize += delta.length + 4;
                         delta1 = delta1.slice(delta.length);
-                        continue;
-                    }
-
-                    if (extra1.length > 0) {
-                        const max = MESSAGE_SPLIT_BYTES - responseSize;
-                        extra = extra1.slice(0, max);
-                        responseSize += extra.length + 4;
-                        extra1 = extra1.slice(extra.length);
-                        continue;
+                        responseSize += delta.length + 4;
                     }
 
                     const node = nodes[0];
@@ -940,9 +914,10 @@ export class Storage {
                         embed: imagesToEmbed,
                         cutoffTime,
                     },
-                    transformResult: {
+                    crdtResult: {
                         delta,
-                        extra,
+                        length,
+                        cursorIndex,
                     },
                     rowCount,
                     seq: seq++,
@@ -950,7 +925,7 @@ export class Storage {
                     error: "",
                 });
 
-                if (nodes.length === 0 && embed.length === 0) {
+                if (nodes.length === 0 && embed.length === 0 && delta1.length === 0) {
                     break;
                 }
             }
@@ -992,26 +967,28 @@ export class Storage {
         return undefined;
     }
 
-    protected getTrigger(triggerNodeId: Buffer, key: string,
-        requireHasFetched: boolean = true): Trigger | undefined {
+    protected getTrigger(key: string, msgId: Buffer): Trigger | undefined {
+        for (const parentId in this.triggers) {
+            const triggers = this.triggers[parentId];
 
-        const idStr = triggerNodeId.toString("hex");
+            const triggersLength = triggers.length;
 
-        const triggers = this.triggers[idStr] ?? [];
+            for (let index=0; index<triggersLength; index++) {
+                const trigger = triggers[index];
 
-        const triggersLength = triggers.length;
-
-        for (let index=0; index<triggersLength; index++) {
-            const trigger = triggers[index];
-            if (trigger.key === key && (!requireHasFetched || trigger.hasFetched)) {
-                return trigger;
+                if (trigger.msgId.equals(msgId)) {
+                    return trigger;
+                }
             }
         }
 
         return undefined;
     }
 
-    protected handleUnsubscribe: HandlerFn<UnsubscribeRequest, UnsubscribeResponse> = (unsubscribeRequest: UnsubscribeRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<UnsubscribeResponse>) => {
+    protected handleUnsubscribe: HandlerFn<UnsubscribeRequest, UnsubscribeResponse> =
+        (unsubscribeRequest: UnsubscribeRequest, peer: P2PClient, fromMsgId: Buffer,
+            expectingReply: ExpectingReply, sendResponse?: SendResponseFn<UnsubscribeResponse>) => {
+
         try {
             if (unsubscribeRequest.targetPublicKey.length === 0) {
                 throw new Error("targetPublicKey expected to be set");
@@ -1042,11 +1019,14 @@ export class Storage {
         }
     };
 
-    protected handleWriteBlob: HandlerFn<WriteBlobRequest, WriteBlobResponse> = async (writeBlobRequest: WriteBlobRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<WriteBlobResponse>) => {
+    protected handleWriteBlob: HandlerFn<WriteBlobRequest, WriteBlobResponse> =
+        async (writeBlobRequest: WriteBlobRequest, peer: P2PClient, fromMsgId: Buffer,
+            expectingReply: ExpectingReply, sendResponse?: SendResponseFn<WriteBlobResponse>) => {
+
         let status: Status | undefined;
 
         // Collect all locks here in case finally needs to release all locks.
-        const locks: Lock[] = [];
+        const locks: Mutex[] = [];
 
         try {
             if (!this.blobDriver) {
@@ -1073,20 +1053,20 @@ export class Storage {
 
             const now = this.timeFreeze.read();
 
-            const lock1 = this.acquireLock("blobDriver");
+            const mutex1 = this.lock.acquire("blobDriver");
 
-            locks.push(lock1);
+            locks.push(mutex1);
 
-            if (lock1.p) {
-                await lock1.p;
+            if (mutex1.p) {
+                await mutex1.p;
             }
 
-            const lock2 = this.acquireLock("driver");
+            const mutex2 = this.lock.acquire("driver");
 
-            locks.push(lock2);
+            locks.push(mutex2);
 
-            if (lock2.p) {
-                await lock2.p;
+            if (mutex2.p) {
+                await mutex2.p;
             }
 
             let node = await this.driver.getNodeById1(nodeId1, now);
@@ -1105,7 +1085,7 @@ export class Storage {
                     writeBlobRequest.targetPublicKey, writeBlobRequest.sourcePublicKey);
             }
 
-            this.releaseLock(lock2);
+            this.lock.release(mutex2);
 
 
 
@@ -1152,12 +1132,12 @@ export class Storage {
                 // Copy blob data from other existing node.
                 // Hashes must match and writer needs read permissions to the given source node.
 
-                const lock3 = this.acquireLock("driver");
+                const mutex3 = this.lock.acquire("driver");
 
-                locks.push(lock3);
+                locks.push(mutex3);
 
-                if (lock3.p) {
-                    await lock3.p;
+                if (mutex3.p) {
+                    await mutex3.p;
                 }
 
                 // Check first if client is owner then directly allow copy.
@@ -1178,7 +1158,7 @@ export class Storage {
                         now, writeBlobRequest.targetPublicKey, writeBlobRequest.sourcePublicKey);
                 }
 
-                this.releaseLock(lock3);
+                this.lock.release(mutex3);
 
                 if (!copyFromNode) {
                     status = Status.NOT_ALLOWED;
@@ -1198,7 +1178,9 @@ export class Storage {
 
                 for (let retry=0; retry<=MAX_BUSY_RETRIES; retry++) {
                     try {
-                        if (! (await this.blobDriver.copyBlob(writeBlobRequest.copyFromId1, nodeId1, now))) {
+                        if (! (await this.blobDriver.copyBlob(writeBlobRequest.copyFromId1, nodeId1,
+                            now))) {
+
                             status = Status.ERROR;
                             throw new Error("copy node blob data not available as expected");
                         }
@@ -1234,24 +1216,25 @@ export class Storage {
 
                     assert(parentId);
 
-                    const lock4 = this.acquireLock("driver");
+                    const mutex4 = this.lock.acquire("driver");
 
-                    locks.push(lock4);
+                    locks.push(mutex4);
 
-                    if (lock4.p) {
-                        await lock4.p;
+                    if (mutex4.p) {
+                        await mutex4.p;
                     }
 
                     await this.driver.bumpBlobNode(node, now);
 
-                    this.releaseLock(lock4);
+                    this.lock.release(mutex4);
 
                     sendResponse(writeBlobResponse);
 
-                    setImmediate( () => this.triggerInsertEvent([parentId], writeBlobRequest.muteMsgIds) );
+                    setImmediate( () =>
+                        this.triggerInsertEvent([parentId], writeBlobRequest.muteMsgIds) );
                 }
 
-                this.releaseLock(lock2);
+                this.lock.release(mutex2);
 
                 return;
             }
@@ -1303,7 +1286,9 @@ export class Storage {
 
                 for (let retry=0; retry<=MAX_BUSY_RETRIES; retry++) {
                     try {
-                        await this.blobDriver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
+                        await this.blobDriver.finalizeWriteBlob(nodeId1, dataId, blobLength,
+                            blobHash, now);
+
                         done = true;
 
                         break;
@@ -1336,24 +1321,25 @@ export class Storage {
 
                     assert(parentId);
 
-                    const lock5 = this.acquireLock("driver");
+                    const mutex5 = this.lock.acquire("driver");
 
-                    locks.push(lock5);
+                    locks.push(mutex5);
 
-                    if (lock5.p) {
-                        await lock5.p;
+                    if (mutex5.p) {
+                        await mutex5.p;
                     }
 
                     await this.driver.bumpBlobNode(node, now);
 
-                    this.releaseLock(lock5);
+                    this.lock.release(mutex5);
 
                     sendResponse(writeBlobResponse);
 
-                    setImmediate( () => this.triggerInsertEvent([parentId], writeBlobRequest.muteMsgIds) );
+                    setImmediate( () =>
+                        this.triggerInsertEvent([parentId], writeBlobRequest.muteMsgIds) );
                 }
 
-                this.releaseLock(lock1);
+                this.lock.release(mutex1);
 
                 return;
             }
@@ -1369,7 +1355,7 @@ export class Storage {
                 sendResponse(writeBlobResponse);
             }
 
-            this.releaseLock(lock1);
+            this.lock.release(mutex1);
         }
         catch(e) {
             console.debug("handleWriteBlob", e);
@@ -1386,12 +1372,15 @@ export class Storage {
         }
         finally {
             locks.forEach( lock => {
-                this.releaseLock(lock);
+                this.lock.release(lock);
             });
         }
     };
 
-    protected handleReadBlob: HandlerFn<ReadBlobRequest, ReadBlobResponse> = async (readBlobRequest: ReadBlobRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ReadBlobResponse>) => {
+    protected handleReadBlob: HandlerFn<ReadBlobRequest, ReadBlobResponse> =
+        async (readBlobRequest: ReadBlobRequest, peer: P2PClient, fromMsgId: Buffer,
+            expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ReadBlobResponse>) => {
+
         if (!sendResponse) {
             return;
         }
@@ -1399,7 +1388,7 @@ export class Storage {
         let status: Status | undefined;
 
         // Collect all locks here in case finally needs to release all locks.
-        const locks: Lock[] = [];
+        const locks: Mutex[] = [];
 
         try {
             if (!this.blobDriver) {
@@ -1426,26 +1415,26 @@ export class Storage {
 
             const now = this.timeFreeze.read();
 
-            const lock1 = this.acquireLock("blobDriver");
+            const mutex1 = this.lock.acquire("blobDriver");
 
-            locks.push(lock1);
+            locks.push(mutex1);
 
-            if (lock1.p) {
-                await lock1.p;
+            if (mutex1.p) {
+                await mutex1.p;
             }
 
-            const lock2 = this.acquireLock("driver");
+            const mutex2 = this.lock.acquire("driver");
 
-            locks.push(lock2);
+            locks.push(mutex2);
 
-            if (lock2.p) {
-                await lock2.p;
+            if (mutex2.p) {
+                await mutex2.p;
             }
 
             const node = await this.driver.fetchSingleNode(nodeId1, now,
                 readBlobRequest.sourcePublicKey, readBlobRequest.targetPublicKey);
 
-            this.releaseLock(lock2);
+            this.lock.release(mutex2);
 
             if (!node) {
                 status = Status.NOT_ALLOWED;
@@ -1475,7 +1464,7 @@ export class Storage {
 
             const data = await this.blobDriver.readBlob(nodeId1, pos, length);
 
-            this.releaseLock(lock1);
+            this.lock.release(mutex1);
 
             if (!data) {
                 // Blob data does not exist (in its finalized state).
@@ -1539,98 +1528,122 @@ export class Storage {
         }
         finally {
             locks.forEach( lock => {
-                this.releaseLock(lock);
+                this.lock.release(lock);
             });
         }
     };
 
-    protected createTransformer(fetchRequest: FetchRequest,
-        sendResponse: SendResponseFn<FetchResponse>): Transformer | undefined {
+    protected async updateCRDTModel(fetchRequest: FetchRequest, now: number,
+        handleFetchReplyData: HandleFetchReplyData, trigger?: Trigger) {
 
-        if (!this.allowAnotherTransformer()) {
-            const fetchReplyData: FetchReplyData = {
-                status: Status.ERROR,
-                error: "Out of memory to create transformer",
-            };
+        const key = CRDTManager.HashKey(fetchRequest);
 
-            const handleFetchReplyData = this.handleFetchReplyDataFactory(sendResponse,
-                undefined, fetchRequest.query.preserveTransient);
+        let rowCount: number = 0
+        let currentModel: [Buffer, Buffer][] = [];
 
-            handleFetchReplyData(fetchReplyData);
+        // The fetch drives through here.
+        const fn = async (fetchReplyData: FetchReplyData) => {
+            const mutex1 = this.lock.acquire(`fetch_${key}`);
 
-            return undefined;
-        }
-
-        const transformer = new Transformer(fetchRequest, this.maxTransformerLength);
-
-        return transformer;
-    }
-
-    protected getReadyTransformer(fetchRequest: FetchRequest): Transformer | undefined {
-        const key = Transformer.HashKey(fetchRequest);
-
-        const trigger = this.getTrigger(fetchRequest.query.triggerNodeId, key);
-
-        if (trigger) {
-            return trigger.transformer;
-        }
-
-        return undefined;
-    }
-
-    protected allowAnotherTransformer(): boolean {
-        if (osModule) {
-            const freeMem = osModule.freemem();
-            return freeMem > MIN_TRANSFORMER_FREE_MEM;
-        }
-        else {
-            let count = 0;
-            for (const parentId in this.triggers) {
-                const triggers = this.triggers[parentId];
-                count += triggers.length;
+            if (mutex1.p) {
+                await mutex1.p;
             }
 
-            return count < MAX_TRANSFORMERS_BROWSER;
-        }
-    }
+            try {
+                const status = fetchReplyData.status ?? Status.RESULT;
 
-    protected acquireLock(name: string): Lock {
-        const lock: Lock = {
-            name,
-            p: undefined,
-        };
+                if (status !== Status.RESULT) {
+                    handleFetchReplyData(fetchReplyData);
+                    return;
+                }
 
-        const innerLock: InnerLock = {
-            lock,
-            resolve: undefined
-        };
+                // For CRDT models we only include data nodes.
+                const nodesToAdd = (fetchReplyData.nodes ?? []).
+                    filter( node => node.getType().equals(DATA_NODE_TYPE) );
 
-        const locks = this.locks[name] ?? [];
-        this.locks[name] = locks;
+                const embed = fetchReplyData.embed ?? [];
 
-        locks.push(innerLock);
+                rowCount += fetchReplyData.rowCount ?? 0;
 
-        if (locks.length > 1) {
-            lock.p = new Promise( resolve => {
-                innerLock.resolve = resolve;
-            });
-        }
+                await this.crdtManager.updateModel(fetchRequest, nodesToAdd);
 
-        return lock;
-    }
+                if (embed.length > 0) {
+                    const fetchReplyData: FetchReplyData = {
+                        nodes: [],
+                        embed,
+                        rowCount,
+                        isLast: false,
+                    };
 
-    protected releaseLock(lock: Lock) {
-        const locks = this.locks[lock.name] ?? [];
+                    handleFetchReplyData(fetchReplyData);
+                }
 
-        if (locks.length > 0) {
-            if (locks[0].lock === lock) {
-                locks.shift();
-                if (locks.length > 0) {
-                    if (locks[0].resolve) {
-                        locks[0].resolve();
+                if (fetchReplyData.isLast) {
+                    const currentCRDTView = trigger?.crdtView ??
+                        {list: [], transientHashes: {}};
+
+                    const result = await this.crdtManager.diff(currentCRDTView, key,
+                        fetchRequest.crdt.cursorId1,
+                        fetchRequest.crdt.cursorIndex,
+                        fetchRequest.crdt.head,
+                        fetchRequest.crdt.tail,
+                        fetchRequest.crdt.reverse);
+
+                    if (!result) {
+                        const fetchReplyData: FetchReplyData = {
+                            status: Status.MISSING_CURSOR,
+                            rowCount,
+                            isLast: true,
+                        };
+                    }
+                    else {
+                        let [missingNodesId1s, delta, crdtView, cursorIndex, length] = result;
+
+                        if (trigger) {
+                            trigger.crdtView = crdtView;
+                        }
+
+                        while (true) {
+                            const id1s = missingNodesId1s.splice(0, MAX_BATCH_SIZE);
+
+                            const nodes = await this.driver.getNodesById1(id1s, now);
+
+                            const isLast = missingNodesId1s.length === 0;
+
+                            const fetchReplyData: FetchReplyData = {
+                                nodes,
+                                delta: isLast ? delta : undefined,
+                                rowCount,
+                                cursorIndex,
+                                length,
+                                isLast,
+                            };
+
+                            handleFetchReplyData(fetchReplyData);
+
+                            if (missingNodesId1s.length === 0) {
+                                break;
+                            }
+                        }
                     }
                 }
             }
+            finally {
+                this.lock.release(mutex1);
+            }
+        };
+
+        const detectDeletions = fetchRequest.query.cutoffTime === 0n;
+
+        if (detectDeletions) {
+            await this.crdtManager.beginDeletionTracking(key);
+        }
+
+        // Drive the fetch through the CRDT model.
+        await this.driver.fetch(fetchRequest.query, now, fn);
+
+        if (detectDeletions) {
+            await this.crdtManager.commitDeletionTracking(key);
         }
     }
 }

@@ -18,8 +18,8 @@ import {
 } from "../../p2pclient";
 
 import {
-    TransformerCache,
-} from "../transformer";
+    CRDTView,
+} from "../crdt";
 
 import {
     StorageUtil,
@@ -44,13 +44,13 @@ import {
     FetchResponse,
     FetchRequest,
     FetchQuery,
-    FetchTransform,
+    FetchCRDT,
 } from "../../types";
 
 import {
     ThreadTemplate,
     ThreadQueryParams,
-    ThreadTransformerParams,
+    ThreadCRDTParams,
     ThreadFetchParams,
     ThreadDataParams,
     ThreadLicenseParams,
@@ -80,7 +80,7 @@ export class Thread {
         threadFetchParams: ThreadFetchParams, defaults: ThreadDefaults, stream: boolean = false): FetchRequest {
 
         const query = Thread.ParseQuery(threadTemplate, threadFetchParams.query ?? {}, defaults);
-        const transform = Thread.ParseTransform(threadTemplate, threadFetchParams.transform ?? {});
+        const crdt = Thread.ParseCRDT(threadTemplate, threadFetchParams.crdt ?? {});
 
         if (stream) {
             if (query.triggerNodeId.length === 0 && query.triggerInterval === 0) {
@@ -97,7 +97,7 @@ export class Thread {
 
             // This is not allowed when initiating a stream,
             // but is allowed when performing single queries.
-            transform.msgId = Buffer.alloc(0);
+            crdt.msgId = Buffer.alloc(0);
         }
         else {
             // We need to delete these to be sure not to stream.
@@ -108,7 +108,7 @@ export class Thread {
 
         return {
             query,
-            transform,
+            crdt,
         };
     }
 
@@ -120,12 +120,6 @@ export class Thread {
         this.defaults[name] = value;
     }
 
-    /**
-     * If wanting to reuse a transformer model from the streaming
-     * be sure all relevant parameters are set exactly the same including 
-     * triggerNodeId (which needs to be set for a transformer to be reusable).
-     * Set msgId to the original msgId (getResponse.getMsgId()) and triggerInterval = 0.
-     */
     public query(threadFetchParams: ThreadFetchParams = {}): ThreadQueryResponseAPI {
         const fetchRequest = this.getFetchRequest(threadFetchParams);
 
@@ -146,10 +140,10 @@ export class Thread {
      * If triggerInterval is set but not triggerNodeId then triggerNodeId will not be automatically set.
      */
     public stream(threadFetchParams: ThreadFetchParams = {}): ThreadStreamResponseAPI {
-        let transformerCache;
+        let crdtView;
 
-        if (this.threadTemplate.transform?.algos.length) {
-            transformerCache = new TransformerCache();
+        if (this.threadTemplate.crdt?.algo ?? 0 > 0) {
+            crdtView = new CRDTView();
         }
 
         const fetchRequest = this.getFetchRequest(threadFetchParams, true);
@@ -160,11 +154,9 @@ export class Thread {
             throw new Error("unexpectedly missing getResponse");
         }
 
-        return this.threadStreamResponseAPI(getResponse, transformerCache, fetchRequest);
+        return this.threadStreamResponseAPI(getResponse, crdtView, fetchRequest);
     }
 
-    /**
-     */
     public async post(name: string, threadDataParams: ThreadDataParams = {}): Promise<DataInterface[]> {
         const dataParams = this.parsePost(name, threadDataParams);
 
@@ -211,17 +203,25 @@ export class Thread {
     }
 
     protected threadStreamResponseAPI(getResponse: GetResponse<FetchResponse>,
-        transformerCache: TransformerCache | undefined,
-        fetchRequest: FetchRequest): ThreadStreamResponseAPI {
+        crdtView: CRDTView | undefined,
+        fetchRequest: FetchRequest): ThreadStreamResponseAPI
+    {
 
         const onDataCBs: Array<(nodes: NodeInterface[]) => void> = [];
 
+        // These variables are used to collect the response.
+        //
+        let delta: Buffer = Buffer.alloc(0);
+        let addedNodesId1s: Buffer[]   = [];
+        let updatedNodesId1s: Buffer[] = [];
+        let deletedNodesId1s: Buffer[] = [];
+
         getResponse.onReply( (fetchResponse: FetchResponse) => {
             if (fetchResponse.status === Status.MISSING_CURSOR) {
-                // cursordId1 is missing for transformer.
+                // cursordId1 is missing for crdtView.
                 // Clear out cache, but keep alive and wait for more data.
 
-                transformerCache?.empty();
+                crdtView?.empty();
             }
             else if (fetchResponse.status !== Status.RESULT) {
                 console.debug(`Error code (${fetchResponse.status}) returned on fetch, error message: ${fetchResponse.error}`);
@@ -230,22 +230,42 @@ export class Thread {
             else {
                 const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse);
 
-                onDataCBs.forEach( cb => cb(nodes.slice()) );
+                if (nodes.length > 0) {
+                    onDataCBs.forEach( cb => cb(nodes.slice()) );
+                }
 
-                if (transformerCache) {
-                    const delta = fetchResponse.transformResult.delta;
-                    transformerCache.handleResponse(nodes as DataInterface[], delta);
+                if (crdtView) {
+                    delta = Buffer.concat([delta, fetchResponse.crdtResult.delta]);
+
+                    const isLast = fetchResponse.seq === fetchResponse.endSeq;
+
+                    const [a, b, c] = crdtView.handleResponse(nodes as DataInterface[],
+                        isLast ? delta : undefined);
+
+                    addedNodesId1s.push(...a);
+                    updatedNodesId1s.push(...b);
+                    deletedNodesId1s.push(...c);
+
+                    if (isLast) {
+                        delta = Buffer.alloc(0);
+
+                        crdtView.triggerOnChange(addedNodesId1s, updatedNodesId1s, deletedNodesId1s);
+
+                        addedNodesId1s = [];
+                        updatedNodesId1s = [];
+                        deletedNodesId1s = [];
+                    }
                 }
             }
         });
 
         const threadResponse: ThreadStreamResponseAPI = {
-            onChange: (...parameters: Parameters<TransformerCache["onChange"]>): ThreadStreamResponseAPI => {
-                if (!transformerCache) {
-                    throw new Error("Thread not using transformer, cannot call onChange()");
+            onChange: (...parameters: Parameters<CRDTView["onChange"]>): ThreadStreamResponseAPI => {
+                if (!crdtView) {
+                    throw new Error("Thread not using CRDT, cannot call onChange()");
                 }
 
-                transformerCache.onChange(...parameters);
+                crdtView.onChange(...parameters);
 
                 return threadResponse;
             },
@@ -273,26 +293,30 @@ export class Thread {
                 // Replace with our new
                 fetchRequest = DeepCopy(fetchRequest);
 
-                fetchRequest.transform.msgId = getResponse.getMsgId();
+                fetchRequest.crdt.msgId = getResponse.getMsgId();
 
                 if (updateStreamParams.triggerInterval !== undefined) {
                     fetchRequest.query.triggerInterval = updateStreamParams.triggerInterval;
                 }
 
                 if (updateStreamParams.head !== undefined) {
-                    fetchRequest.transform.head         = updateStreamParams.head;
+                    fetchRequest.crdt.head         = updateStreamParams.head;
                 }
 
                 if (updateStreamParams.tail !== undefined) {
-                    fetchRequest.transform.tail         = updateStreamParams.tail;
+                    fetchRequest.crdt.tail         = updateStreamParams.tail;
                 }
 
                 if (updateStreamParams.cursorId1 !== undefined) {
-                    fetchRequest.transform.cursorId1    = updateStreamParams.cursorId1;
+                    fetchRequest.crdt.cursorId1    = updateStreamParams.cursorId1;
+                }
+
+                if (updateStreamParams.cursorIndex !== undefined) {
+                    fetchRequest.crdt.cursorIndex  = updateStreamParams.cursorIndex;
                 }
 
                 if (updateStreamParams.reverse !== undefined) {
-                    fetchRequest.transform.reverse      = updateStreamParams.reverse;
+                    fetchRequest.crdt.reverse      = updateStreamParams.reverse;
                 }
 
                 this.storageClient.fetch(fetchRequest);
@@ -302,12 +326,12 @@ export class Thread {
                 return getResponse;
             },
 
-            getTransformer: (): TransformerCache => {
-                if (!transformerCache) {
-                    throw new Error("Thread not using transformer");
+            getCRDTView: (): CRDTView => {
+                if (!crdtView) {
+                    throw new Error("Thread not using CRDT");
                 }
 
-                return transformerCache;
+                return crdtView;
             },
         };
 
@@ -531,14 +555,14 @@ export class Thread {
     }
 
     /**
-     * @params threadTemplate parameters have precedence over the transformer template properties.
-     * @returns FetchTransform
+     * @params threadTemplate parameters have precedence over the crdt template properties.
+     * @returns FetchCRDT
      */
-    protected static ParseTransform(threadTemplate: ThreadTemplate,
-        threadTransformerParams: ThreadTransformerParams): FetchTransform {
+    protected static ParseCRDT(threadTemplate: ThreadTemplate,
+        threadCRDTParams: ThreadCRDTParams): FetchCRDT {
 
-        return ParseUtil.ParseTransform(
-            Thread.MergeProperties([threadTransformerParams, (threadTemplate.transform ?? {})]));
+        return ParseUtil.ParseCRDT(
+            Thread.MergeProperties([threadCRDTParams, (threadTemplate.crdt ?? {})]));
     }
 
     /**

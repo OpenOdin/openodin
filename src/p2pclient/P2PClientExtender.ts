@@ -76,7 +76,7 @@ export class P2PClientExtender extends P2PClientForwarder {
             status: fetchResponse.status,
             error: fetchResponse.error,
             result,
-            transformResult: fetchResponse.transformResult,
+            crdtResult: fetchResponse.crdtResult,
             seq: fetchResponse.seq,
             endSeq: fetchResponse.endSeq,
             rowCount: fetchResponse.rowCount,

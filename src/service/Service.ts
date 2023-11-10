@@ -780,8 +780,8 @@ export class Service {
 
                 const fetchRequest = Thread.GetFetchRequest(threadTemplate, threadFetchParams, {}, syncThread.stream);
 
-                // Transformers are not allowed to be used when auto syncing.
-                fetchRequest.transform.algos = [];
+                // CRDTs are not allowed to be used when auto syncing.
+                fetchRequest.crdt.algo = 0;
 
                 if (syncThread.direction === "pull" || syncThread.direction === "both") {
                     autoFetchers.push({
@@ -864,8 +864,8 @@ export class Service {
 
         const fetchRequest = thread.getFetchRequest(threadFetchParams, stream);
 
-        // Transformers are not allowed to be used when auto syncing.
-        fetchRequest.transform.algos = [];
+        // CRDTs are not allowed to be used when auto syncing.
+        fetchRequest.crdt.algo = 0;
 
         peerPublicKeys.forEach( (remotePublicKey: Buffer) => {
             if (direction === "pull" || direction === "both") {

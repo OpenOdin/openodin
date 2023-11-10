@@ -218,7 +218,7 @@ const FIELDS: Fields = {
  * In general all data stored in a node is part of the hashing and id creation of the node and it is persisted as being part of the node (no surprise here).
  * Then we can also have "transient" values on nodes. These values are not part of hashing and are meant to be set on the node by the environment depending on circumstances.
  * So, transient values are important to be properly set for the graph it self to be correct. It is the Database which is responsible for applying and keeping the transient values up to date.
- * Some transient values can be set by the Database on a best effort basis, depending for example if the Database supports a particular transform function on fetch requests.
+ * Some transient values can be set by the Database on a best effort basis, depending for example if the Database supports a particular CRDT function on fetch requests.
  * Transient values can in some circumstances be serialized and passed between peers, also sometimes get stores to disk.
  *
  * Some notes on "dynamic" values on nodes:

@@ -147,6 +147,10 @@ export class RPC {
         this.eventHandlers[name] = eventHandler;
     }
 
+    public offCall(name: string) {
+        delete this.eventHandlers[name];
+    }
+
     public close() {
         this.eventHandlers = {};
 

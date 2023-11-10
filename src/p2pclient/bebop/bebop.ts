@@ -431,75 +431,71 @@ export const FetchQuery = {
   },
 };
 
-export interface IFetchTransform {
-  algos: Array<number>;
+export interface IFetchCRDT {
+  algo: number;
+  conf: string;
   msgId: Uint8Array;
   reverse: boolean;
   head: number;
   tail: number;
   cursorId1: Uint8Array;
+  cursorIndex: number;
 }
 
-export const FetchTransform = {
-  encode(message: IFetchTransform): Uint8Array {
+export const FetchCRDT = {
+  encode(message: IFetchCRDT): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
     this.encodeInto(message, view);
     return view.toArray();
   },
 
-  encodeInto(message: IFetchTransform, view: BebopView): number {
+  encodeInto(message: IFetchCRDT, view: BebopView): number {
     const before = view.length;
-      {
-        const length0 = message.algos.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          view.writeUint16(message.algos[i0]);
-        }
-      }
+      view.writeUint16(message.algo);
+      view.writeString(message.conf);
       view.writeBytes(message.msgId);
       view.writeByte(Number(message.reverse));
       view.writeInt32(message.head);
       view.writeInt32(message.tail);
       view.writeBytes(message.cursorId1);
+      view.writeInt32(message.cursorIndex);
     const after = view.length;
     return after - before;
   },
 
-  decode(buffer: Uint8Array): IFetchTransform {
+  decode(buffer: Uint8Array): IFetchCRDT {
     const view = BebopView.getInstance();
     view.startReading(buffer);
     return this.readFrom(view);
   },
 
-  readFrom(view: BebopView): IFetchTransform {
-    let field0: Array<number>;
-    {
-      let length0 = view.readUint32();
-      field0 = new Array<number>(length0);
-      for (let i0 = 0; i0 < length0; i0++) {
-        let x0: number;
-        x0 = view.readUint16();
-        field0[i0] = x0;
-      }
-    }
-    let field1: Uint8Array;
-    field1 = view.readBytes();
-    let field2: boolean;
-    field2 = !!view.readByte();
-    let field3: number;
-    field3 = view.readInt32();
+  readFrom(view: BebopView): IFetchCRDT {
+    let field0: number;
+    field0 = view.readUint16();
+    let field1: string;
+    field1 = view.readString();
+    let field2: Uint8Array;
+    field2 = view.readBytes();
+    let field3: boolean;
+    field3 = !!view.readByte();
     let field4: number;
     field4 = view.readInt32();
-    let field5: Uint8Array;
-    field5 = view.readBytes();
-    let message: IFetchTransform = {
-      algos: field0,
-      msgId: field1,
-      reverse: field2,
-      head: field3,
-      tail: field4,
-      cursorId1: field5,
+    let field5: number;
+    field5 = view.readInt32();
+    let field6: Uint8Array;
+    field6 = view.readBytes();
+    let field7: number;
+    field7 = view.readInt32();
+    let message: IFetchCRDT = {
+      algo: field0,
+      conf: field1,
+      msgId: field2,
+      reverse: field3,
+      head: field4,
+      tail: field5,
+      cursorId1: field6,
+      cursorIndex: field7,
     };
     return message;
   },
@@ -516,9 +512,8 @@ export enum Status {
   NOT_ALLOWED = 8,
   MISMATCH = 9,
   EXISTS = 10,
-  TRANSFORMER_INVALIDATED = 11,
-  MISSING_CURSOR = 12,
-  DROPPED_TRIGGER = 13,
+  MISSING_CURSOR = 11,
+  DROPPED_TRIGGER = 12,
 }
 
 export interface IFetchResult {
@@ -594,41 +589,46 @@ export const FetchResult = {
   },
 };
 
-export interface ITransformResult {
+export interface ICRDTResult {
   delta: Uint8Array;
-  extra: string;
+  cursorIndex: number;
+  length: number;
 }
 
-export const TransformResult = {
-  encode(message: ITransformResult): Uint8Array {
+export const CRDTResult = {
+  encode(message: ICRDTResult): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
     this.encodeInto(message, view);
     return view.toArray();
   },
 
-  encodeInto(message: ITransformResult, view: BebopView): number {
+  encodeInto(message: ICRDTResult, view: BebopView): number {
     const before = view.length;
       view.writeBytes(message.delta);
-      view.writeString(message.extra);
+      view.writeInt32(message.cursorIndex);
+      view.writeUint32(message.length);
     const after = view.length;
     return after - before;
   },
 
-  decode(buffer: Uint8Array): ITransformResult {
+  decode(buffer: Uint8Array): ICRDTResult {
     const view = BebopView.getInstance();
     view.startReading(buffer);
     return this.readFrom(view);
   },
 
-  readFrom(view: BebopView): ITransformResult {
+  readFrom(view: BebopView): ICRDTResult {
     let field0: Uint8Array;
     field0 = view.readBytes();
-    let field1: string;
-    field1 = view.readString();
-    let message: ITransformResult = {
+    let field1: number;
+    field1 = view.readInt32();
+    let field2: number;
+    field2 = view.readUint32();
+    let message: ICRDTResult = {
       delta: field0,
-      extra: field1,
+      cursorIndex: field1,
+      length: field2,
     };
     return message;
   },
@@ -636,7 +636,7 @@ export const TransformResult = {
 
 export interface IBopFetchRequest {
   query?: IFetchQuery;
-  transform?: IFetchTransform;
+  crdt?: IFetchCRDT;
 }
 
 export const BopFetchRequest = {
@@ -655,9 +655,9 @@ export const BopFetchRequest = {
         view.writeByte(1);
         FetchQuery.encodeInto(message.query, view)
       }
-      if (message.transform != null) {
+      if (message.crdt != null) {
         view.writeByte(2);
-        FetchTransform.encodeInto(message.transform, view)
+        FetchCRDT.encodeInto(message.crdt, view)
       }
       view.writeByte(0);
       const end = view.length;
@@ -686,7 +686,7 @@ export const BopFetchRequest = {
           break;
 
         case 2:
-          message.transform = FetchTransform.readFrom(view);
+          message.crdt = FetchCRDT.readFrom(view);
           break;
 
         default:
@@ -700,7 +700,7 @@ export const BopFetchRequest = {
 export interface IBopFetchResponse {
   status?: Status;
   result?: IFetchResult;
-  transformResult?: ITransformResult;
+  crdtResult?: ICRDTResult;
   seq?: number;
   endSeq?: number;
   rowCount?: number;
@@ -727,9 +727,9 @@ export const BopFetchResponse = {
         view.writeByte(2);
         FetchResult.encodeInto(message.result, view)
       }
-      if (message.transformResult != null) {
+      if (message.crdtResult != null) {
         view.writeByte(3);
-        TransformResult.encodeInto(message.transformResult, view)
+        CRDTResult.encodeInto(message.crdtResult, view)
       }
       if (message.seq != null) {
         view.writeByte(4);
@@ -778,7 +778,7 @@ export const BopFetchResponse = {
           break;
 
         case 3:
-          message.transformResult = TransformResult.readFrom(view);
+          message.crdtResult = CRDTResult.readFrom(view);
           break;
 
         case 4:

@@ -252,7 +252,7 @@ export class P2PClient {
                     this.route<StoreRequest, StoreResponse>(RouteAction.STORE, routeEvent, this.handlerStore, this.limitStoreRequest, this.deserialize.StoreRequest, this.serialize.StoreResponse, this.deserialize.StoreResponse, {storedId1s: [], missingBlobId1s: [], missingBlobSizes: [], status: Status.ERROR, error: ""});
                     break;
                 case RouteAction.FETCH:
-                    this.route<FetchRequest, FetchResponse>(RouteAction.FETCH, routeEvent, this.handlerFetch, this.limitFetchRequest, this.deserialize.FetchRequest, this.serialize.FetchResponse, this.deserialize.FetchResponse, {seq: 0, endSeq: 0, result: {nodes: [], embed: [], cutoffTime: 0n}, transformResult: {delta: Buffer.alloc(0), extra: ""}, status: Status.ERROR, error: "", rowCount: 0});
+                    this.route<FetchRequest, FetchResponse>(RouteAction.FETCH, routeEvent, this.handlerFetch, this.limitFetchRequest, this.deserialize.FetchRequest, this.serialize.FetchResponse, this.deserialize.FetchResponse, {seq: 0, endSeq: 0, result: {nodes: [], embed: [], cutoffTime: 0n}, crdtResult: {delta: Buffer.alloc(0), length: 0, cursorIndex: -1}, status: Status.ERROR, error: "", rowCount: 0});
                     break;
                 case RouteAction.UNSUBSCRIBE:
                     this.route<UnsubscribeRequest, UnsubscribeResponse>(RouteAction.UNSUBSCRIBE, routeEvent, this.handlerUnsubscribe, this.limitUnsubscribeRequest, this.deserialize.UnsubscribeRequest, this.serialize.UnsubscribeResponse, this.deserialize.UnsubscribeResponse, {status: Status.ERROR, error: ""});
@@ -612,13 +612,11 @@ export class P2PClient {
         }
 
         if (allowed) {
-            for (let i=0; i<fetchRequest.transform.algos.length; i++) {
-                const algoId = fetchRequest.transform.algos[i];
-                if (this.permissions.fetchPermissions.allowTransform.indexOf(algoId) === -1) {
-                    errorMsg = `Transformer algo ${algoId} requested is not supported`;
-                    allowed = false;
-                    break;
-                }
+            const algoId = fetchRequest.crdt.algo;
+
+            if (algoId > 0 && this.permissions.fetchPermissions.allowAlgos.indexOf(algoId) === -1) {
+                errorMsg = `CRDT algo ${algoId} requested is not supported`;
+                allowed = false;
             }
         }
 
@@ -631,9 +629,10 @@ export class P2PClient {
                     embed: [],
                     cutoffTime: 0n,
                 },
-                transformResult: {
+                crdtResult: {
                     delta: Buffer.alloc(0),
-                    extra: "",
+                    length: 0,
+                    cursorIndex: -1,
                 },
                 seq: 0,
                 endSeq: 0,
@@ -654,7 +653,7 @@ export class P2PClient {
                 ...fetchRequest.query,
                 embed: allowEmbed,
             },
-            transform: fetchRequest.transform,
+            crdt: fetchRequest.crdt,
         };
 
         // Forcefully set region and jurisdiction on the fetchQuery.

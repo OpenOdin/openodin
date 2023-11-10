@@ -45,11 +45,11 @@ export class BebopDeserialize {
      */
     public FetchRequest(data: Buffer): FetchRequest {
         const obj = BopFetchRequest.decode(data);
-        if (!obj || !obj.query || !obj.transform) {
+        if (!obj || !obj.query || !obj.crdt) {
             throw new Error("Could not deserialize FetchRequest");
         }
-        obj.transform.cursorId1 = MakeIntoBuffer(obj.transform.cursorId1);
-        obj.transform.msgId = MakeIntoBuffer(obj.transform.msgId);
+        obj.crdt.cursorId1 = MakeIntoBuffer(obj.crdt.cursorId1);
+        obj.crdt.msgId = MakeIntoBuffer(obj.crdt.msgId);
         obj.query.rootNodeId1 = MakeIntoBuffer(obj.query.rootNodeId1);
         obj.query.parentId = MakeIntoBuffer(obj.query.parentId);
         obj.query.targetPublicKey = MakeIntoBuffer(obj.query.targetPublicKey);
@@ -78,12 +78,12 @@ export class BebopDeserialize {
      */
     public FetchResponse(data: Buffer): FetchResponse {
         const obj = BopFetchResponse.decode(data);
-        if (!obj || !obj.result || !obj.transformResult) {
+        if (!obj || !obj.result || !obj.crdtResult) {
             throw new Error("Could not deserialize FetchResponse");
         }
         obj.result.nodes = (obj.result.nodes || []).map( MakeIntoBuffer );
         obj.result.embed = (obj.result.embed || []).map( MakeIntoBuffer );
-        obj.transformResult.delta = MakeIntoBuffer(obj.transformResult.delta);
+        obj.crdtResult.delta = MakeIntoBuffer(obj.crdtResult.delta);
         return (obj as unknown) as FetchResponse;
     }
 

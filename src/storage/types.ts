@@ -10,8 +10,8 @@ import {
 } from "../types";
 
 import {
-    Transformer,
-} from "./transformer";
+    CRDTViewType,
+} from "./crdt/types";
 
 //import {
     //DynamicStatus,
@@ -28,15 +28,10 @@ export const MAX_READBLOB_LENGTH = 1024 * 1024;
 export const MAX_BATCH_SIZE         = 100;
 
 /**
- * The maximum nr of nodes allowed to be returned for a single query.
- */
-export const MAX_QUERY_LIMIT       = 100000;
-
-/**
  * The maximum amount of nodes allowed to be processed for any single level when fetching.
  *
  */
-export const MAX_QUERY_LEVEL_LIMIT = 100000;
+export const MAX_QUERY_LEVEL_LIMIT = 100_000;
 
 /**
  * The minimum difficulty required for destroy nodes targeting ALL of the owners nodes.
@@ -54,7 +49,7 @@ export const BLOB_FRAGMENT_SIZE = 32 * 1024;
  * The maximum amount of table rows allowed to be examined in a single query.
  * This is to prevent sloppy queries from wasting cycles.
  */
-export const MAX_QUERY_ROWS_LIMIT = MAX_QUERY_LIMIT * 10;
+export const MAX_QUERY_ROWS_LIMIT = 1_000_000;
 
 /**
  * The data types follow the PostgreSQL conventions,
@@ -268,7 +263,8 @@ export type FetchReplyData = {
     embed?: NodeInterface[],
     rowCount?: number,
     delta?: Buffer,
-    extra?: string,
+    cursorIndex?: number,
+    length?: number,
     isFirst?: boolean,
     isLast?: boolean,
     now?: number,
@@ -407,6 +403,13 @@ export type DriverInterface = {
     getNodeById1(nodeId1: Buffer, now: number): Promise<NodeInterface | undefined>;
 
     /**
+     * Fetch nodes by their id1.
+     * @returns found nodes
+     * @throws on decoding error.
+     */
+    getNodesById1(nodesId1: Buffer[], now: number): Promise<NodeInterface[]>;
+
+    /**
      * Fetch a single node based on its id1, permissions apply.
      *
      * Licenses are allowed to be checked upwards from the node in a generous fashion.
@@ -419,7 +422,7 @@ export type DriverInterface = {
     /**
      * Insert nodes into the database.
      *
-     * Maximum 1000 nodes for each call is allowed.
+     * Maximum MAX_BATCH_SIZE nodes for each call is allowed.
      * It is also recommended to not call on a ony-by-one basis since that adds up in roundtrips.
      *
      * @param nodes nodes to be stored. If destroy hashes are present for any node then that node is
@@ -523,12 +526,14 @@ export type Trigger = {
     isCorked: boolean,
     isPending: boolean,
     handleFetchReplyData?: HandleFetchReplyData,
-    transformer?: Transformer,
-    lastRun: number,
+    lastIntervalRun: number,
     closed: boolean,
 
-    /** Set when the query has been fetched the first time. This is imporant if using this trigger with transformers. */
-    hasFetched: boolean,
+    /**
+     * The current CRDT view.
+     * This view is diffed against and updated.
+     */
+    crdtView: CRDTViewType,
 };
 
 //export type DynamicObserverEventHandler = (nodeId1: Buffer, dynamicId: Buffer, updatedStatus: DynamicStatus) => void;
