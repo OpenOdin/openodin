@@ -2,6 +2,11 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.7.4] - 20231115
+BREAKING CHANGES.  
+Refactor Transformers into CRDT.  
+Add includeLicenses feature.  
+
 ## [0.7.2] - 20231028
 Improve thread and transformer cache.  
 
