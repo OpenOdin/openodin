@@ -73,6 +73,7 @@ export type FetchRequestQueryParams = {
     ignoreOwn?: boolean,
     region?: string,
     jurisdiction?: string,
+    includeLicenses?: number,
 };
 
 export type FetchRequestCRDTParams = {

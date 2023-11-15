@@ -76,8 +76,9 @@ class QueryProcessorWrapper extends QueryProcessor {
         return super.filterPrivateNodes(allNodes, allowRightsByAssociation);
     }
 
-    public async filterLicensedNodes(nodes: NodeInterface[]): Promise<NodeInterface[]> {
-        return super.filterLicensedNodes(nodes);
+    public async filterLicensedNodes(nodes: NodeInterface[], targetPublicKey: Buffer, includeLicenses: boolean = false):
+        Promise<[nodes: NodeInterface[], licenses: LicenseInterface[]]> {
+        return super.filterLicensedNodes(nodes, targetPublicKey, includeLicenses);
     }
 
     public async embedNodes(nodes: NodeInterface[]): Promise<{originalNode: NodeInterface, embeddedNode: NodeInterface}[]> {
@@ -88,8 +89,8 @@ class QueryProcessorWrapper extends QueryProcessor {
         return super.getLicenseNodeTree(node, sourcePublicKey, targetPublicKey);
     }
 
-    public async checkLicenses(licensesToCheck: Buffer[], selectWriteLicenses: boolean): Promise<{[hash: string]: SelectLicenseeHash[]}> {
-        return super.checkLicenses(licensesToCheck, selectWriteLicenses);
+    public async fetchLicenses(licensesToCheck: Buffer[], selectOnlyWriteLicenses: boolean): Promise<{[hash: string]: SelectLicenseeHash[]}> {
+        return super.fetchLicenses(licensesToCheck, selectOnlyWriteLicenses);
     }
 
     public async checkSourceNodesPermissions(nodeId1s: Buffer[]): Promise<{[id1: string]: boolean}> {
@@ -1045,9 +1046,9 @@ function setupTests(config: any) {
 
         let qp = new QueryProcessorWrapper(db, fetchRequest.query, rootNode, now, handleFetchReplyData);
 
-        let licensed = await qp.filterLicensedNodes([nodeA1]);
-        assert(licensed.length === 1);
-        assert(licensed[0] === nodeA1);
+        let [licensedNodes] = await qp.filterLicensedNodes([nodeA1], fetchRequest.query.targetPublicKey);
+        assert(licensedNodes.length === 1);
+        assert(licensedNodes[0] === nodeA1);
     });
 
     it("#embedNodes", async function() {
@@ -2761,6 +2762,390 @@ function setupTests(config: any) {
         assert(same);
     });
 
+    it("includeLicenses should include all relevant licenses when fetching", async function() {
+        const driver = config.driver;
+        const db = config.db;
+
+        assert(driver);
+        assert(db);
+
+        const nodeUtil = new NodeUtil();
+        const now = Date.now();
+
+        let handleFetchReplyData = (fetchReplyData: FetchReplyData) => {
+            // Do nothing
+        };
+
+        let rootNode = undefined;
+
+        let clientPublicKey = Buffer.alloc(32).fill(210);
+        let clientPublicKey2 = Buffer.alloc(32).fill(211);
+        let parentId = Buffer.alloc(32).fill(0);
+        let nodeIdA = Buffer.alloc(32).fill(1);
+        let nodeIdB1 = Buffer.alloc(32).fill(2);
+        let nodeIdB2 = Buffer.alloc(32).fill(3);
+        let nodeIdC1 = Buffer.alloc(32).fill(4);
+        let nodeIdC2 = Buffer.alloc(32).fill(5);
+        let nodeIdD = Buffer.alloc(32).fill(6);
+        let nodeIdE1 = Buffer.alloc(32).fill(7);
+        let nodeIdE2 = Buffer.alloc(32).fill(8);
+
+        let licenseIdA = Buffer.alloc(32).fill(0xa0);
+        let licenseIdAw = Buffer.alloc(32).fill(0xa1);
+        let licenseIdAw2 = Buffer.alloc(32).fill(0xa2);
+        let licenseIdB1w = Buffer.alloc(32).fill(0xb0);
+        let licenseIdB1w2 = Buffer.alloc(32).fill(0xb1);
+        let licenseIdB2w = Buffer.alloc(32).fill(0xb2);
+        let licenseIdB2w2 = Buffer.alloc(32).fill(0xb3);
+        let licenseIdB2 = Buffer.alloc(32).fill(0xb4);
+        let licenseIdC1w = Buffer.alloc(32).fill(0xc0);
+        let licenseIdC1w2 = Buffer.alloc(32).fill(0xc1);
+        let licenseIdC2w = Buffer.alloc(32).fill(0xc2);
+        let licenseIdC2w2 = Buffer.alloc(32).fill(0xc3);
+        let licenseIdDw = Buffer.alloc(32).fill(0xd0);
+
+        const nodeA = await nodeUtil.createDataNode({
+            id1: nodeIdA,
+            owner: clientPublicKey,
+            parentId,
+            expireTime: now + 10000,
+            creationTime: now,
+            isLicensed: true,
+            isBeginRestrictiveWriteMode: true,
+        });
+
+            const licenseA = await nodeUtil.createLicenseNode({
+                id1: licenseIdA,
+                refId: nodeIdA,
+                owner: clientPublicKey,
+                targetPublicKey: clientPublicKey,
+                parentId,
+                expireTime: now + 10000,
+                creationTime: now,
+                extensions: 1,
+            });
+
+            const licenseAw = await nodeUtil.createLicenseNode({
+                id1: licenseIdAw,
+                refId: nodeIdA,
+                owner: clientPublicKey,
+                targetPublicKey: clientPublicKey,
+                parentId,
+                expireTime: now + 10000,
+                creationTime: now,
+                isRestrictiveModeWriter: true,
+                extensions: 1,
+            });
+
+            const licenseAw2 = await nodeUtil.createLicenseNode({
+                id1: licenseIdAw2,
+                refId: nodeIdA,
+                owner: clientPublicKey,
+                targetPublicKey: clientPublicKey2,
+                parentId,
+                expireTime: now + 10000,
+                creationTime: now,
+                isRestrictiveModeWriter: true,
+                extensions: 1,
+            });
+
+        const nodeB1 = await nodeUtil.createDataNode({
+            id1: nodeIdB1,
+            owner: clientPublicKey,
+            parentId: nodeIdA,
+            expireTime: now + 10000,
+            creationTime: now,
+            isLicensed: true,
+            licenseMinDistance: 1,
+            licenseMaxDistance: 1,
+            isBeginRestrictiveWriteMode: true,
+        });
+
+            const licenseB1w = await nodeUtil.createLicenseNode({
+                id1: licenseIdB1w,
+                refId: nodeIdB1,
+                owner: clientPublicKey,
+                targetPublicKey: clientPublicKey,
+                parentId: nodeIdA,
+                expireTime: now + 10000,
+                creationTime: now,
+                isRestrictiveModeWriter: true,
+            });
+
+            const licenseB1w2 = await nodeUtil.createLicenseNode({
+                id1: licenseIdB1w2,
+                refId: nodeIdB1,
+                owner: clientPublicKey,
+                targetPublicKey: clientPublicKey2,
+                parentId: nodeIdA,
+                expireTime: now + 10000,
+                creationTime: now,
+                isRestrictiveModeWriter: true,
+            });
+
+        const nodeB2 = await nodeUtil.createDataNode({
+            id1: nodeIdB2,
+            owner: clientPublicKey,
+            parentId: nodeIdA,
+            expireTime: now + 10000,
+            creationTime: now,
+            isLicensed: true,
+            isBeginRestrictiveWriteMode: true,
+        });
+
+            const licenseB2 = await nodeUtil.createLicenseNode({
+                id1: licenseIdB2,
+                refId: nodeIdB2,
+                owner: clientPublicKey,
+                targetPublicKey: clientPublicKey,
+                parentId: nodeIdA,
+                expireTime: now + 10000,
+                creationTime: now,
+            });
+
+            const licenseB2w = await nodeUtil.createLicenseNode({
+                id1: licenseIdB2w,
+                refId: nodeIdB2,
+                owner: clientPublicKey,
+                targetPublicKey: clientPublicKey,
+                parentId: nodeIdA,
+                expireTime: now + 10000,
+                creationTime: now,
+                isRestrictiveModeWriter: true,
+            });
+
+            const licenseB2w2 = await nodeUtil.createLicenseNode({
+                id1: licenseIdB2w2,
+                refId: nodeIdB2,
+                owner: clientPublicKey,
+                targetPublicKey: clientPublicKey2,
+                parentId: nodeIdA,
+                expireTime: now + 10000,
+                creationTime: now,
+                isRestrictiveModeWriter: true,
+            });
+
+
+        const nodeC1 = await nodeUtil.createDataNode({
+            id1: nodeIdC1,
+            owner: clientPublicKey,
+            parentId: nodeIdB1,
+            expireTime: now + 10000,
+            creationTime: now,
+            isLicensed: true,
+            licenseMinDistance: 1,
+            licenseMaxDistance: 2,
+            isBeginRestrictiveWriteMode: true,
+        });
+
+            const licenseC1w = await nodeUtil.createLicenseNode({
+                id1: licenseIdC1w,
+                refId: nodeIdC1,
+                owner: clientPublicKey,
+                targetPublicKey: clientPublicKey,
+                parentId: nodeIdB1,
+                expireTime: now + 10000,
+                creationTime: now,
+                isRestrictiveModeWriter: true,
+            });
+
+            const licenseC1w2 = await nodeUtil.createLicenseNode({
+                id1: licenseIdC1w2,
+                refId: nodeIdC1,
+                owner: clientPublicKey,
+                targetPublicKey: clientPublicKey2,
+                parentId: nodeIdB1,
+                expireTime: now + 10000,
+                creationTime: now,
+                isRestrictiveModeWriter: true,
+            });
+
+        const nodeC2 = nodeC1.copy(nodeIdB2);
+        nodeC2.setId1(nodeIdC2);
+
+            const licenseC2w = await nodeUtil.createLicenseNode({
+                id1: licenseIdC2w,
+                refId: nodeIdC2,
+                owner: clientPublicKey,
+                targetPublicKey: clientPublicKey,
+                parentId: nodeIdB2,
+                expireTime: now + 10000,
+                creationTime: now,
+                isRestrictiveModeWriter: true,
+            });
+
+            const licenseC2w2 = await nodeUtil.createLicenseNode({
+                id1: licenseIdC2w2,
+                refId: nodeIdC2,
+                owner: clientPublicKey,
+                targetPublicKey: clientPublicKey2,
+                parentId: nodeIdB2,
+                expireTime: now + 10000,
+                creationTime: now,
+                isRestrictiveModeWriter: true,
+            });
+
+        const nodeD = await nodeUtil.createDataNode({
+            id1: nodeIdD,
+            owner: clientPublicKey,
+            parentId: nodeIdC1,
+            expireTime: now + 10000,
+            creationTime: now,
+            isLicensed: true,
+            licenseMinDistance: 3,
+            licenseMaxDistance: 3,
+            isBeginRestrictiveWriteMode: true,
+        });
+
+            const licenseDw = await nodeUtil.createLicenseNode({
+                id1: licenseIdDw,
+                refId: nodeIdD,
+                owner: clientPublicKey,
+                targetPublicKey: clientPublicKey2,
+                parentId: nodeIdC1,
+                expireTime: now + 10000,
+                creationTime: now,
+                isRestrictiveModeWriter: true,
+            });
+
+        const nodeE1 = await nodeUtil.createDataNode({
+            id1: nodeIdE1,
+            owner: clientPublicKey2,
+            parentId: nodeIdD,
+            expireTime: now + 10000,
+            creationTime: now,
+            isLicensed: true,
+            licenseMinDistance: 4,
+            licenseMaxDistance: 4,
+        });
+
+        const nodeE2 = await nodeUtil.createDataNode({
+            id1: nodeIdE2,
+            owner: clientPublicKey2,
+            parentId: nodeIdD,
+            expireTime: now + 10000,
+            creationTime: now,
+            isLicensed: true,
+            licenseMinDistance: 3,
+            licenseMaxDistance: 3,
+        });
+
+        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+            parentId,
+            sourcePublicKey: clientPublicKey,
+            targetPublicKey: clientPublicKey,
+            match: [
+                {
+                    nodeType: Data.GetType(),
+                    filters: []
+                },
+            ],
+            includeLicenses: 1,
+        }});
+
+        let nodes: NodeInterface[] = [];
+        let same = false;
+
+        await driver.storeNodes([nodeA, nodeB1, nodeB2, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], now);
+
+        nodes = await fetch(db, fetchRequest, now, rootNode);
+        assert(nodes.length === 0);
+
+        await driver.storeNodes([licenseA, licenseB2, licenseAw, licenseAw2, licenseB1w, licenseB1w2, licenseB2w, licenseB2w2, licenseC1w, licenseC1w2, licenseC2w, licenseC2w2, licenseDw], now);
+
+        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+            parentId,
+            sourcePublicKey: clientPublicKey,
+            targetPublicKey: clientPublicKey,
+            match: [
+                {
+                    nodeType: Data.GetType(),
+                    filters: []
+                },
+            ],
+            includeLicenses: 0,
+            depth: 1,
+        }});
+
+        let ret = await fetch2(db, fetchRequest, now, rootNode);
+
+        assert(ret.embed.length === 0);
+
+        same = diffNodes([nodeA], ret.nodes);
+        assert(same);
+
+
+
+        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+            parentId,
+            sourcePublicKey: clientPublicKey,
+            targetPublicKey: clientPublicKey,
+            match: [
+                {
+                    nodeType: Data.GetType(),
+                    filters: []
+                },
+            ],
+            includeLicenses: 3,
+            depth: 1,
+        }});
+
+        ret = await fetch2(db, fetchRequest, now, rootNode);
+
+        assert(ret.embed.length === 0);
+
+        same = diffNodes([licenseA, licenseAw, nodeA], ret.nodes);
+        assert(same);
+
+
+
+        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+            parentId,
+            sourcePublicKey: clientPublicKey,
+            targetPublicKey: clientPublicKey2,
+            match: [
+                {
+                    nodeType: Data.GetType(),
+                    filters: []
+                },
+            ],
+            includeLicenses: 2,
+            depth: 1,
+        }});
+
+        ret = await fetch2(db, fetchRequest, now, rootNode);
+
+        assert(ret.embed.length === 2);
+
+        same = diffNodes([], ret.nodes);
+        assert(same);
+
+
+        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+            parentId,
+            sourcePublicKey: clientPublicKey,
+            targetPublicKey: clientPublicKey,
+            match: [
+                {
+                    nodeType: Data.GetType(),
+                    filters: []
+                },
+            ],
+            includeLicenses: 3,
+            depth: 10,
+        }});
+
+        ret = await fetch2(db, fetchRequest, now, rootNode);
+
+        assert(ret.embed.length === 0);
+
+        same = diffNodes([licenseA, licenseAw, nodeA,
+            licenseB2, licenseB2w, nodeB1, nodeB2,
+            licenseB1w, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], ret.nodes);
+
+        assert(same);
+    });
+
     it("#run with ReverseFetch", async function() {
         const driver = config.driver;
         const db = config.db;
@@ -3520,6 +3905,22 @@ async function fetch(db: DBClient, fetchRequest: FetchRequest, now: number, root
     await qp.run();
 
     return nodes;
+}
+
+async function fetch2(db: DBClient, fetchRequest: FetchRequest, now: number, rootNode?: NodeInterface): Promise<{nodes: NodeInterface[], embed: NodeInterface[]}> {
+
+    const nodes: NodeInterface[] = [];
+    const embed: NodeInterface[] = [];
+
+    let handleFetchReplyData = (fetchReplyData: FetchReplyData) => {
+        nodes.push(...fetchReplyData.nodes ?? []);
+        embed.push(...fetchReplyData.embed ?? []);
+    };
+
+    let qp = new QueryProcessorWrapper(db, fetchRequest.query, rootNode, now, handleFetchReplyData);
+    await qp.run();
+
+    return {nodes, embed};
 }
 
 async function createNodes(count: number, params: any, now: number, prefix?: string): Promise<NodeInterface[]> {

@@ -99,11 +99,29 @@ export type StorageConf = {
 
 export type SyncConf = {
     peerPublicKeys:    Buffer[],
+
+    /**
+     * @default -1
+     */
     blobSizeMaxLimit:  number,
+
     threads: {
         name: string,
+
+        /**
+         * Set to true to stream. This will make sure the FetchQuery is properly setup
+         * for streaming. If set to false then it will make sure FetchQuery is not
+         * setup for streaming.
+         *
+         * @default false
+         */
         stream: boolean,
+
+        /**
+         * defaults to "pull".
+         */
         direction: "pull" | "push" | "both",
+
         threadFetchParams: ThreadFetchParams,
     }[],
 };
@@ -113,10 +131,27 @@ export type SyncConf = {
  * using an instantiated thread as template.
  */
 export type ThreadSyncConf = {
-    stream?: boolean,  // defaults to true
+    /**
+     * @default true
+     */
+    stream?: boolean,
+
+    /**
+     * @default "both"
+     */
     direction?: "pull" | "push" | "both",  // defaults to "both"
-    blobSizeMaxLimit?:  number,  // defaults to -1
-    peerPublicKeys?:    Buffer[],  // defaults to [Buffer.alloc(0)] to match every remote public key
+
+    /**
+     * @default -1
+     */
+    blobSizeMaxLimit?:  number,
+
+    /**
+     * @default
+     * [Buffer.alloc(0)]
+     * which means match every remote public key.
+     */
+    peerPublicKeys?:    Buffer[],
 };
 
 export type UniverseConf = {

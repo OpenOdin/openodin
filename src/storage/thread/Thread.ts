@@ -529,18 +529,6 @@ export class Thread {
         const queryParams = Thread.MergeProperties([threadQueryParams,
             {parentId: defaults.parentId}, threadTemplate.query]);
 
-        if (queryParams.includeLicenses) {
-            queryParams.match = queryParams.match ?? [];
-            queryParams.match.push({
-                nodeType: LICENSE_NODE_TYPE,
-            } as any);
-
-            queryParams.embed = queryParams.embed ?? [];
-            queryParams.embed.push({
-                nodeType: LICENSE_NODE_TYPE,
-            } as any);
-        }
-
         if (queryParams.rootNodeId1) {
             delete queryParams.parentId;
         }

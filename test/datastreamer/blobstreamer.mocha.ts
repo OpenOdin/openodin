@@ -161,7 +161,7 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
         let writeData = await blobWriteStreamer.run();
 
         assert(writeData.status === StreamStatus.NOT_ALLOWED);
-        assert(writeData.error === "write blob failed: Error: node not found or not allowed");
+        assert(writeData.error === "write blob failed: Error: node not found or not allowed writing blob data");
         assert(!writeData.readError);
 
         // Store node

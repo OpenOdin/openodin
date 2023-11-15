@@ -55,6 +55,7 @@ struct FetchQuery {
     bool preserveTransient;
     string region;
     string jurisdiction;
+    uint8 includeLicenses;
 }
 
 struct FetchCRDT {

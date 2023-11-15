@@ -1075,7 +1075,7 @@ function setupTests(config: any) {
 
         assert(response);
         assert(response.status === Status.NOT_ALLOWED);
-        assert(response.error === "write blob failed: Error: node not found or not allowed");
+        assert(response.error === "write blob failed: Error: node not found or not allowed writing blob data");
 
 
         const node1 = await nodeUtil.createDataNode({

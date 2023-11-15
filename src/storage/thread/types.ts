@@ -72,7 +72,7 @@ export type ThreadQueryParams = {
     preserveTransient?:     boolean,
     region?:                string,
     jurisdiction?:          string,
-    includeLicenses?:       boolean,
+    includeLicenses?:       number,
 };
 
 /**

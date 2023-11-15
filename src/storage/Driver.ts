@@ -324,49 +324,62 @@ export class Driver implements DriverInterface {
      *
      * Nodes not found are ignored, no error is thrown on not found.
      *
+     * This function preserves the order of returned nodes with given (found) id1s.
+     *
      * This function does not need or manage its own read transaction.
      *
-     * @param nodeId1s the ID1 of the node.
+     * @param id1s the ID1s of the nodes.
      */
-    public async getNodesById1(nodeId1s: Buffer[], now: number): Promise<NodeInterface[]> {
-        if (nodeId1s.length > MAX_BATCH_SIZE) {
-            throw new Error(`Calling getNodesById1 with too many (${nodeId1s.length} ids), maximum allowed is ${MAX_BATCH_SIZE}.`);
+    public async getNodesById1(id1s: Buffer[], now: number): Promise<NodeInterface[]> {
+        if (id1s.length > MAX_BATCH_SIZE) {
+            throw new Error("Overflow in batch size of id1s");
         }
 
-        if (nodeId1s.length === 0) {
+        if (id1s.length === 0) {
             return [];
         }
 
-        const ph = this.db.generatePlaceholders(nodeId1s.length);
+        const ph = this.db.generatePlaceholders(id1s.length);
 
         if (!Number.isInteger(now)) {
             throw new Error("now not integer");
         }
 
-        const sql = `SELECT image, storagetime FROM universe_nodes
-            WHERE id1 IN ${ph} AND (expiretime IS NULL OR expiretime > ${now});`;
+        const sql = `SELECT image, storagetime FROM universe_nodes WHERE id1 IN ${ph}
+            AND (expiretime IS NULL OR expiretime > ${now});`;
+
+        const rows = await this.db.all(sql, id1s);
 
         const nodes: NodeInterface[] = [];
 
-        try {
-            const rows = await this.db.all(sql, nodeId1s);
-
-            const rowsLength = rows.length;
-            for (let index=0; index<rowsLength; index++) {
-                const row = rows[index];
-
-                const node = Decoder.DecodeNode(row.image, true);
-                node.setTransientStorageTime(row.storagetime);
-
+        const rowsLength = rows.length;
+        for (let index=0; index<rowsLength; index++) {
+            try {
+                const node = Decoder.DecodeNode(rows[index].image, true);
+                node.setTransientStorageTime(rows[index].storagetime);
                 nodes.push(node);
             }
-        }
-        catch(e) {
-            console.debug("getNodesById1", e);
-            return [];
+            catch(e) {
+                console.debug(e);
+            }
         }
 
-        return nodes;
+        const nodes2: NodeInterface[] = [];
+
+        // Preserve the order of nodes as given in id1s.
+        const id1sLength = id1s.length;
+        for (let i=0; i<id1sLength; i++) {
+            const id1 = id1s[i];
+            const nodesLength = nodes.length;
+            for (let i=0; i<nodesLength; i++) {
+                const node = nodes[i];
+                if ((node.getId1() as Buffer).equals(id1)) {
+                    nodes2.push(node);
+                }
+            }
+        }
+
+        return nodes2;
     }
 
     /**

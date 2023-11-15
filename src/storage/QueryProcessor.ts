@@ -63,6 +63,8 @@ export type MatchState = {
 type PermissionsResult = {
     nodes: NodeInterface[],
     embed: {originalNode: NodeInterface, embeddedNode: NodeInterface}[],
+    includedLicenses: LicenseInterface[],
+    includedLicensesEmbedded: LicenseInterface[],
 };
 
 type NodeRow = {
@@ -187,6 +189,9 @@ export class QueryProcessor {
     protected flushCount: number = 0;
 
     protected _error: Error | undefined;
+
+    protected includedLicensesEmbedded: {[originalId1: string]: boolean} = {};
+    protected includedLicenses: {[id1: string]: boolean} = {};
 
     /**
      * @now now timestamp used to compare against expireTime of nodes.
@@ -561,7 +566,10 @@ export class QueryProcessor {
             const currentRows = this.currentRows.splice(0, MAX_BATCH_SIZE);
 
             const embed: NodeInterface[] = [];
+
             let nodesToFlush: NodeInterface[] = [];
+
+            const nodes: NodeInterface[] = [];
 
             // Note: we do not check any permissions at all when fetching upwards.
             //
@@ -574,6 +582,42 @@ export class QueryProcessor {
                 // if they pass the stateful part of the matching.
                 nodesToFlush = this.matchSecond(permissionsResult.nodes, this.currentLevelMatches);
 
+                // We handle the extra includedLicensesEmbedded seperately here do not clutter
+                // the overall fetch process.
+                //
+                const includedLicensesEmbeddedLength =
+                    permissionsResult.includedLicensesEmbedded.length;
+
+                for (let i=0; i<includedLicensesEmbeddedLength; i++) {
+                    if (maxNodesLeft <= 0) {
+                        break;
+                    }
+
+                    const includedLicenseEmbedded = permissionsResult.includedLicensesEmbedded[i];
+
+                    if (!includedLicenseEmbedded) {
+                        continue;
+                    }
+
+                    try {
+                        const originalNode = includedLicenseEmbedded.getEmbeddedObject();
+
+                        if (!originalNode) {
+                            continue;
+                        }
+
+                        const id1Str = (originalNode.getId1() as Buffer).toString("hex");
+
+                        if (!this.includedLicensesEmbedded[id1Str]) {
+                            embed.push(includedLicenseEmbedded);
+                            this.includedLicensesEmbedded[id1Str] = true;
+                            maxNodesLeft--;
+                        }
+                    }
+                    catch(e) {
+                        // Do nothing
+                    }
+                }
 
                 // We also want to match and alter match state for the nodes being embedded.
                 const originalNodes = permissionsResult.embed.map( tuple => tuple.originalNode );
@@ -610,8 +654,46 @@ export class QueryProcessor {
 
                     for (let i=0; i<embeddedNodesLength; i++) {
                         const {originalNode, embeddedNode} = permissionsResult.embed[i];
-                        if ((originalNode.getId1() as Buffer).equals(node.getId1() as Buffer)) {
+
+                        const id1 = originalNode.getId1() as Buffer;
+
+                        const id1Str = id1.toString("hex");
+
+                        if (this.includedLicensesEmbedded[id1Str]) {
+                            continue;
+                        }
+
+                        if (id1.equals(node.getId1() as Buffer)) {
                             embed.push(embeddedNode);
+                            maxNodesLeft--;
+                        }
+                    }
+                }
+
+
+                // We handle the extra includedLicenses seperately here do not clutter
+                // the overall fetch process.
+                //
+                const includedLicensesLength = permissionsResult.includedLicenses.length;
+                for (let i=0; i<includedLicensesLength; i++) {
+                    if (maxNodesLeft <= 0) {
+                        break;
+                    }
+
+                    const license = permissionsResult.includedLicenses[i];
+
+                    const id1Str = (license.getId1() as Buffer).toString("hex");
+
+                    if (!this.includedLicenses[id1Str]) {
+                        const idStr = (license.getId() as Buffer).toString("hex");
+
+                        const obj = this.alreadyProcessedNodes[idStr] ?? {matched: [], id1s: {}};
+
+                        const obj1 = obj.id1s[id1Str];
+
+                        if (!obj1 || !obj1.passed) {
+                            nodes.push(license);
+                            this.includedLicenses[id1Str] = true;
                             maxNodesLeft--;
                         }
                     }
@@ -620,8 +702,6 @@ export class QueryProcessor {
             else {
                 nodesToFlush = currentRows;
             }
-
-            const nodes: NodeInterface[] = [];
 
             const nodesLength = nodesToFlush.length;
             for (let index=0; index<nodesLength; index++) {
@@ -633,6 +713,10 @@ export class QueryProcessor {
 
                 const idStr = (node.getId() as Buffer).toString("hex");
                 const id1Str = (node.getId1() as Buffer).toString("hex");
+
+                if (this.includedLicenses[id1Str]) {
+                    continue;
+                }
 
                 const obj = this.alreadyProcessedNodes[idStr] ?? {matched: [], id1s: {}};
                 const obj1 = obj.id1s[id1Str];
@@ -685,7 +769,6 @@ export class QueryProcessor {
                             this.nextLevelIds[parentId.toString("hex")] = parentId;
                         }
                     }
-
                 }
             }
 
@@ -1073,9 +1156,45 @@ export class QueryProcessor {
      * Return nodes which the caller has permissions to and also nodes which can be embedded.
      *
      */
-    public async filterPermissions(allNodes: NodeInterface[], allowRightsByAssociation: boolean = true): Promise<PermissionsResult> {
-        const [nodes, toEmbed] = await this.filterPrivateNodes(
-            await this.filterLicensedNodes(allNodes),
+    public async filterPermissions(allNodes: NodeInterface[],
+        allowRightsByAssociation: boolean = true): Promise<PermissionsResult>
+    {
+        const includedLicenses: LicenseInterface[] = [];
+        const includedLicensesEmbedded: LicenseInterface[] = [];
+
+        const includeLicenses = (this.fetchQuery.includeLicenses & 1) > 0;
+
+        const [allowedNodes, addedLicenses] = await this.filterLicensedNodes(allNodes,
+            this.fetchQuery.targetPublicKey, includeLicenses);
+
+        includedLicenses.push(...addedLicenses);
+
+        const includeEmbeddableLicenses = (this.fetchQuery.includeLicenses & 2) > 0;
+
+        if (includeEmbeddableLicenses &&
+            !this.fetchQuery.targetPublicKey.equals(this.fetchQuery.sourcePublicKey))
+        {
+            const [_, addedEmbeddableLicenses] = await this.filterLicensedNodes(allNodes,
+                this.fetchQuery.sourcePublicKey, true);
+
+            const embeddable = addedEmbeddableLicenses.filter( license => {
+                if (license.isPrivate() && license.isUnique() && !license.canSendPrivately(
+                    this.fetchQuery.sourcePublicKey, this.fetchQuery.targetPublicKey) &&
+                    license.canSendEmbedded(this.fetchQuery.sourcePublicKey,
+                        this.fetchQuery.targetPublicKey)) {
+
+                    return true;
+                }
+
+                return false;
+            });
+
+            const embeddedNodes = (await this.embedNodes(embeddable)).map( b => b.embeddedNode );
+
+            includedLicensesEmbedded.push(...(embeddedNodes as LicenseInterface[]));
+        }
+
+        const [nodes, toEmbed] = await this.filterPrivateNodes(allowedNodes,
             allowRightsByAssociation);
 
         const embed = await this.embedNodes(toEmbed);
@@ -1083,6 +1202,8 @@ export class QueryProcessor {
         return {
             nodes,
             embed,
+            includedLicenses,
+            includedLicensesEmbedded,
         };
     }
 
@@ -1093,7 +1214,9 @@ export class QueryProcessor {
      * @returns the original nodes and their embeddings. Any nodes who
      * cannot be successfully embedded are ignored and not returned.
      */
-    protected async embedNodes(nodes: NodeInterface[]): Promise<{originalNode: NodeInterface, embeddedNode: NodeInterface}[]> {
+    protected async embedNodes(nodes: NodeInterface[]):
+        Promise<{originalNode: NodeInterface, embeddedNode: NodeInterface}[]>
+    {
         const triples: {originalNode: NodeInterface, embeddedNode: NodeInterface, sharedHashStr: string}[] = [];
 
         const allSharedHashes: Buffer[] = [];
@@ -1452,8 +1575,8 @@ export class QueryProcessor {
     }
 
     /**
-     * Filter out licensed nodes for which the caller has no license,
-     * return all non licensed nodes and those nodes who have appropiate licenses.
+     * Filter away licensed nodes for which the caller has no license.
+     * Return all non licensed nodes and those licensed nodes who have appropiate licenses.
      *
      * Checking licenses is done in three steps:
      *
@@ -1468,15 +1591,32 @@ export class QueryProcessor {
      *    If a match is found then check the License details of
      *      a) disallowing retro licensing,
      *      b) requiring a specific parent path hash,
+     *
+     * The upwards paths checked are the paths this query just traversed downwards and are
+     * cached in the alreadyProcessedNodes data structure.
+     *
+     * @param nodes all nodes to check. Non licensed nodes are returned as they are, while
+     * licensed nodes are checked for existing licenses and returned if there is any active license.
+     *
+     * @param targetPublicKey the public key of the receiver of the nodes and for whom there
+     * must exist active licenses for the nodes requested.
+     *
+     * @param includeLicenses is set to true then return all active licenses for licensed nodes
+     * returned. Including licenses for any embedded nodes.
+     *
+     * @returns tuple of nodes and licenses found (if includeLicenses is set).
      */
-    protected async filterLicensedNodes(nodes: NodeInterface[]): Promise<NodeInterface[]> {
-        const targetPublicKey = this.fetchQuery.targetPublicKey;
-
-        const nodeHasLicense: {[nodeId1: string]: boolean} = {};
-
+    protected async filterLicensedNodes(nodes: NodeInterface[], targetPublicKey: Buffer,
+        includeLicenses: boolean = false):
+        Promise<[nodes: NodeInterface[], licenses: LicenseInterface[]]>
+    {
         const nodeTrees: {[id1: string]: LicenseNodeEntry[]} = {};
 
         const distinctHashes: {[hash: string]: Buffer} = {};
+
+        const allowedNodes: NodeInterface[] = [];
+
+        let addedLicenses: {[licenseId1: string]: Buffer} = {};
 
         if (this.allowLicensed) {
             for (const node of nodes) {
@@ -1486,30 +1626,38 @@ export class QueryProcessor {
                     continue;
                 }
 
+                // Check licensed nodes and any licensed embedded nodes.
+                //
                 let eyesOnNode: NodeInterface | undefined = node;
-                let id1Str = "";
+
+                const id1List: Buffer[] = [];
 
                 while (eyesOnNode) {
+                    const id1 = eyesOnNode.getId1() as Buffer;
+
+                    id1List.push(id1);
+
                     if (eyesOnNode.isLicensed()) {
                         const parentId2 = eyesOnNode.getParentId();
 
-                        const sameParentId = parentId2 && parentId2.equals(parentId);
-
-                        if (sameParentId === undefined) {
+                        if (!parentId2) {
                             break;
                         }
 
-                        if (!sameParentId && !eyesOnNode.allowEmbedMove()) {
-                            break;
-                        }
+                        const sameParentId = parentId2.equals(parentId);
 
-                        const entries = this.getLicenseNodeTree(eyesOnNode, undefined, targetPublicKey, sameParentId ? undefined : parentId);
+                        // Get all relevant licenses hashes for this particular node 
+                        //
+                        const entries = this.getLicenseNodeTree(eyesOnNode, undefined,
+                            targetPublicKey, sameParentId ? undefined : parentId);
 
-                        id1Str = id1Str ? id1Str + "_" : "";
-                        id1Str = id1Str + (node.getId1() as Buffer).toString("hex");
+                        const id1Concated = id1List.map( id1 => id1.toString("hex") ).join("_");
 
-                        nodeTrees[id1Str] = entries;
+                        nodeTrees[id1Concated] = entries;
 
+                        // Save all license hashes once so we can fetch the
+                        // licenses themselves later on.
+                        //
                         for (const entry of entries) {
                             for (const hash of entry.licenseHashes) {
                                 distinctHashes[hash.toString("hex")] = hash;
@@ -1527,6 +1675,20 @@ export class QueryProcessor {
                                 if (!eyesOnNode.allowEmbed()) {
                                     break;
                                 }
+
+                                const parentId2 = eyesOnNode.getParentId();
+
+                                if (!parentId2) {
+                                    break;
+                                }
+
+                                const sameParentId = parentId2.equals(parentId);
+
+                                if (!sameParentId && !eyesOnNode.allowEmbedMove()) {
+                                    // The embedded node has another parentId but it is apparently
+                                    // not allowed to be moved around.
+                                    break;
+                                }
                             }
                             else {
                                 // Not a node, do not check any further.
@@ -1545,8 +1707,14 @@ export class QueryProcessor {
             }
 
 
-            const licenseRows = await this.checkLicenses(Object.values(distinctHashes), false);
+            // Get as many of all possible relevant licenses as we can.
+            //
+            const licenseRows = await this.fetchLicenses(Object.values(distinctHashes));
 
+            // Iterate over all nodes AGAIN and now check if any of the relevant licenses
+            // needed are available for each licensed node and also for every embedded node
+            // which is licensed.
+            //
             for (const node of nodes) {
                 const parentId = node.getParentId();
 
@@ -1555,20 +1723,33 @@ export class QueryProcessor {
                 }
 
                 const id1Str = (node.getId1() as Buffer).toString("hex");
-                let found = true;
+
+                const id1List: Buffer[] = [];
 
                 let eyesOnNode: NodeInterface | undefined = node;
-                let id1StrConcat = "";
+
+                const nodeLicenses: {[licenseId1: string]: Buffer} = {};
+
+                let found = true;
 
                 while (eyesOnNode) {
+                    const id1 = eyesOnNode.getId1() as Buffer;
+
+                    id1List.push(id1);
+
                     if (eyesOnNode.isLicensed()) {
                         const parentId2 = eyesOnNode.getParentId();
-                        const sameParentId = parentId2 && parentId2.equals(parentId);
 
-                        id1StrConcat = id1StrConcat ? id1StrConcat + "_" : "";
-                        id1StrConcat = id1StrConcat + (eyesOnNode.getId1() as Buffer).toString("hex");
+                        if (!parentId2) {
+                            found = false;
+                            break;
+                        }
 
-                        const entries = nodeTrees[id1StrConcat];
+                        const sameParentId = parentId2.equals(parentId);
+
+                        const id1Concated = id1List.map( id1 => id1.toString("hex") ).join("_");
+
+                        const entries = nodeTrees[id1Concated];
 
                         if (!entries) {
                             found = false;
@@ -1581,6 +1762,8 @@ export class QueryProcessor {
 
                         for (const entry of entries) {
                             if (entry.distance > 0 && !sameParentId) {
+                                // For moved embedded nodes we only accept sibling licenses
+                                // of distance 0.
                                 continue;
                             }
 
@@ -1588,8 +1771,12 @@ export class QueryProcessor {
                                 continue;
                             }
 
+                            // Note we do not need to check getLicenseMaxDistance
+                            // for eyesOnNode since entries was already fetched with that in mind.
+
                             for (const hash of entry.licenseHashes) {
                                 const hashStr = hash.toString("hex");
+
                                 const licenses = licenseRows[hashStr] ?? [];
 
                                 for (const license of licenses) {
@@ -1607,16 +1794,37 @@ export class QueryProcessor {
                                         }
                                     }
 
-                                    innerFound = true;
-                                    break;
+                                    if (includeLicenses) {
+                                        // Collect all active licenses, read and write.
+                                        const id1Str = license.id1.toString("hex");
+                                        nodeLicenses[id1Str] = license.id1;
+                                    }
+
+                                    // Check so it is a read license.
+                                    //
+                                    if (!license.restrictivemodewriter &&
+                                        !license.restrictivemodemanager)
+                                    {
+                                        // We can only allow read license to license the node
+                                        // when fetching.
+                                        innerFound = true;
+
+                                        if (!includeLicenses) {
+                                            // We don't need more confirmation than one license.
+                                            break;
+                                        }
+                                    }
+
+                                    // If it is a write license then keep iterating.
+                                    //
                                 }
 
-                                if (innerFound) {
+                                if (innerFound && !includeLicenses) {
                                     break;
                                 }
                             }
 
-                            if (innerFound) {
+                            if (innerFound && !includeLicenses) {
                                 break;
                             }
                         }
@@ -1627,6 +1835,8 @@ export class QueryProcessor {
                         }
                     }
 
+                    // Load next embedded node to be checked.
+                    //
                     if (eyesOnNode.getEmbedded()) {
                         try {
                             const dataModel = eyesOnNode.getEmbeddedObject();
@@ -1650,17 +1860,21 @@ export class QueryProcessor {
                     }
                 }
 
-                nodeHasLicense[id1Str] = found;
+                // Node and all embedded nodes have now been checked.
+
+                addedLicenses = {...addedLicenses, ...nodeLicenses};
+
+                if (found) {
+                    allowedNodes.push(node);
+                }
             }
         }
 
-        return nodes.filter( (node) => {
-            if (node.isLicensed()) {
-                return nodeHasLicense[(node.getId1() as Buffer).toString("hex")];
-            }
+        const licenseNodeId1s = Object.values(addedLicenses);
 
-            return true;
-        });
+        const licenseNodes = await this.getNodesById1(licenseNodeId1s) as LicenseInterface[];
+
+        return [allowedNodes, licenseNodes];
     }
 
     /**
@@ -1702,7 +1916,7 @@ export class QueryProcessor {
         }
 
 
-        const licenseRows = await this.checkLicenses(Object.values(distinctHashes), true);
+        const licenseRows = await this.fetchLicenses(Object.values(distinctHashes), true);
 
 
         return allNodes.filter( node => {
@@ -1748,23 +1962,45 @@ export class QueryProcessor {
     }
 
     /**
-     * Get all nodes eligable to be used checking for licenses.
+     * Get all license hashes eligible to be used checking for licenses from the tree
+     * we have built fetching.
      *
-     * When looking for eligable nodes to use for licensing
-     * we check upwards all parents which fulfill these criterias:
+     * The node given as argument sets the max distance to traverse updwards in the tree.
+     * For each parent upwards we check calculate license hashes which license each node.
+     * These hashes are returned.
+     *
+     * When looking for eligible nodes to use for licensing
+     * we check upwards all parents which we have passed when fetching,
+     * who also fulfill these criterias:
      *
      * 1. Each parent must it self be licensed.
-     * 2. The parent nodes min/maxLicenseDistance does not matter.
+     * 2. Each parent nodes min/maxLicenseDistance does not matter,
+     *    as long as each parent node use parent licenses themselves. It is the first
+     *    node given as first argument which decide the maximum distance used.
      * 3. Parents are not fetched if the parent node to get parents by has dynamicSelf (id2).
+     *    We do not go past such a node.
      * 4. A parent is allowed to be dynamic, but it must be active.
      * 5. A parent cannot be configured with disallowParentLicensing.
      *
+     * @param node The node to start building the tree from (bottom node).
+     * @param ownerPublicKey
+     * @param targetPublicKey
+     * @param actualParentId if set then only check licenses for node given in arguments,
+     * do not check for parent node's licenses. This is because when checking licenses
+     * for a node which is embedded and have changed parent, there must be a license
+     * below that same parent (sibling node) since parent licensing is not allowed
+     * for embedded nodes who have changed their parent because they are embedded
+     * into a node which has a different parent.
+     *
      * @return array of nodes and each node's set of calculated pathHashes.
      */
-    protected getLicenseNodeTree(node: NodeInterface, ownerPublicKey: Buffer | undefined, targetPublicKey: Buffer, actualParentId?: Buffer): LicenseNodeEntry[] {
+    protected getLicenseNodeTree(node: NodeInterface, ownerPublicKey: Buffer | undefined,
+        targetPublicKey: Buffer, actualParentId?: Buffer): LicenseNodeEntry[]
+    {
         const entries: LicenseNodeEntry[] = [];
 
-        const maxDistance = Math.min(node.getLicenseMaxDistance(), actualParentId ? 0 : MAX_LICENSE_DISTANCE);
+        const maxDistance = Math.min(node.getLicenseMaxDistance(),
+            actualParentId ? 0 : MAX_LICENSE_DISTANCE);
 
 
         let currentLevelNodes: [NodeInterface, Buffer[]][] = [ [node, []] ];
@@ -1772,18 +2008,13 @@ export class QueryProcessor {
         for (let distance=0; distance<=maxDistance; distance++) {
             const nextLevelNodes: [NodeInterface, Buffer[]][] = [];
 
-
             for (const [node, prevHashes] of currentLevelNodes) {
                 if (!node.isLicensed()) {
                     continue;
                 }
 
-                // Apply some sanity control in max processing tolerated.
-                if (entries.length > 10000) {
-                    break;
-                }
-
-                const licenseHashes = node.getLicensingHashes(ownerPublicKey, targetPublicKey, actualParentId);
+                const licenseHashes = node.getLicensingHashes(ownerPublicKey, targetPublicKey,
+                    actualParentId);
 
                 const pathHashes: Buffer[] = prevHashes.map( prevHash => {
                     return Hash([node.getId1() as Buffer, Buffer.from([1]), prevHash]);
@@ -1797,6 +2028,10 @@ export class QueryProcessor {
                     distance,
                 });
 
+                // Apply some sanity control in max processing tolerated.
+                if (entries.length > 10000) {
+                    break;
+                }
 
                 if (distance > 0 && node.hasDynamicSelf()) {
                     // We can't step past a parent node who is self dynamic.
@@ -1856,11 +2091,14 @@ export class QueryProcessor {
     /**
      * Returns map of all found licenses by their licensing hashes.
      *
-     * @param writeLicenses if true then only get for restrictivemodewriter and restrictivemodemanager
-     * else only get for NOT those.
+     * @param licenseHashes
+     * @param selectOnlyWriteLicenses if true then only get for restrictivemodewriter and/or
+     * restrictivemodemanager.
      * @returns array of found license rows.
      */
-    protected async checkLicenses(licenseHashes: Buffer[], selectWriteLicenses: boolean): Promise<{[hash: string]: SelectLicenseeHash[]}> {
+    protected async fetchLicenses(licenseHashes: Buffer[], selectOnlyWriteLicenses: boolean = false):
+        Promise<{[hash: string]: SelectLicenseeHash[]}>
+    {
 
         const licenseRows: {[hash: string]: SelectLicenseeHash[]} = {};
 
@@ -1870,10 +2108,8 @@ export class QueryProcessor {
             throw new Error("now not integer");
         }
 
-        let writeLicenses = "(restrictivemodewriter = 0 AND restrictivemodemanager = 0)"
-        if (selectWriteLicenses) {
-            writeLicenses = "(restrictivemodewriter = 1 OR restrictivemodemanager = 1)"
-        }
+        const onlyWriteLicensesSQL = selectOnlyWriteLicenses ?
+            "AND (restrictivemodewriter = 1 OR restrictivemodemanager = 1)" : "";
 
         // Apply some sanity.
         if (licenseHashes.length > 10000) {
@@ -1888,8 +2124,8 @@ export class QueryProcessor {
             const sql = `SELECT hash, disallowretrolicensing, parentpathhash, restrictivemodewriter,
                 restrictivemodemanager, nodes.creationtime AS creationtime, hashes.id1 AS id1
                 FROM universe_licensee_hashes AS hashes, universe_nodes AS nodes
-                WHERE hashes.hash IN ${ph} AND hashes.id1 = nodes.id1 AND
-                ${writeLicenses} AND
+                WHERE hashes.hash IN ${ph} AND hashes.id1 = nodes.id1
+                ${onlyWriteLicensesSQL} AND
                 (nodes.expiretime IS NULL OR nodes.expiretime > ${now});`;
 
             try {
@@ -1919,8 +2155,9 @@ export class QueryProcessor {
      *
      * @returns tuple of allowedNodes, nodesToEmbed,
      */
-    protected async filterPrivateNodes(allNodes: NodeInterface[], allowRightsByAssociation: boolean): Promise<[NodeInterface[], NodeInterface[]]> {
-        const embed: NodeInterface[] = [];
+    protected async filterPrivateNodes(allNodes: NodeInterface[], allowRightsByAssociation: boolean):
+        Promise<[NodeInterface[], NodeInterface[]]>
+    {
         const keep: {[index: number]: boolean} = {};
         const checkAssociation: {[index: number]: Buffer} = {};
 
@@ -1976,6 +2213,8 @@ export class QueryProcessor {
 
         const nodes: NodeInterface[] = [];
 
+        const embed: NodeInterface[] = [];
+
         const nodesLength2 = allNodes.length;
         for (let index=0; index<nodesLength2; index++) {
             if (keep[index]) {
@@ -1995,9 +2234,6 @@ export class QueryProcessor {
                 }
             }
         }
-
-        // Check the uniqueness of embeddings so we don't trigger embed unnecessarily.
-        // TODO
 
         return [nodes, embed];
     }

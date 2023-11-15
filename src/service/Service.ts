@@ -775,10 +775,8 @@ export class Service {
 
                 threadFetchParams.query = threadFetchParams.query ?? {};
 
-                // Always set includeLicenses when auto syncing.
-                threadFetchParams.query.includeLicenses = true;
-
-                const fetchRequest = Thread.GetFetchRequest(threadTemplate, threadFetchParams, {}, syncThread.stream);
+                const fetchRequest = Thread.GetFetchRequest(threadTemplate, threadFetchParams,
+                    {}, syncThread.stream);
 
                 // CRDTs are not allowed to be used when auto syncing.
                 fetchRequest.crdt.algo = 0;
@@ -858,9 +856,6 @@ export class Service {
         threadFetchParams = DeepCopy(threadFetchParams);
 
         threadFetchParams.query = threadFetchParams.query ?? {};
-
-        // Always set includeLicenses when auto syncing.
-        threadFetchParams.query.includeLicenses = true;
 
         const fetchRequest = thread.getFetchRequest(threadFetchParams, stream);
 
@@ -1486,11 +1481,17 @@ export class Service {
         const muteMsgIds: Buffer[] = [];
         const reverseMuteMsgIds: Buffer[] = [];
 
-        const autoFetcher = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds);
-        autoFetcher.onBlob( (blobEvent: BlobEvent) => this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
+        const autoFetcher = new P2PClientAutoFetcher(p2pClient, this.state.storageClient,
+            muteMsgIds, reverseMuteMsgIds);
 
-        const autoFetcherReverse = new P2PClientAutoFetcher(p2pClient, this.state.storageClient, muteMsgIds, reverseMuteMsgIds, true);
-        autoFetcherReverse.onBlob( (blobEvent: BlobEvent) => this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
+        autoFetcher.onBlob( (blobEvent: BlobEvent) =>
+            this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
+
+        const autoFetcherReverse = new P2PClientAutoFetcher(p2pClient, this.state.storageClient,
+            muteMsgIds, reverseMuteMsgIds, true);
+
+        autoFetcherReverse.onBlob( (blobEvent: BlobEvent) =>
+            this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
 
         autoFetcher.addFetch(this.config.autoFetch);
         autoFetcherReverse.addFetch(this.config.autoFetch);
@@ -1501,18 +1502,24 @@ export class Service {
 
         // If our permissions (as server) allow us to embed we spawn an extender server.
         //
-        if (permissions.fetchPermissions.allowEmbed.length > 0) {
-            const storageExtender = new P2PClientExtender(p2pClient, this.state.storageClient, this.publicKey,
-                this.config.nodeCerts,
-                this.signatureOffloader, muteMsgIds);
+        if (permissions.fetchPermissions.allowEmbed.length > 0 ||
+            (permissions.fetchPermissions.allowIncludeLicenses & 2) > 0)
+        {
+            const storageExtender = new P2PClientExtender(p2pClient, this.state.storageClient,
+                this.publicKey, this.config.nodeCerts, this.signatureOffloader, muteMsgIds);
+
             this.state.extenderServers.push(storageExtender);
+
             console.debug("Spawn Extender server.");
         }
         else if (permissions.fetchPermissions.allowNodeTypes.length > 0 ||
             permissions.storePermissions.allowStore || permissions.storePermissions.allowWriteBlob) {
 
-            const storageForwarder = new P2PClientForwarder(p2pClient, this.state.storageClient, muteMsgIds);
+            const storageForwarder = new P2PClientForwarder(p2pClient, this.state.storageClient,
+                muteMsgIds);
+
             this.state.storageServers.push(storageForwarder);
+
             console.debug("Spawn Storage server forwarder.");
         }
 

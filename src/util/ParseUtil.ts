@@ -66,6 +66,9 @@ import {
     ThreadTemplate,
     ThreadLicenseParams,
     ThreadDataParams,
+    ThreadQueryParams,
+    ThreadCRDTParams,
+    ThreadFetchParams,
 } from "../storage/thread";
 
 import {
@@ -101,12 +104,11 @@ export class ParseUtil {
      *      threads: {
      *          name:               string,
      *          stream?:            boolean,
+     *          threadFetchParams?: ThreadFetchParams,
      *          direction?:         "push" | "pull" " "both",
      *      }[],
      *  }[]
      * }
-     *
-     * Note that threads[].threadFetchParams are not supported to be parsed.
      *
      * @returns UniverseConf
      * @throws if malconfigured.
@@ -190,6 +192,8 @@ export class ParseUtil {
 
                 const direction = ParseUtil.ParseVariable("universeConf.sync.threads.direction must be string, if set", thread.direction, "string", true) ?? "pull";
 
+                const threadFetchParams = ParseUtil.ParseThreadFetchParams(thread.threadFetchParams ?? {});
+
                 if (!["push", "pull", "both"].includes(direction)) {
                     throw new Error("universeConf.sync.threads.direction must be either \"push\", \"pull\", \"both\", if set");
                 }
@@ -197,7 +201,7 @@ export class ParseUtil {
                 threads.push({
                     name,
                     stream,
-                    threadFetchParams: {},
+                    threadFetchParams,
                     direction,
                 });
             });
@@ -667,6 +671,7 @@ export class ParseUtil {
     public static ParseP2PClientPermissions(permissions: any): P2PClientPermissions {
         let fetchPermissions: P2PClientFetchPermissions = {
             allowNodeTypes: [],
+            allowIncludeLicenses: 0,
             allowTrigger: false,
             allowEmbed: [],
             allowAlgos: [],
@@ -718,6 +723,7 @@ export class ParseUtil {
      * @param permissions object of type:
      * {
      *  allowEmbed: {nodeType: hexstring | Buffer, filters: Filter[]}[],
+     *  allowIncludeLicenses?: number,
      *  allowTrigger: boolean,
      *  allowNodeTypes: string[] | Buffer[],
      *  allowAlgos: number[],
@@ -745,6 +751,7 @@ export class ParseUtil {
             });
         }
 
+        const allowIncludeLicenses = ParseUtil.ParseVariable("permissions allowIncludeLicenses must be number, if set", permissions.allowIncludeLicenses, "number", true) ?? 0;
         const allowTrigger = ParseUtil.ParseVariable("permissions allowTrigger must be boolean, if set", permissions.allowTrigger, "boolean", true) ?? false;
         const allowAlgos = ParseUtil.ParseVariable("permissions allowAlgos must be number[], if set", permissions.allowAlgos, "number[]", true) ?? [];
         const allowNodeTypes: Buffer[] = ParseUtil.ParseVariable("permissions allowNodeTypes must be hex-string[] or Buffer[]", permissions.allowNodeTypes, "hex[]");
@@ -753,6 +760,7 @@ export class ParseUtil {
 
         return {
             allowEmbed,
+            allowIncludeLicenses,
             allowTrigger,
             allowNodeTypes,
             allowAlgos,
@@ -810,6 +818,7 @@ export class ParseUtil {
      *  embed: {nodeType: hexstring | Buffer, filters: Filter[]}[],
      *  region?: string,
      *  jurisdiction?: string,
+     *  includeLicenses?: number,
      * }
      * @returns FetchQuery
      * @throws on unparseable data
@@ -838,11 +847,14 @@ export class ParseUtil {
         const sourcePublicKey = ParseUtil.ParseVariable("query sourcePublicKey must be hex-string or Buffer, if set", query.sourcePublicKey, "hex", true) ?? Buffer.alloc(0);
         const region = ParseUtil.ParseVariable("query region must be string, if set", query.region, "string", true) ?? "";
         const jurisdiction = ParseUtil.ParseVariable("query jurisdiction must be string, if set", query.jurisdiction, "string", true) ?? "";
+        const includeLicenses = ParseUtil.ParseVariable("query includeLicenses must be number, if set", query.includeLicenses, "number", true) ?? 0;
+
+        let embed: AllowEmbed[] = [];
 
         const allowEmbed0 = ParseUtil.ParseVariable("query embed must be object[], if set", query.embed, "object[]", true);
-        let allowEmbed: AllowEmbed[] = [];
+
         if (allowEmbed0) {
-            allowEmbed = allowEmbed0.map( (allowEmbedObj: AllowEmbed) => {
+            embed = allowEmbed0.map( (allowEmbedObj: AllowEmbed) => {
                 const nodeType = ParseUtil.ParseVariable("query embed[index] nodeType must be hex-string or Buffer", allowEmbedObj.nodeType, "hex");
                 let filters: Filter[] = [];
                 const filters0 = ParseUtil.ParseVariable("query embed[index] filters must be Filter[], if set", allowEmbedObj.filters, "object[]", true);
@@ -872,11 +884,12 @@ export class ParseUtil {
             preserveTransient,
             ignoreOwn,
             ignoreInactive,
-            embed: allowEmbed,
+            embed,
             targetPublicKey,
             sourcePublicKey,
             region,
             jurisdiction,
+            includeLicenses,
         };
 
         return query2;
@@ -886,6 +899,7 @@ export class ParseUtil {
      * @param crdt as:
      * {
      *  algo: number,
+     *  conf?: string,
      *  reverse?: boolean,
      *  cursorId1?: hexstring | Buffer,
      *  cursorIndex?: number,
@@ -920,6 +934,114 @@ export class ParseUtil {
             head,
             tail,
             msgId,
+        };
+    }
+
+    /**
+     * @param crdt as:
+     * {
+     *  reverse?: boolean,
+     *  cursorId1?: hexstring | Buffer,
+     *  cursorIndex?: number,
+     *  head?: number,
+     *  tail?: number,
+     *
+     * }
+     * @returns ThreadCRDTParams
+     * @throws on unparseable data
+     */
+    public static ParseThreadCRDTParams(crdt: any): ThreadCRDTParams {
+        if (typeof crdt !== "object" || crdt.constructor !== Object) {
+            throw new Error("Expecting crdt to be object.");
+        }
+
+        const head = ParseUtil.ParseVariable("crdt head must be number, if set", crdt.head, "number", true) ?? 0;
+        const tail = ParseUtil.ParseVariable("crdt tail must be number, if set", crdt.tail, "number", true) ?? 0;
+        const reverse = ParseUtil.ParseVariable("crdt reverse must be boolean, if set", crdt.reverse, "boolean", true) ?? false;
+        const cursorId1 = ParseUtil.ParseVariable("crdt cursorId1 must be hex-string or Buffer, if set", crdt.cursorId1, "hex", true) ?? Buffer.alloc(0);
+        const cursorIndex = ParseUtil.ParseVariable("crdt cursorIndex must be number, if set", crdt.cursorIndex, "number", true) ?? -1;
+
+        return {
+            reverse,
+            cursorId1,
+            cursorIndex,
+            head,
+            tail,
+        };
+    }
+
+    /**
+     * @param ThreadQueryParams as:
+     * {
+     *  depth?: number,
+     *  limit?: number,
+     *  cutoffTime?: bigint,
+     *  rootNodeId1?: hexstring | Buffer,
+     *  parentId?: hexstring | Buffer,
+     *  descending?: boolean,
+     *  orderByStorageTime?: boolean,
+     *  discardRoot?: boolean,
+     *  preserveTransient?: boolean,
+     *  ignoreOwn?: boolean,
+     *  ignoreInactive?: boolean,
+     *  region?: string,
+     *  jurisdiction?: string,
+     *  includeLicenses?: number,
+     * }
+     * @returns FetchQuery
+     * @throws on unparseable data
+     */
+    public static ParseThreadQueryParams(query: any): ThreadQueryParams {
+        if (typeof query !== "object" || query.constructor !== Object) {
+            throw new Error("Expecting query to be object.");
+        }
+
+        const depth = ParseUtil.ParseVariable("query depth must be number, if set", query.depth, "number", true) ?? -1;
+        const limit = ParseUtil.ParseVariable("query limit must be number, if set", query.limit, "number", true) ?? -1;
+        const cutoffTime = ParseUtil.ParseVariable("query cutoffTime must be number, if set", query.cutoffTime, "bigint", true) ?? 0n;
+        const rootNodeId1 = ParseUtil.ParseVariable("query rootNodeId1 must be hex-string or Buffer, if set", query.rootNodeId1, "hex", true) ?? Buffer.alloc(0);
+        const parentId = ParseUtil.ParseVariable("query parentId must be hex-string or Buffer, if set", query.parentId, "hex", true) ?? Buffer.alloc(0);
+        const descending = ParseUtil.ParseVariable("query descending must be boolean, if set", query.descending, "boolean", true) ?? false;
+        const orderByStorageTime = ParseUtil.ParseVariable("query orderByStorageTime must be boolean, if set", query.orderByStorageTime, "boolean", true) ?? false;
+        const discardRoot = ParseUtil.ParseVariable("query discardRoot must be boolean, if set", query.discardRoot, "boolean", true) ?? false;
+        const preserveTransient = ParseUtil.ParseVariable("query preserveTransient must be boolean, if set", query.preserveTransient, "boolean", true) ?? false;
+        const ignoreOwn = ParseUtil.ParseVariable("query ignoreOwn must be boolean, if set", query.ignoreOwn, "boolean", true) ?? false;
+        const ignoreInactive = ParseUtil.ParseVariable("query ignoreInactive must be boolean, if set", query.ignoreInactive, "boolean", true) ?? false;
+        const region = ParseUtil.ParseVariable("query region must be string, if set", query.region, "string", true) ?? "";
+        const jurisdiction = ParseUtil.ParseVariable("query jurisdiction must be string, if set", query.jurisdiction, "string", true) ?? "";
+        const includeLicenses = ParseUtil.ParseVariable("query includeLicenses must be number, if set", query.includeLicenses, "number", true) ?? 0;
+
+        const query2: ThreadQueryParams = {
+            depth,
+            limit,
+            cutoffTime,
+            rootNodeId1,
+            parentId,
+            descending,
+            orderByStorageTime,
+            discardRoot,
+            preserveTransient,
+            ignoreOwn,
+            ignoreInactive,
+            region,
+            jurisdiction,
+            includeLicenses,
+        };
+
+        return query2;
+    }
+
+    public static ParseThreadFetchParams(fetch: any): ThreadFetchParams {
+        if (typeof fetch !== "object" || fetch.constructor !== Object) {
+            throw new Error("Expecting fetch to be object.");
+        }
+
+        const query = fetch.query ? ParseUtil.ParseThreadQueryParams(fetch.query) : undefined;
+        const crdt = fetch.crdt ? ParseUtil.ParseThreadCRDTParams(fetch.crdt) : undefined;
+
+        return {
+            query,
+            crdt,
         };
     }
 

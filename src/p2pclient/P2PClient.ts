@@ -647,11 +647,13 @@ export class P2PClient {
         // Intersect what the client wants to embed and what we allow to be embedded.
         const allowEmbed = this.intersectAllowedEmbed(fetchRequest.query.embed, this.permissions.fetchPermissions.allowEmbed);
 
+
         // Copy fetchRequest with some changes to forward it to our storage.
         const fetchRequest2: FetchRequest = {
             query: {
                 ...fetchRequest.query,
                 embed: allowEmbed,
+                includeLicenses: fetchRequest.query.includeLicenses & this.permissions.fetchPermissions.allowIncludeLicenses,
             },
             crdt: fetchRequest.crdt,
         };

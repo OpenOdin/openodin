@@ -294,6 +294,7 @@ export interface IFetchQuery {
   preserveTransient: boolean;
   region: string;
   jurisdiction: string;
+  includeLicenses: number;
 }
 
 export const FetchQuery = {
@@ -338,6 +339,7 @@ export const FetchQuery = {
       view.writeByte(Number(message.preserveTransient));
       view.writeString(message.region);
       view.writeString(message.jurisdiction);
+      view.writeByte(message.includeLicenses);
     const after = view.length;
     return after - before;
   },
@@ -405,6 +407,8 @@ export const FetchQuery = {
     field18 = view.readString();
     let field19: string;
     field19 = view.readString();
+    let field20: number;
+    field20 = view.readByte();
     let message: IFetchQuery = {
       depth: field0,
       limit: field1,
@@ -426,6 +430,7 @@ export const FetchQuery = {
       preserveTransient: field17,
       region: field18,
       jurisdiction: field19,
+      includeLicenses: field20,
     };
     return message;
   },

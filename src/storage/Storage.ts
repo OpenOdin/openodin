@@ -1073,7 +1073,7 @@ export class Storage {
 
             if (!node) {
                 status = Status.NOT_ALLOWED;
-                throw new Error("node not found or not allowed");
+                throw new Error("node not found or not allowed writing blob data");
             }
 
             // If writer is not owner then check permissions.
@@ -1092,7 +1092,7 @@ export class Storage {
 
             if (!node) {
                 status = Status.NOT_ALLOWED;
-                throw new Error("node not found or not allowed");
+                throw new Error("node not found or not allowed writing blob data");
             }
 
             const blobLengthn = node.getBlobLength();
@@ -1111,7 +1111,7 @@ export class Storage {
 
             if (pos + data.length > blobLength) {
                 status = Status.MALFORMED;
-                throw new Error("write out of bounds");
+                throw new Error("write blob out of bounds");
             }
 
             if (await this.blobDriver.getBlobDataId(nodeId1)) {
@@ -1148,7 +1148,7 @@ export class Storage {
 
                 if (!copyFromNode) {
                     status = Status.NOT_ALLOWED;
-                    throw new Error("copy node not found or not allowed.");
+                    throw new Error("copy blob node not found or not allowed");
                 }
 
                 // If not owner then fetch the node applying permissions.
@@ -1162,7 +1162,7 @@ export class Storage {
 
                 if (!copyFromNode) {
                     status = Status.NOT_ALLOWED;
-                    throw new Error("copy node not found or not allowed");
+                    throw new Error("copy node blob not found or not allowed");
                 }
 
                 const copyBlobHash = copyFromNode.getBlobHash();
@@ -1171,7 +1171,7 @@ export class Storage {
                     copyBlobLength === undefined || copyBlobLength !== blobLengthn) {
 
                     status = Status.MALFORMED;
-                    throw new Error("copy node blob not does not match target");
+                    throw new Error("copy blob node not does not match target");
                 }
 
                 let done = false;
@@ -1182,7 +1182,7 @@ export class Storage {
                             now))) {
 
                             status = Status.ERROR;
-                            throw new Error("copy node blob data not available as expected");
+                            throw new Error("copy blob node data not available as expected");
                         }
 
                         done = true;
@@ -1358,7 +1358,7 @@ export class Storage {
             this.lock.release(mutex1);
         }
         catch(e) {
-            console.debug("handleWriteBlob", e);
+            console.debug("Exception in handleWriteBlob", e);
             if (sendResponse) {
                 const error = `write blob failed: ${e}`;
                 const errorWriteBlobResponse: WriteBlobResponse = {
