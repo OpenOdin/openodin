@@ -11,6 +11,10 @@ import {
 } from "./types";
 
 import {
+    SPECIAL_NODES,
+} from "../../../node/secondary/data/types";
+
+import {
     FriendCertInterface,
     FriendCertConstraintValues,
 } from "../interface/FriendCertInterface";
@@ -80,6 +84,10 @@ export class FriendCert extends PrimaryDefaultCert implements FriendCertInterfac
 
         if (this.getTargetPublicKeys().length === 0) {
             return [false, "Friend cert must have targetPublicKeys set (is shared secrey key)."];
+        }
+
+        if (this.isIndestructible()) {
+            return [false, "Friend cert cannot be indestructible."];
         }
 
         return [true, ""];
@@ -263,6 +271,26 @@ export class FriendCert extends PrimaryDefaultCert implements FriendCertInterfac
         if (params.isLockedOnLevel !== undefined) {
             this.setLockedOnLevel(params.isLockedOnLevel);
         }
+    }
+
+    public getAchillesHashes(): Buffer[] {
+        const hashes = super.getAchillesHashes();
+
+        const key = this.getKey();
+
+        // Note that a friend cert is not allowed to be indestructible.
+        //
+        if (key) {
+            // This hash lets the owner destroy all their friend certs for the specific key.
+            //
+            const innerHash = Hash([SPECIAL_NODES.DESTROY_FRIEND_CERT,
+                this.getOwner(), key]);
+
+            hashes.push(Hash([SPECIAL_NODES.DESTROY_FRIEND_CERT,
+                this.getOwner(), innerHash]));
+        }
+
+        return hashes;
     }
 
     public toString(short: boolean = false): string {

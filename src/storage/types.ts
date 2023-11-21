@@ -34,12 +34,6 @@ export const MAX_BATCH_SIZE         = 100;
 export const MAX_QUERY_LEVEL_LIMIT = 100_000;
 
 /**
- * The minimum difficulty required for destroy nodes targeting ALL of the owners nodes.
- *
- */
-export const MIN_DIFFICULTY_TOTAL_DESTRUCTION = 2;
-
-/**
  * The split size of blob fragments.
  * This value should never be changed on a live database.
  */

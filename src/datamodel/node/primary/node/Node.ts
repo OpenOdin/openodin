@@ -19,6 +19,12 @@ import {
     NodeParams,
 } from "./types";
 
+// Note that here we are importing constants from a sub-class (Data) which is not overwhelmingly
+// beautiful but we'll let that slide since it's only constants.
+import {
+    SPECIAL_NODES,
+} from "../../secondary/data/types";
+
 import {
     PRIMARY_INTERFACE_ID,
     CLASS_MAJOR_VERSION,
@@ -639,10 +645,6 @@ export abstract class Node implements NodeInterface {
             return [false, `Node cannot be licensed and public at the same time`];
         }
 
-        if (!this.isPrivate() && this.isIndestructible()) {
-            return [false, `Node cannot be indestructible if not also private`];
-        }
-
         if (this.hasDynamicCert()) {
             if (!this.hasCert()) {
                 return [false, `A dynamic Cert node must have cert set`];
@@ -1252,7 +1254,7 @@ export abstract class Node implements NodeInterface {
 
     /**
      * If set then this node cannot be destroyed by offline destruction nodes.
-     * Only private nodes are applicable for this setting.
+     *
      * Note that if this node does embed other nodes or uses cert then those might
      * be destructable and tear this node down with them even if this bit is set.
      * @param isIndestructible
@@ -1637,9 +1639,32 @@ export abstract class Node implements NodeInterface {
         const hashes: Buffer[] = [];
         let node: NodeInterface = this as NodeInterface;
 
-        if (node.isPrivate() && !node.isIndestructible()) {
-            hashes.push(Hash([node.getOwner(), node.getOwner()]));
-            hashes.push(Hash([node.getId1(), node.getOwner()]));
+        if (!node.isIndestructible()) {
+            // This hash lets an owner destroy every node they have created and ever will be created.
+            //
+            let innerHash = Hash([SPECIAL_NODES.DESTROY_SELF_TOTAL_DESTRUCT,
+                node.getOwner()]);
+
+            hashes.push(Hash([SPECIAL_NODES.DESTROY_SELF_TOTAL_DESTRUCT,
+                node.getOwner(), innerHash]));
+
+            // This hash lets an owner destroy a specific node they have created, based on its id1.
+            //
+            innerHash = Hash([SPECIAL_NODES.DESTROY_NODE,
+                node.getOwner(), node.getId1()]);
+
+            hashes.push(Hash([SPECIAL_NODES.DESTROY_NODE,
+                node.getOwner(), innerHash]));
+
+            // This hash lets a copy of a node be destroyed on the original nodes id1.
+            //
+            if (this.isCopy()) {
+                innerHash = Hash([SPECIAL_NODES.DESTROY_NODE,
+                    node.getOwner(), node.getId2()]);
+
+                hashes.push(Hash([SPECIAL_NODES.DESTROY_NODE,
+                    node.getOwner(), innerHash]));
+            }
         }
 
         if (node.hasCert()) {

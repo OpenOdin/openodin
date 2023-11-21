@@ -10,7 +10,6 @@ import {
 import {
     BlobDriver,
     BLOB_FRAGMENT_SIZE,
-    PromiseCallback,
     Hash,
     DBClient,
     BLOB_TABLES,

@@ -17,6 +17,10 @@ import {
 } from "../../hash";
 
 import {
+    SPECIAL_NODES,
+} from "../../node/secondary/data/types"
+
+import {
     DataModelInterface,
 } from "../../interface/DataModelInterface";
 
@@ -1322,8 +1326,21 @@ export abstract class BaseCert implements BaseCertInterface {
         const hashes: Buffer[] = [];
 
         if (!this.isIndestructible()) {
-            hashes.push(Hash([this.getOwner(), this.getOwner()]));
-            hashes.push(Hash([this.calcId1(), this.getOwner()]));
+            // This hash lets the owner of the cert destroy all their certs.
+            //
+            let innerHash = Hash([SPECIAL_NODES.DESTROY_SELF_TOTAL_DESTRUCT,
+                this.getOwner()]);
+
+            hashes.push(Hash([SPECIAL_NODES.DESTROY_SELF_TOTAL_DESTRUCT,
+                this.getOwner(), innerHash]));
+
+            // This hash lets the owner of the cert destroy the specific cert.
+            //
+            innerHash = Hash([SPECIAL_NODES.DESTROY_CERT,
+                this.getOwner(), this.calcId1()]);
+
+            hashes.push(Hash([SPECIAL_NODES.DESTROY_CERT,
+                this.getOwner(), innerHash]));
         }
 
         if (this.hasCert()) {

@@ -725,7 +725,7 @@ export class ParseUtil {
      *  allowEmbed: {nodeType: hexstring | Buffer, filters: Filter[]}[],
      *  allowIncludeLicenses?: number,
      *  allowTrigger: boolean,
-     *  allowNodeTypes: string[] | Buffer[],
+     *  allowNodeTypes: hexstring[] | Buffer[],
      *  allowAlgos: number[],
      *  allowReadBlob?: boolean,
      * }

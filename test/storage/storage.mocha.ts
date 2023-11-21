@@ -48,6 +48,12 @@ import {
     ReadBlobResponse,
     Hash,
     DeepCopy,
+    ThreadTemplate,
+    ThreadDefaults,
+    Thread,
+    PERMISSIVE_PERMISSIONS,
+    PromiseCallback,
+    SPECIAL_NODES,
 } from "../../src";
 
 class StorageWrapper extends Storage {
@@ -449,9 +455,11 @@ describe("Storage: SQLite WAL-mode", function() {
     let blobDb: DBClient | undefined;
     let storage: StorageWrapper | undefined;
     let p2pClient: P2PClient | undefined;
+    let p2pStorageClient: P2PClient | undefined;
     let socket1: Client | undefined;
     let socket2: Client | undefined;
     let messaging1: Messaging | undefined;
+    let messaging2: Messaging | undefined;
     const config: any = {};
 
     beforeEach("Open database and create tables", async function() {
@@ -485,12 +493,17 @@ describe("Storage: SQLite WAL-mode", function() {
         // Create virtual paired sockets.
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
+        messaging2 = new Messaging(socket2, 0);
+
+        messaging1.open();
+        messaging2.open();
 
         const clientProps = makePeerProps();
 
         const serverProps = makePeerProps();
 
-        p2pClient = new P2PClient(messaging1, serverProps, clientProps);
+        p2pClient = new P2PClient(messaging1, serverProps, clientProps, PERMISSIVE_PERMISSIONS);
+        p2pStorageClient = new P2PClient(messaging2, serverProps, clientProps);
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
@@ -502,6 +515,7 @@ describe("Storage: SQLite WAL-mode", function() {
         config.blobDriver = blobDriver;
         config.storage = storage;
         config.p2pClient = p2pClient;
+        config.p2pStorageClient = p2pStorageClient;
     });
 
     afterEach("Close database", function() {
@@ -525,9 +539,11 @@ describe("Storage: SQLiteJS WAL-mode", function() {
     let blobDb: DBClient | undefined;
     let storage: StorageWrapper | undefined;
     let p2pClient: P2PClient | undefined;
+    let p2pStorageClient: P2PClient | undefined;
     let socket1: Client | undefined;
     let socket2: Client | undefined;
     let messaging1: Messaging | undefined;
+    let messaging2: Messaging | undefined;
     const config: any = {};
 
     beforeEach("Open database and create tables", async function() {
@@ -561,12 +577,17 @@ describe("Storage: SQLiteJS WAL-mode", function() {
         // Create virtual paired sockets.
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
+        messaging2 = new Messaging(socket2, 0);
+
+        messaging1.open();
+        messaging2.open();
 
         const clientProps = makePeerProps();
 
         const serverProps = makePeerProps();
 
-        p2pClient = new P2PClient(messaging1, serverProps, clientProps);
+        p2pClient = new P2PClient(messaging1, serverProps, clientProps, PERMISSIVE_PERMISSIONS);
+        p2pStorageClient = new P2PClient(messaging2, serverProps, clientProps);
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
@@ -578,6 +599,7 @@ describe("Storage: SQLiteJS WAL-mode", function() {
         config.blobDriver = blobDriver;
         config.storage = storage;
         config.p2pClient = p2pClient;
+        config.p2pStorageClient = p2pStorageClient;
     });
 
     afterEach("Close database", function() {
@@ -609,9 +631,11 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
     let blobDb: DBClient | undefined;
     let storage: StorageWrapper | undefined;
     let p2pClient: P2PClient | undefined;
+    let p2pStorageClient: P2PClient | undefined;
     let socket1: Client | undefined;
     let socket2: Client | undefined;
     let messaging1: Messaging | undefined;
+    let messaging2: Messaging | undefined;
     const config: any = {};
 
     beforeEach("Open database and create tables", async function() {
@@ -645,12 +669,17 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
         // Create virtual paired sockets.
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
+        messaging2 = new Messaging(socket2, 0);
+
+        messaging1.open();
+        messaging2.open();
 
         const clientProps = makePeerProps();
 
         const serverProps = makePeerProps();
 
-        p2pClient = new P2PClient(messaging1, serverProps, clientProps);
+        p2pClient = new P2PClient(messaging1, serverProps, clientProps, PERMISSIVE_PERMISSIONS);
+        p2pStorageClient = new P2PClient(messaging2, serverProps, clientProps);
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
@@ -662,6 +691,7 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
         config.blobDriver = blobDriver;
         config.storage = storage;
         config.p2pClient = p2pClient;
+        config.p2pStorageClient = p2pStorageClient;
     });
 
     afterEach("Close database", function() {
@@ -1708,6 +1738,104 @@ function setupTests(config: any) {
         assert(counter === 1);
     });
 
+    it("Thread", async function() {
+        const storage = config.storage as StorageWrapper;
+        assert(storage);
+
+        const storageClient = config.p2pStorageClient as P2PClient;
+        assert(storageClient);
+
+        const p2pClient = config.p2pClient as P2PClient;
+        assert(p2pClient);
+
+        const nodeUtil = new NodeUtil();
+
+        let keyPair1 = Node.GenKeyPair();
+
+        let publicKey = keyPair1.publicKey;
+        let secretKey = keyPair1.secretKey;
+
+        //@ts-ignore
+        p2pClient.remoteProps.handshakedPublicKey = publicKey;
+
+        //@ts-ignore
+        p2pClient.localProps.handshakedPublicKey = publicKey;
+
+        let parentId = Buffer.alloc(32);
+
+        let fetchRequest = StorageUtil.CreateFetchRequest({
+            query: {
+                parentId,
+                sourcePublicKey: publicKey,
+                targetPublicKey: publicKey,
+                match: [
+                    {
+                        nodeType: Data.GetType(),
+                        filters: []
+                    }
+                ]
+            },
+            crdt: {
+                algo: 1,
+                head: -1,
+            }
+        });
+
+        const threadTemplate: ThreadTemplate = {
+            query: fetchRequest.query,
+
+            crdt: fetchRequest.crdt,
+
+            post: {
+                hello: {
+                    parentId,
+                    data: Buffer.from("Hello World"),
+                    isLicensed: true,
+                }
+            },
+            postLicense: {
+                hello: {
+                    targets: [publicKey],
+                }
+            }
+        };
+
+        const defaults: ThreadDefaults = {};
+
+
+        const thread = new Thread(threadTemplate, defaults, storageClient, nodeUtil,
+            publicKey, publicKey, secretKey);
+
+        const nodes = await thread.post("hello");
+        assert(nodes.length === 1);
+
+        const licenses = await thread.postLicense("hello", nodes[0]);
+        assert(licenses.length === 1);
+
+        let {promise, cb} = PromiseCallback<any>();
+
+        thread.query().onData( (nodes: any) => {
+            cb(undefined, nodes);
+        });
+
+        let nodes2 = await promise;
+
+        assert(nodes2.length === 1);
+
+
+
+        const dleteNode = await thread.delete(nodes[0]);
+
+        ({promise, cb} = PromiseCallback<any>());
+
+        thread.query().onData( (nodes: any) => {
+            cb(undefined, nodes);
+        });
+
+        nodes2 = await promise;
+
+        assert(nodes2.length === 0);
+    });
 }
 
 function makePeerProps(): PeerProps {

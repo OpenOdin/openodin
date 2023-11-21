@@ -28,7 +28,6 @@ import {
     InsertLicenseeHash,
     InsertDestroyHash,
     InsertFriendCert,
-    MIN_DIFFICULTY_TOTAL_DESTRUCTION,
     MAX_BATCH_SIZE,
 } from "./types";
 
@@ -56,6 +55,7 @@ import {
     DataInterface,
     SPECIAL_NODES,
     Hash,
+    MIN_DIFFICULTY_TOTAL_DESTRUCTION,
 } from "../datamodel";
 
 import {
@@ -915,18 +915,20 @@ export class Driver implements DriverInterface {
                 continue;
             }
 
-            if (data.getContentType() !== SPECIAL_NODES.DESTROYNODE) {
+            const topic = data.getData()?.toString() ?? "";
+
+            if (!topic.startsWith(SPECIAL_NODES.DESTROY)) {
                 continue;
             }
 
-            const refId = data.getRefId();
-            const owner = data.getOwner();
+            const innerHash = data.getRefId();
+            const ownerPublicKey = data.getOwner();
 
-            if (!refId || !owner) {
+            if (!innerHash || !ownerPublicKey) {
                 continue;
             }
 
-            if (refId.equals(owner)) {
+            if (topic === SPECIAL_NODES.DESTROY_SELF_TOTAL_DESTRUCT) {
                 if (data.getDifficulty() ?? 0 < MIN_DIFFICULTY_TOTAL_DESTRUCTION) {
                     continue;
                 }
@@ -934,7 +936,7 @@ export class Driver implements DriverInterface {
 
             destroyHashes.push({
                 id1,
-                hash: Hash([refId, owner]),
+                hash: Hash([topic, ownerPublicKey, innerHash]),
             });
         }
 
@@ -949,16 +951,15 @@ export class Driver implements DriverInterface {
             const node = nodes[i];
             const id1 = node.getId1() as Buffer;
 
-            if (!node.isIndestructible()) {
-                const hashes = node.getAchillesHashes();
-                const hashesLength = hashes.length;
+            const hashes = node.getAchillesHashes();
 
-                for (let index=0; index<hashesLength; index++) {
-                    achillesHashes.push({
-                        id1,
-                        hash: hashes[index],
-                    });
-                }
+            const hashesLength = hashes.length;
+
+            for (let index=0; index<hashesLength; index++) {
+                achillesHashes.push({
+                    id1,
+                    hash: hashes[index],
+                });
             }
         }
 
@@ -983,7 +984,9 @@ export class Driver implements DriverInterface {
                 continue;
             }
 
-            if (data.getContentType() !== SPECIAL_NODES.FRIENDCERT) {
+            const topic = data.getData()?.toString() ?? "";
+
+            if (topic !== SPECIAL_NODES.FRIENDCERT) {
                 continue;
             }
 
@@ -1120,17 +1123,35 @@ export class Driver implements DriverInterface {
             return;
         }
 
+        const allHashes: Buffer[] = [];
+
         const params: Buffer[] = [];
 
         const length = destroyHashes.length;
+
         for (let index=0; index<length; index++) {
             const obj = destroyHashes[index];
+
             params.push(obj.id1, obj.hash);
+
+            allHashes.push(obj.hash);
         }
 
         const ph = this.db.generatePlaceholders(2, destroyHashes.length);
 
         await this.db.run(`INSERT INTO universe_destroy_hashes (id1, hash) VALUES ${ph};`, params);
+
+        const ph2 = this.db.generatePlaceholders(allHashes.length);
+
+        const sql = `SELECT nodes.id1 AS id1
+            FROM universe_achilles_hashes AS ah, universe_nodes as nodes
+            WHERE ah.hash IN ${ph2} AND ah.id1 = nodes.id1 GROUP BY nodes.id1;`;
+
+        const rows = await this.db.all(sql, allHashes);
+
+        const id1s = rows.map( row => row.id1 as Buffer );
+
+        await this.deleteNodesInner(id1s);
     }
 
     /**
@@ -1295,6 +1316,25 @@ export class Driver implements DriverInterface {
         this.db.exec("BEGIN;");
 
         try {
+            await this.deleteNodesInner(id1s);
+        }
+        catch(e) {
+            this.db.exec("ROLLBACK;");
+            throw e;
+        }
+
+        this.db.exec("COMMIT;");
+    }
+
+    /**
+     * This function expects there is a surrounding transaction in play which will be committed.
+     */
+    protected async deleteNodesInner(id1s: Buffer[]) {
+        const id1sb = id1s.slice();
+
+        while (id1sb.length > 0) {
+            const id1s = id1sb.splice(0, MAX_BATCH_SIZE);
+
             const ph = this.db.generatePlaceholders(id1s.length);
 
             await this.db.run(`DELETE FROM universe_nodes AS t WHERE t.id1 IN ${ph};`, id1s);
@@ -1306,12 +1346,6 @@ export class Driver implements DriverInterface {
             await this.db.run(`DELETE FROM universe_destroy_hashes AS t WHERE t.id1 IN ${ph};`, id1s);
 
             await this.db.run(`DELETE FROM universe_friend_certs AS t WHERE t.id1 IN ${ph};`, id1s);
-
-            this.db.exec("COMMIT;");
-        }
-        catch(e) {
-            this.db.exec("ROLLBACK;");
-            throw e;
         }
     }
 

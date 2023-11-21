@@ -233,16 +233,14 @@ export class Data extends Node implements DataInterface {
         }
 
         if (this.isSpecial()) {
-            if (this.getContentType() === SPECIAL_NODES.DESTROYNODE) {
-                if (!this.isIndestructible()) {
-                    return [false, "A Destroy node must be indestructible it self"];
-                }
+            const topic = this.getData()?.toString() ?? "";
 
+            if (topic.startsWith(SPECIAL_NODES.DESTROY)) {
                 if (!this.getRefId()) {
                     return [false, "Destroy node must have refId set"];
                 }
             }
-            else if (this.getContentType() === SPECIAL_NODES.FRIENDCERT) {
+            else if (topic === SPECIAL_NODES.FRIENDCERT) {
                 try {
                     const datamodel = this.getEmbeddedObject();
                     if (!datamodel.getType(4).equals(FriendCert.GetType(4))) {
@@ -253,19 +251,8 @@ export class Data extends Node implements DataInterface {
                     return [false, "Special data node does not have friend cert properly embedded"];
                 }
             }
-            else if (this.getContentType() === SPECIAL_NODES.AUTHCERT) {
-                try {
-                    const datamodel = this.getEmbeddedObject();
-                    if (!datamodel.getType(4).equals(AuthCert.GetType(4))) {
-                        return [false, "Special data node expecting embedded datamodel of AuthCertInterface"];
-                    }
-                }
-                catch(e) {
-                    return [false, "Special data node does not have auth cert properly embedded"];
-                }
-            }
             else {
-                return [false, "Data node is marked as special but contentType is not recognized"];
+                return [false, "Data node is marked as special but data topic is not recognized"];
             }
         }
 

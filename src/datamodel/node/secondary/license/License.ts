@@ -56,6 +56,10 @@ import {
     DataModelInterface,
 } from "../../../interface/DataModelInterface";
 
+import {
+    SPECIAL_NODES,
+} from "../data/types";
+
 /**
  * The extra fields added on top of Node.
  * Also the disabling of fields is declared here.
@@ -1262,10 +1266,11 @@ export class License extends Node implements LicenseInterface {
     }
 
     /**
-     * Override to also add friend cert destruction hashes.
-     * Also generate destruction hash for (targetpublicKey, issuer),
-     * this enables a user to totally block targetPublicKey from getting any license
-     * on data owned by user.
+     * Override to add friend cert destruction hashes and specific hashes to destroy licenses.
+     *
+     * Note that these hashes are created for every license in the stack of embedded licenses,
+     * meaning that the issuer and every other user extending a license can destroy the stack
+     * by destroying the license they created.
      *
      * @see Node.getAchillesHashes().
      */
@@ -1273,10 +1278,40 @@ export class License extends Node implements LicenseInterface {
         const hashes = super.getAchillesHashes();
 
         if (!this.isIndestructible()) {
-            const issuer = this.getIssuer();
-            const targetPublicKey = this.getTargetPublicKey();
-            if (issuer && targetPublicKey) {
-                hashes.push(Hash([targetPublicKey, issuer]));
+            const targetPublicKey   = this.getTargetPublicKey();
+            const nodeId1           = this.getNodeId1();
+
+            if (targetPublicKey) {
+                // This hash lets the owner destroy all its licenses targeted at a specific user.
+                //
+                const innerHash = Hash([SPECIAL_NODES.DESTROY_LICENSES_FOR_TARGET_PUBLICKEY,
+                    this.getOwner(), targetPublicKey]);
+
+                hashes.push(Hash([SPECIAL_NODES.DESTROY_LICENSES_FOR_TARGET_PUBLICKEY,
+                    this.getOwner(), innerHash]));
+
+                if (nodeId1) {
+                    // This hash lets the owner destroy all its licenses targeted at a specific user
+                    // for a specific node.
+                    //
+                    const innerHash = Hash([
+                        SPECIAL_NODES.DESTROY_LICENSES_FOR_TARGET_PUBLICKEY_AND_NODE,
+                        this.getOwner(), targetPublicKey, nodeId1]);
+
+                    hashes.push(Hash([SPECIAL_NODES.DESTROY_LICENSES_FOR_TARGET_PUBLICKEY_AND_NODE,
+                        this.getOwner(), innerHash]));
+                }
+            }
+
+            if (nodeId1) {
+                // This hash lets an owner of a license destroy all licenses for a specific node.
+                // This is how indestructible licensed nodes are deleted, by destroying all their licenses.
+                //
+                const innerHash = Hash([SPECIAL_NODES.DESTROY_LICENSES_FOR_NODE,
+                    this.getOwner(), nodeId1]);
+
+                hashes.push(Hash([SPECIAL_NODES.DESTROY_LICENSES_FOR_NODE,
+                    this.getOwner(), innerHash]));
             }
         }
 

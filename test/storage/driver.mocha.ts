@@ -26,6 +26,7 @@ import {
     QueryProcessor,
     FetchRequest,
     DatabaseUtil,
+    Hash,
 } from "../../src";
 
 /**
@@ -674,7 +675,7 @@ function setupDriverTests(config: any) {
             creationTime: now+1,
             isSpecial: true,
             embedded: friendCert.export(),
-            contentType: SPECIAL_NODES.FRIENDCERT,
+            data: Buffer.from(SPECIAL_NODES.FRIENDCERT),
         });
 
         const node2 = await nodeUtil.createDataNode({
@@ -686,8 +687,8 @@ function setupDriverTests(config: any) {
             creationTime: now+2,
             isIndestructible: true,
             isSpecial: true,
-            contentType: SPECIAL_NODES.DESTROYNODE,
-            refId: node1.getId1(),
+            refId: Hash("innerHash"),
+            data: Buffer.from(SPECIAL_NODES.DESTROY_NODE),
         });
 
         assert(node2.isSpecial());
@@ -718,7 +719,7 @@ function setupDriverTests(config: any) {
 
         rows = await db.all(`SELECT * FROM universe_achilles_hashes ORDER BY id1;`);
 
-        assert(rows.length === 9);
+        assert(rows.length === 11);
 
         rows = await db.all(`SELECT * FROM universe_licensee_hashes ORDER BY id1;`);
 

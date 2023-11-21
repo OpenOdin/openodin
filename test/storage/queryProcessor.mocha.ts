@@ -3637,7 +3637,7 @@ function setupTests(config: any) {
             expireTime: now + 10000,
             creationTime: now,
             isSpecial: true,
-            contentType: SPECIAL_NODES.FRIENDCERT,
+            data: Buffer.from(SPECIAL_NODES.FRIENDCERT),
             embedded: friendCertImageA,
             isPublic: true,
         });
@@ -3650,7 +3650,7 @@ function setupTests(config: any) {
             expireTime: now + 10000,
             creationTime: now,
             isSpecial: true,
-            contentType: SPECIAL_NODES.FRIENDCERT,
+            data: Buffer.from(SPECIAL_NODES.FRIENDCERT),
             embedded: friendCertImageB,
             isLicensed: true,
         });
@@ -3778,7 +3778,7 @@ function setupTests(config: any) {
             expireTime: now + 10000,
             creationTime: now,
             isSpecial: true,
-            contentType: SPECIAL_NODES.FRIENDCERT,
+            data: Buffer.from(SPECIAL_NODES.FRIENDCERT),
             embedded: friendCertImageA,
             isPublic: true,
         });
@@ -3790,7 +3790,7 @@ function setupTests(config: any) {
             expireTime: now + 10000,
             creationTime: now,
             isSpecial: true,
-            contentType: SPECIAL_NODES.FRIENDCERT,
+            data: Buffer.from(SPECIAL_NODES.FRIENDCERT),
             embedded: friendCertImageASelf,
             isPublic: true,
         });
@@ -3802,7 +3802,7 @@ function setupTests(config: any) {
             expireTime: now + 10000,
             creationTime: now,
             isSpecial: true,
-            contentType: SPECIAL_NODES.FRIENDCERT,
+            data: Buffer.from(SPECIAL_NODES.FRIENDCERT),
             embedded: friendCertImageB,
             isPublic: true,
         });

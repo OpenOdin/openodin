@@ -43,7 +43,6 @@ import {
     AuthCertInterface,
     DataInterface,
     DataConfig,
-    SPECIAL_NODES,
     CMP,
     Hash,
     DATA_NODE_TYPE,
@@ -1340,8 +1339,8 @@ export class Service {
         }
 
         // Node is dynamic but not marked as active.
-        // Fetch is immediately first, then wait 10 secs before fetching it again
-        // to give it time to become active. Try threee times in total.
+        // Fetch is immediately first, then wait i*3 secs before fetching it again
+        // to give it time to become active. Try three times in total.
         for (let i=0; i<4; i++) {
             // Sleep some to await cert potentially becoming active.
             await sleep(i * 3000);
@@ -1361,8 +1360,10 @@ export class Service {
 
     protected async fetchAuthCertDataWrapper(authCert: AuthCertInterface, storageP2PClient: P2PClient, ignoreInactive: boolean = false): Promise<DataInterface | undefined> {
         const owner = storageP2PClient.getLocalPublicKey();
-        const parentId = Buffer.alloc(32).fill(255);
+
         const exportedAuthCert = authCert.export();
+
+        const parentId = Hash(exportedAuthCert);
 
         // A fetch request to query for data nodes wrapping the authcert.
         const fetchRequest = StorageUtil.CreateFetchRequest({query: {
@@ -1376,31 +1377,20 @@ export class Service {
                     nodeType: DATA_NODE_TYPE,
                     filters: [
                         {
-                            field: "refId",
-                            cmp: CMP.EQ,
-                            value: authCert.calcId1().toString("hex"),
-                        },
-                        {
                             field: "owner",
                             cmp: CMP.EQ,
-                            value: owner.toString("hex"),
+                            value: owner,
                         },
                         {
                             field: "contentType",
                             cmp: CMP.EQ,
-                            value: SPECIAL_NODES.AUTHCERT,
+                            value: "temporary/authCert",
                         },
                         {
                             field: "embedded",
                             operator: "hash",
                             cmp: CMP.EQ,
                             value: Hash(exportedAuthCert),
-                        },
-                        {
-                            field: "dataConfig",
-                            operator: `& ${(2**DataConfig.SPECIAL)}`,
-                            cmp: CMP.GT,
-                            value: 0,
                         },
                     ],
                 }
@@ -1429,19 +1419,19 @@ export class Service {
 
     protected async storeAuthCertDataWrapper(authCert: AuthCertInterface, storageP2PClient: P2PClient): Promise<boolean> {
         const owner = storageP2PClient.getLocalPublicKey();
-        const parentId = Buffer.alloc(32).fill(255);
+
         const exportedAuthCert = authCert.export();
-        const refId = authCert.calcId1();
+
+        const parentId = Hash(exportedAuthCert);
 
         const dataNode = await this.nodeUtil.createDataNode(
             {
                 hasDynamicEmbedding: authCert.isDynamic(),
                 owner,
                 parentId,
-                isSpecial: true,
                 embedded: exportedAuthCert,
-                contentType: SPECIAL_NODES.AUTHCERT,
-                refId,
+                contentType: "temporary/authCert",
+                expireTime: Date.now() + 3600 * 1000,
             }, this.publicKey);
 
         const storeRequest = StorageUtil.CreateStoreRequest({nodes: [dataNode.export()]});

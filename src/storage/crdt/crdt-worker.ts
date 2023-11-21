@@ -29,6 +29,7 @@ import {
 } from "./AlgoRefId";
 
 class CRDTManagerWorker {
+    // TODO when to ever garbage collect cached algos?
     protected algos: {[key: string]: AlgoInterface} = {};
 
     public async updateModel(key: string, algoId: number, conf: string, orderByStorageTime: boolean,

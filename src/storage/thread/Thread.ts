@@ -37,6 +37,8 @@ import {
     NodeInterface,
     DataInterface,
     LICENSE_NODE_TYPE,
+    SPECIAL_NODES,
+    Hash,
 } from "../../datamodel";
 
 import {
@@ -73,7 +75,8 @@ export class Thread {
         protected storageClient: P2PClient,
         protected nodeUtil: NodeUtil,
         protected publicKey: Buffer,
-        protected signerPublicKey: Buffer) {
+        protected signerPublicKey: Buffer,
+        protected signerSecretKey?: Buffer) {
     }
 
     public static GetFetchRequest(threadTemplate: ThreadTemplate,
@@ -160,7 +163,70 @@ export class Thread {
     public async post(name: string, threadDataParams: ThreadDataParams = {}): Promise<DataInterface[]> {
         const dataParams = this.parsePost(name, threadDataParams);
 
-        const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey);
+        const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey, this.signerSecretKey);
+
+        const storedId1s = await this.storeNodes([dataNode]);
+
+        if (storedId1s.length > 0) {
+            return [dataNode];
+        }
+
+        return [];
+    }
+
+    /**
+     * Create a destroy node and post it.
+     * 
+     * If the given node is private then create destroy node for it specifically.
+     *
+     * If the given node is licensed then create destroy node which targets all licenses of the node.
+     * If licenses then a postLicense() call must be made to properly post applicable licenses which
+     * should have the same properties a the licenses posted for the node getting deleted.
+     *
+     * @param node private or licensed node to destroy.
+     * For licensed nodes then destroy the licenses (which are private).
+     *
+     * @returns the destroy node as a single node in an array.
+     *
+     * @throws if given node is public or if a destroy node cannot be created for other reasons.
+     */
+    public async delete(node: DataInterface): Promise<NodeInterface[]> {
+        let dataParams;
+
+        if (node.isLicensed()) {
+            const innerHash = Hash([SPECIAL_NODES.DESTROY_LICENSES_FOR_NODE,
+                this.publicKey, node.getId1()]);
+
+            dataParams = {
+                parentId: node.getParentId(),
+                owner: this.publicKey,
+                isLicensed: true,
+                isSpecial: true,
+                contentType: node.getContentType(),
+                refId: innerHash,
+                data: Buffer.from(SPECIAL_NODES.DESTROY_LICENSES_FOR_NODE),
+                expireTime: node.getExpireTime(),
+            };
+        }
+        else if (node.isPrivate()) {
+            const innerHash = Hash([SPECIAL_NODES.DESTROY_NODE,
+                this.publicKey, node.getId1()]);
+
+            dataParams = {
+                parentId: node.getParentId(),
+                owner: this.publicKey,
+                isSpecial: true,
+                contentType: node.getContentType(),
+                refId: innerHash,
+                data: Buffer.from(SPECIAL_NODES.DESTROY_NODE),
+                expireTime: node.getExpireTime(),
+            };
+        }
+        else {
+            throw new Error("Can only delete private nodes and licensed nodes.");
+        }
+
+        const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey, this.signerSecretKey);
 
         const storedId1s = await this.storeNodes([dataNode]);
 
@@ -377,7 +443,7 @@ export class Thread {
             });
 
             const licenseNode = await this.nodeUtil.createLicenseNode(licenseParams,
-                this.signerPublicKey);
+                this.signerPublicKey, this.signerSecretKey);
 
             licenseNodes.push(licenseNode);
         }

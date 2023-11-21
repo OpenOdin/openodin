@@ -26,6 +26,7 @@ import {
 
 import {
     NodeInterface,
+    DataInterface,
     Hash,
     DATA_NODE_TYPE,
 } from "../datamodel";
@@ -224,7 +225,8 @@ export class Storage {
 
     protected handleStore: HandlerFn<StoreRequest, StoreResponse> =
         async (storeRequest: StoreRequest, peer: P2PClient, fromMsgId: Buffer,
-            expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) => {
+            expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) =>
+    {
 
         let ts: number | undefined;
 
@@ -517,14 +519,6 @@ export class Storage {
 
                         status = Status.MALFORMED;
                         throw new Error("triggerInterval must be set when fetching with CRDT and triggerNodeId.");
-                    }
-
-                    // Note that triggerInterval must be set regardless of triggerNodeId.
-                    if (fetchRequestCopy.query.triggerInterval < 60 ||
-                        fetchRequestCopy.query.triggerInterval > 600) {
-
-                        status = Status.MALFORMED;
-                        throw new Error("triggerInterval must be set within 60 to 600 seconds when fetching with CRDT.");
                     }
                 }
                 else {
@@ -1557,9 +1551,10 @@ export class Storage {
                     return;
                 }
 
-                // For CRDT models we only include data nodes.
+                // For CRDT models we only include data nodes,
+                // which are not flagged as special nodes.
                 const nodesToAdd = (fetchReplyData.nodes ?? []).
-                    filter( node => node.getType().equals(DATA_NODE_TYPE) );
+                    filter( node => node.getType().equals(DATA_NODE_TYPE) && !(node as DataInterface).isSpecial() );
 
                 const embed = fetchReplyData.embed ?? [];
 

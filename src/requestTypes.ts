@@ -215,7 +215,8 @@ export type FetchQuery = {
      *
      * If using a CRDT together with a subscription triggerNodeId, then the
      * triggerInterval must also be set to properly detect expired nodes.
-     * It can be set even with triggerNodeId not set.
+     *
+     * It can be set with triggerNodeId not set just to keep the model updated on regular intervals.
      */
     triggerInterval: number,
 

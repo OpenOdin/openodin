@@ -185,13 +185,13 @@ export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     fetchPermissions: {
         allowEmbed: [
             {
-                nodeType: "0004" as any,
+                nodeType: Buffer.from("0004", "hex"),
                 filters: []
             }
         ],
         allowIncludeLicenses: 3,
         allowTrigger: true,
-        allowNodeTypes: ["0004" as any],
+        allowNodeTypes: [Buffer.from("0004", "hex")],
         allowAlgos: [1, 2],
         allowReadBlob: true,
     },
@@ -206,13 +206,13 @@ export const DEFAULT_PEER_PERMISSIONS: P2PClientPermissions = {
     fetchPermissions: {
         allowEmbed: [
             {
-                nodeType: "0004" as any,
+                nodeType: Buffer.from("0004", "hex"),
                 "filters": []
             }
         ],
         allowIncludeLicenses: 3,
         allowTrigger: true,
-        allowNodeTypes: ["0004" as any],
+        allowNodeTypes: [Buffer.from("0004", "hex")],
         allowAlgos: [],
         allowReadBlob: true,
     },
@@ -227,13 +227,13 @@ export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     fetchPermissions: {
         allowEmbed: [
             {
-                nodeType: "0004" as any,
+                nodeType: Buffer.from("0004", "hex"),
                 "filters": []
             }
         ],
         allowIncludeLicenses: 3,
         allowTrigger: true,
-        allowNodeTypes: ["0004" as any],
+        allowNodeTypes: [Buffer.from("0004", "hex")],
         allowAlgos: [1, 2],
         allowReadBlob: true,
     },
