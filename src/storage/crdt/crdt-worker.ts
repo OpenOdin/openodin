@@ -4,7 +4,7 @@
  *  to load.
  *
  *  When running in browser this browserified file ("crdt-worker-browser.js") must always
- *  be copied to any browser application public root directory so it is accessible to be loaded
+ *  be copied to the browser application public root directory so it is accessible to be loaded
  *  by the browser's Worker() in run-time.
  *
  *  NodeJS and Browser use the same browserified JS file for their worker threads.
@@ -12,7 +12,7 @@
 
 import {
     RPC,
-} from "../../keymanager/RPC";
+} from "../../util/RPC";
 
 import {
     CRDTViewType,
@@ -28,8 +28,8 @@ import {
     AlgoRefId,
 } from "./AlgoRefId";
 
-class CRDTManagerWorker {
-    // TODO when to ever garbage collect cached algos?
+// TODO when to ever garbage collect cached algos?
+export class CRDTManagerWorker {
     protected algos: {[key: string]: AlgoInterface} = {};
 
     public async updateModel(key: string, algoId: number, conf: string, orderByStorageTime: boolean,
@@ -123,11 +123,10 @@ class CRDTManagerWorker {
         };
 
         return [crdtView, cursorIndex2, length];
-
     }
 }
 
-function main (self?: any) {
+function main(self?: any) {
     const postMessageWrapped = (message: any) => {
         postMessage({message});
     };

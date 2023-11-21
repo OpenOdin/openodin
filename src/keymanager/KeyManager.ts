@@ -12,7 +12,7 @@ import {
 
 import {
     RPC,
-} from "./RPC";
+} from "../util/RPC";
 
 import {
     AuthResponse,

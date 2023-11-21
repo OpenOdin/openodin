@@ -120,7 +120,7 @@ describe("Storage: triggers", function() {
 
     beforeEach("Create Storage instance", async function() {
         signatureOffloader = new SignatureOffloader();
-        signatureOffloader.init();
+        await signatureOffloader.init();
 
         db = new DBClient(await DatabaseUtil.OpenSQLite());
         driver = new Driver(db);
@@ -464,7 +464,7 @@ describe("Storage: SQLite WAL-mode", function() {
 
     beforeEach("Open database and create tables", async function() {
         signatureOffloader = new SignatureOffloader();
-        signatureOffloader.init();
+        await signatureOffloader.init();
 
         db = new DBClient(await DatabaseUtil.OpenSQLite());
         driver = new Driver(db);
@@ -548,7 +548,7 @@ describe("Storage: SQLiteJS WAL-mode", function() {
 
     beforeEach("Open database and create tables", async function() {
         signatureOffloader = new SignatureOffloader();
-        signatureOffloader.init();
+        await signatureOffloader.init();
 
         db = new DBClient(await DatabaseUtil.OpenSQLiteJS());
         driver = new Driver(db);
@@ -640,7 +640,7 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
 
     beforeEach("Open database and create tables", async function() {
         signatureOffloader = new SignatureOffloader();
-        signatureOffloader.init();
+        await signatureOffloader.init();
 
         db = new DBClient(await DatabaseUtil.OpenPG());
         driver = new Driver(db);

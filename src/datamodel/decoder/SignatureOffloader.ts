@@ -1,4 +1,8 @@
 import {
+    RPC,
+} from "../../util/RPC";
+
+import {
     KeyPair,
 } from "../node";
 
@@ -63,6 +67,7 @@ export class SignatureOffloader implements SignatureOffloaderInterface {
 
     /**
      * Init all worker threads.
+     * @throws if cannot init
      */
     public async init(): Promise<void> {
         if (this.cryptoWorkers.length > 0) {
@@ -71,8 +76,16 @@ export class SignatureOffloader implements SignatureOffloaderInterface {
 
         for (let i=0; i<this.nrOfWorkers; i++) {
             const worker = new CryptoWorker();
-            this.cryptoWorkers.push(worker);
-            await worker.init();
+
+            try {
+                await worker.init();
+                this.cryptoWorkers.push(worker);
+            }
+            catch(e) {
+                this.close();
+
+                throw e;
+            }
         }
     }
 
@@ -85,7 +98,7 @@ export class SignatureOffloader implements SignatureOffloaderInterface {
 
         const promises = this.cryptoWorkers.map( worker => worker.addKeyPair(keyPair) );
 
-        Promise.all(promises);
+        await Promise.all(promises);
     }
 
     public async getPublicKeys(): Promise<Buffer[]> {
@@ -307,82 +320,67 @@ interface CryptoWorkerInterface {
 }
 
 class CryptoWorker implements CryptoWorkerInterface {
-    protected queue: Array<{resolve: (data: any) => void, message: {action: string, data?: SignaturesCollection[] | ToBeSigned[] | KeyPair}}>;
-    protected isBusy: boolean;
     protected workerThread?: Worker;
+    protected rpc?: RPC;
 
-    constructor() {
-        this.isBusy = false;
-        this.queue = [];
-    }
-
+    /**
+     * @throws if init fails
+     */
     public async init() {
         try {
-            if (isBrowser) {
-                this.workerThread = new Worker("thread-browser.js");
+            const workerURI = isBrowser ? "signatureOffloader-worker-browser.js" :
+                "./build/src/datamodel/decoder/signatureOffloader-worker.js";
 
-                this.workerThread.onerror = (event: any) => {
-                    console.error("Error loading thread-browser.js", event);
-                };
-            } else {
-                const dirname = __dirname;
+            this.workerThread = new Worker(workerURI);
 
-                const url = `${dirname}/thread.js`;
+            this.workerThread.onerror = (error: ErrorEvent) => {
+                console.error(`Error loading ${workerURI}`, error);
+            };
 
-                this.workerThread = new Worker(url);
+            const postMessageWrapped = (message: any) => {
+                this.workerThread?.postMessage({message});
+            };
 
-                this.workerThread.onerror = (error: ErrorEvent) => {
-                    console.error("Error loading thread.js", error);
-                };
-            }
+            const listenMessage = (listener: any) => {
+                this.workerThread?.addEventListener("message", (event: any) => {
+                    listener(event.data.message);
+                });
+            };
+
+            this.rpc = new RPC(postMessageWrapped, listenMessage);
+
+            const promise = new Promise<void>( resolve => {
+                this.rpc?.onCall("hello", () => {
+
+                    this.rpc?.offCall("hello");
+
+                    resolve();
+                });
+            });
+
+            await promise;
         }
         catch(e) {
-            console.error("Could not initiate worker thread", e);
-            return;
-        }
-        this.workerThread?.addEventListener("message", (e: any)/*(e.data: Buffer[])*/ => {
-            const obj = this.queue.shift();
-            if (obj) {
-                obj.resolve(e.data as Buffer[]);
-            }
-            this.isBusy = false;
-            this.sendNext();
-        });
-    }
+            this.workerThread?.terminate();
 
-    protected sendNext() {
-        if (this.isBusy) {
-            return;
-        }
-        if (this.queue.length > 0) {
-            this.isBusy = true;
-            this.workerThread?.postMessage(this.queue[0].message);
+            throw e;
         }
     }
 
     public async verify(signaturesCollection: SignaturesCollection[]): Promise<number[]> {
-        return new Promise( resolve => {
-            this.queue.push({resolve, message: {data: signaturesCollection, action: "verify"}});
-            this.sendNext();
-        });
+        return this.rpc?.call("verify", [signaturesCollection]);
     }
 
     public async sign(toBeSigned: ToBeSigned[]): Promise<SignedResult[]> {
-
-        return new Promise( resolve => {
-            this.queue.push({resolve, message: {data: toBeSigned, action: "sign"}});
-            this.sendNext();
-        });
+        return this.rpc?.call("sign", [toBeSigned]);
     }
 
     public async addKeyPair(keyPair: KeyPair): Promise<void> {
-        return new Promise( resolve => {
-            this.queue.push({resolve, message: {data: keyPair, action: "addKeyPair"}});
-            this.sendNext();
-        });
+        return this.rpc?.call("addKeyPair", [keyPair]);
     }
 
     public close() {
+        this.rpc?.close();
         this.workerThread?.terminate();
     }
 }

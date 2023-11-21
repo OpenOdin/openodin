@@ -3,7 +3,7 @@ import {
 } from "pocket-sockets";
 import {
     RPC,
-} from "./RPC";
+} from "../util/RPC";
 
 import {
     ClientConfig,

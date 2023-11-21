@@ -18,17 +18,11 @@ import {
     BufferStreamWriter,
     BufferStreamReader,
     StreamStatus,
-} from "../../../";
-
-import {
     KeyManager,
     Universe,
     RPC,
-} from "../../../src/keymanager";
-
-import {
     JSONUtil,
-} from "../../../src/util/JSONUtil";
+} from "../../../";
 
 import {
     PocketConsole,

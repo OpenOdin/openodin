@@ -83,7 +83,7 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
         fs.writeFileSync(filepath1, content);
 
         signatureOffloader = new SignatureOffloader();
-        signatureOffloader.init();
+        await signatureOffloader.init();
 
         db = new DBClient(await DatabaseUtil.OpenSQLite());
         driver = new Driver(db);

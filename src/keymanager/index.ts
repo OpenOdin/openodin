@@ -1,6 +1,5 @@
 export * from "./KeyManager";
 export * from "./Universe";
-export * from "./RPC";
 export * from "./HandshakeFactoryFactoryRPCClient";
 export * from "./HandshakeFactoryFactoryRPCServer";
 export * from "./HandshakeFactoryRPCClient";

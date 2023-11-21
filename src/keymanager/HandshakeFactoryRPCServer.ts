@@ -2,7 +2,7 @@ import crypto from "crypto";
 
 import {
     RPC,
-} from "./RPC";
+} from "../util/RPC";
 
 import {
     HandshakeFactory,

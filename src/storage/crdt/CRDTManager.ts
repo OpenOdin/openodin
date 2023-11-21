@@ -1,6 +1,6 @@
 import {
     RPC,
-} from "../../keymanager";
+} from "../../util/RPC";
 
 import {
     NodeInterface,
@@ -106,6 +106,7 @@ export class CRDTManager {
             return;
         }
 
+        this.rpc?.close();
         this.workerThread?.terminate();
 
         this._isInited = false;

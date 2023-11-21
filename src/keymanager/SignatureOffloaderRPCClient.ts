@@ -18,7 +18,7 @@ import {
 
 import {
     RPC,
-} from "./RPC";
+} from "../util/RPC";
 
 export class SignatureOffloaderRPCClient implements SignatureOffloaderInterface {
     protected rpc: RPC;

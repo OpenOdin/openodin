@@ -9,4 +9,5 @@ export * from "./RegionUtil";
 export * from "./FileUtil";
 export * from "./JSONUtil";
 export * from "./Lock";
+export * from "./RPC";
 export * from "./types";

@@ -10,13 +10,13 @@ import {
     CertUtil,
 } from "../../../src";
 
-describe("certs", function() {
+describe("certs", async function() {
     const signatureOffloader = new SignatureOffloader();
     const keyPair1 = Node.GenKeyPair();
     const keyPair2 = Node.GenKeyPair();
 
-    before( function() {
-        signatureOffloader.init();
+    before( async function() {
+        await signatureOffloader.init();
     });
 
     after( function() {
