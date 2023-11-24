@@ -2,6 +2,17 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.7.6] - 20231121
+BREAKING CHANGES.  
+Refactor SignatureOffloader and worker thread to use RPC class.  
+Move thread.ts to signatureOffloader-worker.ts.  
+Move RPC.ts to ./util.  
+
+## [0.7.5] - 20231121
+BREAKING CHANGES.  
+Refactor and clarify how destroy hashes are used.  
+Add Thread.delete() method to create destroy nodes for nodes.  
+
 ## [0.7.4] - 20231115
 BREAKING CHANGES.  
 Refactor Transformers into CRDT.  
