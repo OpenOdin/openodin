@@ -2,6 +2,11 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.7.7] - 20231201
+BREAKING CHANGES.  
+Refactor signing to accomodate for many types of digital signatures.  
+Add Ethereum ECDSA signing.  
+
 ## [0.7.6] - 20231121
 BREAKING CHANGES.  
 Refactor SignatureOffloader and worker thread to use RPC class.  
