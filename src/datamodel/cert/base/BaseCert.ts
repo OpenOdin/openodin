@@ -1,5 +1,3 @@
-import nacl from "tweetnacl";
-
 import {
     Model,
     ModelType,
@@ -8,9 +6,10 @@ import {
 } from "../../model";
 
 import {
+    Crypto,
     KeyPair,
     Signature,
-} from "../../node";
+} from "../../Crypto";
 
 import {
     Hash,
@@ -38,8 +37,6 @@ import {
     CopyBuffer,
 } from "../../../util/common";
 
-const SIGNATURE_LENGTH  = 64;
-const CRYPTO            = "ed25519";
 
 /**
  * The model fields for a certificate.
@@ -47,20 +44,30 @@ const CRYPTO            = "ed25519";
 const FIELDS: Fields = {
     /**
      * The public key of the owner of this cert.
-     * This key must equal the public key of the signing keypair.
+     *
+     * This key must be the same public key as the signing keypair.
+     *
+     * This field is not set when using a cert because then the embedded cert's
+     * targetPublicKeys are the public keys allowed to sign and the owner is the issuer
+     * public key of the cert (always the first cert in the stack of certs).
      */
     owner: {
         name: "owner",
-        type: FieldType.BYTE32,
+        type: FieldType.BYTES,
+        maxSize: 32,
         index: 0,
     },
 
     /**
      * A cert is meant to give authority to another public key, which are the targetPublicKeys.
+     *
      * If this cert is embedded into another cert then the embedding cert's signer
      * public key must match one of these targetPublicKeys.
-     * If the cert is a "top cert" then one of the targetPublicKeys must match a specific key in the target data model.
-     * The key is prefixed with the length of the key to accomodate for other signing algorithms.
+     *
+     * If the cert is a "top cert" then one of the targetPublicKeys must match a specific key
+     * in the target data model.
+     *
+     * Public keys are always prefixed with the length of the publicKey.
      */
     targetPublicKeys: {
         name: "targetPublicKeys",
@@ -167,11 +174,16 @@ const FIELDS: Fields = {
         index: 9,
     },
 
-    /** Cert must be signed by cert owner public key. */
+    /**
+     * Cert must be signed by owner public key,
+     * or by targetPublicKeys referenced in an embedded cert.
+     * We allow 3 signatures for multisig certs.
+     * Each signature is prefixed by a byte telling the index of the public key it matches.
+     */
     signature: {
         name: "signature",
         type: FieldType.BYTES,
-        maxSize: 3 * (SIGNATURE_LENGTH + 1),
+        maxSize: 3 * (Crypto.MAX_SIGNATURE_LENGTH + 1),
         index: 10,
         hash: false,
     },
@@ -248,14 +260,6 @@ export abstract class BaseCert implements BaseCertInterface {
     public abstract getType(length?: number): Buffer;
 
     /**
-     * Return the name of the crypto algo used.
-     * @returns the crypto algo this node is using.
-     */
-    public getCrypto(): string {
-        return CRYPTO;
-    }
-
-    /**
      * Check if given cert type is accepted to be embedded.
      * @param certType as 2 to 4 byte buffer for primary+secondary interfaces.
      * @returns true if the provided cert type is accepted.
@@ -274,15 +278,17 @@ export abstract class BaseCert implements BaseCertInterface {
     }
 
     /**
+     * @param exportTransient if true then also export fields marked as transient.
+     * @param exportTransientNonHashable if true then also export transient non hashable fields (requires exportTransient is true).
      * @returns exported data Buffer
      *
-     * @throws a string containing a message error when unable to export the current data (model) or on error exporting an embedded cert.
+     * @throws a string containing a message error when unable to export the data model or any ambedded data model.
      */
-    public export(): Buffer {
+    public export(exportTransient: boolean = false, exportTransientNonHashable: boolean = false): Buffer {
         if (this.cachedCertObject) {
             this.setCert(this.cachedCertObject.export());
         }
-        return this.model.export();
+        return this.model.export(exportTransient, exportTransientNonHashable);
     }
 
     /**
@@ -396,8 +402,13 @@ export abstract class BaseCert implements BaseCertInterface {
         if (deepValidate > 0) {
             if (!this.hasCert()) {
                 if (deepValidate === 1) {
-                    if (this.getSignatures().length !== 1) {
-                        return [false, "Exactly one signature expected"];
+                    try {
+                        if (this.getSignatures().length !== 1) {
+                            return [false, "Exactly one signature expected"];
+                        }
+                    }
+                    catch(e) {
+                        return [false, "Could not get signatures"];
                     }
                 }
             }
@@ -417,8 +428,13 @@ export abstract class BaseCert implements BaseCertInterface {
 
                 if (deepValidate === 1) {
                     const multiSigThreshold = cert.getMultiSigThreshold() ?? 1;
-                    if (this.getSignatures().length !== multiSigThreshold) {
-                        return [false, "Wrong nr of signatures"];
+                    try {
+                        if (this.getSignatures().length !== multiSigThreshold) {
+                            return [false, "Wrong nr of signatures"];
+                        }
+                    }
+                    catch(e) {
+                        return [false, "Could not get signatures"];
                     }
                 }
 
@@ -495,11 +511,14 @@ export abstract class BaseCert implements BaseCertInterface {
 
         if (signatures.length > 0) {
             const signature = signatures[signatures.length - 1];
-            message = Hash([signature.message, signature.publicKey, signature.signature, signature.index]);
+
+            message = Hash([signature.message, signature.publicKey, signature.signature,
+                signature.index]);
         }
 
-        const signature = nacl.sign.detached(message, keyPair.secretKey);
-        this.addSignature(Buffer.from(signature), keyPair.publicKey);
+        const signature = Crypto.Sign(message, keyPair);
+
+        this.addSignature(signature, keyPair.publicKey);
     }
 
     /**
@@ -511,7 +530,8 @@ export abstract class BaseCert implements BaseCertInterface {
      * @throws if a mismatch is detected or targetPublicKeys cannot be retrieved from cert.
      */
     public enforceSigningKey(publicKey: Buffer): number {
-        const index = this.getEligibleSigningPublicKeys().findIndex( targetPublicKey => targetPublicKey.equals(publicKey) );
+        const index = this.getEligibleSigningPublicKeys().
+            findIndex( targetPublicKey => targetPublicKey.equals(publicKey) );
 
         if (index === -1) {
             throw new Error("Signing key must match one of the eligible signing keys.");
@@ -557,8 +577,7 @@ export abstract class BaseCert implements BaseCertInterface {
         for (let i=0; i<signatures.length; i++) {
             const signature = signatures[i];
 
-            // Throws on badly formatted input.
-            if (!nacl.sign.detached.verify(signature.message, signature.signature, signature.publicKey)) {
+            if (!Crypto.Verify(signature)) {
                 return false;
             }
         }
@@ -612,7 +631,8 @@ export abstract class BaseCert implements BaseCertInterface {
     /**
      * Recursively extract all signatures from this cert and all embedded certs.
      * @returns list of signatures to be verified.
-     * @throws on unexpected missing data, such as the cert object not being cached and if it cannot be decoded locally.
+     * @throws on unexpected missing or malformed data,
+     * such as the cert object not being cached and if it cannot be decoded locally.
      */
     public extractSignatures(): Signature[] {
         const signatures: Signature[] = [];
@@ -970,6 +990,9 @@ export abstract class BaseCert implements BaseCertInterface {
         return this.model.getBuffer("signature");
     }
 
+    /**
+     * @throws on malformed data
+     */
     public getSignatures(): Signature[] {
         const signature = this.getSignature();
 
@@ -986,17 +1009,24 @@ export abstract class BaseCert implements BaseCertInterface {
 
         let rest = CopyBuffer(signature);
 
-        while (rest.length >= SIGNATURE_LENGTH + 1) {
+        while (rest.length > 0) {
             const index = rest.readUInt8(0);
-            const signature = rest.slice(1, 1 + SIGNATURE_LENGTH);
+
             const publicKey = targetPublicKeys[index];
 
             if (publicKey === undefined) {
                 throw new Error("Cannot match signature index to targetPublicKey");
             }
 
+            const signatureLength = Crypto.GetSignatureLength(publicKey);
+
+            const signature = rest.slice(1, 1 + signatureLength);
+
+            if (signature.length !== signatureLength) {
+                throw new Error("Malformed signature");
+            }
+
             const signatureObject: Signature = {
-                crypto: this.getCrypto(),
                 message,
                 signature,
                 publicKey,
@@ -1005,13 +1035,12 @@ export abstract class BaseCert implements BaseCertInterface {
 
             signatures.push(signatureObject);
 
-            message = Hash([signatureObject.message, signatureObject.publicKey, signatureObject.signature, signatureObject.index]);
+            // Hash for the next iteration.
+            //
+            message = Hash([signatureObject.message, signatureObject.publicKey,
+                signatureObject.signature, signatureObject.index]);
 
-            rest = CopyBuffer(rest.slice(SIGNATURE_LENGTH + 1));
-        }
-
-        if (rest.length > 0) {
-            throw new Error("signatures does not contain exact mutliple of (SIGNATURE_LENGTH+1)");
+            rest = CopyBuffer(rest.slice(signatureLength + 1));
         }
 
         return signatures;
@@ -1030,8 +1059,9 @@ export abstract class BaseCert implements BaseCertInterface {
 
     /**
      * @param onlyNonUsed if set to true then only return those who have not signed.
+     *
      * @returns all public keys eligible for signing.
-     **/
+     */
     public getEligibleSigningPublicKeys(onlyNonUsed: boolean = false): Buffer[] {
         const targetPublicKeys: Buffer[] = [];
 
@@ -1086,15 +1116,16 @@ export abstract class BaseCert implements BaseCertInterface {
             this.model.setBuffer("targetPublicKeys", undefined);
         }
         else {
-            let packed = Buffer.alloc(0);
+            const packed: Buffer[] = [];
 
-            targetPublicKeys.forEach( (targetPublicKey: Buffer) => {
-                const prefix = Buffer.alloc(1);
-                prefix.writeUInt8(targetPublicKey.length, 0);
-                packed = Buffer.concat([packed, prefix, targetPublicKey]);
+            targetPublicKeys.forEach( publicKey => {
+                const length = Buffer.alloc(1);
+                length.writeUInt8(publicKey.length, 0);
+                packed.push(length);
+                packed.push(publicKey);
             });
 
-            this.model.setBuffer("targetPublicKeys", packed);
+            this.model.setBuffer("targetPublicKeys", Buffer.concat(packed));
         }
     }
 

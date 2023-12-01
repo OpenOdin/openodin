@@ -348,8 +348,12 @@ export class Service {
             throw new Error("Unknown UniverseConf format, expecting 1");
         }
 
-        this.universeConf   = DeepCopy(universeConf);
-        this.walletConf     = DeepCopy(walletConf);
+        if (walletConf.authCert && !walletConf.nodeCerts?.length) {
+            throw new Error("When using an authCert also nodeCerts are required");
+        }
+
+        this.universeConf   = DeepCopy(universeConf, true);
+        this.walletConf     = DeepCopy(walletConf, true);
 
         this.nodeUtil = new NodeUtil(this.signatureOffloader);
 
@@ -550,7 +554,7 @@ export class Service {
     public getPublicKey(): Buffer {
         if (this.config.authCert) {
             const publicKey = this.config.authCert.getIssuerPublicKey();
-            assert(publicKey);
+            assert(publicKey && publicKey.length > 0);
             return CopyBuffer(publicKey);
         }
 
@@ -1359,8 +1363,6 @@ export class Service {
     }
 
     protected async fetchAuthCertDataWrapper(authCert: AuthCertInterface, storageP2PClient: P2PClient, ignoreInactive: boolean = false): Promise<DataInterface | undefined> {
-        const owner = storageP2PClient.getLocalPublicKey();
-
         const exportedAuthCert = authCert.export();
 
         const parentId = Hash(exportedAuthCert);
@@ -1372,6 +1374,8 @@ export class Service {
             cutoffTime: 0n,
             ignoreInactive,
             discardRoot: true,
+            sourcePublicKey: this.publicKey,
+            targetPublicKey: this.publicKey,
             match: [
                 {
                     nodeType: DATA_NODE_TYPE,
@@ -1379,7 +1383,7 @@ export class Service {
                         {
                             field: "owner",
                             cmp: CMP.EQ,
-                            value: owner,
+                            value: this.publicKey,
                         },
                         {
                             field: "contentType",
@@ -1398,6 +1402,7 @@ export class Service {
         }});
 
         const {getResponse} = storageP2PClient.fetch(fetchRequest);
+
         if (!getResponse) {
             return undefined;
         }
@@ -1406,8 +1411,10 @@ export class Service {
 
         if (anyData.type === EventType.REPLY) {
             const fetchResponse = anyData.response;
+
             if (fetchResponse && fetchResponse.status === Status.RESULT) {
                 const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse);
+
                 if (nodes.length > 0) {
                     return nodes[0] as DataInterface;
                 }
@@ -1418,8 +1425,6 @@ export class Service {
     }
 
     protected async storeAuthCertDataWrapper(authCert: AuthCertInterface, storageP2PClient: P2PClient): Promise<boolean> {
-        const owner = storageP2PClient.getLocalPublicKey();
-
         const exportedAuthCert = authCert.export();
 
         const parentId = Hash(exportedAuthCert);
@@ -1427,23 +1432,31 @@ export class Service {
         const dataNode = await this.nodeUtil.createDataNode(
             {
                 hasDynamicEmbedding: authCert.isDynamic(),
-                owner,
+                owner: this.publicKey,
                 parentId,
                 embedded: exportedAuthCert,
                 contentType: "temporary/authCert",
                 expireTime: Date.now() + 3600 * 1000,
             }, this.publicKey);
 
-        const storeRequest = StorageUtil.CreateStoreRequest({nodes: [dataNode.export()]});
+        const storeRequest = StorageUtil.CreateStoreRequest({
+            sourcePublicKey: this.publicKey,
+            targetPublicKey: this.publicKey,
+            nodes: [dataNode.export()],
+
+        });
 
         const {getResponse} = storageP2PClient.store(storeRequest);
+
         if (!getResponse) {
             return false;
         }
 
         const anyData = await getResponse.onceAny();
+
         if (anyData.type === EventType.REPLY) {
             const storeResponse = anyData.response;
+
             if (storeResponse?.status === Status.RESULT) {
                 if (storeResponse.storedId1s.length === 1) {
                     return true;

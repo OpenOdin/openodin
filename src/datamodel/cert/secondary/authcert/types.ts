@@ -17,11 +17,11 @@ import {
 export const AUTHCERT_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_DEFAULTCERT_ID, 0, SECONDARY_INTERFACE_AUTHCERT_ID, 0, 0]);
 
 /** Params of an AuthCert. */
-export type AuthCertParams = BaseCertParams & {
+export type AuthCertParams = Omit<BaseCertParams & {
     isLockedOnPublicKey?: boolean,
     isLockedOnRegion?: boolean,
     isLockedOnJurisdiction?: boolean,
-};
+}, "targetMaxExpireTime" | "targetType" | "multiSigThreshold">;
 
 /**
  * Extend config bits from general cert.

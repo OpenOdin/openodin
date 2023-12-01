@@ -11,8 +11,8 @@ export const SECONDARY_INTERFACE_AUTHCERT_ID = 1;
 export type AuthCertConstraintValues = {
     /**
     * The cryptographic peer public key used to handshake.
-    * This must match one of the targetPublicKeys of the cert.
-    * It can also be locked for constraints.
+    * This must match targetPublicKeys[0] of the cert.
+    * It can also be locked in constraints if a chain cert has locked it.
     */
     publicKey: Buffer,
 
@@ -21,13 +21,6 @@ export type AuthCertConstraintValues = {
      * The cert must have its interval within this time.
      */
     creationTime: number,
-
-    /**
-     * The expire time for the session (UNIX time milliseceonds).
-     * If the cert has targetMaxExpireTime set then this property must be set
-     * and it cannot be greater then the cert's targetMaxExpireTime.
-     */
-    expireTime?: number,
 
     /**
      * The local peer's jurisdiction.

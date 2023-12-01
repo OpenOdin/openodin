@@ -3,17 +3,17 @@ import { assert, expect } from "chai";
 import {
     SignatureOffloader,
     License,
-    Node,
+    Crypto,
     Hash,
     sleep,
     CertUtil,
     NodeUtil,
 } from "../../../src";
 
-describe("certs", async function() {
+describe("nodes", async function() {
     const signatureOffloader = new SignatureOffloader();
-    const keyPair1 = Node.GenKeyPair();
-    const keyPair2 = Node.GenKeyPair();
+    const keyPair1 = Crypto.GenEthereumKeyPair();
+    const keyPair2 = Crypto.GenKeyPair();
 
     before( async function() {
         await signatureOffloader.init();
@@ -117,8 +117,8 @@ describe("certs", async function() {
         const creationTime = Date.now();
         const expireTime = creationTime + 1000;
 
-        const keyPair1b = Node.GenKeyPair();
-        const keyPair1c = Node.GenKeyPair();
+        const keyPair1b = Crypto.GenEthereumKeyPair();
+        const keyPair1c = Crypto.GenKeyPair();
 
         const chainCert1 = await certUtil.createChainCert({creationTime, expireTime, targetPublicKeys: [keyPair1.publicKey], maxChainLength: 2}, keyPair2.publicKey, keyPair2.secretKey);
 

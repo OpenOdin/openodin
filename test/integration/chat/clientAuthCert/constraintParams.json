@@ -3,13 +3,14 @@
     "#--": "The values here can be used to calculate the constraints hash for the AuthCert",
 
     "#--": "The creation time of the session in UNIX time milliseconds. This must fall within the certs creation/expireTime.",
-    "#--": "Setting this value here only affects the process of verifying the cert using the SDK. It simulates how the cert is verified in the wild.",
+    "#--": "Setting this value here only effects the process of verifying the cert using the SDK, it simulates how the cert is verified in the wild.",
+    "#--": "In the wild creationTime is automatically set to now() upon handshake.",
     "creationTime": 1664316000000,
 
-    "#--": "This is the handshaking cryptographic key. It must match the authCert.targetPublicKeys[0].",
+    "#--": "This is the handshaking cryptographic key, it must match the authCert.targetPublicKeys[0].",
     "#--": "It can also be locked in constraints so that the cert can only be used by a specific key already set by the root chain cert issuer,",
     "#--": "which effectively dictates exactly what authCert.targetPublicKeys[0] must be set to.",
-    "publicKey": "!keyFileUser.json:.keyPair.publicKey",
+    "publicKey": "",
 
     "#--": "The region to lock this auth cert for. This is hashed if isLockedOnRegion is set.",
     "region": "SE",

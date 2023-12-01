@@ -26,11 +26,6 @@ export type PatchVersion = number;          // not encoded into data structure
 /** major, minor, patch */
 export type Version = [MajorVersion, MinorVersion, PatchVersion];
 
-export type KeyPair = {
-    publicKey: Buffer,
-    secretKey: Buffer
-};
-
 export type NodeParams = {
     modelType?: Buffer,
     id1?: Buffer,
@@ -187,12 +182,4 @@ export enum TransientConfig {
      * Set to true on dynamic nodes if the node it self or any of their dynamic embeddings or certs have been permanently invalidated (transient value not stored)
      */
     DYNAMIC_DESTROYED               = 3,
-}
-
-export type Signature = {
-    crypto: string,  // What crypto is this signed with. "ed25519", etc.
-    message: Buffer,
-    signature: Buffer,
-    publicKey: Buffer,
-    index: number,  // The index of the public key used
 }

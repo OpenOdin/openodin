@@ -168,8 +168,8 @@ export class P2PClient {
             throw new Error(`Peer clock is too much off relatively to our clock. Our clock=${localProps.clock}, remote clock=${remoteProps.clock}, skew=${clockSkew} ms`);
         }
 
-        this.localProps = DeepCopy(localProps);
-        this.remoteProps = DeepCopy(remoteProps);
+        this.localProps = DeepCopy(localProps, true);
+        this.remoteProps = DeepCopy(remoteProps, true);
 
         // Default permissions are locked down.
         this.permissions = DeepCopy(permissions ?? LOCKED_PERMISSIONS);

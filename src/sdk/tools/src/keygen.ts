@@ -1,18 +1,33 @@
 import {
-    Node,
-} from "../../../datamodel";
+    Crypto,
+} from "../../../datamodel/Crypto";
 
-function GenKeyPair() {
-    const keyPair = Node.GenKeyPair();
-    const date = `${Date()}`;
-    const result = {
-        ["#KeyPair-created"]: `${date}`,
-        keyPair: {
-            publicKey: Buffer.from(keyPair.publicKey).toString("hex"),
-            secretKey: Buffer.from(keyPair.secretKey).toString("hex")
-        }
-    };
-    console.log(JSON.stringify(result, null, 4));
+const keyType = process.argv[2] || "ed25519";
+
+if (!["ed25519", "ethereum"].includes(keyType)) {
+    console.error(`Usage: keygen.ts [ed25519 | ethereum]`);
+    process.exit(1);
 }
 
-GenKeyPair();
+let keyPair;
+let keyTypeNote;
+
+if (keyType === "ed25519") {
+    keyPair = Crypto.GenKeyPair();
+    keyTypeNote = "Ed25519: generated with NaCl";
+}
+else {
+    keyPair = Crypto.GenEthereumKeyPair();
+    keyTypeNote = "Ethereum: ECDSA key pair generated with @ethereumjs/wallet, publicKey=address";
+}
+
+const result = {
+    ["#KeyPairCreated"]: `${Date()}`,
+    ["#KeyPairType"]: `${keyTypeNote}`,
+    keyPair: {
+        publicKey: Buffer.from(keyPair.publicKey).toString("hex"),
+        secretKey: Buffer.from(keyPair.secretKey).toString("hex")
+    }
+};
+
+console.log(JSON.stringify(result, null, 4));

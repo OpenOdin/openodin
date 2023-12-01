@@ -1,0 +1,37 @@
+{
+    "#--": "The hex-encoded 6 byte header of the model type. This dictates what exact cert class will be created. A list of model types is available running `cert list`",
+    "modelType": "000300010000",
+
+    "#--": "The publicKey signing this cert. Since this cert does not have a chain cert this owner is also the issuer. We load this key from an external keyfile.",
+    "owner": "!../clientAuthCert/clientKeyfileOwner.json:.keyPair.publicKey",
+
+    "#--": "The expected publicKey of the handshaking peer who will get the authorization of the cert issuer (the above owner in this case).",
+    "#--": "Note that this array must contain exactly one public key.",
+    "targetPublicKeys": ["!../clientKeyfile.json:.keyPair.publicKey"],
+
+    "#--": "From the UNIX time (ms) when this cert is valid.",
+    "#--": "This value must fall within any chain certs creationTime and expireTime.",
+    "creationTime": 1701162109000,
+
+    "#--": "The cert has expired on this UNIX time ms.",
+    "#--": "If a chain cert has targetMaxExpireTime set then this value must be lesser or equal to that value.",
+    "expireTime": 1801162109000,
+
+    "#--": "We do not use any chain cert in this example.",
+    "cert": null,
+
+    "#--": "The calculated constraints for which this cert is valid. We load it from external file to not having to modify this file after the constraints have been calculated.",
+    "constraints": "!dataCertConstraints.json:.constraints",
+
+    "#--": "The allowed stack height for this cert. Since we have no chain certs we set this to 1.",
+    "maxChainLength": 1,
+
+    "#--": "If the signature is already created put that here in hex-encoding, otherwise make sure to pass the --keyfile argument to sign the created cert.",
+    "signature": null,
+
+    "isLockedOnDataConfig": false,
+
+    "isLockedOnContentType": false,
+
+    "isLockedOnUserBits": false
+}

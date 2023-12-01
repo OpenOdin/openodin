@@ -61,6 +61,34 @@ import {
 
 /** The extra fields added on top of Node. */
 const FIELDS: Fields = {
+    /**
+     * Override this with new length.
+     *
+     */
+    cert: {
+        name: "cert",
+        type: FieldType.BYTES,
+        index: 12,
+
+        /**
+         * Max length for DataCert needed is 1982 bytes.
+         */
+        maxSize: 1982,
+    },
+
+    /**
+     * Override this with new length.
+     *
+     * Note: this value is still an approximation of the maximum supported.
+     */
+    embedded: {
+        name: "embedded",
+        type: FieldType.BYTES,
+        index: 13,
+
+        maxSize: 8192,
+    },
+
     dataConfig: {
         name: "dataConfig",
         type: FieldType.UINT8,

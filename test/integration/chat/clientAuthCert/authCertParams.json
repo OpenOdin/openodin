@@ -3,19 +3,19 @@
     "modelType": "000200010000",
 
     "#--": "The publicKey signing this cert. Since this cert does not have a chain cert this owner is also the issuer. We load this key from an external keyfile.",
-    "owner": "!keyFileIssuer.json:.keyPair.publicKey",
+    "owner": "!clientKeyfileOwner.json:.keyPair.publicKey",
 
     "#--": "The expected publicKey of the handshaking peer who will get the authorization of the cert issuer (the above owner in this case).",
     "#--": "Note that this array must contain exactly one public key.",
-    "targetPublicKeys": ["!keyFileUser.json:.keyPair.publicKey"],
+    "targetPublicKeys": ["!../clientKeyfile.json:.keyPair.publicKey"],
 
     "#--": "From the UNIX time (ms) when this cert is valid.",
     "#--": "This value must fall within any chain certs creationTime and expireTime.",
-    "creationTime": 1664316000000,
+    "creationTime": 1701162109000,
 
     "#--": "The cert has expired on this UNIX time ms.",
     "#--": "If a chain cert has targetMaxExpireTime set then this value must be lesser or equal to that value.",
-    "expireTime": 1695852000000,
+    "expireTime": 1801162109000,
 
     "#--": "We do not use any chain cert in this example.",
     "cert": null,

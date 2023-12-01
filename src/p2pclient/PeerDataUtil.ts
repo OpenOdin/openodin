@@ -9,6 +9,7 @@ import {
 import {
     AuthCertInterface,
     AuthCertConstraintValues,
+    Crypto,
 } from "../datamodel";
 
 import {
@@ -54,7 +55,6 @@ export class PeerDataUtil {
             const authConstraintvalues: AuthCertConstraintValues = {
                 publicKey: handshakeResult.peerLongtermPk,
                 creationTime: Date.now(),
-                expireTime: undefined,
                 jurisdiction: localProps.jurisdiction,
                 region: localProps.region,
             };

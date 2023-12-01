@@ -2,7 +2,7 @@
 #
 # This is a thin usage wrapper over src/keygen.ts.
 #
-# This tool creates an Ed25519 key pair in JSON format, as:
+# This tool creates an Ed25519/Ethereum key pair in JSON format, as:
 # {
 #   "keyPair": {
 #     "publicKey": "ddf5a7ba5a61f2c1d0aea6e7bcdc0a9818dbc25a3dede93add73088001326b5d",
@@ -22,4 +22,4 @@ if [ -z "${cmd}" ]; then
     exit 1
 fi
 
-${cmd} -r ts-node/register "${BASEDIR}/src/keygen.ts"
+${cmd} -r ts-node/register "${BASEDIR}/src/keygen.ts" "$@"

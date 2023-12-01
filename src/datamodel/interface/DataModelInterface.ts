@@ -1,7 +1,7 @@
 import {
     KeyPair,
     Signature,
-} from "../node/primary/node/types";
+} from "../Crypto";
 
 /**
  * This is the common interface for all nodes and all certs.
@@ -18,7 +18,6 @@ export interface DataModelInterface {
     getSignatures(): Signature[];
     getEligibleSigningPublicKeys(onlyNonUsed?: boolean): Buffer[];
     getType(length?: number): Buffer;
-    getCrypto(): string;
     setOwner(owner: Buffer | undefined): void;
     getOwner(): Buffer | undefined;
     setCreationTime(creationTime: number | undefined): void;

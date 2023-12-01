@@ -1,3 +1,4 @@
+export * from "./Crypto";
 export * from "./cert";
 export * from "./decoder";
 export * from "./interface";

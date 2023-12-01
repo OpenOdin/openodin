@@ -16,7 +16,8 @@ import {
 
 import {
     KeyPair,
-} from "../node";
+    Crypto,
+} from "../Crypto";
 
 import {
     ToBeSigned,
@@ -30,7 +31,6 @@ export class SignatureOffloaderWorker {
     protected keyPairs: KeyPair[] = [];
 
     public addKeyPair(keyPair: KeyPair) {
-
         this.keyPairs.push({
             publicKey: Buffer.from(keyPair.publicKey),
             secretKey: Buffer.from(keyPair.secretKey),
@@ -53,33 +53,53 @@ export class SignatureOffloaderWorker {
 
             for (let j=0; j<l2; j++) {
 
-                const {message, signature, publicKey, crypto} = signatures[j];
+                const {message, signature, publicKey} = signatures[j];
 
-                if (crypto !== "ed25519") {
-                    // We do not know this crypto.
-                    // No point checking any more in this collection since at least
-                    // one signature is not valid.
-                    //
-                    break;
-                }
-
-                // use sodium to verify signature.
+                // These can be Uint8Arrays after serialization so we make sure they are Buffers.
                 //
-                try {
-                    if (sodium.crypto_sign_verify_detached(signature, message, publicKey)) {
+                const message2   = Buffer.from(message);
+                const signature2 = Buffer.from(signature);
+                const publicKey2 = Buffer.from(publicKey);
 
-                        validCount++;
-
-                        continue;
+                if (Crypto.IsEd25519(publicKey2)) {
+                    // Use sodium to verify signature in high speed.
+                    //
+                    try {
+                        if (sodium.crypto_sign_verify_detached(signature2, message2,
+                            publicKey2))
+                        {
+                            validCount++;
+                            continue;
+                        }
+                        else {
+                            // Could not verify signature,
+                            // do not attempt to verify any further.
+                            //
+                            break;
+                        }
                     }
-                    else {
+                    catch(e) {
                         // Could not verify signature,
                         // do not attempt to verify any further.
                         //
                         break;
                     }
                 }
-                catch(e) {
+                else {
+                    // Resolve other cases which are not ed25519
+                    //
+                    try {
+                        if (Crypto.Verify({message: message2, signature: signature2,
+                                publicKey: publicKey2, index}))
+                        {
+                            validCount++
+                            continue;
+                        }
+                    }
+                    catch(e) {
+                        // Fall through
+                    }
+
                     // Could not verify signature,
                     // do not attempt to verify any further.
                     //
@@ -103,29 +123,25 @@ export class SignatureOffloaderWorker {
         const l = toBeSigned.length;
 
         for (let j=0; j<l; j++) {
-            let secretKey: Buffer | undefined;
+            const {index, message, publicKey} = toBeSigned[j];
 
-            const {index, message, publicKey, crypto} = toBeSigned[j];
-
-            if (crypto !== "ed25519") {
-                continue;
-            }
-
-            // This is serialized as Uint8Array so we want it back as Buffer to use equals().
+            // These are serialized as Uint8Array so we want it back as Buffer to be able to use equals().
             //
             const publicKey2 = Buffer.from(publicKey);
+            const message2   = Buffer.from(message);
 
             const keyPairsLength = this.keyPairs.length;
 
             // Find the matching secretKey so we can sign.
             //
+            let secretKey: Buffer | undefined;
+
             for (let i=0; i<keyPairsLength; i++) {
 
                 const keyPair = this.keyPairs[i];
 
                 if (keyPair.publicKey.equals(publicKey2)) {
                     secretKey = keyPair.secretKey;
-
                     break;
                 }
             }
@@ -134,17 +150,38 @@ export class SignatureOffloaderWorker {
                 continue;
             }
 
-            try {
-                // use sodium to sign
-                //
-                const signature = sodium.crypto_sign_detached(Buffer.from(message), secretKey);
+            if (Crypto.IsEd25519(publicKey)) {
+                try {
+                    // Use sodium to sign in high speed.
+                    //
+                    const signature = Buffer.from(sodium.crypto_sign_detached(message2, secretKey));
 
-                result.push({index, signature: Buffer.from(signature)});
+                    result.push({index, signature});
+                }
+                catch(e) {
+                    // Abort
+                    //
+                    return [];
+                }
             }
-            catch(e) {
-                // Abort
-                //
-                return [];
+            else {
+                try {
+                    // Resolve other cases which are not ed25519
+                    //
+                    const keyPair = {
+                        publicKey,
+                        secretKey,
+                    };
+
+                    const signature = Crypto.Sign(message2, keyPair);
+
+                    result.push({index, signature});
+                }
+                catch(e) {
+                    // Abort
+                    //
+                    return [];
+                }
             }
         }
 

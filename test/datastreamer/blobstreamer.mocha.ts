@@ -31,7 +31,7 @@ import {
     PeerProps,
     DatabaseUtil,
     Hash,
-    Node,
+    Crypto,
     NodeUtil,
     StoreRequest,
     sleep,
@@ -63,12 +63,11 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
     let messaging1: Messaging | undefined;
     let messaging2: Messaging | undefined;
 
-    const keyPair1 = Node.GenKeyPair();
-    const keyPairServer = Node.GenKeyPair();
+    const keyPair1 = Crypto.GenKeyPair();
+    const keyPairServer = Crypto.GenKeyPair();
     const parentId = Buffer.alloc(32).fill(0x00);
 
     const nodeUtil = new NodeUtil();
-    const now = Date.now();
 
     const blobLength = BigInt(content.length);
     const blobHash = Hash(content);
@@ -152,6 +151,8 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
 
     it("BlobStreamReader, BlobStreamWriter should work with FileStreamers", async function() {
         assert(clientP2pClient);
+
+        const now = Date.now();
 
         const nodeId1 = Buffer.alloc(32).fill(0x01);
 

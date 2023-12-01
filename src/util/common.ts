@@ -62,10 +62,11 @@ export function DeepEquals(o1: any, o2: any): boolean {
  * Return deep copy of an object.
  * Supports same types as GetType.
  * @param o object to copy.
+ * @param returnUncopyable is set then return a value which cannot be copied as it is.
  * @returns copied object.
  * @throws on unknown data types.
  */
-export function DeepCopy(o: any): any {
+export function DeepCopy(o: any, returnUncopyable: boolean = false): any {
     const type = GetType(o);
 
     // Scalar types are directly returned.
@@ -73,12 +74,12 @@ export function DeepCopy(o: any): any {
         return o;
     }
     else if (type === "array") {
-        return o.map( (value: any) => DeepCopy(value) );
+        return o.map( (value: any) => DeepCopy(value, returnUncopyable) );
     }
     else if (type === "object") {
         const o2: any = {};
         const keys = Object.keys(o);
-        keys.forEach( (key: string) => o2[key] = DeepCopy(o[key]) );
+        keys.forEach( (key: string) => o2[key] = DeepCopy(o[key], returnUncopyable) );
         return o2;
     }
     else if (type === "buffer") {
@@ -93,6 +94,10 @@ export function DeepCopy(o: any): any {
             o2[i] = o[i];
         }
         return o2;
+    }
+
+    if (returnUncopyable) {
+        return o;
     }
 
     throw new Error(`Type not recognized for ${o}`);

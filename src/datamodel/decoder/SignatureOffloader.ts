@@ -4,7 +4,7 @@ import {
 
 import {
     KeyPair,
-} from "../node";
+} from "../Crypto";
 
 import {
     DataModelInterface,
@@ -148,7 +148,7 @@ export class SignatureOffloader implements SignatureOffloaderInterface {
 
             // Might throw
             datamodel.enforceSigningKey(publicKey);
-            toBeSigned.push({index, message: datamodel.hash(), publicKey, crypto: datamodel.getCrypto()});
+            toBeSigned.push({index, message: datamodel.hash(), publicKey});
         }
 
         // Might throw

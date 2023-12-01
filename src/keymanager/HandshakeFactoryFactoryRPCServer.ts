@@ -8,6 +8,7 @@ import {
 
 import {
     KeyPair,
+    Crypto,
 } from "../datamodel";
 
 import {
@@ -21,7 +22,9 @@ import {
 
 import {
     DeepCopy,
+    CopyBuffer,
 } from "../util/common";
+
 
 export class HandshakeFactoryFactoryRPCServer {
     protected rpc: RPC;
@@ -44,7 +47,7 @@ export class HandshakeFactoryFactoryRPCServer {
             const rpcId2 = rpc2.getId();
 
             const userHandshakeFactoryConfig2 = DeepCopy(userHandshakeFactoryConfig) as HandshakeFactoryConfig;
-            const props = DeepCopy(peerProps);
+            const props = DeepCopy(peerProps, true);
 
             // Override given userHandshakeFactoryConfig with the keymanager values.
             //
@@ -64,8 +67,40 @@ export class HandshakeFactoryFactoryRPCServer {
                 return undefined;
             }
 
-            userHandshakeFactoryConfig2.keyPair = keyPair;
+            if (!Crypto.IsEd25519(keyPair.publicKey)) {
+                throw new Error("Handshake must be done with a Ed25519 keypair.");
+            }
 
+            const keyPair2 = {
+                secretKey: CopyBuffer(keyPair.secretKey),
+                publicKey: CopyBuffer(keyPair.publicKey),
+            };
+
+            userHandshakeFactoryConfig2.keyPair = keyPair2;
+
+            const serverPublicKey = userHandshakeFactoryConfig2.serverPublicKey;
+
+            if (serverPublicKey) {
+                if (!Crypto.IsEd25519(keyPair.publicKey)) {
+                    throw new Error("Handshake must be done with serverPublicKey beging an Ed25519 public key.");
+                }
+
+                userHandshakeFactoryConfig2.serverPublicKey = CopyBuffer(serverPublicKey);
+            }
+
+            const allowedClients = userHandshakeFactoryConfig2.allowedClients;
+
+            if (Array.isArray(allowedClients)) {
+                // We need to check every public key so it is Ed25519.
+                //
+                userHandshakeFactoryConfig2.allowedClients = allowedClients.map( publicKey => {
+                    if (!Crypto.IsEd25519(publicKey)) {
+                        throw new Error("Handshake must be done with native Ed25519 keypairs, where all public keys in allowedClients must properly prefixed.");
+                    }
+
+                    return publicKey;
+                });
+            }
 
             userHandshakeFactoryConfig2.peerData = (/*isServer: boolean*/) => {
                 // We need to get a fresh timestamp of when entering the handshake.

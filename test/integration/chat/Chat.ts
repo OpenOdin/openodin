@@ -58,7 +58,6 @@ async function main() {
     }
 
     const keyPair1 = serverWallet.keyPairs[0];
-    assert(keyPair1);
 
     const keyPair2 = clientWallet.keyPairs[0];
     assert(keyPair2);
@@ -71,6 +70,17 @@ async function main() {
 
     const signatureOffloader2 = new SignatureOffloader();
     await signatureOffloader2.init();
+
+    const chatServer = new Service(serverConfig, serverWallet, signatureOffloader1, handshakeFactoryFactory1);
+
+    await chatServer.init();
+
+    const chatClient = new Service(clientConfig, clientWallet, signatureOffloader2, handshakeFactoryFactory2);
+
+    await chatClient.init();
+
+    const publicKey1 = chatServer.getPublicKey();
+    const publicKey2 = chatClient.getPublicKey();
 
 
     let abortTimeout = setTimeout( () => {
@@ -105,10 +115,6 @@ async function main() {
 
     const consoleServer = PocketConsole({module: "Server"});
 
-    const chatServer = new Service(serverConfig, serverWallet, signatureOffloader1, handshakeFactoryFactory1);
-
-    await chatServer.init();
-
     chatServer.onPeerError( (e) => {
         consoleMain.error("Peer connection error in server", e);
         process.exit(1);
@@ -118,7 +124,7 @@ async function main() {
         const storageClient = e.p2pClient;
 
         const serverThread = chatServer.makeThread("channel", {parentId: Buffer.alloc(32),
-            targets: [keyPair1.publicKey]});
+            targets: [publicKey1]});
 
         const responseAPI = serverThread.stream();
         responseAPI.onChange( async (event) => {
@@ -186,10 +192,6 @@ async function main() {
     const consoleClient = PocketConsole({module: "Client"});
 
 
-    const chatClient = new Service(clientConfig, clientWallet, signatureOffloader2, handshakeFactoryFactory2);
-
-    await chatClient.init();
-
     chatClient.onPeerError( (e) => {
         consoleMain.error("Peer error in client", e);
         process.exit(1);
@@ -201,7 +203,7 @@ async function main() {
         const storageClient = e.p2pClient;
 
         clientThread = chatClient.makeThread("channel", {parentId: Buffer.alloc(32),
-            targets: [keyPair2.publicKey]});
+            targets: [publicKey2]});
 
         const responseAPI = clientThread.stream();
 

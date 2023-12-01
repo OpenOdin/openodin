@@ -1,6 +1,6 @@
 import {
     KeyPair,
-} from "../datamodel/node";
+} from "../datamodel/Crypto";
 
 import {
     Decoder,
@@ -67,8 +67,7 @@ export class SignatureOffloaderRPCServer extends SignatureOffloader {
                     throw new Error(`A datamodel did not validate prior to signing: ${val[1]}`);
                 }
 
-                return {index: toBeSigned.index, message: dataModel.hash(),
-                    publicKey, crypto: toBeSigned.crypto};
+                return {index: toBeSigned.index, message: dataModel.hash(), publicKey};
             });
 
             return this.signer(toBeSigned2);

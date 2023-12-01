@@ -5,7 +5,7 @@ import { assert, expect } from "chai";
 
 import {
     NodeInterface,
-    Node,
+    Crypto,
     NodeUtil,
     NodeAlgoValues,
 } from "../../../src";
@@ -19,7 +19,7 @@ import {
 async function testSorted(algoSorted: AlgoInterface) {
     const nodeUtil = new NodeUtil();
 
-    const keyPair = Node.GenKeyPair();
+    const keyPair = Crypto.GenKeyPair();
 
     const node1 = await nodeUtil.createDataNode({creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
     const node1copy = await nodeUtil.createDataNode({creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
@@ -122,7 +122,7 @@ describe("CRDT AlgoSorted", function() {
     it("should be able to sort on storageTime instead of creationTime", async function() {
         const nodeUtil = new NodeUtil();
 
-        const keyPair = Node.GenKeyPair();
+        const keyPair = Crypto.GenKeyPair();
 
         const node1 = await nodeUtil.createDataNode({
             id1: Buffer.alloc(32).fill(0x01),
@@ -207,7 +207,7 @@ describe("CRDT AlgoRefId", function() {
 
         const algo = new AlgoRefId();
 
-        const keyPair = Node.GenKeyPair();
+        const keyPair = Crypto.GenKeyPair();
 
         const node1 = await nodeUtil.createDataNode({data: Buffer.from("node1"), creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
         const node1_1 = await nodeUtil.createDataNode({data: Buffer.from("node1_1"), creationTime: 9, refId: node1.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);

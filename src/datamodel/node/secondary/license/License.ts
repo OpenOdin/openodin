@@ -1,8 +1,11 @@
 import {
     Node,
     Version,
-    Signature,
 } from "../../primary/node";
+
+import {
+    Signature,
+} from "../../../Crypto";
 
 import {
     Hash,
@@ -66,12 +69,32 @@ import {
  * Disabled fields always return undefined and cannot be set to any value.
  */
 const FIELDS: Fields = {
-    // Override this with new length
+    /**
+     * Override this with new length.
+     *
+     */
+    cert: {
+        name: "cert",
+        type: FieldType.BYTES,
+        index: 12,
+
+        /**
+         * Max length for DataCert needed is 1982 bytes.
+         */
+        maxSize: 1985,
+    },
+
+    /**
+     * Override this with new length.
+     *
+     * Note: this value is still an approximation of the maximum supported.
+     */
     embedded: {
         name: "embedded",
         type: FieldType.BYTES,
         index: 13,
-        maxSize: 8096,
+
+        maxSize: 9216,
     },
 
     // Add license specific fields
@@ -82,7 +105,8 @@ const FIELDS: Fields = {
     },
     targetPublicKey: {
         name: "targetPublicKey",
-        type: FieldType.BYTE32,
+        type: FieldType.BYTES,
+        maxSize: 32,
         index: 31,
     },
     terms: {
@@ -104,13 +128,13 @@ const FIELDS: Fields = {
     friendCertA: {
         name: "friendCertA",
         type: FieldType.BYTES,
-        maxSize: 896,
+        maxSize: 2018,
         index: 35,
     },
     friendCertB: {
         name: "friendCertB",
         type: FieldType.BYTES,
-        maxSize: 896,
+        maxSize: 2018,
         index: 36,
     },
     licenseTransientConfig: {
@@ -121,7 +145,8 @@ const FIELDS: Fields = {
     },
     jumpPeerPublicKey: {
         name: "jumpPeerPublicKey",
-        type: FieldType.BYTE32,
+        type: FieldType.BYTES,
+        maxSize: 32,
         index: 38,
     },
     parentPathHash: {

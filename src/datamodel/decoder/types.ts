@@ -1,7 +1,7 @@
 import {
     Signature,
     KeyPair,
-} from "../node";
+} from "../Crypto";
 
 import {
     DataModelInterface,
@@ -26,7 +26,6 @@ export type ToBeSigned = {
     index: number,
     message: Buffer,
     publicKey: Buffer,
-    crypto: string,
 };
 
 export type SignedResult = {

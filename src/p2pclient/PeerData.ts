@@ -30,7 +30,7 @@ const FIELDS: Fields = {
     authCert: {
         name: "authCert",
         type: FieldType.BYTES,
-        maxSize: 1024,
+        maxSize: 1897,
         index: 104,
     },
     region: {  // ISO 3166-1

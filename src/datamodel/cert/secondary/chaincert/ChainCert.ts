@@ -161,7 +161,10 @@ export class ChainCert extends PrimaryChainCert implements ChainCertInterface {
         //
         const certConstraints = this.getConstraints();
         if (certConstraints) {
-            // If constraints is set in this cert then constraints must match in target cert
+            // If constraints is set in this cert then constraints must match in target (embedder) cert.
+            // This means that once constraints have been set in the chain stack of certs it must
+            // thereafter be set the same all the way up to the top cert.
+            //
             const targetConstraints = this.calcConstraintsOnTarget(target);
             if (!targetConstraints || !certConstraints.equals(targetConstraints)) {
                 return [false, "Chain cert constraints do not match target cert's constraints"];

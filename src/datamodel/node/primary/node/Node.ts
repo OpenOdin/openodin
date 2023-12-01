@@ -1,6 +1,10 @@
-import nacl from "tweetnacl";
-
 import * as work from "./work";
+
+import {
+    Crypto,
+    Signature,
+    KeyPair,
+} from "../../../Crypto";
 
 import {
     Model,
@@ -11,9 +15,7 @@ import {
 } from "../../../model";
 
 import {
-    KeyPair,
     NodeConfig,
-    Signature,
     TransientConfig,
     Version,
     NodeParams,
@@ -65,8 +67,6 @@ import {
     MAX_LICENSE_DISTANCE,
 } from "../../../../types";
 
-const SIGNATURE_LENGTH  = 64;
-const CRYPTO            = "ed25519";
 
 const FIELDS: Fields = {
     id1: {  // The cryptographic ID of this node.
@@ -97,15 +97,31 @@ const FIELDS: Fields = {
         maxSize: 32,
         index: 4,
     },
+    /**
+     * The public key of the owner of this node.
+     *
+     * This key must be the same public key as the signing keypair.
+     *
+     * This field is not set when using a cert because then the embedded cert's
+     * targetPublicKeys are the public keys allowed to sign and the owner is the issuer
+     * public key of the cert (always the first cert in the stack of certs).
+     */
     owner: {
         name: "owner",
-        type: FieldType.BYTE32,
+        type: FieldType.BYTES,
+        maxSize: 32,
         index: 5,
     },
+    /**
+     * Node must be signed by owner public key,
+     * or by targetPublicKeys referenced in an embedded cert.
+     * We allow 3 signatures for multisig certs.
+     * Each signature is prefixed by a byte telling the index of the public key it matches.
+     */
     signature: {
         name: "signature",
         type: FieldType.BYTES,
-        maxSize: 3 * (SIGNATURE_LENGTH + 1),
+        maxSize: 3 * (Crypto.MAX_SIGNATURE_LENGTH + 1),
         index: 6,
         hash: false,
     },
@@ -132,20 +148,21 @@ const FIELDS: Fields = {
     },
     refId: {
         name: "refId",
-        type: FieldType.BYTE32,
+        type: FieldType.BYTES,
+        maxSize: 32,
         index: 11,
     },
     cert: {
         name: "cert",
         type: FieldType.BYTES,
         index: 12,
-        maxSize: 896,
+        maxSize: 0,  // Note this must be overriden ans set in sub classes.
     },
     embedded: {
         name: "embedded",
         type: FieldType.BYTES,
         index: 13,
-        maxSize: 4208,
+        maxSize: 0, // Note this must be overriden and set in sub classes.
     },
     blobHash: {
         name: "blobHash",
@@ -181,7 +198,7 @@ const FIELDS: Fields = {
     copiedSignature: {
         name: "copiedSignature",
         type: FieldType.BYTES,
-        maxSize: 3 * SIGNATURE_LENGTH,
+        maxSize: 3 * (Crypto.MAX_SIGNATURE_LENGTH + 1),
         index: 20,
     },
     copiedParentId: {
@@ -442,14 +459,6 @@ export abstract class Node implements NodeInterface {
      */
     public static GetType(length?: number): Buffer {
         throw new Error("Not implemented");
-    }
-
-    /**
-     * Return the name of the crypto algo used.
-     * @returns the crypto algo this node is using.
-     */
-    public getCrypto(): string {
-        return CRYPTO;
     }
 
     /**
@@ -900,8 +909,10 @@ export abstract class Node implements NodeInterface {
             message = Hash([signature.message, signature.publicKey, signature.signature, signature.index]);
         }
 
-        const signature = nacl.sign.detached(message, keyPair.secretKey);
-        this.addSignature(Buffer.from(signature), keyPair.publicKey);
+        const signature = Crypto.Sign(message, keyPair);
+
+        this.addSignature(signature, keyPair.publicKey);
+
         this.setId1(this.calcId1());
     }
 
@@ -1037,8 +1048,7 @@ export abstract class Node implements NodeInterface {
         for (let i=0; i<signatures.length; i++) {
             const signature = signatures[i];
 
-            // Throws on badly formatted input.
-            if (!nacl.sign.detached.verify(signature.message, signature.signature, signature.publicKey)) {
+            if (!Crypto.Verify(signature)) {
                 return false;
             }
         }
@@ -1715,17 +1725,24 @@ export abstract class Node implements NodeInterface {
 
         let rest = CopyBuffer(signature);
 
-        while (rest.length >= SIGNATURE_LENGTH + 1) {
+        while (rest.length > 0) {
             const index = rest.readUInt8(0);
-            const signature = rest.slice(1, 1 + SIGNATURE_LENGTH);
+
             const publicKey = targetPublicKeys[index];
 
             if (publicKey === undefined) {
                 throw new Error("Cannot match signature index to targetPublicKey");
             }
 
+            const signatureLength = Crypto.GetSignatureLength(publicKey);
+
+            const signature = rest.slice(1, 1 + signatureLength);
+
+            if (signature.length !== signatureLength) {
+                throw new Error("Malformed signature");
+            }
+
             const signatureObject: Signature = {
-                crypto: this.getCrypto(),
                 message,
                 signature,
                 publicKey,
@@ -1734,13 +1751,12 @@ export abstract class Node implements NodeInterface {
 
             signatures.push(signatureObject);
 
-            message = Hash([signatureObject.message, signatureObject.publicKey, signatureObject.signature, signatureObject.index]);
+            // Hash for the next iteration.
+            //
+            message = Hash([signatureObject.message, signatureObject.publicKey,
+                signatureObject.signature, signatureObject.index]);
 
-            rest = CopyBuffer(rest.slice(SIGNATURE_LENGTH + 1));
-        }
-
-        if (rest.length > 0) {
-            throw new Error("signatures does not contain exact mutliple of (SIGNATURE_LENGTH+1)");
+            rest = CopyBuffer(rest.slice(signatureLength + 1));
         }
 
         return signatures;
@@ -1759,7 +1775,7 @@ export abstract class Node implements NodeInterface {
 
     /**
      * @returns all public keys eligible for signing.
-     **/
+     */
     public getEligibleSigningPublicKeys(onlyNonUsed: boolean = false): Buffer[] {
         const targetPublicKeys: Buffer[] = [];
 
@@ -1906,7 +1922,8 @@ export abstract class Node implements NodeInterface {
     }
 
     /**
-     * @param refId reference to other node ID
+     * @param refId usually a reference to another node ID or to a public key, or any
+     * hash of any kind.
      */
     public setRefId(refId: Buffer | undefined) {
         this.model.setBuffer("refId", refId);
@@ -2352,18 +2369,6 @@ export abstract class Node implements NodeInterface {
         }
 
         return signatures;
-    }
-
-    /**
-     * Static helper function to generate a new key pair used for signing.
-     * @returns a newly created key-pair for signing.
-     */
-    public static GenKeyPair(): KeyPair {
-        const keyPair = nacl.sign.keyPair();
-        return {
-            publicKey: Buffer.from(keyPair.publicKey),
-            secretKey: Buffer.from(keyPair.secretKey)
-        };
     }
 
     /**

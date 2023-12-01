@@ -317,7 +317,7 @@ export class ParseUtil {
      *  }
      * }
      *
-     * @returns UniverseConf
+     * @returns WalletConf
      * @throws if malconfigured.
      */
     public static ParseWalletConf(conf: any): WalletConf {
@@ -1187,7 +1187,6 @@ export class ParseUtil {
      * {
      *  publicKey: hexstring | Buffer,
      *  creationTime: number,
-     *  expireTime?: number,
      *  region?: string,
      *  jurisdiction?: string,
      * }
@@ -1201,14 +1200,12 @@ export class ParseUtil {
 
         const publicKey = ParseUtil.ParseVariable("publicKey must be hex-string or Buffer", params.publicKey, "hex");
         const creationTime = ParseUtil.ParseVariable("creationTime must be number", params.creationTime, "number");
-        const expireTime = ParseUtil.ParseVariable("expireTime must be number, if set", params.expireTime, "number", true);
         const region = ParseUtil.ParseVariable("region must be string, if set", params.region, "string", true);
         const jurisdiction = ParseUtil.ParseVariable("jurisdiction must be string, if set", params.jurisdiction, "string", true);
 
         return {
             publicKey,
             creationTime,
-            expireTime,
             region,
             jurisdiction,
         };

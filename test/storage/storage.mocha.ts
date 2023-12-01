@@ -38,7 +38,7 @@ import {
     StoreRequest,
     HandlerFn,
     StoreResponse,
-    Node,
+    Crypto,
     Decoder,
     UnsubscribeRequest,
     UnsubscribeResponse,
@@ -720,8 +720,8 @@ function setupTests(config: any) {
         let expectingReply = ExpectingReply.NONE;  // This is not used.
         let fromMsgId = Buffer.from([1,2,3,4,5]);
 
-        let keyPair1 = Node.GenKeyPair();
-        let keyPair2 = Node.GenKeyPair();
+        let keyPair1 = Crypto.GenKeyPair();
+        let keyPair2 = Crypto.GenKeyPair();
         let parentId = Buffer.alloc(32).fill(0x00);
         let sourcePublicKey = keyPair1.publicKey;
         let targetPublicKey = keyPair1.publicKey;
@@ -825,8 +825,8 @@ function setupTests(config: any) {
         let expectingReply = ExpectingReply.NONE;  // This is not used.
         let fromMsgId = Buffer.from([1,2,3,4,5]);
 
-        let keyPair1 = Node.GenKeyPair();
-        let keyPair2 = Node.GenKeyPair();
+        let keyPair1 = Crypto.GenKeyPair();
+        let keyPair2 = Crypto.GenKeyPair();
 
         let parentId = Buffer.alloc(32).fill(0x00);
         let triggerNodeId = Buffer.alloc(32).fill(0xa0);
@@ -1051,7 +1051,7 @@ function setupTests(config: any) {
         let expectingReply = ExpectingReply.NONE;  // This is not used.
         let fromMsgId = Buffer.from([1,2,3,4,5]);
 
-        let keyPair1 = Node.GenKeyPair();
+        let keyPair1 = Crypto.GenKeyPair();
         let sourcePublicKey = keyPair1.publicKey;
         let targetPublicKey = sourcePublicKey;
         let parentId = Buffer.alloc(32).fill(0x00);
@@ -1309,8 +1309,8 @@ function setupTests(config: any) {
         let expectingReply = ExpectingReply.NONE;  // This is not used.
         let fromMsgId = Buffer.from([1,2,3,4,5]);
 
-        let keyPair1 = Node.GenKeyPair();
-        let keyPair2 = Node.GenKeyPair();
+        let keyPair1 = Crypto.GenKeyPair();
+        let keyPair2 = Crypto.GenKeyPair();
         let parentId = Buffer.alloc(32).fill(0x00);
 
         let response: any;
@@ -1517,8 +1517,8 @@ function setupTests(config: any) {
         let expectingReply = ExpectingReply.NONE;  // This is not used.
         let fromMsgId = Buffer.from([1,2,3,4,5]);
 
-        let keyPair1 = Node.GenKeyPair();
-        let keyPair2 = Node.GenKeyPair();
+        let keyPair1 = Crypto.GenKeyPair();
+        let keyPair2 = Crypto.GenKeyPair();
 
         let parentId = Buffer.alloc(32).fill(0x00);
         let triggerNodeId = Buffer.alloc(32).fill(0xa0);
@@ -1750,7 +1750,7 @@ function setupTests(config: any) {
 
         const nodeUtil = new NodeUtil();
 
-        let keyPair1 = Node.GenKeyPair();
+        let keyPair1 = Crypto.GenKeyPair();
 
         let publicKey = keyPair1.publicKey;
         let secretKey = keyPair1.secretKey;

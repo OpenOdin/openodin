@@ -29,7 +29,7 @@ import {
 
 import {
     KeyPair,
-} from "../../../datamodel/node";
+} from "../../../datamodel/Crypto";
 
 import {
     PocketConsole,

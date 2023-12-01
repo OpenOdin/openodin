@@ -56,12 +56,16 @@ export class AuthCert extends PrimaryDefaultCert implements AuthCertInterface {
             return [false, "Auth cert cannot have targetType set."];
         }
 
-        if (this.getMultiSigThreshold() !== undefined) {
-            return [false, "multiSigThreshold cannot be set on AuthCert."];
+        if (this.getTargetMaxExpireTime() !== undefined) {
+            return [false, "Auth cert cannot have targetMaxExpireTime set."];
         }
 
         if (this.getTargetPublicKeys().length !== 1) {
             return [false, "Auth cert must have targetPublicKeys set to single key."];
+        }
+
+        if (this.getMultiSigThreshold() !== undefined) {
+            return [false, "multiSigThreshold cannot be set on AuthCert."];
         }
 
         return [true, ""];
@@ -71,74 +75,79 @@ export class AuthCert extends PrimaryDefaultCert implements AuthCertInterface {
      * Note that the cert chain root issuer publicKey is not matched against anything in target,
      * but it dictates what publicKey the authorized target now takes as identity.
      */
-    public validateAgainstTarget(authConstraintValues: AuthCertConstraintValues): [boolean, string] {
+    public validateAgainstTarget(authCertConstraintValues: AuthCertConstraintValues): [boolean, string] {
         const targetPublicKeys = this.getTargetPublicKeys();
 
         if (targetPublicKeys.length !== 1) {
             return [false, "Missing targetPublicKeys (must be set to single key)"];
         }
 
-        if (targetPublicKeys.findIndex( publicKey => publicKey.equals(authConstraintValues.publicKey) ) === -1) {
-            return [false, `AuthCertConstraintValues.publicKey ${authConstraintValues.publicKey.toString("hex")} not found in targetPublicKeys`];
+        // We only allow single key in targetPublicKeys.
+        //
+        if (!targetPublicKeys[0]?.equals(authCertConstraintValues.publicKey)) {
+            return [false, `AuthCertConstraintValues.publicKey ${authCertConstraintValues.publicKey.toString("hex")} does not match targetPublicKeys[0]`];
         }
 
         // Check so the session time matches the certs valid time.
+        //
         const certCreationTime = this.getCreationTime();
+
         const certExpireTime = this.getExpireTime();
 
         if (certCreationTime === undefined || certExpireTime === undefined) {
+            // These are enforced to have been set in validate().
+            //
             return [false, "Missing creation/expireTime in cert"];
         }
 
-        if (certCreationTime > authConstraintValues.creationTime) {
-            return [false, `Auth cert creationTime (${certCreationTime}) cannot be greater than the authConstraintValues creationTime (${authConstraintValues.creationTime})`];
+        if (certCreationTime > authCertConstraintValues.creationTime) {
+            // Cert is not valid yet.
+            //
+            return [false, `Auth cert creationTime (${certCreationTime}) cannot be greater than the authCertConstraintValues creationTime (${authCertConstraintValues.creationTime})`];
         }
 
-        if (certExpireTime <= authConstraintValues.creationTime) {
-            return [false, `Auth cert expireTime (${certExpireTime}) must be greater than the authConstraintValues creationTime (${authConstraintValues.creationTime})`];
+        if (certExpireTime <= authCertConstraintValues.creationTime) {
+            // Cert has expired.
+            //
+            return [false, `Auth cert expireTime (${certExpireTime}) must be greater than the authCertConstraintValues creationTime (${authCertConstraintValues.creationTime})`];
         }
 
-        // Check any maximum allowed expire time for authConstraintValues.
-        const targetMaxExpireTime = this.getTargetMaxExpireTime();
-        if (targetMaxExpireTime !== undefined) {
-            if (authConstraintValues.expireTime === undefined) {
-                return [false, "Target expireTime is expected to be set"];
-            }
-            if (authConstraintValues.expireTime > targetMaxExpireTime) {
-                return [false, `Target expireTime (${authConstraintValues.expireTime}) cannot be greater than authCert.targetMaxExpireTime (${targetMaxExpireTime})`];
-            }
-        }
-
+        // Check constraints, if set.
+        // Note that if any chain certs have constraints set then this will
+        // have been enforced to be the same value.
+        //
         const constraints = this.getConstraints();
+
         if (constraints) {
-            const targetConstraints = this.calcConstraintsOnTarget(authConstraintValues);
+            const targetConstraints = this.calcConstraintsOnTarget(authCertConstraintValues);
+
             if (!constraints.equals(targetConstraints)) {
-                return [false, `Constraints of cert (${constraints.toString("hex")}) and those calculated from authConstraintValues (${targetConstraints.toString("hex")}) do not match.`];
+                return [false, `Constraints of cert (${constraints.toString("hex")}) and those calculated from authCertConstraintValues (${targetConstraints.toString("hex")}) do not match.`];
             }
         }
 
         return [true, ""];
     }
 
-    public calcConstraintsOnTarget(authConstraintValues: AuthCertConstraintValues): Buffer {
+    public calcConstraintsOnTarget(authCertConstraintValues: AuthCertConstraintValues): Buffer {
         const values: (string | Buffer | number | undefined)[] = [];
 
         if (this.isLockedOnPublicKey()) {
-            values.push(authConstraintValues.publicKey);
+            values.push(authCertConstraintValues.publicKey);
         }
         else {
             values.push(undefined);
         }
 
         if (this.isLockedOnRegion()) {
-            values.push(authConstraintValues.region);
+            values.push(authCertConstraintValues.region);
         }
         else {
             values.push(undefined);
         }
 
         if (this.isLockedOnJurisdiction()) {
-            values.push(authConstraintValues.jurisdiction);
+            values.push(authCertConstraintValues.jurisdiction);
         }
         else {
             values.push(undefined);

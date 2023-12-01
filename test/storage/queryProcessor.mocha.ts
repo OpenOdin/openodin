@@ -35,15 +35,20 @@ import {
 // Then copy the hexadecimal values from the json files into these variables.
 //
 // Friend cert A (certa/friendCert.json:cert hex string).
-const friendCertImageA = Buffer.from("0002000200001f00b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c05a0af6fe01f07481be2f981c937299ce3b6d8bab835778fedebfaf52c79d52626b7fcd21d0a8d020901150a0041004583fecc4efa4dd82398cc823b6a32f2b5ae31634c74eeda557dcd53469b65d78b316a17f89e1f408780ade1ef07059688aa5ef0efff69751713ee997d87210a151e0002abba", "hex");
+const friendCertImageA = Buffer.from("00020002000015000020b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c05a0af6fe01f07481be2f981c937299ce3b6d8bab835778fedebfaf52c79d52626b7fcd21d0a8d020901150a004100f135788c20d0100afc81296e458f70a57797441e58581c90eead941b144802be5d98230fe8013e1aedbc589ecaab58961b856837ab3a82cb6ab75a818c406909151e0002abba", "hex");
+
+const friendCertAIssuer = Buffer.from("b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868", "hex");
 
 // Friend cert B (certb/friendCert.json:cert hex string).
-const friendCertImageB = Buffer.from("0002000200001f007b16e7f0d66ab67893e5927a7e51a3096a99b495b555ef0fe5f0d8dc0c55fcbb150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c05a0af6fe01f07481be2f981c937299ce3b6d8bab835778fedebfaf52c79d52626b7fcd21d0a8d020901150a00410038e3fd1d50721a6d0019500f3ee3768732bd875a59b2735231901fba0fe6488fddaafc7738c9390be9b0edc5896f0541a0f3698b1f21a96555a0e160992e2105151e0002beef", "hex");
+const friendCertImageB = Buffer.from("000200020000150000207b16e7f0d66ab67893e5927a7e51a3096a99b495b555ef0fe5f0d8dc0c55fcbb150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c05a0af6fe01f07481be2f981c937299ce3b6d8bab835778fedebfaf52c79d52626b7fcd21d0a8d020901150a004100bdd232ac398fb2f828d873a6cd3c8bd5f0167ff0d8483bbc3741ce50d0b3ed40759c5d78303949fb1e57295165a7776803ec9c72e83bf051b384e3a8aee0d101151e0002beef", "hex");
+
+const friendCertBIssuer = Buffer.from("7b16e7f0d66ab67893e5927a7e51a3096a99b495b555ef0fe5f0d8dc0c55fcbb", "hex");
 
 // Self cert
 // Friend certself (certself/friendCert.json:cert hex string).
-const friendCertImageASelf = Buffer.from("0002000200001f00b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c05a0af6fe01f0789a1fe894f2f481064804e609b08ca72e20c53a16942009c1077ac260db34f31020901150a0041007170ffd7621ff1f699b7f85107d96661c820348f5334386b92585222bc0742723b7013f9921a8ae0f935aa6c25d7933a0eb0424af9dde7d039d224cadc3a8008151e0005b0bbafe444", "hex");
+const friendCertImageASelf = Buffer.from("00020002000015000020b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c05a0af6fe01f0789a1fe894f2f481064804e609b08ca72e20c53a16942009c1077ac260db34f31020901150a0041008b8fd3c628e9099f4c9b2ffdef054f8a9dd08294b5fbb03b509830438b4ee12232166a3b2fa098f4e4852cb47d2cb194d5fe8dc9244aaaba8c7dd6ff212d4d0d151e0005b0bbafe444", "hex");
 
+const friendCertIIssuer = Buffer.from("41a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa6665448", "hex");
 
 class DriverTestWrapper extends Driver {
     public async insertNodes(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<void> {
@@ -3562,9 +3567,6 @@ function setupTests(config: any) {
         const nodeUtil = new NodeUtil();
         const now = Date.now();
 
-        let peerA = Buffer.from("b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868", "hex");
-        let peerI = Buffer.from("41a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa6665448", "hex");
-        let peerB = Buffer.from("7b16e7f0d66ab67893e5927a7e51a3096a99b495b555ef0fe5f0d8dc0c55fcbb", "hex");
         let parentId = Buffer.alloc(32).fill(0);
         let licenseId1 = Buffer.alloc(32).fill(1);
         let licenseId2 = Buffer.alloc(32).fill(2);
@@ -3572,8 +3574,8 @@ function setupTests(config: any) {
 
         const license1 = await nodeUtil.createLicenseNode({
             id1: licenseId1,
-            owner: peerA,
-            targetPublicKey: peerI,
+            owner: friendCertAIssuer,
+            targetPublicKey: friendCertIIssuer,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -3582,12 +3584,18 @@ function setupTests(config: any) {
             refId: nodeIdA,
         });
 
-        const embeddingLicense = license1.embed(peerB);
+        const embeddingLicense = license1.embed(friendCertBIssuer);
 
         assert(embeddingLicense);
 
         const aCert = Decoder.DecodeFriendCert(friendCertImageA);
         const bCert = Decoder.DecodeFriendCert(friendCertImageB);
+
+        let status = aCert.verify();
+        assert(status);
+
+        status = bCert.verify();
+        assert(status);
 
         let handleFetchReplyData = (fetchReplyData: FetchReplyData) => {
             // Do nothing
@@ -3595,8 +3603,8 @@ function setupTests(config: any) {
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            sourcePublicKey: peerA,
-            targetPublicKey: peerA,
+            sourcePublicKey: friendCertAIssuer,
+            targetPublicKey: friendCertAIssuer,
             match: [],
         }});
 
@@ -3621,9 +3629,6 @@ function setupTests(config: any) {
             // Do nothing
         };
 
-        let peerA = Buffer.from("b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868", "hex");
-        let peerI = Buffer.from("41a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa6665448", "hex");
-        let peerB = Buffer.from("7b16e7f0d66ab67893e5927a7e51a3096a99b495b555ef0fe5f0d8dc0c55fcbb", "hex");
         let parentId = Buffer.alloc(32).fill(0);
         let licenseIdA = Buffer.alloc(32).fill(0x10);
         let licenseIdB = Buffer.alloc(32).fill(0x12);
@@ -3632,7 +3637,7 @@ function setupTests(config: any) {
 
         const nodeA = await nodeUtil.createDataNode({
             id1: nodeIdA,
-            owner: peerA,
+            owner: friendCertAIssuer,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -3645,7 +3650,7 @@ function setupTests(config: any) {
 
         const nodeB = await nodeUtil.createDataNode({
             id1: nodeIdB,
-            owner: peerB,
+            owner: friendCertBIssuer,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -3659,16 +3664,16 @@ function setupTests(config: any) {
             id1: licenseIdB,
             parentId,
             refId: nodeIdB,
-            owner: peerB,
-            targetPublicKey: peerI,
+            owner: friendCertBIssuer,
+            targetPublicKey: friendCertIIssuer,
             expireTime: now + 10000,
             creationTime: now,
         });
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            sourcePublicKey: peerI,
-            targetPublicKey: peerB,
+            sourcePublicKey: friendCertIIssuer,
+            targetPublicKey: friendCertBIssuer,
             match: [
                 {
                     nodeType: Buffer.alloc(0),
@@ -3688,7 +3693,7 @@ function setupTests(config: any) {
         let [a,b] = await driver.store([nodeA, nodeB, licenseB], now);
         assert(a.length === 3);
 
-        publicKeys = [peerA];
+        publicKeys = [friendCertAIssuer];
 
         friendCerts = await qp.getFriendCerts(publicKeys);
 
@@ -3713,9 +3718,6 @@ function setupTests(config: any) {
             embed.push(...fetchReplyData.embed ?? []);
         };
 
-        let peerA = Buffer.from("b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868", "hex");
-        let peerI = Buffer.from("41a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa6665448", "hex");
-        let peerB = Buffer.from("7b16e7f0d66ab67893e5927a7e51a3096a99b495b555ef0fe5f0d8dc0c55fcbb", "hex");
         let parentId = Buffer.alloc(32).fill(0);
         let nodeIdA = Buffer.alloc(32).fill(0x30);
         let nodeIdB = Buffer.alloc(32).fill(0x31);      //embed
@@ -3730,7 +3732,7 @@ function setupTests(config: any) {
 
         const nodeA = await nodeUtil.createDataNode({
             id1: nodeIdA,
-            owner: peerA,
+            owner: friendCertAIssuer,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -3741,8 +3743,8 @@ function setupTests(config: any) {
                 id1: licenseIdA,
                 parentId,
                 refId: nodeIdA,
-                owner: peerA,
-                targetPublicKey: peerI,
+                owner: friendCertAIssuer,
+                targetPublicKey: friendCertIIssuer,
                 expireTime: now + 10000,
                 creationTime: now,
                 friendLevel: 1,
@@ -3751,7 +3753,7 @@ function setupTests(config: any) {
 
         const nodeB = await nodeUtil.createDataNode({
             id1: nodeIdB,
-            owner: peerB,
+            owner: friendCertBIssuer,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -3762,8 +3764,8 @@ function setupTests(config: any) {
                 id1: licenseIdB,
                 parentId,
                 refId: nodeIdB,
-                owner: peerB,
-                targetPublicKey: peerI,
+                owner: friendCertBIssuer,
+                targetPublicKey: friendCertIIssuer,
                 expireTime: now + 10000,
                 creationTime: now,
                 friendLevel: 1,
@@ -3773,7 +3775,7 @@ function setupTests(config: any) {
 
         const nodeFriendA = await nodeUtil.createDataNode({
             id1: nodeFriendIdA,
-            owner: peerA,
+            owner: friendCertAIssuer,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -3785,7 +3787,7 @@ function setupTests(config: any) {
 
         const nodeFriendAA = await nodeUtil.createDataNode({
             id1: nodeFriendIdAA,
-            owner: peerA,
+            owner: friendCertAIssuer,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -3797,7 +3799,7 @@ function setupTests(config: any) {
 
         const nodeFriendB = await nodeUtil.createDataNode({
             id1: nodeFriendIdB,
-            owner: peerB,
+            owner: friendCertBIssuer,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -3813,8 +3815,8 @@ function setupTests(config: any) {
         // Connect as Intermediary
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
-            sourcePublicKey: peerI,
-            targetPublicKey: peerA,
+            sourcePublicKey: friendCertIIssuer,
+            targetPublicKey: friendCertAIssuer,
             match: [
                 {
                     nodeType: Buffer.alloc(0),
@@ -3872,7 +3874,7 @@ function setupTests(config: any) {
         assert(nodeIds.includes(nodeIdB.toString("hex")));
         assert(nodeIds.includes(licenseIdB2.toString("hex")));
 
-        fetchRequest.query.targetPublicKey = peerB;
+        fetchRequest.query.targetPublicKey = friendCertBIssuer;
 
         nodes.length = 0;
         embed.length = 0;

@@ -1,6 +1,6 @@
 import {
     KeyPair,
-} from "../datamodel/node";
+} from "../datamodel/Crypto";
 
 import {
     DataModelInterface,
@@ -61,8 +61,7 @@ export class SignatureOffloaderRPCClient implements SignatureOffloaderInterface 
 
             // Note that we are sending the full datamodel export here, so that one cannot
             // sign arbitrary data, it must be a validatable datamodel.
-            toBeSigned.push({index, message: dataModel.export(),
-                publicKey, crypto: dataModel.getCrypto()});
+            toBeSigned.push({index, message: dataModel.export(), publicKey});
         }
 
         // Might throw

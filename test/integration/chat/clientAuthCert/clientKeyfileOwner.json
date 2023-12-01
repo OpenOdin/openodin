@@ -1,0 +1,8 @@
+{
+    "#KeyPairCreated": "Tue Nov 28 2023 16:33:33 GMT+0000 (Coordinated Universal Time)",
+    "#KeyPairType": "Ethereum: ECDSA key pair generated with @ethereumjs/wallet, publicKey=address",
+    "keyPair": {
+        "publicKey": "054767691a136085ac07f7db70192c39e49b21ed",
+        "secretKey": "43f90d5d48c44a51ebcef7e732805d79c47800ec7e299300696baf6bfd1fb157"
+    }
+}
