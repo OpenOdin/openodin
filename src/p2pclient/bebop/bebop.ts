@@ -1192,7 +1192,6 @@ export interface IBopWriteBlobRequest {
   targetPublicKey?: Uint8Array;
   data?: Uint8Array;
   pos?: bigint;
-  copyFromId1?: Uint8Array;
   muteMsgIds?: Array<Uint8Array>;
 }
 
@@ -1228,12 +1227,8 @@ export const BopWriteBlobRequest = {
         view.writeByte(5);
         view.writeUint64(message.pos);
       }
-      if (message.copyFromId1 != null) {
-        view.writeByte(6);
-        view.writeBytes(message.copyFromId1);
-      }
       if (message.muteMsgIds != null) {
-        view.writeByte(7);
+        view.writeByte(6);
         {
         const length0 = message.muteMsgIds.length;
         view.writeUint32(length0);
@@ -1285,10 +1280,6 @@ export const BopWriteBlobRequest = {
           break;
 
         case 6:
-          message.copyFromId1 = view.readBytes();
-          break;
-
-        case 7:
           {
         let length0 = view.readUint32();
         message.muteMsgIds = new Array<Uint8Array>(length0);

@@ -399,6 +399,8 @@ export class BlobDriver implements BlobDriverInterface {
 
         const ph = this.blobDb.generatePlaceholders(1);
 
+        // Does not differ on finalized or unfinalized data.
+        //
         const sql = `SELECT SUM(LENGTH(fragment)) AS length
             FROM universe_blob_data
             WHERE dataid=${ph} GROUP BY dataid LIMIT 1`;
@@ -420,55 +422,83 @@ export class BlobDriver implements BlobDriverInterface {
             throw new Error("blob length not correct");
         }
 
-        const ph = this.blobDb.generatePlaceholders(1);
-
-        const sql = `SELECT fragment FROM universe_blob_data
-            WHERE dataid=${ph} AND finalized=0 ORDER BY fragmentnr;`;
-
-        const blake = blake2b(32);
-
         await this.blobDb.exec("BEGIN;");
 
-        try {
-            await this.blobDb.each(sql, [dataId], (row: any): any => {
-                blake.update(row?.fragment);
-            });
-        }
-        catch(e) {
-            await this.blobDb.exec("ROLLBACK;");
-            throw e;
-        }
+        // Check if data is already finalized.
+        //
+        const ph = this.blobDb.generatePlaceholders(1);
 
-        const hash = Buffer.from(blake.digest());
+        const sql = `SELECT COUNT(fragment) AS count FROM universe_blob_data
+                WHERE dataid=${ph} AND finalized=1 LIMIT 1;`;
 
-        if (!hash.equals(blobHash)) {
-            // Delete data and commit.
-            const sqlDelete = `DELETE FROM universe_blob_data
-                WHERE dataid=${ph} AND finalized=0;`;
+        const row = await this.blobDb.get(sql, [dataId]);
 
-            await this.blobDb.run(sqlDelete, [dataId]);
+        // Data is not finalized.
+        //
+        if (!row || row.count === 0) {
+            const ph = this.blobDb.generatePlaceholders(1);
 
-            await this.blobDb.exec("COMMIT;");
+            const sql = `SELECT fragment FROM universe_blob_data
+                WHERE dataid=${ph} AND finalized=0 ORDER BY fragmentnr;`;
 
-            throw new Error("Blob hash does not match. Temporary blob data deleted. Write again.");
-        }
+            const blake = blake2b(32);
 
-        const ph1 = this.blobDb.generatePlaceholders(1);
+            try {
+                await this.blobDb.each(sql, [dataId], (row: any): any => {
+                    blake.update(row?.fragment);
+                });
+            }
+            catch(e) {
+                await this.blobDb.exec("ROLLBACK;");
 
-        const sqlUpdate = `UPDATE universe_blob_data SET finalized=1
+                throw e;
+            }
+
+            const hash = Buffer.from(blake.digest());
+
+            if (!hash.equals(blobHash)) {
+                // Delete data and commit.
+                const sqlDelete = `DELETE FROM universe_blob_data
+                    WHERE dataid=${ph} AND finalized=0;`;
+
+                await this.blobDb.run(sqlDelete, [dataId]);
+
+                await this.blobDb.exec("COMMIT;");
+
+                throw new Error("Blob hash does not match. Temporary blob data deleted. Write again.");
+            }
+
+            const ph1 = this.blobDb.generatePlaceholders(1);
+
+            const sqlUpdate = `UPDATE universe_blob_data SET finalized=1
             WHERE dataid=${ph1} AND finalized=0;`;
 
+            try {
+                await this.blobDb.run(sqlUpdate, [dataId]);
+
+                // commit below
+            }
+            catch(e) {
+                await this.blobDb.exec("ROLLBACK;");
+
+                throw e;
+            }
+        }
+
+        // Connect blob data with nodeId1.
+        //
         const ph2 = this.blobDb.generatePlaceholders(3);
 
         const sqlInsert = `INSERT INTO universe_blob (node_id1, dataid, storagetime) VALUES ${ph2};`;
 
         try {
-            await this.blobDb.run(sqlUpdate, [dataId]);
             await this.blobDb.run(sqlInsert, [nodeId1, dataId, now]);
+
             await this.blobDb.exec("COMMIT;");
         }
         catch(e) {
             await this.blobDb.exec("ROLLBACK;");
+
             throw e;
         }
     }
@@ -491,33 +521,6 @@ export class BlobDriver implements BlobDriverInterface {
         }
 
         return undefined;
-    }
-
-    /**
-     * @see BlobDriverInterface.
-     */
-    public async copyBlob(fromNodeId1: Buffer, toNodeId1: Buffer, now: number): Promise<boolean> {
-        const dataId = await this.getBlobDataId(fromNodeId1);
-
-        if (!dataId) {
-            return false;
-        }
-
-        const ph = this.blobDb.generatePlaceholders(3);
-
-        const sqlInsert = `INSERT INTO universe_blob (node_id1, dataid, storagetime) VALUES ${ph};`;
-
-        try {
-            await this.blobDb.exec("BEGIN;");
-            await this.blobDb.run(sqlInsert, [toNodeId1, dataId, now]);
-            await this.blobDb.exec("COMMIT;");
-        }
-        catch(e) {
-            await this.blobDb.exec("ROLLBACK;");
-            throw e;
-        }
-
-        return true;
     }
 
     /**

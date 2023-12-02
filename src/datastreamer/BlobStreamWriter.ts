@@ -73,7 +73,6 @@ export class BlobStreamWriter extends AbstractStreamWriter {
             data,
             sourcePublicKey: this.peer.getLocalPublicKey(),
             targetPublicKey: this.peer.getRemotePublicKey(),
-            copyFromId1: Buffer.alloc(0),
             muteMsgIds: this.muteMsgIds,
         };
 

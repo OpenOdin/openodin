@@ -710,7 +710,9 @@ function setupBlobTests(config: any) {
                 const nodeId1 = blobWrite.nodeId1;
                 const clientPublicKey = blobWrite.clientPublicKey;
 
-                const dataId = Hash([nodeId1, clientPublicKey]);
+                let blobHash = Hash(blobWrite.finalData);
+
+                const dataId = Hash([blobHash, clientPublicKey]);
 
                 let readData = await driver.readBlob(nodeId1, 0, 10);
                 assert(readData === undefined);
@@ -723,7 +725,6 @@ function setupBlobTests(config: any) {
                 }
 
                 let blobLength = blobWrite.finalData.length;
-                let blobHash = Hash(blobWrite.finalData);
 
                 await driver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
 
@@ -740,7 +741,7 @@ function setupBlobTests(config: any) {
         }
     });
 
-    it("#copyBlobs, #deleteBlobs", async function() {
+    it("copyBlobs, #deleteBlobs", async function() {
         const driver = config.driver;
 
         assert(driver);
@@ -756,16 +757,16 @@ function setupBlobTests(config: any) {
         const fragment1 = Buffer.alloc(BLOB_FRAGMENT_SIZE).fill(1);
         const fragment2 = Buffer.alloc(BLOB_FRAGMENT_SIZE).fill(2);
 
+        const fullData = Buffer.concat([fragment1, fragment2]);
+        const blobLength = fullData.length;
+        const blobHash = Hash(fullData);
 
-        const dataId = Hash([nodeId1, clientPublicKey]);
+        const dataId = Hash([blobHash, clientPublicKey]);
 
         await driver.writeBlob(dataId, 0, fragment1);
 
         await driver.writeBlob(dataId, BLOB_FRAGMENT_SIZE, fragment2);
 
-        const fullData = Buffer.concat([fragment1, fragment2]);
-        const blobLength = fullData.length;
-        const blobHash = Hash(fullData);
 
         await driver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
 
@@ -775,8 +776,7 @@ function setupBlobTests(config: any) {
         readData = await driver.readBlob(nodeId2, 0, 10);
         assert(!readData);
 
-        let result = await driver.copyBlob(nodeId1, nodeId2, now);
-        assert(result);
+        await driver.finalizeWriteBlob(nodeId2, dataId, blobLength, blobHash, now);
 
         let data1 = await driver.readBlob(nodeId1, 0, blobLength);
         assert(data1);
@@ -808,11 +808,8 @@ function setupBlobTests(config: any) {
         assert(data2);
         assert(data2.equals(fullData));
 
-        result = await driver.copyBlob(nodeId1, nodeId3, now);
-        assert(!result);
 
-        result = await driver.copyBlob(nodeId2, nodeId3, now);
-        assert(result);
+        await driver.finalizeWriteBlob(nodeId3, dataId2, blobLength, blobHash, now);
 
         let data3 = await driver.readBlob(nodeId3, 0, blobLength);
         assert(data3);
@@ -828,6 +825,15 @@ function setupBlobTests(config: any) {
 
         dataId2 = await driver.getBlobDataId(nodeId3);
         assert(!dataId2);
+
+        // try to retuse the data but it is deleted now.
+        //
+        await expectAsyncException(
+            driver.finalizeWriteBlob(nodeId3, dataId, blobLength, blobHash, now),
+            "blob length not correct");
+
+        data3 = await driver.readBlob(nodeId3, 0, blobLength);
+        assert(!data3);
     });
 
     it("#readBlob off boundary", async function() {
@@ -835,16 +841,17 @@ function setupBlobTests(config: any) {
 
         assert(driver);
 
-        const nodeId1 = Buffer.alloc(32).fill(0x01);
-        const clientPublicKey = Buffer.alloc(32).fill(0xa0);
-        const dataId = Hash([nodeId1, clientPublicKey]);
-
         const data = Buffer.alloc(79931);
         data[data.length-4096] = 98;
         data[data.length-1] = 99;
         const blobLength = data.length;
         const blobHash = Hash(data);
         const now = Date.now();
+
+        const nodeId1 = Buffer.alloc(32).fill(0x01);
+        const clientPublicKey = Buffer.alloc(32).fill(0xa0);
+        const dataId = Hash([blobHash, clientPublicKey]);
+
 
         await driver.writeBlob(dataId, 0, data);
 

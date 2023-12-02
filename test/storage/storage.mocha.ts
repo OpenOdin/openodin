@@ -1052,6 +1052,7 @@ function setupTests(config: any) {
         let fromMsgId = Buffer.from([1,2,3,4,5]);
 
         let keyPair1 = Crypto.GenKeyPair();
+        let keyPair2 = Crypto.GenKeyPair();
         let sourcePublicKey = keyPair1.publicKey;
         let targetPublicKey = sourcePublicKey;
         let parentId = Buffer.alloc(32).fill(0x00);
@@ -1062,7 +1063,6 @@ function setupTests(config: any) {
             response = obj;
         };
 
-        let copyFromId1 = Buffer.alloc(0);
         let data = Buffer.from("Hello World");
         let pos = BigInt(Number.MAX_SAFE_INTEGER + 1);
         let blobLength = BigInt(data.length);
@@ -1071,7 +1071,6 @@ function setupTests(config: any) {
         let writeBlobRequest: WriteBlobRequest = {
             targetPublicKey: sourcePublicKey,
             sourcePublicKey,
-            copyFromId1,
             nodeId1,
             data,
             pos,
@@ -1092,7 +1091,6 @@ function setupTests(config: any) {
         writeBlobRequest = {
             targetPublicKey: sourcePublicKey,
             sourcePublicKey,
-            copyFromId1,
             nodeId1,
             data,
             pos,
@@ -1133,11 +1131,29 @@ function setupTests(config: any) {
             blobLength,
         }, keyPair1.publicKey, keyPair1.secretKey);
 
+        const node4 = await nodeUtil.createDataNode({
+            parentId,
+            expireTime: now + 10005,
+            creationTime: now,
+            isPublic: true,
+            blobHash: Buffer.alloc(32),
+            blobLength,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const node5 = await nodeUtil.createDataNode({
+            parentId,
+            expireTime: now + 10005,
+            creationTime: now,
+            isPublic: true,
+            blobHash,
+            blobLength,
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
         let storeRequest = {
             sourcePublicKey,
             targetPublicKey,
             preserveTransient: false,
-            nodes: [node1.export(), node2.export(), node3.export()],
+            nodes: [node1.export(), node2.export(), node3.export(), node4.export(), node5.export()],
             muteMsgIds: [],
         };
 
@@ -1171,7 +1187,6 @@ function setupTests(config: any) {
         writeBlobRequest = {
             targetPublicKey: sourcePublicKey,
             sourcePublicKey,
-            copyFromId1,
             nodeId1: node1.getId1() as Buffer,
             data,
             pos,
@@ -1191,7 +1206,6 @@ function setupTests(config: any) {
         writeBlobRequest = {
             targetPublicKey: sourcePublicKey,
             sourcePublicKey,
-            copyFromId1,
             nodeId1: node2.getId1() as Buffer,
             data: data.slice(0,6),
             pos,
@@ -1227,7 +1241,6 @@ function setupTests(config: any) {
         writeBlobRequest = {
             targetPublicKey: sourcePublicKey,
             sourcePublicKey,
-            copyFromId1,
             nodeId1: node2.getId1() as Buffer,
             data: data.slice(6),
             pos: 6n,
@@ -1248,9 +1261,8 @@ function setupTests(config: any) {
         // Sleep so the trigger events can run.
         await sleep(100);
 
-        //console.warn(fetchedNodes.length);
         //@ts-ignore
-        assert(fetchedNodes.length === 3);
+        assert(fetchedNodes.length === 5);
 
         fetchedNodes.length = 0;
 
@@ -1268,11 +1280,70 @@ function setupTests(config: any) {
 
         assert(fetchedNodes.length === 0);
 
-        // Copy blob and see that it also triggers.
+        // Write empty data to reuse blob data.
+        //
+
+        // Blob should not be reused since hashes do not match
+        //
         writeBlobRequest = {
             targetPublicKey: sourcePublicKey,
             sourcePublicKey,
-            copyFromId1: node2.getId1() as Buffer,
+            nodeId1: node4.getId1() as Buffer,
+            data: Buffer.alloc(0),
+            pos: 0n,
+            muteMsgIds: [],
+        };
+
+        fetchedNodes.length = 0;
+
+        response = undefined;
+        await storage.handleWriteBlobWrapped(writeBlobRequest, p2pClient, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.RESULT);
+        assert(response.error === "");
+        assert(response.currentLength === 0n);
+
+        // Sleep so the trigger events can run.
+        await sleep(100);
+
+        assert(fetchedNodes.length === 0);
+
+
+        // Blob should not be reused since source user is different
+        //
+        writeBlobRequest = {
+            targetPublicKey: keyPair2.publicKey,
+            sourcePublicKey: keyPair2.publicKey,
+            nodeId1: node5.getId1() as Buffer,
+            data: Buffer.alloc(0),
+            pos: 0n,
+            muteMsgIds: [],
+        };
+
+        fetchedNodes.length = 0;
+
+        response = undefined;
+        await storage.handleWriteBlobWrapped(writeBlobRequest, p2pClient, fromMsgId,
+            expectingReply, sendResponse);
+
+        assert(response);
+        assert(response.status === Status.RESULT);
+        assert(response.error === "");
+        assert(response.currentLength === 0n);
+
+        // Sleep so the trigger events can run.
+        await sleep(100);
+
+        assert(fetchedNodes.length === 0);
+
+
+        // Reuse existing blob data and see that it also triggers.
+        //
+        writeBlobRequest = {
+            targetPublicKey: sourcePublicKey,
+            sourcePublicKey,
             nodeId1: node3.getId1() as Buffer,
             data: Buffer.alloc(0),
             pos: 0n,
@@ -1318,7 +1389,6 @@ function setupTests(config: any) {
             response = obj;
         };
 
-        let copyFromId1 = Buffer.alloc(0);
         let data = Buffer.from("Hello World");
         let pos = 0n;
         let blobLength = BigInt(data.length);
@@ -1377,7 +1447,6 @@ function setupTests(config: any) {
         let writeBlobRequest: WriteBlobRequest = {
             targetPublicKey: keyPair2.publicKey,
             sourcePublicKey: keyPair2.publicKey,
-            copyFromId1,
             nodeId1: node1.getId1() as Buffer,
             data,
             pos,
@@ -1394,7 +1463,6 @@ function setupTests(config: any) {
         writeBlobRequest = {
             targetPublicKey: keyPair1.publicKey,
             sourcePublicKey: keyPair1.publicKey,
-            copyFromId1,
             nodeId1: node1.getId1() as Buffer,
             data,
             pos,
@@ -1414,7 +1482,6 @@ function setupTests(config: any) {
             targetPublicKey: keyPair1.publicKey,
             sourcePublicKey: keyPair1.publicKey,
             nodeId1: node2.getId1() as Buffer,
-            copyFromId1: node1.getId1() as Buffer,
             data,
             pos,
             muteMsgIds: [],
@@ -1432,7 +1499,6 @@ function setupTests(config: any) {
             targetPublicKey: keyPair2.publicKey,
             sourcePublicKey: keyPair2.publicKey,
             nodeId1: node2.getId1() as Buffer,
-            copyFromId1: node1.getId1() as Buffer,
             data,
             pos,
             muteMsgIds: [],
@@ -1442,7 +1508,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.NOT_ALLOWED);
+        assert(response.status === Status.EXISTS);
 
 
         // Store license 1

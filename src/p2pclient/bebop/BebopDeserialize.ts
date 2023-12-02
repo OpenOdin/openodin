@@ -143,7 +143,6 @@ export class BebopDeserialize {
         obj.data = MakeIntoBuffer(obj.data);
         obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
         obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
-        obj.copyFromId1 = MakeIntoBuffer(obj.copyFromId1);
         obj.muteMsgIds = (obj.muteMsgIds || []).map( MakeIntoBuffer );
         return obj as unknown as WriteBlobRequest;
     }

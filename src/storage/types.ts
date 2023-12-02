@@ -232,6 +232,9 @@ export const BLOB_TABLES: {[table: string]: any} = {
         },
     },
     "universe_blob": {
+        // Note that there is a chance that we can get multiple records of the
+        // same nodeId1 and dataId, but that will not matter and forcing a unique
+        // constraint on the combination is not worth it.
         columns: [
             "node_id1 bytea NOT NULL",
             "dataid bytea NOT NULL",
@@ -308,7 +311,7 @@ export type BlobDriverInterface = {
     readBlob(nodeId1: Buffer, pos: number, length: number): Promise<Buffer | undefined>;
 
     /**
-     * Read the current size of the intermediary non-finalized storage.
+     * Read the current size of the intermediary non-finalized or finalized storage.
      * Size is only counted for continuous data.
      * When the full size has been reached the function finalizeWriteBlob should be called.
      *
@@ -340,13 +343,6 @@ export type BlobDriverInterface = {
      * @throws if blob db not available.
      */
     getBlobDataId(nodeId1: Buffer): Promise<Buffer | undefined>;
-
-    /**
-     * Copy blob data from one node to another.
-     * @returns false if source blob is not available.
-     * @throws on db failure
-     */
-    copyBlob(fromNodeId1: Buffer, toNodeId1: Buffer, now: number): Promise<boolean>;
 
     /**
      * Dissociate a node id1 from a blob data set.

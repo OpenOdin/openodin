@@ -103,7 +103,6 @@ export type StoreRequestParams = {
 export type WriteBlobRequestParams = {
     sourcePublicKey?: Buffer,
     targetPublicKey?: Buffer,
-    copyFromId1?: Buffer,
     nodeId1: Buffer,
     data: Buffer,
     pos?: bigint,
@@ -255,7 +254,6 @@ export class StorageUtil {
         const writeBlobRequest: WriteBlobRequest = {
             sourcePublicKey: writeBlobRequestParams.sourcePublicKey ?? Buffer.alloc(0),
             targetPublicKey: writeBlobRequestParams.targetPublicKey ?? Buffer.alloc(0),
-            copyFromId1: writeBlobRequestParams.copyFromId1 ?? Buffer.alloc(0),
             nodeId1: writeBlobRequestParams.nodeId1,
             data: writeBlobRequestParams.data,
             pos: writeBlobRequestParams.pos ?? 0n,
