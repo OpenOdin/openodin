@@ -2,6 +2,11 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.7.8] - 20231205
+BREAKING CHANGES.  
+Allow deduplication for blob data.  
+Remove the copy blob feature since it is now automatic.  
+
 ## [0.7.7] - 20231201
 BREAKING CHANGES.  
 Refactor signing to accomodate for many types of digital signatures.  
