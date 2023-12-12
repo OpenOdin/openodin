@@ -1886,11 +1886,24 @@ function setupTests(config: any) {
 
         let nodes2 = await promise;
 
+
         assert(nodes2.length === 1);
 
 
+        const deleteNodes = await thread.delete(nodes[0]);
 
-        const dleteNode = await thread.delete(nodes[0]);
+        assert(deleteNodes.length === 2);
+
+        assert(deleteNodes[0].isLicensed());
+        assert(deleteNodes[1].isLicensed());
+
+        // We need to post licenses
+        //
+        let licenses2 = await thread.postLicense("hello", deleteNodes[0]);
+        assert(licenses2.length === 1);
+
+        licenses2 = await thread.postLicense("hello", deleteNodes[1]);
+        assert(licenses2.length === 1);
 
         ({promise, cb} = PromiseCallback<any>());
 

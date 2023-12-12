@@ -300,13 +300,22 @@ export class StorageUtil {
      * Note that this function does not verify nodes decoded.
      * Any node which could not be decoded is not part of the result.
      * @param fetchResponse struct whos nodes we want to extract, decode and return.
+     * @param preserveTransient if true then load and preserve transient values
+     * @param nodeType if set then only return nodes matching the given nodeType.
      * @returns array of decoded nodes.
      */
-    public static ExtractFetchResponseNodes(fetchResponse: FetchResponse, preserveTransient: boolean = false): NodeInterface[] {
+    public static ExtractFetchResponseNodes(fetchResponse: FetchResponse, preserveTransient: boolean = false, nodeType?: Buffer): NodeInterface[] {
         const nodes: NodeInterface[] = [];
         fetchResponse.result.nodes.forEach( image => {
             try {
                 const node = Decoder.DecodeNode(image, preserveTransient);
+
+                if (nodeType) {
+                    if (!node.getType(nodeType.length).equals(nodeType)) {
+                        return;
+                    }
+                }
+
                 nodes.push(node);
             }
             catch(e) {

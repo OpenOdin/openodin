@@ -42,11 +42,11 @@ import {
     PrimaryNodeCertInterface,
     AuthCertInterface,
     DataInterface,
-    DataConfig,
     CMP,
     Hash,
     DATA_NODE_TYPE,
     KeyPair,
+    Data,
 } from "../datamodel";
 
 import {
@@ -1413,10 +1413,10 @@ export class Service {
             const fetchResponse = anyData.response;
 
             if (fetchResponse && fetchResponse.status === Status.RESULT) {
-                const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse);
+                const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse, false, Data.GetType(4)) as DataInterface[];
 
                 if (nodes.length > 0) {
-                    return nodes[0] as DataInterface;
+                    return nodes[0];
                 }
             }
         }

@@ -65,18 +65,18 @@ export class PeerData {
      *
      * @param image - image data to load
      *
-     * @throws a string containing a message error when image load fails to decode or access the decoded input Buffer.
+     * @throws an error containing a message error when image load fails to decode.
      */
     public load(image: Buffer) {
         // Ignore unknown fields present in the image.
         // This is to allow for flexibility when loading peerData from different versions of P2PClient.
-        this.model.load(image);
+        this.model.load(image, false, true);
     }
 
     /**
      * @returns exported data Buffer
      *
-     * @throws a string containing a message error when unable to export the current data model.
+     * @throws an error containing a message error when unable to export the current data model.
      */
     public export(): Buffer {
         return this.model.export();

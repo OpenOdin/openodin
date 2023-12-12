@@ -39,6 +39,7 @@ import {
     LICENSE_NODE_TYPE,
     SPECIAL_NODES,
     Hash,
+    Data,
 } from "../../datamodel";
 
 import {
@@ -69,6 +70,10 @@ import {
     BlobStreamReader,
 } from "../../datastreamer";
 
+/**
+ * Threads only work with Data nodes, furthermore nodes returned from the database
+ * flagged as "special" are ignored.
+ */
 export class Thread {
     constructor(protected threadTemplate: ThreadTemplate,
         protected defaults: ThreadDefaults,
@@ -175,80 +180,110 @@ export class Thread {
     }
 
     /**
-     * Create a destroy node and post it.
+     * Create destroy node(s) and post them.
      * 
-     * If the given node is private then create destroy node for it specifically.
+     * If the given node is destructible then create a destroy node for it specifically.
      *
-     * If the given node is licensed then create destroy node which targets all licenses of the node.
-     * If licenses then a postLicense() call must be made to properly post applicable licenses which
-     * should have the same properties a the licenses posted for the node getting deleted.
+     * Also/if the given node is licensed then create a destroy node which targets all licenses
+     * of the node.
      *
-     * @param node private or licensed node to destroy.
-     * For licensed nodes then destroy the licenses (which are private).
+     * If destroy nodes themselves are licensed then a postLicense() call must be made to properly post
+     * applicable licenses which should have the same properties as the licenses posted for
+     * the node getting deleted.
+     * This is not done automatically because all the details about what the licenses need are not known
+     * by the delete function.
      *
-     * @returns the destroy node as a single node in an array.
+     * Note that if licenses for destroy nodes are not posted, the targeted node will still be destroyed
+     * but the destroy nodes cannot be synced (missing licenses) and also will eventually be garbage collected
+     * since they are missing licenses.
      *
-     * @throws if given node is public or if a destroy node cannot be created for other reasons.
+     * @param node node to be destroyed
+     *
+     * @returns the destroy nodes. If any returned node is licensed the caller must create licenses and
+     * post them. This should be done exactly in the same way as how the destroyed node's license
+     * was created.
+     *
+     * @throws if given node cannot be destructed.
      */
-    public async delete(node: DataInterface): Promise<NodeInterface[]> {
-        let dataParams;
+    public async delete(node: DataInterface): Promise<DataInterface[]> {
+        const destroyNodes: DataInterface[] = [];
 
-        if (node.isLicensed()) {
-            const innerHash = Hash([SPECIAL_NODES.DESTROY_LICENSES_FOR_NODE,
-                this.publicKey, node.getId1()]);
-
-            dataParams = {
-                parentId: node.getParentId(),
-                owner: this.publicKey,
-                isLicensed: true,
-                isSpecial: true,
-                contentType: node.getContentType(),
-                refId: innerHash,
-                data: Buffer.from(SPECIAL_NODES.DESTROY_LICENSES_FOR_NODE),
-                expireTime: node.getExpireTime(),
-            };
-        }
-        else if (node.isPrivate()) {
+        // If the node is destructible we destroy it.
+        //
+        if (!node.isIndestructible()) {
             const innerHash = Hash([SPECIAL_NODES.DESTROY_NODE,
                 this.publicKey, node.getId1()]);
 
-            dataParams = {
+            const dataParams = {
                 parentId: node.getParentId(),
                 owner: this.publicKey,
+                isLicensed: node.isLicensed(),
+                licenseMinDistance: node.getLicenseMinDistance(),
+                licenseMaxDistance: node.getLicenseMaxDistance(),
+                isPublic: node.isPublic(),
                 isSpecial: true,
                 contentType: node.getContentType(),
                 refId: innerHash,
                 data: Buffer.from(SPECIAL_NODES.DESTROY_NODE),
                 expireTime: node.getExpireTime(),
             };
-        }
-        else {
-            throw new Error("Can only delete private nodes and licensed nodes.");
-        }
 
-        const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey, this.signerSecretKey);
+            const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
+                this.signerSecretKey);
 
-        const storedId1s = await this.storeNodes([dataNode]);
-
-        if (storedId1s.length > 0) {
-            return [dataNode];
+            destroyNodes.push(dataNode);
         }
 
-        return [];
+        // Also/or if the node is licensed we destroy all its licenses,
+        // if license min distance is 0.
+        //
+        if (node.isLicensed() && node.getLicenseMinDistance() === 0) {
+            const innerHash = Hash([SPECIAL_NODES.DESTROY_LICENSES_FOR_NODE,
+                this.publicKey, node.getId1()]);
+
+            const dataParams = {
+                parentId: node.getParentId(),
+                owner: this.publicKey,
+                isLicensed: true,
+                licenseMinDistance: 0,
+                licenseMaxDistance: node.getLicenseMaxDistance(),
+                isSpecial: true,
+                contentType: node.getContentType(),
+                refId: innerHash,
+                data: Buffer.from(SPECIAL_NODES.DESTROY_LICENSES_FOR_NODE),
+                expireTime: node.getExpireTime(),
+            };
+
+            const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
+                this.signerSecretKey);
+
+            destroyNodes.push(dataNode);
+        }
+
+        if (destroyNodes.length === 0) {
+            throw new Error("Cannot delete node");
+        }
+
+        const storedId1s = await this.storeNodes(destroyNodes);
+
+        return destroyNodes.filter( node =>
+            storedId1s.findIndex( id1 => node.getId1()?.equals(id1) ) > -1 );
     }
 
     protected threadQueryResponseAPI(getResponse: GetResponse<FetchResponse>): ThreadQueryResponseAPI {
-        const onDataCBs: Array<(nodes: NodeInterface[]) => void> = [];
+        const onDataCBs: Array<(nodes: DataInterface[]) => void> = [];
 
         getResponse.onReply( (fetchResponse: FetchResponse) => {
             if (fetchResponse.status === Status.RESULT) {
-                const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse);
-                onDataCBs.forEach( cb => cb(nodes.slice()) );
+                const nodes = (StorageUtil.ExtractFetchResponseNodes(fetchResponse, false,
+                    Data.GetType(4)) as DataInterface[]).filter( node => !node.isSpecial() );
+
+                onDataCBs.forEach( cb => cb(nodes) );
             }
         });
 
         const threadResponse: ThreadQueryResponseAPI = {
-            onData: (cb: (nodes: NodeInterface[]) => void): ThreadQueryResponseAPI => {
+            onData: (cb: (nodes: DataInterface[]) => void): ThreadQueryResponseAPI => {
                 onDataCBs.push(cb)
 
                 return threadResponse;
@@ -273,7 +308,7 @@ export class Thread {
         fetchRequest: FetchRequest): ThreadStreamResponseAPI
     {
 
-        const onDataCBs: Array<(nodes: NodeInterface[]) => void> = [];
+        const onDataCBs: Array<(nodes: DataInterface[]) => void> = [];
 
         // These variables are used to collect the response.
         //
@@ -294,10 +329,11 @@ export class Thread {
 
             }
             else {
-                const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse);
+                const nodes = (StorageUtil.ExtractFetchResponseNodes(fetchResponse, false,
+                    Data.GetType(4)) as DataInterface[]).filter( node => !node.isSpecial() ) as DataInterface[];
 
                 if (nodes.length > 0) {
-                    onDataCBs.forEach( cb => cb(nodes.slice()) );
+                    onDataCBs.forEach( cb => cb(nodes) );
                 }
 
                 if (crdtView) {
@@ -305,8 +341,7 @@ export class Thread {
 
                     const isLast = fetchResponse.seq === fetchResponse.endSeq;
 
-                    const [a, b, c] = crdtView.handleResponse(nodes as DataInterface[],
-                        isLast ? delta : undefined);
+                    const [a, b, c] = crdtView.handleResponse(nodes, isLast ? delta : undefined);
 
                     addedNodesId1s.push(...a);
                     updatedNodesId1s.push(...b);
@@ -336,7 +371,7 @@ export class Thread {
                 return threadResponse;
             },
 
-            onData: (cb: (nodes: NodeInterface[]) => void): ThreadStreamResponseAPI => {
+            onData: (cb: (nodes: DataInterface[]) => void): ThreadStreamResponseAPI => {
                 onDataCBs.push(cb)
 
                 return threadResponse;
@@ -420,7 +455,7 @@ export class Thread {
      * nodeId1 and parentId are taken from the node.
      * owner is always set to current publicKey.
      */
-    public async postLicense(name: string, node: NodeInterface, threadLicenseParams: ThreadLicenseParams = {}): Promise<LicenseInterface[]> {
+    public async postLicense(name: string, node: DataInterface, threadLicenseParams: ThreadLicenseParams = {}): Promise<LicenseInterface[]> {
         const template = this.threadTemplate.postLicense[name] ?? {};
 
         const targets: Buffer[] | undefined =
@@ -485,7 +520,7 @@ export class Thread {
      * nodeId1 and parentId are taken from the node.
      * owner is always set to current publicKey.
      */
-    protected parsePostLicense(name: string, node: NodeInterface, threadLicenseParams: ThreadLicenseParams): LicenseParams {
+    protected parsePostLicense(name: string, node: DataInterface, threadLicenseParams: ThreadLicenseParams): LicenseParams {
         const nodeId1   = node.getId1();
         const parentId  = node.getParentId();
 
