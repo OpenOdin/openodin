@@ -1,11 +1,11 @@
 import {
     Signature,
     KeyPair,
-} from "../Crypto";
+} from "../datamodel/types";
 
 import {
     DataModelInterface,
-} from "../interface";
+} from "../datamodel/interface";
 
 export interface SignatureOffloaderInterface {
     init(): Promise<void>;

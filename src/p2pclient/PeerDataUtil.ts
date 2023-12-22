@@ -17,9 +17,12 @@ import {
 } from "./types";
 
 import {
-    Decoder,
     SignatureOffloaderInterface,
-} from "../datamodel/decoder";
+} from "../signatureoffloader/types";
+
+import {
+    Decoder,
+} from "../decoder";
 
 /**
  * A class of static functions to pack and unpack PeerData.

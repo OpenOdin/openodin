@@ -1,7 +1,10 @@
 import {
     Decoder,
+} from "../decoder/Decoder";
+
+import {
     SignatureOffloaderInterface,
-} from "../datamodel/decoder";
+} from "../signatureoffloader/types";
 
 import {
     Data,

@@ -1,6 +1,6 @@
 import {
     Decoder,
-} from "../../../datamodel/decoder";
+} from "../../../decoder";
 
 import {
     CertUtil,
@@ -29,7 +29,7 @@ import {
 
 import {
     KeyPair,
-} from "../../../datamodel/Crypto";
+} from "../../../datamodel/types";
 
 import {
     PocketConsole,

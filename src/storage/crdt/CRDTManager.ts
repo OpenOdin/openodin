@@ -3,7 +3,7 @@ import {
 } from "../../util/RPC";
 
 import {
-    NodeInterface,
+    DataInterface,
 } from "../../datamodel";
 
 import {
@@ -24,11 +24,13 @@ import Worker from "web-worker";
 
 // Check current environment: Node.js or Browser ?
 declare const window: any;
+
 import { strict as assert } from "assert";
+
 const isNode = (typeof process !== "undefined" && process?.versions?.node);
 let isBrowser = false;
 if (!isNode) {
-    isBrowser = (typeof (window as any) !== "undefined");
+    isBrowser = (typeof window !== "undefined");
     if(!isBrowser) {
         assert(false, "Unexpected error: current environment is neither Node.js or Browser");
     }
@@ -52,12 +54,12 @@ export class CRDTManager {
         this.initPromise = new Promise<void>( async (resolve) => {
             try {
                 const workerURI = isBrowser ? "crdt-worker-browser.js" :
-                    "./build/src/storage/crdt/crdt-worker-browser.js";
+                    "./build/src/storage/crdt/crdt-worker.js";
 
                 this.workerThread = new Worker(workerURI);
 
                 this.workerThread.onerror = (error: ErrorEvent) => {
-                    console.error("Error loading crdt-worker-browser.js", error);
+                    console.error(`Error loading ${workerURI}`, error);
                 };
             }
             catch(e) {
@@ -119,7 +121,7 @@ export class CRDTManager {
      *
      * @throws if CRDT model with specified algo cannot be created
      */
-    public async updateModel(fetchRequest: FetchRequest, nodes: NodeInterface[]) {
+    public async updateModel(fetchRequest: FetchRequest, nodes: DataInterface[]) {
         if (!this._isInited) {
             await this.init();
         }
@@ -130,19 +132,10 @@ export class CRDTManager {
 
         const conf = fetchRequest.crdt.conf;
 
-        const nodeValues = nodes.map( node => {
-            return {
-                id1: node.getId1() as Buffer,
-                refId: node.getRefId(),
-                transientHash: node.hashTransient(),
-                creationTime: node.getCreationTime(),
-                transientStorageTime: node.getTransientStorageTime(),
-            }
-        });
-
+        const images: Buffer[] = nodes.map( node => node.export(true) );
 
         await this.rpc?.call("updateModel", [key, algoId, conf, fetchRequest.query.orderByStorageTime,
-            nodeValues]);
+            images, fetchRequest.query.targetPublicKey]);
     }
 
     public async beginDeletionTracking(key: string) {
@@ -183,10 +176,17 @@ export class CRDTManager {
 
         const [newCRDTView, newCursorIndex, length] = result;
 
+        // We need to re-buffer values in case they have been changed to Uint8Array
+        // when serialized.
+        //
         newCRDTView.list = newCRDTView.list.map( (id1: Uint8Array) => Buffer.from(id1) );
 
-        for (let key in newCRDTView.transientHashes) {
+        for (const key in newCRDTView.transientHashes) {
             newCRDTView.transientHashes[key] = Buffer.from(newCRDTView.transientHashes[key]);
+        }
+
+        for (const key in newCRDTView.annotations) {
+            newCRDTView.annotations[key] = Buffer.from(newCRDTView.annotations[key]);
         }
 
         return [newCRDTView, newCursorIndex, length];
@@ -200,7 +200,6 @@ export class CRDTManager {
         if (!this._isInited) {
             await this.init();
         }
-
 
         const result = await this.getView(key, cursorId1, cursorIndex, head, tail, reverse);
 
@@ -219,11 +218,31 @@ export class CRDTManager {
 
             const transientHash = crdtView.transientHashes[id1Str];
 
+            if (!transientHash) {
+                // This is a new node.
+                //
+                missingNodesId1s.push(id1);
+
+                return;
+            }
+
             const newTransientHash = newCRDTView.transientHashes[id1Str];
 
-            if (!transientHash || !transientHash.equals(newTransientHash)) {
-                // New or updated node.
+            const annotations = crdtView.annotations[id1Str] ?? Buffer.alloc(0);
+
+            const newAnnotations = newCRDTView.annotations[id1Str] ?? Buffer.alloc(0);
+
+            if (!transientHash.equals(newTransientHash) ||
+                (!annotations.equals(newAnnotations)))
+            {
+                // This node's transient hash has changed,
+                // or the transient annotaions have changed,
+                // either way we want to refetch the node
+                // to have it sent out to the client again.
+                //
                 missingNodesId1s.push(id1);
+
+                return;
             }
         });
 

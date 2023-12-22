@@ -1,5 +1,3 @@
-import crypto from "crypto";
-
 import nacl from "tweetnacl";
 
 import {
@@ -16,29 +14,11 @@ import {
     Wallet,
 } from "@ethereumjs/wallet";
 
-export type Signature = {
-    message: Buffer,
-    signature: Buffer,
-    publicKey: Buffer,
-    index: number,  // The index of the public key used
-}
-
-export type KeyPair = {
-    publicKey: Buffer,
-    secretKey: Buffer
-};
-
-export type CryptoSchema = {
-    /**
-     * Length of public key in bytes.
-     */
-    PUBLICKEY_LENGTH: number,
-
-    /**
-     * Length of signature in bytes.
-     */
-    SIGNATURE_LENGTH: number,
-};
+import {
+    Signature,
+    KeyPair,
+    CryptoSchema,
+} from "./types";
 
 export class Crypto {
     public static readonly MAX_SIGNATURE_LENGTH = 65;
@@ -147,8 +127,6 @@ export class Crypto {
 
     public static IsEthereum(publicKey: Buffer): boolean {
         return publicKey.length === Crypto.Ethereum.PUBLICKEY_LENGTH;
-
-        return false;
     }
 
     /**
@@ -182,4 +160,4 @@ export class Crypto {
             publicKey: address,
         };
     }
-};
+}

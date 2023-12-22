@@ -6,9 +6,12 @@ import {
 } from "../../model";
 
 import {
-    Crypto,
     KeyPair,
     Signature,
+} from "../../types";
+
+import {
+    Crypto,
 } from "../../Crypto";
 
 import {

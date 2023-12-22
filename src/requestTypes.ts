@@ -134,9 +134,14 @@ export type FetchQuery = {
      *
      * The root node will be checked for access permissions, even if discardRoot is set to true.
      *
-     * The root node is not allowed to be licensed, use hasRightsByAssociation or be flagged as beginRestrictiveWriterMode.
+     * The root node is not allowed to be licensed, to use hasRightsByAssociation or to be flagged as
+     * beginRestrictiveWriterMode.
      *
-     * While the root node itself is fetched on its ID1, its regular ID (ID2||ID1) is used as parentId for the subsequent level 1 fetch.
+     * While the root node itself is fetched on its ID1, its regular ID (ID2||ID1) is used as
+     * parentId for the subsequent level 1 fetch.
+     *
+     * Unless discardRoot is set the root node will always be returned in the fetch result (regardless
+     * of how cutoffTime is set) for every subsequent trigger fetch made.
      *
      * rootNodeId1 is mutually exclusive to parentId.
      */
@@ -259,8 +264,10 @@ export type FetchQuery = {
      */
     ignoreOwn: boolean,
 
-    /** Set to true to preserve nodes transient values across serialization boundaries. This is useful when a client wants to piggy-back on the peer's knowledge of the dynamic properties of nodes, such as if it is active/inactive.
-     * Only use this if trusting the peer. Transient values might not always be provided.
+    /**
+     * Set to true to preserve nodes transient values across serialization boundaries. This is useful when a client wants to piggy-back on the peer's knowledge of the dynamic properties of nodes,
+     * such as if it is active/inactive or for CRDT annotations.
+     * Only use this if trusting the peer, also transient values are not guaranteed to be provided by the peer.
      */
     preserveTransient: boolean,
 
@@ -317,8 +324,17 @@ export type FetchCRDT = {
     algo: number,
 
     /**
-     * Some algos can take configuration parameters in JSON format, provided here.
-     * However no algos so far do that.
+     * Algos can take configuration parameters in JSON format, provided here.
+     * Algo sorted and Algo refId both can handle annotations.
+     * Annotations is a strategy of further specialising a CRDT algorithm.
+     *
+     * The below configuration works for the Algo Sorted and Algo RefId, to add
+     * annotations to messages for reactions and nested conversations:
+     * {
+     *  "annotations": {
+     *      "format": "messages"
+     *  }
+     * }
      *
      * Since this is arbitrary JSON data it can also be used to differentiate between
      * different fetch requests to force identical requests to have their own underlying

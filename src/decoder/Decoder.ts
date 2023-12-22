@@ -1,34 +1,72 @@
 import {
     Data,
-    NodeInterface,
-    LicenseInterface,
+} from "../datamodel/node/secondary/data/Data";
+
+import {
     License,
-} from "../node";
+} from "../datamodel/node/secondary/license/License";
+
+import {
+    NodeInterface,
+    PRIMARY_INTERFACE_NODE_ID,
+} from "../datamodel/node/primary/interface/NodeInterface";
+
+import {
+    LicenseInterface,
+} from "../datamodel/node/secondary/interface/LicenseInterface";
 
 import {
     BaseCertInterface,
+} from "../datamodel/cert/base/interface/BaseCertInterface";
+
+import {
     AuthCert,
+} from "../datamodel/cert/secondary/authcert/AuthCert";
+
+import {
     AuthCertInterface,
-    PrimaryNodeCertInterface,
+} from "../datamodel/cert/secondary/interface/AuthCertInterface";
+
+import {
     ChainCertInterface,
+} from "../datamodel/cert/secondary/interface/ChainCertInterface";
+
+import {
     FriendCertInterface,
+} from "../datamodel/cert/secondary/interface/FriendCertInterface";
+
+import {
     DataCert,
+} from "../datamodel/cert/secondary/datacert/DataCert";
+
+import {
     LicenseCert,
+} from "../datamodel/cert/secondary/licensecert/LicenseCert";
+
+import {
     FriendCert,
+} from "../datamodel/cert/secondary/friendcert/FriendCert";
+
+import {
     ChainCert,
-} from "../cert";
+} from "../datamodel/cert/secondary/chaincert/ChainCert";
+
+import {
+    PRIMARY_INTERFACE_CHAINCERT_ID,
+} from "../datamodel/cert/primary/interface/PrimaryChainCertInterface";
+
+import {
+    PRIMARY_INTERFACE_DEFAULTCERT_ID,
+} from "../datamodel/cert/primary/interface/PrimaryDefaultCertInterface";
+
+import {
+    PRIMARY_INTERFACE_NODECERT_ID,
+    PrimaryNodeCertInterface,
+} from "../datamodel/cert/primary/interface/PrimaryNodeCertInterface";
 
 import {
     DataModelInterface,
-} from "../interface";
-
-import {
-    NodeUtil,
-} from "../../util/NodeUtil";
-
-import {
-    CertUtil,
-} from "../../util/CertUtil";
+} from "../datamodel/interface/DataModelInterface";
 
 /**
  * Specifies all the node classes we support for decoding.
@@ -295,7 +333,7 @@ export class Decoder {
                 }
                 const embeddedImage = node.getEmbedded();
                 if (embeddedImage) {
-                    if (NodeUtil.IsNode(embeddedImage)) {
+                    if (Decoder.IsNode(embeddedImage)) {
                         try {
                             const embeddedNode = Decoder.DecodeNode(embeddedImage);
                             node.setEmbeddedObject(embeddedNode as any);  // We force this "as any" to let the node decide if it wants this embedded object.
@@ -305,7 +343,7 @@ export class Decoder {
                             // The node might know how to deal with this itself.
                         }
                     }
-                    else if (CertUtil.IsCert(embeddedImage)) {
+                    else if (Decoder.IsCert(embeddedImage)) {
                         try {
                             const embeddedCert = Decoder.DecodeAnyCert(embeddedImage);
                             node.setEmbeddedObject(embeddedCert as any);  // We force this "as any" to let the node decide if it wants this embedded object.
@@ -392,5 +430,43 @@ export class Decoder {
         }
 
         return undefined;
+    }
+
+    /**
+    * Check in the image header data if it looks like a node.
+    * @param image the node image
+    * @returns true if the image header is recognized as being of primary interface node.
+    */
+    protected static IsNode(image: Buffer): boolean {
+        const nodePrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_NODE_ID]);
+        if (image.slice(0, 2).equals(nodePrimaryInterface)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+    * Check in the image header data if it looks like a cert.
+    * @param image the cert image
+    * @returns true if the image header is recognized as being of primary interface cert.
+    */
+    protected static IsCert(image: Buffer): boolean {
+        const chainCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_CHAINCERT_ID]);
+        if (image.slice(0, 2).equals(chainCertPrimaryInterface)) {
+            return true;
+        }
+
+        const defaultCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_DEFAULTCERT_ID]);
+        if (image.slice(0, 2).equals(defaultCertPrimaryInterface)) {
+            return true;
+        }
+
+        const nodeCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_NODECERT_ID]);
+        if (image.slice(0, 2).equals(nodeCertPrimaryInterface)) {
+            return true;
+        }
+
+        return false;
     }
 }

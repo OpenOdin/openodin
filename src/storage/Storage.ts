@@ -18,11 +18,11 @@ import {TimeFreeze} from "./TimeFreeze";
 
 import {
     SignatureOffloaderInterface,
-} from "../datamodel/decoder/types";
+} from "../signatureoffloader/types";
 
 import {
     Decoder,
-} from "../datamodel/decoder/Decoder";
+} from "../decoder";
 
 import {
     NodeInterface,
@@ -431,9 +431,9 @@ export class Storage {
     /**
      * @returns list of promises used for testing purposes.
      */
-    protected triggerInsertEvent(triggerNodeIds: Buffer[], muteMsgIds: Buffer[]):
-        Promise<number>[] {
-
+    protected triggerInsertEvent(triggerNodeIds: Buffer[], muteMsgIds: Buffer[],
+        doneTriggerNodeIds: Set<Buffer> = new Set()): Promise<number>[]
+    {
         const promises: Promise<number>[] = [];
 
         const triggerNodeIdsLength = triggerNodeIds.length;
@@ -450,7 +450,23 @@ export class Storage {
                     promises.push(promise);
                 }
             }
+
+            doneTriggerNodeIds.add(triggerNodeId);
         }
+
+        const now = this.timeFreeze.now();
+
+        this.driver.getNodesById(triggerNodeIds, now).then( nodes => {
+            const parentIds = nodes.map(node =>
+                (node.bubbleTrigger() && !node.isLeaf()) ? node.getParentId() : undefined).
+                    filter( nodeId => {
+                        return nodeId && !doneTriggerNodeIds.has(nodeId);
+                    }) as Buffer[];
+
+            if (parentIds.length > 0) {
+                this.triggerInsertEvent(parentIds, muteMsgIds, doneTriggerNodeIds);
+            }
+        });
 
         return promises;
     }
@@ -726,7 +742,7 @@ export class Storage {
             isCorked: true,
             lastIntervalRun: 0,
             closed: false,
-            crdtView: {list: [], transientHashes: {}},
+            crdtView: {list: [], transientHashes: {}, annotations: {}},
         };
 
         // Note that if triggerInterval is set but not triggerNodeId then idStr will be "",
@@ -816,12 +832,12 @@ export class Storage {
     };
 
     protected handleFetchReplyDataFactory(sendResponse: SendResponseFn<FetchResponse>,
-        trigger?: Trigger, preserveTransient: boolean = false): HandleFetchReplyData {
+        trigger: Trigger | undefined, preserveTransient: boolean): HandleFetchReplyData {
 
         let seq = 1;
 
         return (fetchReplyData: FetchReplyData) => {
-            const fetchResponses = this.chunkFetchResponse(fetchReplyData, seq, preserveTransient);
+            const fetchResponses = Storage.ChunkFetchResponse(fetchReplyData, seq, preserveTransient);
 
             if (fetchResponses.length === 0) {
                 return;
@@ -839,10 +855,9 @@ export class Storage {
         };
     }
 
-    protected chunkFetchResponse(fetchReplyData: FetchReplyData, seq: number,
+    protected static ChunkFetchResponse(fetchReplyData: FetchReplyData, seq: number,
         preserveTransient: boolean): FetchResponse[]
     {
-
         const fetchResponses: FetchResponse[] = [];
 
         const status                = fetchReplyData.status ?? Status.RESULT;
@@ -1443,7 +1458,7 @@ export class Storage {
                 // For CRDT models we only include data nodes,
                 // which are not flagged as special nodes.
                 const nodesToAdd = (fetchReplyData.nodes ?? []).
-                    filter( node => node.getType().equals(DATA_NODE_TYPE) && !(node as DataInterface).isSpecial() );
+                    filter( node => node.getType().equals(DATA_NODE_TYPE) && !(node as DataInterface).isSpecial() ) as DataInterface[];
 
                 const embed = fetchReplyData.embed ?? [];
 
@@ -1464,7 +1479,7 @@ export class Storage {
 
                 if (fetchReplyData.isLast) {
                     const currentCRDTView = trigger?.crdtView ??
-                        {list: [], transientHashes: {}};
+                        {list: [], transientHashes: {}, annotations: {}};
 
                     const result = await this.crdtManager.diff(currentCRDTView, key,
                         fetchRequest.crdt.cursorId1,
@@ -1491,6 +1506,22 @@ export class Storage {
                             const id1s = missingNodesId1s.splice(0, MAX_BATCH_SIZE);
 
                             const nodes = await this.driver.getNodesById1(id1s, now);
+
+                            nodes.forEach( node => {
+                                const id1Str = node.getId1()!.toString("hex");
+
+                                const annotations = crdtView.annotations[id1Str];
+
+                                if (annotations) {
+                                    try {
+                                        (node as DataInterface).setAnnotations(annotations);
+                                    }
+                                    catch(e) {
+                                        // Ignore error, could be a too large annotation.
+                                        console.error("Could not set annotations on node", e);
+                                    }
+                                }
+                            });
 
                             const isLast = missingNodesId1s.length === 0;
 

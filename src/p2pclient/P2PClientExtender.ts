@@ -13,10 +13,16 @@ import {
 import {
     NodeInterface,
     PrimaryNodeCertInterface,
-    SignatureOffloaderInterface,
-    Decoder,
     License,
 } from "../datamodel";
+
+import {
+    Decoder,
+} from "../decoder";
+
+import {
+    SignatureOffloaderInterface,
+} from "../signatureoffloader/types";
 
 import {
     FetchResponse,

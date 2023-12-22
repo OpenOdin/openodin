@@ -1,9 +1,12 @@
 import * as work from "./work";
 
 import {
-    Crypto,
     Signature,
     KeyPair,
+} from "../../../types";
+
+import {
+    Crypto,
 } from "../../../Crypto";
 
 import {
@@ -52,8 +55,8 @@ import {
 } from "../../../interface/DataModelInterface";
 
 import {
-    CertUtil,
-} from "../../../../util/CertUtil";
+    IsCert,
+} from "../../../../util/common";
 
 import {
     RegionUtil,
@@ -88,7 +91,7 @@ const FIELDS: Fields = {
     },
     config: {
         name: "config",
-        type: FieldType.UINT16BE,
+        type: FieldType.UINT32BE,
         index: 3,
     },
     network: {
@@ -1433,6 +1436,14 @@ export abstract class Node implements NodeInterface {
         return this.isConfigBitSet(NodeConfig.DISALLOW_PUBLIC_CHILDREN);
     }
 
+    public setBubbleTrigger(bubbleTrigger: boolean = true) {
+        this.setConfigBit(NodeConfig.BUBBLE_TRIGGER, bubbleTrigger);
+    }
+
+    public bubbleTrigger(): boolean {
+        return this.isConfigBitSet(NodeConfig.BUBBLE_TRIGGER);
+    }
+
     /**
      * A node which is not public nor licensed is considered "private".
      * What private means is node type dependant.
@@ -1683,7 +1694,7 @@ export abstract class Node implements NodeInterface {
 
         if (node.hasEmbedded()) {
             const embedded = node.getEmbeddedObject();
-            if (CertUtil.IsCert(embedded.getType())) {
+            if (IsCert(embedded.getType())) {
                 hashes.push(...embedded.getAchillesHashes());
             }
             else {
@@ -2292,7 +2303,7 @@ export abstract class Node implements NodeInterface {
                         const embeddedNode = embedded as NodeInterface;
                         return embeddedNode.canSendPrivately(sourcePublicKey, targetPublicKey);
                     }
-                    else if (CertUtil.IsCert(embedded.getType())) {
+                    else if (IsCert(embedded.getType())) {
                         // Certs can always be sent privately.
                         return true;
                     }
@@ -2555,6 +2566,9 @@ export abstract class Node implements NodeInterface {
         }
         if (params.disallowPublicChildren !== undefined) {
             this.setDisallowPublicChildren(params.disallowPublicChildren);
+        }
+        if (params.bubbleTrigger !== undefined) {
+            this.setBubbleTrigger(params.bubbleTrigger);
         }
         if (params.isDynamicSelfActive !== undefined) {
             this.setDynamicSelfActive(params.isDynamicSelfActive);

@@ -2,29 +2,77 @@ import {
     DataInterface,
 } from "../../datamodel";
 
-export type CRDTViewType = {list: Buffer[], transientHashes: {[id1: string]: Buffer}};
+import {
+    CRDTMessagesAnnotations,
+} from "./CRDTMessagesAnnotations";
+
+export type CRDTViewType = {
+    /** List of ID1s. */
+    list: Buffer[],
+
+    /** Transient hash for the node. */
+    transientHashes: {[id1: string]: Buffer},
+
+    /** Exported annotations model for the node. */
+    annotations: {[id1: string]: Buffer},
+};
 
 export interface AlgoInterface {
     getId(): number;
     getLength(): number;
-    getAllNodes(): {[id1: string]: NodeAlgoValues};
-    add(nodes: NodeAlgoValues[]): [NodeAlgoValues[], NodeAlgoValues[]];
+    getAllNodes(): {[id1: string]: NodeValues};
+    add(nodes: DataInterface[]): [NodeValues[], Buffer[]];
     delete(indexes: number[]): void;
     get(cursorId1: Buffer | undefined, cursorIndex: number, head: number, tail: number,
-        reverse: boolean): [NodeAlgoValues[], number[]] | undefined;
-    getIndexes(nodes: NodeAlgoValues[]): number[];
+        reverse: boolean): [NodeValues[], number[]] | undefined;
+    getIndexes(nodes: NodeValues[]): number[];
     beginDeletionTracking(): void;
     commitDeletionTracking(): void;
     close(): void;
 }
 
-export type NodeAlgoValues = {
+/** The values stored to keep track of the model. */
+export interface NodeValues {
     id1: Buffer,
-    refId?: Buffer,
+    id2?: Buffer,
+    owner: Buffer,
     transientHash: Buffer,
-    creationTime?: number,
-    transientStorageTime?: number,
-};
+    creationTime: number,
+    transientStorageTime: number,
+    annotations?: CRDTMessagesAnnotations,
+}
+
+export interface NodeValuesRefId extends NodeValues {
+    refId?: Buffer,
+}
+
+export function ExtractNodeValues(node: DataInterface): NodeValues {
+    const id1 = node.getId1();
+
+    const owner = node.getOwner();
+
+    if (!id1 || !owner) {
+        throw new Error("Missing id1|owner");
+    }
+
+    return {
+        id1,
+        owner,
+        id2: node.getId2(),
+        transientHash: node.hashTransient(),
+        creationTime: node.getCreationTime() ?? 0,
+        transientStorageTime: node.getTransientStorageTime() ?? 0,
+    }
+}
+
+export function ExtractNodeValuesRefId(node: DataInterface): NodeValuesRefId {
+    const nodeValues = ExtractNodeValues(node);
+
+    return {
+        ...nodeValues,
+        refId: node.getRefId(),
+    };
+}
 
 /**
  * Optional storage are for the consumer to use.

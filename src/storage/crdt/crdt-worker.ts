@@ -6,8 +6,6 @@
  *  When running in browser this browserified file ("crdt-worker-browser.js") must always
  *  be copied to the browser application public root directory so it is accessible to be loaded
  *  by the browser's Worker() in run-time.
- *
- *  NodeJS and Browser use the same browserified JS file for their worker threads.
  */
 
 import {
@@ -17,7 +15,7 @@ import {
 import {
     CRDTViewType,
     AlgoInterface,
-    NodeAlgoValues,
+    NodeValues,
 } from "./types";
 
 import {
@@ -28,21 +26,31 @@ import {
     AlgoRefId,
 } from "./AlgoRefId";
 
+import {
+    DataInterface,
+} from "../../datamodel/node/secondary/interface";
+
+import {
+    Decoder,
+} from "../../decoder";
+
 // TODO when to ever garbage collect cached algos?
 export class CRDTManagerWorker {
     protected algos: {[key: string]: AlgoInterface} = {};
 
     public async updateModel(key: string, algoId: number, conf: string, orderByStorageTime: boolean,
-        nodes: NodeAlgoValues[])
+        images: Buffer[], targetPublicKey: Buffer)
     {
+        targetPublicKey = Buffer.from(targetPublicKey);
+
         let algo = this.algos[key];
 
         if (!algo) {
             if (algoId === AlgoSorted.GetId()) {
-                algo = new AlgoSorted(orderByStorageTime);
+                algo = new AlgoSorted(orderByStorageTime, conf, targetPublicKey.toString("hex"));
             }
             else if (algoId === AlgoRefId.GetId()) {
-                algo = new AlgoRefId(orderByStorageTime);
+                algo = new AlgoRefId(orderByStorageTime, conf, targetPublicKey.toString("hex"));
             }
             else {
                 throw new Error(`CRDT algo function with ID ${algoId} not available.`);
@@ -51,15 +59,7 @@ export class CRDTManagerWorker {
             this.algos[key] = algo;
         }
 
-        nodes = nodes.map( (node: NodeAlgoValues) => {
-            return {
-                id1: Buffer.from(node.id1),
-                refId: node.refId ? Buffer.from(node.refId) : undefined,
-                transientHash: Buffer.from(node.transientHash),
-                creationTime: node.creationTime,
-                transientStorageTime: node.transientStorageTime,
-            };
-        });
+        const nodes = images.map( image => Decoder.DecodeNode(Buffer.from(image)) ) as DataInterface[];
 
         algo.add(nodes);
     }
@@ -84,6 +84,8 @@ export class CRDTManagerWorker {
         head: number, tail: number, reverse: boolean = false):
         Promise<[crdtView: CRDTViewType, cursorIndex: number, length: number] | undefined>
     {
+        cursorId1 = Buffer.from(cursorId1);
+
         const algo = this.algos[key];
 
         if (!algo) {
@@ -96,30 +98,36 @@ export class CRDTManagerWorker {
             return undefined;
         }
 
-        const [nodes, indexes] = result;
+        const [nodeValues, indexes] = result;
 
         const cursorIndex2 = (head !== 0 && !reverse ? indexes[indexes.length -1 ]: indexes[0]) ?? -1;
 
         const length = algo.getLength();
 
         const transientHashes: {[id1: string]: Buffer} = {};
+        const annotations: {[id1: string]: Buffer} = {};
         const list: Buffer[] = [];
 
-        nodes.forEach( node => {
-            if (node) {
-                const id1 = Buffer.from(node.id1);
-
-                const id1Str = id1.toString("hex");
+        nodeValues.forEach( (nodeValues: NodeValues) => {
+            if (nodeValues) {
+                const id1 = nodeValues.id1;
 
                 list.push(id1);
 
-                transientHashes[id1Str] = node.transientHash;
+                const id1Str = id1.toString("hex");
+
+                transientHashes[id1Str] = nodeValues.transientHash;
+
+                if (nodeValues.annotations) {
+                    annotations[id1Str] = nodeValues.annotations.export();
+                }
             }
         });
 
         const crdtView: CRDTViewType = {
             list,
             transientHashes,
+            annotations,
         };
 
         return [crdtView, cursorIndex2, length];
@@ -142,9 +150,10 @@ function main(self?: any) {
     const rpc = new RPC(postMessageWrapped, listenMessage);
 
     rpc.onCall("updateModel", (key: string, algoId: number, conf: string,
-        orderByStorageTime: boolean, nodes: NodeAlgoValues[]) => {
+        orderByStorageTime: boolean, images: Buffer[], targetPublicKey: Buffer) => {
 
-        crdtManagerWorker.updateModel(key, algoId, conf, orderByStorageTime, nodes);
+        crdtManagerWorker.updateModel(key, algoId, conf, orderByStorageTime, images,
+            targetPublicKey);
     });
 
     rpc.onCall("beginDeletionTracking", (key: string) => {

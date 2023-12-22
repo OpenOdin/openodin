@@ -21,7 +21,7 @@ import {
 
 import {
     Decoder,
-} from "../datamodel/decoder";
+} from "../decoder";
 
 import {
     FetchQuery,

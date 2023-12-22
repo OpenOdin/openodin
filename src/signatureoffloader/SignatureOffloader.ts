@@ -1,14 +1,14 @@
 import {
     RPC,
-} from "../../util/RPC";
+} from "../util/RPC";
 
 import {
     KeyPair,
-} from "../Crypto";
+} from "../datamodel/types";
 
 import {
     DataModelInterface,
-} from "../interface";
+} from "../datamodel/interface";
 
 import Worker from "web-worker";
 
@@ -18,7 +18,7 @@ import {
 
 import {
     CopyBuffer,
-} from "../../util/common";
+} from "../util/common";
 
 import {
     ToBeSigned,
@@ -36,7 +36,7 @@ import { strict as assert } from "assert";
 const isNode = (typeof process !== "undefined" && process?.versions?.node);
 let isBrowser = false;
 if (!isNode) {
-    isBrowser = (typeof (window as any) !== "undefined");
+    isBrowser = (typeof window !== "undefined");
     if(!isBrowser) {
         assert(false, "Unexpected error: current environment is neither Node.js or Browser");
     }
@@ -329,7 +329,7 @@ class CryptoWorker implements CryptoWorkerInterface {
     public async init() {
         try {
             const workerURI = isBrowser ? "signatureOffloader-worker-browser.js" :
-                "./build/src/datamodel/decoder/signatureOffloader-worker.js";
+                "./build/src/signatureoffloader/signatureOffloader-worker.js";
 
             this.workerThread = new Worker(workerURI);
 

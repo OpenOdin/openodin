@@ -10,7 +10,7 @@ import {
 
 import {
     SignatureOffloaderInterface,
-} from "../datamodel/decoder";
+} from "../signatureoffloader";
 
 import {
     SignatureOffloaderRPCClient,

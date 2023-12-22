@@ -264,4 +264,22 @@ export enum DataConfig {
       * An embedded special node is not treated in any special way by the Database.
       */
     SPECIAL         = 0,
+
+    /**
+     * This bit is set to indicate that this node is an annotation node to its parent.
+     * What annotation means is application dependant where one example is that 
+     * if represents a "like" on a message.
+     * The CRDT models can handle annotations and bundle them up with their parent node.
+     */
+    ANNOTATION_EDIT = 1,
+
+    /**
+     * If this flag is set then the node is meant to be the edited version of its parent node.
+     * This can be handled by the CRDT models if configured to do so, otherwise this node
+     * is just handled as any other node.
+     *
+     * The CRDT models require that the owner of the edit node is the same as its parent.
+     * If there are many edit nodes then the one with the newest creationTime is selected.
+     */
+    ANNOTATION_REACTION = 2,
 }

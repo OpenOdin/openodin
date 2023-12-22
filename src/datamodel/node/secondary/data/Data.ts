@@ -8,12 +8,15 @@ import {
 
 import {
     DataCert,
+} from "../../../cert/secondary/datacert/DataCert";
+
+import {
     DATACERT_TYPE,
-} from "../../../cert/secondary/datacert";
+} from "../../../cert/secondary/datacert/types";
 
 import {
     DataCertInterface,
-} from "../../../cert/secondary/interface";
+} from "../../../cert/secondary/interface/DataCertInterface";
 
 import {
     DataModelInterface,
@@ -21,8 +24,11 @@ import {
 
 import {
     Node,
+} from "../../primary/node/Node";
+
+import {
     Version,
-} from "../../primary/node";
+} from "../../primary/node/types";
 
 import {
     Fields,
@@ -111,6 +117,14 @@ const FIELDS: Fields = {
         type: FieldType.BYTES,
         index: 33,
         maxSize: 1024,
+    },
+    annotations: {
+        name: "annotations",
+        type: FieldType.BYTES,
+        index: 34,
+        maxSize: 10240,
+        transient: true,
+        hash: false,
     },
 };
 
@@ -251,6 +265,22 @@ export class Data extends Node implements DataInterface {
     }
 
     /**
+     * Sets the transient annotations field.
+     *
+     * @param annotations data to be set.
+     */
+    public setAnnotations(annotations: Buffer | undefined) {
+        this.model.setBuffer("annotations", annotations);
+    }
+
+    /**
+     * @returns the value of the transient annotations field.
+     */
+    public getAnnotations(): Buffer | undefined {
+        return this.model.getBuffer("annotations");
+    }
+
+    /**
      * Adds further checks to the validation of data nodes.
      * @see Node.validate().
      */
@@ -258,6 +288,10 @@ export class Data extends Node implements DataInterface {
         const validation = super.validate(deepValidate, timeMS);
         if (!validation[0]) {
             return validation;
+        }
+
+        if (this.isAnnotationEdit() && this.isAnnotationReaction()) {
+            return [false, "Annotation edit and annotation reaction cannot be set together"];
         }
 
         if (this.isSpecial()) {
@@ -557,6 +591,22 @@ export class Data extends Node implements DataInterface {
      */
     public isSpecial(): boolean {
         return this.isDataConfigBitSet(DataConfig.SPECIAL);
+    }
+
+    public setAnnotationEdit() {
+        this.setDataConfigBit(DataConfig.ANNOTATION_EDIT, true);
+    }
+
+    public isAnnotationEdit(): boolean {
+        return this.isDataConfigBitSet(DataConfig.ANNOTATION_EDIT);
+    }
+
+    public setAnnotationReaction() {
+        this.setDataConfigBit(DataConfig.ANNOTATION_REACTION, true);
+    }
+
+    public isAnnotationReaction(): boolean {
+        return this.isDataConfigBitSet(DataConfig.ANNOTATION_REACTION);
     }
 
     /**

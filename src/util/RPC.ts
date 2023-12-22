@@ -1,3 +1,9 @@
+import {
+    PocketConsole,
+} from "pocket-console";
+
+const console = PocketConsole({module: "RPC"});
+
 export type RPCMessage = {
     /**
      * Set to the function name we are calling.
@@ -163,6 +169,8 @@ export class RPC {
                 }
             }
             catch(error) {
+                console.debug(error);
+
                 const errorResponse: RPCMessage = {
                     error: `${error}`,
                     messageId: message.messageId,

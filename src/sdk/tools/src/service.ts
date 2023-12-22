@@ -21,7 +21,7 @@ import {
 
 import {
     SignatureOffloader,
-} from "../../../datamodel/decoder/SignatureOffloader";
+} from "../../../signatureoffloader/SignatureOffloader";
 
 import {
     PocketConsole,

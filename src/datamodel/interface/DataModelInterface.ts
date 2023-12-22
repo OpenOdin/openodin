@@ -1,7 +1,7 @@
 import {
     KeyPair,
     Signature,
-} from "../Crypto";
+} from "../types";
 
 /**
  * This is the common interface for all nodes and all certs.

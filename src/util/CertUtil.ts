@@ -1,33 +1,78 @@
 import {
-    Decoder,
     SignatureOffloaderInterface,
-} from "../datamodel/decoder";
+} from "../signatureoffloader/types";
 
 import {
     BaseCertInterface,
+} from "../datamodel/cert/base/interface/BaseCertInterface";
+
+import {
     AuthCert,
-    AuthCertConstraintValues,
-    AuthCertParams,
-    ChainCert,
-    ChainCertParams,
-    ChainCertConstraintValues,
-    FriendCert,
-    FriendCertParams,
-    FriendCertConstraintValues,
+} from "../datamodel/cert/secondary/authcert/AuthCert";
+
+import {
     DataCert,
-    DataCertParams,
-    DataCertConstraintValues,
+} from "../datamodel/cert/secondary/datacert/DataCert";
+
+import {
     LicenseCert,
+} from "../datamodel/cert/secondary/licensecert/LicenseCert";
+
+import {
+    FriendCert,
+} from "../datamodel/cert/secondary/friendcert/FriendCert";
+
+import {
+    ChainCert,
+} from "../datamodel/cert/secondary/chaincert/ChainCert";
+
+import {
+    AuthCertConstraintValues,
+} from "../datamodel/cert/secondary/interface/AuthCertInterface";
+
+import {
+    AuthCertParams,
+} from "../datamodel/cert/secondary/authcert/types";
+
+import {
+    ChainCertParams,
+} from "../datamodel/cert/secondary/chaincert/types";
+
+import {
+    ChainCertConstraintValues,
+} from "../datamodel/cert/secondary/interface/ChainCertInterface";
+
+import {
+    FriendCertParams,
+} from "../datamodel/cert/secondary/friendcert/types";
+
+import {
+    FriendCertConstraintValues,
+} from "../datamodel/cert/secondary/interface/FriendCertInterface";
+
+import {
+    DataCertParams,
+} from "../datamodel/cert/secondary/datacert/types";
+
+import {
+    DataCertConstraintValues,
+} from "../datamodel/cert/secondary/interface/DataCertInterface";
+
+import {
     LicenseCertParams,
+} from "../datamodel/cert/secondary/licensecert/types";
+
+import {
     LicenseCertConstraintValues,
-    PRIMARY_INTERFACE_CHAINCERT_ID,
-    PRIMARY_INTERFACE_DEFAULTCERT_ID,
-    PRIMARY_INTERFACE_NODECERT_ID,
-} from "../datamodel/cert";
+} from "../datamodel/cert/secondary/interface/LicenseCertInterface";
 
 import {
     CertStack,
 } from "./types";
+
+import {
+    Decoder,
+} from "../decoder/Decoder";
 
 /** Map of all supported certs. */
 export const ModelTypeToNameMap: {[modelType: string]: string | undefined} = {
@@ -49,30 +94,6 @@ export class CertUtil {
      */
     constructor(signatureOffloader?: SignatureOffloaderInterface) {
         this.signatureOffloader = signatureOffloader;
-    }
-
-    /**
-    * Check in the image header data if it looks like a cert.
-    * @param image the cert image
-    * @returns true if the image header is recognized as being of primary interface cert.
-    */
-    public static IsCert(image: Buffer): boolean {
-        const chainCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_CHAINCERT_ID]);
-        if (image.slice(0, 2).equals(chainCertPrimaryInterface)) {
-            return true;
-        }
-
-        const defaultCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_DEFAULTCERT_ID]);
-        if (image.slice(0, 2).equals(defaultCertPrimaryInterface)) {
-            return true;
-        }
-
-        const nodeCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_NODECERT_ID]);
-        if (image.slice(0, 2).equals(nodeCertPrimaryInterface)) {
-            return true;
-        }
-
-        return false;
     }
 
     /**
@@ -469,7 +490,7 @@ export class CertUtil {
      * @throws on error decoding, validating or verifying.
      */
     public async verifyCert(image: Buffer): Promise<BaseCertInterface> {
-        const cert = Decoder.DecodeAnyCert(image);
+        const cert: any = Decoder.DecodeAnyCert(image);
 
         if (this.signatureOffloader) {
             if ((await this.signatureOffloader.verify([cert])).length !== 1) {
@@ -500,7 +521,7 @@ export class CertUtil {
         let cert: Buffer | undefined = image;
         while (cert) {
             try {
-                const certObject = Decoder.DecodeAnyCert(cert, false);
+                const certObject: any = Decoder.DecodeAnyCert(cert, false);
                 certStack.push({
                     params: certObject.getParams(),
                     certObject,

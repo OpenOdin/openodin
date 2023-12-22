@@ -400,6 +400,13 @@ export type DriverInterface = {
     getNodesById1(nodesId1: Buffer[], now: number): Promise<NodeInterface[]>;
 
     /**
+     * Fetch nodes by their id.
+     * @returns found nodes
+     * @throws on decoding error.
+     */
+    getNodesById(nodesId: Buffer[], now: number): Promise<NodeInterface[]>;
+
+    /**
      * Fetch a single node based on its id1, permissions apply.
      *
      * Licenses are allowed to be checked upwards from the node in a generous fashion.

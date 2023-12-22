@@ -1,19 +1,16 @@
 import {
     KeyPair,
-} from "../datamodel/Crypto";
+} from "../datamodel/types";
 
 import {
     Decoder,
-} from "../datamodel/decoder";
+} from "../decoder";
 
 import {
     ToBeSigned,
     SignaturesCollection,
-} from "../datamodel/decoder/types";
-
-import {
     SignatureOffloader,
-} from "../datamodel/decoder/SignatureOffloader";
+} from "../signatureoffloader";
 
 import {
     RPC,

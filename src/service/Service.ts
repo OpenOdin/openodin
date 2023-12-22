@@ -16,7 +16,7 @@ import {EVENTS as HANDSHAKEFACTORY_EVENTS} from "pocket-messaging";
 
 import {
     SignatureOffloaderInterface,
-} from "../datamodel/decoder";
+} from "../signatureoffloader/types";
 
 import {
     P2PClient,
@@ -863,7 +863,9 @@ export class Service {
         const fetchRequest = thread.getFetchRequest(threadFetchParams, stream);
 
         // CRDTs are not allowed to be used when auto syncing.
+        // Also not transient values.
         fetchRequest.crdt.algo = 0;
+        fetchRequest.query.preserveTransient = false;
 
         peerPublicKeys.forEach( (remotePublicKey: Buffer) => {
             if (direction === "pull" || direction === "both") {

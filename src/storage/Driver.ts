@@ -60,7 +60,7 @@ import {
 
 import {
     Decoder,
-} from "../datamodel/decoder";
+} from "../decoder";
 
 import {
     StorageUtil,
@@ -380,6 +380,54 @@ export class Driver implements DriverInterface {
         }
 
         return nodes2;
+    }
+
+    /**
+     * Get list of nodes on their ids (id2 || id1), preserve transient values.
+     *
+     * Nodes not found are ignored, no error is thrown on not found.
+     *
+     * This function does not preserve the order of nodes as given in the arguments.
+     *
+     * This function does not need or manage its own read transaction.
+     *
+     * @param ids the IDs of the nodes.
+     */
+    public async getNodesById(ids: Buffer[], now: number): Promise<NodeInterface[]> {
+        if (ids.length > MAX_BATCH_SIZE) {
+            throw new Error("Overflow in batch size of ids");
+        }
+
+        if (ids.length === 0) {
+            return [];
+        }
+
+        const ph = this.db.generatePlaceholders(ids.length);
+
+        if (!Number.isInteger(now)) {
+            throw new Error("now not integer");
+        }
+
+        const sql = `SELECT image, storagetime FROM universe_nodes WHERE id IN ${ph}
+            AND (expiretime IS NULL OR expiretime > ${now});`;
+
+        const rows = await this.db.all(sql, ids);
+
+        const nodes: NodeInterface[] = [];
+
+        const rowsLength = rows.length;
+        for (let index=0; index<rowsLength; index++) {
+            try {
+                const node = Decoder.DecodeNode(rows[index].image, true);
+                node.setTransientStorageTime(rows[index].storagetime);
+                nodes.push(node);
+            }
+            catch(e) {
+                console.debug(e);
+            }
+        }
+
+        return nodes;
     }
 
     /**

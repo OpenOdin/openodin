@@ -12,12 +12,15 @@
 
 import {
     RPC,
-} from "../../util/RPC";
+} from "../util/RPC";
 
 import {
     KeyPair,
+} from "../datamodel/types";
+
+import {
     Crypto,
-} from "../Crypto";
+} from "../datamodel/Crypto";
 
 import {
     ToBeSigned,

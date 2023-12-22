@@ -40,6 +40,7 @@ import {
     SPECIAL_NODES,
     Hash,
     Data,
+    DataConfig,
 } from "../../datamodel";
 
 import {
@@ -137,7 +138,7 @@ export class Thread {
             throw new Error("unexpectedly missing getResponse");
         }
 
-        return this.threadQueryResponseAPI(getResponse);
+        return this.threadQueryResponseAPI(getResponse, fetchRequest);
     }
 
     /**
@@ -180,6 +181,58 @@ export class Thread {
     }
 
     /**
+     * Post a node which is an annotation node meant to edit the given node.
+     *
+     * @param nodeToEdit the node we want to annotate with an edited node.
+     * @param name thread name
+     * @param threadDataParams should contain same data as for post() but where the data field is changed.
+     * Note that it is application specific if the blobHash, etc values are relevant for the new edit node.
+     */
+    public async postEdit(nodeToEdit: NodeInterface, name: string, threadDataParams: ThreadDataParams = {}): Promise<DataInterface[]> {
+        const dataParams = this.parsePost(name, threadDataParams);
+
+        dataParams.parentId = nodeToEdit.getId();
+        dataParams.expireTime = nodeToEdit.getExpireTime();
+        dataParams.dataConfig = (dataParams.dataConfig ?? 0) | (1 << DataConfig.ANNOTATION_EDIT);
+
+        const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey, this.signerSecretKey);
+
+        const storedId1s = await this.storeNodes([dataNode]);
+
+        if (storedId1s.length > 0) {
+            return [dataNode];
+        }
+
+        return [];
+    }
+
+    /**
+     * Post a node which is an annotation node meant as a reaction to a node.
+     *
+     * @param node the node we are reaction to.
+     * @param name thread name
+     * @param threadDataParams should contain same data as for post() but where the data field is
+     * Buffer.from("react/thumbsup") or Buffer.from("unreact/thumbsup"), where "thumbsup" is the reaction name.
+     */
+    public async postReaction(node: NodeInterface, name: string, threadDataParams: ThreadDataParams = {}): Promise<DataInterface[]> {
+        const dataParams = this.parsePost(name, threadDataParams);
+
+        dataParams.parentId = node.getId();
+        dataParams.expireTime = node.getExpireTime();
+        dataParams.dataConfig = (dataParams.dataConfig ?? 0) | (1 << DataConfig.ANNOTATION_REACTION);
+
+        const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey, this.signerSecretKey);
+
+        const storedId1s = await this.storeNodes([dataNode]);
+
+        if (storedId1s.length > 0) {
+            return [dataNode];
+        }
+
+        return [];
+    }
+
+    /**
      * Create destroy node(s) and post them.
      * 
      * If the given node is destructible then create a destroy node for it specifically.
@@ -187,7 +240,7 @@ export class Thread {
      * Also/if the given node is licensed then create a destroy node which targets all licenses
      * of the node.
      *
-     * If destroy nodes themselves are licensed then a postLicense() call must be made to properly post
+     * If destroy nodes them selves are licensed then a postLicense() call must be made to properly post
      * applicable licenses which should have the same properties as the licenses posted for
      * the node getting deleted.
      * This is not done automatically because all the details about what the licenses need are not known
@@ -270,12 +323,14 @@ export class Thread {
             storedId1s.findIndex( id1 => node.getId1()?.equals(id1) ) > -1 );
     }
 
-    protected threadQueryResponseAPI(getResponse: GetResponse<FetchResponse>): ThreadQueryResponseAPI {
+    protected threadQueryResponseAPI(getResponse: GetResponse<FetchResponse>,
+        fetchRequest: FetchRequest): ThreadQueryResponseAPI
+    {
         const onDataCBs: Array<(nodes: DataInterface[]) => void> = [];
 
         getResponse.onReply( (fetchResponse: FetchResponse) => {
             if (fetchResponse.status === Status.RESULT) {
-                const nodes = (StorageUtil.ExtractFetchResponseNodes(fetchResponse, false,
+                const nodes = (StorageUtil.ExtractFetchResponseNodes(fetchResponse, fetchRequest.query.preserveTransient,
                     Data.GetType(4)) as DataInterface[]).filter( node => !node.isSpecial() );
 
                 onDataCBs.forEach( cb => cb(nodes) );
@@ -329,7 +384,7 @@ export class Thread {
 
             }
             else {
-                const nodes = (StorageUtil.ExtractFetchResponseNodes(fetchResponse, false,
+                const nodes = (StorageUtil.ExtractFetchResponseNodes(fetchResponse, fetchRequest.query.preserveTransient,
                     Data.GetType(4)) as DataInterface[]).filter( node => !node.isSpecial() ) as DataInterface[];
 
                 if (nodes.length > 0) {
@@ -630,7 +685,8 @@ export class Thread {
         const queryParams = Thread.MergeProperties([threadQueryParams,
             {parentId: defaults.parentId}, threadTemplate.query]);
 
-        if (queryParams.rootNodeId1) {
+
+        if (queryParams.rootNodeId1?.length) {
             delete queryParams.parentId;
         }
 
@@ -687,7 +743,8 @@ export class Thread {
     /**
      * Merge a given list of property objects into a new object.
      * Keep the first value encountered in the list of objects (in order given).
-     * undefined values and empty Buffers are ignored.
+     * undefined values are ignored.
+     * Empty buffers are allowed to be overwritten by a non empty buffer.
      */
     protected static MergeProperties(objects: any[]): any {
         const merged: any = {};
@@ -701,13 +758,22 @@ export class Thread {
             for (let i=0; i<keysLength; i++) {
                 const key = keys[i];
 
-                if (merged[key] !== undefined) {
+                const value = object[key];
+
+                if (value === undefined) {
                     continue;
                 }
 
-                const value = object[key];
+                const setValue = merged[key];
 
-                if (value === undefined || (Buffer.isBuffer(value) && value.length === 0)) {
+                if (Buffer.isBuffer(setValue) && setValue.length === 0 &&
+                    Buffer.isBuffer(value) && value.length > 0)
+                {
+                    merged[key] = value;
+                    continue;
+                }
+
+                if (setValue !== undefined) {
                     continue;
                 }
 

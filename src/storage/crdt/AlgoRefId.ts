@@ -1,11 +1,16 @@
 import {
-    DeepCopy,
-} from "../../util/common";
+    AlgoInterface,
+    NodeValuesRefId,
+    ExtractNodeValuesRefId,
+} from "./types";
 
 import {
-    AlgoInterface,
-    NodeAlgoValues,
-} from "./types";
+    DataInterface,
+} from "../../datamodel/node/secondary/interface";
+
+import {
+    CRDTMessagesAnnotations,
+} from "./CRDTMessagesAnnotations";
 
 /**
  * Sort nodes on how they reference other nodes in their refId field.
@@ -15,30 +20,48 @@ export class AlgoRefId implements AlgoInterface {
     protected orderByStorageTime: boolean;
 
     /** Each node is stored here. */
-    protected nodeById1: {[id1: string]: NodeAlgoValues};
+    protected nodeById1: {[id1: string]: NodeValuesRefId} = {};
+
+    protected nodesId1ById: {[id: string]: {[id1: string]: Buffer}} = {};
 
     /** Each node is clustered on its refId to build a graph, as if refId is parentId. */
-    protected childrenPerParent: {[parentId1: string]: {[id1: string]: boolean}};
+    protected childrenPerParent: {[parentId1: string]: {[id1: string]: boolean}} = {};
 
     /** All node id1s per level, sorted on creationTime. */
-    protected levels: string[][];
+    protected levels: string[][] = [];
 
     protected _isClosed: boolean;
 
     protected isDeletionTracking: boolean = false;
 
-    protected deletionTracking: {[id1: string]: NodeAlgoValues} = {};
+    protected deletionTracking: {[id1: string]: NodeValuesRefId} = {};
+
+    protected annotations?: string;
+
+    /** If set then annotations returned are prioritized for this key. */
+    protected targetPublicKey: string;
 
     /**
      * @param orderByStorageTime if true then order by storage time insteadof creationTime.
-     *
+     * @param conf if set should be JSON.
+     * @param targetPublicKey is using annotations this should be set.
      */
-    constructor(orderByStorageTime: boolean = false) {
+    constructor(orderByStorageTime: boolean = false, conf: string = "", targetPublicKey: string = "") {
         this.orderByStorageTime = orderByStorageTime;
-        this.nodeById1 = {};
-        this.childrenPerParent = {};
-        this.levels = [];
         this._isClosed = false;
+
+        if (conf) {
+            try {
+                const obj = JSON.parse(conf);
+
+                this.annotations = obj.annotations?.format;
+            }
+            catch(e) {
+                // Do nothing
+            }
+        }
+
+        this.targetPublicKey = targetPublicKey;
     }
 
     public static GetId(): number {
@@ -57,8 +80,8 @@ export class AlgoRefId implements AlgoInterface {
         return length;
     }
 
-    public getAllNodes(): {[id1: string]: NodeAlgoValues} {
-        const allNodes: {[id1: string]: NodeAlgoValues} = {};
+    public getAllNodes(): {[id1: string]: NodeValuesRefId} {
+        const allNodes: {[id1: string]: NodeValuesRefId} = {};
 
         for (const id1 in this.nodeById1) {
             allNodes[id1] = this.nodeById1[id1];
@@ -71,28 +94,61 @@ export class AlgoRefId implements AlgoInterface {
      * Add node(s) to the tree and to their designated levels.
      * If a missing parent node is added then the whole index needs to be recalculated.
      *
-     * @returns [newNodes, transientUpdatesNodes][]
+     * @returns [newNodes, transientUpdatesNodesId1s][]
      * @throws on overflow
      */
-    public add(nodes: NodeAlgoValues[]): [NodeAlgoValues[], NodeAlgoValues[]] {
+    public add(nodes: DataInterface[]): [NodeValuesRefId[], Buffer[]] {
         // Nodes already existing but with changed transient values.
         // These do not alter the tree.
-        const transientNodes: NodeAlgoValues[] = [];
+        const transientNodes: Set<Buffer> = new Set();
 
         // New nodes, added as leafs.
         // These do not disrupt the current tree structure.
-        const leafNodes: NodeAlgoValues[] = [];
+        const leafNodes: NodeValuesRefId[] = [];
 
         // New nodes who happen to already be parent nodes to orphan nodes.
         // Inserting these nodes disrupts the tree and levels need to be recalculated.
-        const parentNodes: NodeAlgoValues[] = [];
+        const parentNodes: NodeValuesRefId[] = [];
 
-        nodes.forEach( (node: NodeAlgoValues) => {
-            const id1Str = (node.id1 ?? Buffer.alloc(0)).toString("hex");
+
+        nodes.forEach( (node: DataInterface) => {
+            const id1 = node.getId1();
+
+            const parentId = node.getParentId();
+
+            if (!id1 || !parentId) {
+                return;
+            }
+
+            // Check if this is a child node and if we are using annotations.
+            // If not using annotations then child nodes will not be treated differently.
+            //
+            if (this.annotations === "messages") {
+                // Get all parents, in case multiple nodes are leveraging
+                // the id2 feature using the same id.
+                //
+                const parentNodes = this.getNodesById(parentId);
+
+                if (parentNodes.length > 0) {
+                    const updatedNodesId1s =
+                        CRDTMessagesAnnotations.Factory(node, parentNodes, this.targetPublicKey);
+
+                    updatedNodesId1s.forEach( id1 => transientNodes.add(id1) );
+
+                    return;
+                }
+                else {
+                    // Fall through as this cannot be an annotation node.
+                }
+            }
+
+            const id1Str = id1.toString("hex");
 
             if (this.isDeletionTracking) {
                 delete this.deletionTracking[id1Str];
             }
+
+            const nodeValues = ExtractNodeValuesRefId(node);
 
             const existingNode = this.nodeById1[id1Str];
 
@@ -102,29 +158,45 @@ export class AlgoRefId implements AlgoInterface {
                 if (this.childrenPerParent[id1Str]) {
                     // This node is a missing parent for other nodes,
                     // this will take a re-indexing of the whole tree.
-                    parentNodes.push(node);
+                    parentNodes.push(nodeValues);
                 }
                 else {
                     // No other node uses this node as a parent,
                     // the node is a leaf node and can just slip into a level.
-                    leafNodes.push(node);
+                    leafNodes.push(nodeValues);
                 }
 
                 // Second, add this node as child to another node to make up the tree structure.
-                const parentIdStr = (node.refId ?? Buffer.alloc(0)).toString("hex");
+                const parentIdStr = (nodeValues.refId ?? Buffer.alloc(0)).toString("hex");
                 const childNodes = this.childrenPerParent[parentIdStr] ?? {};
                 this.childrenPerParent[parentIdStr] = childNodes;
                 childNodes[id1Str] = true;
 
-                this.nodeById1[id1Str] = node;
+                this.nodeById1[id1Str] = nodeValues;
+
+                const id = nodeValues.id2 ?? nodeValues.id1;
+
+                const idStr = id.toString("hex");
+
+                const o = this.nodesId1ById[idStr] ?? {};
+
+                this.nodesId1ById[idStr] = o;
+
+                o[id1Str] = id1;
             }
             else {
                 // The node already exists in the index.
                 // Check if the node has updated transient values.
-                if (!existingNode.transientHash.equals(node.transientHash)) {
+                if (!existingNode.transientHash.equals(nodeValues.transientHash)) {
                     // Replace current with this node.
-                    this.nodeById1[id1Str] = node;
-                    transientNodes.push(node);
+                    this.nodeById1[id1Str] = nodeValues;
+                    transientNodes.add(nodeValues.id1);
+                }
+
+                if (this.isDeletionTracking) {
+                    // Remove the annotations of the node since they will be added back
+                    // accordingly.
+                    delete nodeValues.annotations;
                 }
             }
         });
@@ -138,7 +210,7 @@ export class AlgoRefId implements AlgoInterface {
             this.indexNodes(leafNodes);
         }
 
-        return [ [...parentNodes, ...leafNodes], transientNodes];
+        return [ [...parentNodes, ...leafNodes], Array.from(transientNodes.values())];
     }
 
     public beginDeletionTracking() {
@@ -160,7 +232,7 @@ export class AlgoRefId implements AlgoInterface {
         this.deletionTracking = {};
     }
 
-    protected indexNodes(nodes: NodeAlgoValues[]) {
+    protected indexNodes(nodes: NodeValuesRefId[]) {
         // Add nodes to specific levels and re-index those levels.
 
         const levelsVisited: {[level: string]: string[]} = {};
@@ -223,7 +295,7 @@ export class AlgoRefId implements AlgoInterface {
         });
     }
 
-    protected findLevel(node: NodeAlgoValues): number {
+    protected findLevel(node: NodeValuesRefId): number {
         const id1Str = (node.id1 ?? Buffer.alloc(0)).toString("hex");
 
         if (!this.nodeById1[id1Str]) {
@@ -244,7 +316,7 @@ export class AlgoRefId implements AlgoInterface {
         return levelHeight;
     }
 
-    public getNodeAtIndex(index: number): NodeAlgoValues | undefined {
+    public getNodeAtIndex(index: number): NodeValuesRefId | undefined {
         let level: string[] | undefined;
         let aggregatedCount = 0;
 
@@ -305,6 +377,12 @@ export class AlgoRefId implements AlgoInterface {
 
             delete this.nodeById1[id1Str];
 
+            const id = node.id2 ?? node.id1;
+
+            const idStr = id.toString("hex");
+
+            delete (this.nodesId1ById[idStr] ?? {})[id1Str];
+
             const parentIdStr = (node.refId ?? Buffer.alloc(0)).toString("hex");
             const childNodes = this.childrenPerParent[parentIdStr] ?? {};
             delete childNodes[id1Str];
@@ -317,10 +395,21 @@ export class AlgoRefId implements AlgoInterface {
     }
 
     /**
+     * @returns nodes based on their id (id2 || id1).
+     */
+    protected getNodesById(id: Buffer): NodeValuesRefId[] {
+        const idStr = id.toString("hex");
+
+        const id1sStr = Object.keys(this.nodesId1ById[idStr] ?? {});
+
+        return id1sStr.map( id1Str => this.nodeById1[id1Str] ).filter( nodeValues => nodeValues );
+    }
+
+    /**
      * @returns undefined if cursor node does not exist.
      */
     public get(cursorId1: Buffer | undefined, cursorIndex: number, head: number, tail: number, reverse: boolean):
-        [NodeAlgoValues[], number[]] | undefined
+        [NodeValuesRefId[], number[]] | undefined
     {
 
         if ((tail === 0 && head === 0) || (tail !== 0 && head !== 0)) {
@@ -392,7 +481,7 @@ export class AlgoRefId implements AlgoInterface {
             }
         }
 
-        const nodes: NodeAlgoValues[] = [];
+        const nodes: NodeValuesRefId[] = [];
         const indexes: number[] = [];
 
         for (let index = startIndex; index < endIndex; index++) {
@@ -418,8 +507,8 @@ export class AlgoRefId implements AlgoInterface {
     /**
      * @throws if node does not exist in model
      */
-    public getIndexes(nodes: NodeAlgoValues[]): number[] {
-        return nodes.map( (node: NodeAlgoValues) => {
+    public getIndexes(nodes: NodeValuesRefId[]): number[] {
+        return nodes.map( (node: NodeValuesRefId) => {
             const id1 = node.id1;
             if (!id1) {
                 // cannot happen
@@ -475,6 +564,7 @@ export class AlgoRefId implements AlgoInterface {
 
         // Clear out the memory used.
         this.nodeById1 = {};
+        this.nodesId1ById = {};
         this.childrenPerParent = {};
         this.levels = [];
     }

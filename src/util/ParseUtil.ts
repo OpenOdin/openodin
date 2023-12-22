@@ -10,7 +10,6 @@ import {
 
 import {
     KeyPair,
-    Decoder,
     PrimaryNodeCertInterface,
     CMP,
     Filter,
@@ -32,6 +31,10 @@ import {
     LicenseCertConstraintValues,
     DATA_NODE_TYPE,
 } from "../datamodel";
+
+import {
+    Decoder,
+} from "../decoder";
 
 import {
     AllowEmbed,
@@ -899,7 +902,7 @@ export class ParseUtil {
      * @param crdt as:
      * {
      *  algo: number,
-     *  conf?: string,
+     *  conf?: JSONObject | string,
      *  reverse?: boolean,
      *  cursorId1?: hexstring | Buffer,
      *  cursorIndex?: number,
@@ -918,7 +921,16 @@ export class ParseUtil {
 
         const msgId = ParseUtil.ParseVariable("crdt msgId must be hex-string or Buffer, if set", crdt.msgId, "hex", true) ?? Buffer.alloc(0);
         const algo = ParseUtil.ParseVariable("crdt algo must be number, if set", crdt.algo, "number", true) ?? 0;
-        const conf = ParseUtil.ParseVariable("crdt conf must be string, if set", crdt.conf, "string", true) ?? "";
+
+        let conf: string = "";
+
+        if (typeof(crdt.conf) === "string") {
+            conf = crdt.conf;
+        }
+        else if (crdt.conf) {
+            conf = JSON.stringify(ParseUtil.ParseVariable("crdt conf must be object, if set", crdt.conf, "object"));
+        }
+
         const head = ParseUtil.ParseVariable("crdt head must be number, if set", crdt.head, "number", true) ?? 0;
         const tail = ParseUtil.ParseVariable("crdt tail must be number, if set", crdt.tail, "number", true) ?? 0;
         const reverse = ParseUtil.ParseVariable("crdt reverse must be boolean, if set", crdt.reverse, "boolean", true) ?? false;
@@ -1256,6 +1268,7 @@ export class ParseUtil {
      *  disallowParentLicensing?: boolean,
      *  onlyOwnChildren?: boolean,
      *  disallowPublicChildren?: boolean,
+     *  bubbleTrigger?: boolean,
      * }
      * @returns NodeParams object
      * @throws if malconfigured
@@ -1307,6 +1320,7 @@ export class ParseUtil {
         const disallowParentLicensing = ParseUtil.ParseVariable("disallowParentLicensing must be boolean, if set", params.disallowParentLicensing, "boolean", true) ?? false;
         const onlyOwnChildren = ParseUtil.ParseVariable("onlyOwnChildren must be boolean, if set", params.onlyOwnChildren, "boolean", true) ?? false;
         const disallowPublicChildren = ParseUtil.ParseVariable("disallowPublicChildren must be boolean, if set", params.disallowPublicChildren, "boolean", true) ?? false;
+        const bubbleTrigger = ParseUtil.ParseVariable("bubbleTrigger must be boolean, if set", params.bubbleTrigger, "boolean", true) ?? false;
 
         return {
             modelType,
@@ -1351,6 +1365,7 @@ export class ParseUtil {
             disallowParentLicensing,
             onlyOwnChildren,
             disallowPublicChildren,
+            bubbleTrigger,
         };
     }
 

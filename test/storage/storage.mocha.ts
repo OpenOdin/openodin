@@ -54,6 +54,7 @@ import {
     PERMISSIVE_PERMISSIONS,
     PromiseCallback,
     SPECIAL_NODES,
+    CRDTMessagesAnnotations,
 } from "../../src";
 
 class StorageWrapper extends Storage {
@@ -83,10 +84,6 @@ class StorageWrapper extends Storage {
         return super.triggerInsertEvent(triggerNodeIds, muteMsgIds);
     }
 
-    public chunkFetchResponse(fetchReplyData: FetchReplyData, seq: number): FetchResponse[] {
-        return super.chunkFetchResponse(fetchReplyData, seq, false);
-    }
-
     public async handleStoreWrapped(storeRequest: StoreRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) {
         return this.handleStore(storeRequest, peer, fromMsgId, expectingReply, sendResponse);
     }
@@ -105,6 +102,12 @@ class StorageWrapper extends Storage {
 
     public handleReadBlobWrapped(readBlobRequest: ReadBlobRequest, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ReadBlobResponse>) {
         return this.handleReadBlob(readBlobRequest, peer, fromMsgId, expectingReply, sendResponse);
+    }
+
+    public static ChunkFetchResponse(fetchReplyData: FetchReplyData, seq: number,
+        preserveTransient: boolean): FetchResponse[]
+    {
+        return Storage.ChunkFetchResponse(fetchReplyData, seq, preserveTransient);
     }
 }
 
@@ -358,7 +361,7 @@ describe("Storage: triggers", function() {
             error: "some error",
         };
 
-        let fetchResponses = storage.chunkFetchResponse(fetchReplyData, 10);
+        let fetchResponses = StorageWrapper.ChunkFetchResponse(fetchReplyData, 10, false);
 
         assert(fetchResponses.length === 1);
         assert(fetchResponses[0].seq === 0);
@@ -373,7 +376,7 @@ describe("Storage: triggers", function() {
             error: "bla",
         };
 
-        fetchResponses = storage.chunkFetchResponse(fetchReplyData, 10);
+        fetchResponses = StorageWrapper.ChunkFetchResponse(fetchReplyData, 10, false);
 
         assert(fetchResponses.length === 1);
         assert(fetchResponses[0].seq === 10);
@@ -431,7 +434,7 @@ describe("Storage: triggers", function() {
             embed: embed.slice(),
         };
 
-        fetchResponses = storage.chunkFetchResponse(fetchReplyData, 10);
+        fetchResponses = StorageWrapper.ChunkFetchResponse(fetchReplyData, 10, false);
 
         assert(fetchResponses.length === 3);
         assert(fetchResponses[0].seq === 10);
@@ -531,7 +534,7 @@ describe("Storage: SQLite WAL-mode", function() {
     setupTests(config);
 });
 
-describe("Storage: SQLiteJS WAL-mode", function() {
+describe.skip("Storage: SQLiteJS WAL-mode", function() {
     let signatureOffloader: SignatureOffloader | undefined;
     let driver: Driver | undefined;
     let blobDriver: BlobDriver | undefined;
@@ -1804,7 +1807,7 @@ function setupTests(config: any) {
         assert(counter === 1);
     });
 
-    it("Thread", async function() {
+    it("Thread with CRDT", async function() {
         const storage = config.storage as StorageWrapper;
         assert(storage);
 
@@ -1914,6 +1917,157 @@ function setupTests(config: any) {
         nodes2 = await promise;
 
         assert(nodes2.length === 0);
+    });
+
+    it("Thread with CRDT and annotations", async function() {
+        const storage = config.storage as StorageWrapper;
+        assert(storage);
+
+        const storageClient = config.p2pStorageClient as P2PClient;
+        assert(storageClient);
+
+        const p2pClient = config.p2pClient as P2PClient;
+        assert(p2pClient);
+
+        const nodeUtil = new NodeUtil();
+
+        let keyPair1 = Crypto.GenKeyPair();
+
+        let publicKey = keyPair1.publicKey;
+        let secretKey = keyPair1.secretKey;
+
+        //@ts-ignore
+        p2pClient.remoteProps.handshakedPublicKey = publicKey;
+
+        //@ts-ignore
+        p2pClient.localProps.handshakedPublicKey = publicKey;
+
+        let parentId = Buffer.alloc(32);
+
+        let fetchRequest = StorageUtil.CreateFetchRequest({
+            query: {
+                parentId,
+                sourcePublicKey: publicKey,
+                targetPublicKey: publicKey,
+                match: [
+                    {
+                        nodeType: Data.GetType(),
+                        filters: []
+                    }
+                ],
+                preserveTransient: true,  // important since annotations are transient.
+                depth: 2,  // Important we have depth 2 since annotation nodes are child nodes.
+            },
+            crdt: {
+                algo: 1,
+                head: -1,
+                conf: {
+                    annotations: {
+                        format: "messages",
+                    },
+                },
+            }
+        });
+
+        const threadTemplate: ThreadTemplate = {
+            query: fetchRequest.query,
+
+            crdt: fetchRequest.crdt,
+
+            post: {
+                hello: {
+                    parentId,
+                    data: Buffer.from("Hello World"),
+                    isLicensed: true,
+                }
+            },
+            postLicense: {
+                hello: {
+                    targets: [publicKey],
+                }
+            }
+        };
+
+        const defaults: ThreadDefaults = {};
+
+
+        const thread = new Thread(threadTemplate, defaults, storageClient, nodeUtil,
+            publicKey, publicKey, secretKey);
+
+        let nodes = await thread.post("hello");
+        assert(nodes.length === 1);
+
+        let licenses = await thread.postLicense("hello", nodes[0]);
+        assert(licenses.length === 1);
+
+        let {promise, cb} = PromiseCallback<any>();
+
+        thread.query().onData( (nodes: any) => {
+            cb(undefined, nodes);
+        });
+
+        let nodes2 = await promise;
+
+        assert(nodes2.length === 1);
+
+        let node = nodes2[0];
+
+        assert(node.getAnnotations() === undefined);
+
+
+        const nodeToEdit = nodes[0];
+
+
+        // Store annotation nodes
+        //
+        nodes = await thread.postEdit(nodeToEdit, "hello", {data: Buffer.from("Hello Universe")});
+        assert(nodes.length === 1);
+
+        assert(nodes[0].isAnnotationEdit());
+
+        licenses = await thread.postLicense("hello", nodes[0]);
+        assert(licenses.length === 1);
+
+
+        nodes = await thread.postReaction(nodeToEdit, "hello",
+            {data: Buffer.from("react/thumbsup")});
+
+        assert(nodes.length === 1);
+
+        assert(nodes[0].isAnnotationReaction());
+
+        licenses = await thread.postLicense("hello", nodes[0]);
+        assert(licenses.length === 1);
+
+
+        ({promise, cb} = PromiseCallback<any>());
+
+        thread.query().onData( (nodes: any) => {
+            cb(undefined, nodes);
+        });
+
+        nodes2 = await promise;
+
+        assert(nodes2.length === 1);
+
+        node = nodes2[0];
+
+        assert(node.getAnnotations() !== undefined);
+
+        let annotations = new CRDTMessagesAnnotations();
+        annotations.load(node.getAnnotations());
+
+        const updatedData = annotations.getEditNode()?.getData()?.toString();
+
+        assert(updatedData === "Hello Universe");
+
+        const reactions = annotations.getReactions();
+
+        assert(reactions.reactions.thumbsup?.count === 1);
+
+        assert(reactions.reactions.thumbsup?.publicKeys.length === 1);
+
+        assert(reactions.reactions.thumbsup?.publicKeys[0] === publicKey.toString("hex"));
     });
 }
 

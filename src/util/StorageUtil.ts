@@ -1,6 +1,6 @@
 import {
     Decoder,
-} from "../datamodel/decoder";
+} from "../decoder";
 
 import {
     ParseUtil,
@@ -78,7 +78,7 @@ export type FetchRequestQueryParams = {
 
 export type FetchRequestCRDTParams = {
     algo: number,
-    conf?: string,
+    conf?: string | {[key: string]: any},
     reverse?: boolean,
     cursorId1?: Buffer | string,
     cursorIndex?: number,

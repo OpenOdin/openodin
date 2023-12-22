@@ -73,6 +73,8 @@ export interface NodeInterface extends DataModelInterface {
     onlyOwnChildren(): boolean;
     setDisallowPublicChildren(noPublicChildren: boolean): void;
     disallowPublicChildren(): boolean;
+    setBubbleTrigger(bubbleTrigger: boolean): void;
+    bubbleTrigger(): boolean;
     setNonce(nonce: Buffer | undefined): void;
     getNonce(): Buffer | undefined;
     setCertObject(cert: PrimaryNodeCertInterface | undefined): void;

@@ -72,6 +72,7 @@ export type NodeParams = {
     disallowParentLicensing?: boolean,
     onlyOwnChildren?: boolean,
     disallowPublicChildren?: boolean,
+    bubbleTrigger?: boolean,
     isDynamicSelfActive?: boolean,
     isDynamicCertActive?: boolean,
     isDynamicEmbeddingActive?: boolean,
@@ -150,14 +151,26 @@ export enum NodeConfig {
      */
     HAS_RIGHTS_BY_ASSOCIATION       = 12,
 
-    /** If set then this node cannot be used when traversing upwards looking for parent licenses, meaning the process stops and no parent license can be found. */
+    /**
+     * If set then this node cannot be used when traversing upwards looking for parent licenses,
+     * meaning the process stops and no parent license can be found.
+     */
     DISALLOW_PARENT_LICENSING       = 13,
 
-    /** If set then when fetching only children with same owner are recognized, all others are ignored. */
+    /**
+     * If set then when fetching only children with same owner are recognized, all others are ignored.
+     */
     ONLY_OWN_CHILDREN               = 14,
 
-    /** If set then when fetching any public nodes below the node will be ignored. */
+    /**
+     * If set then when fetching any public nodes below the node will be ignored.
+     */
     DISALLOW_PUBLIC_CHILDREN        = 15,
+
+    /**
+     * If set then bubble trigger events to parent(s).
+     */
+    BUBBLE_TRIGGER                  = 16,
 }
 
 // Config bits set on objects by its environment. Not persisted to disk.

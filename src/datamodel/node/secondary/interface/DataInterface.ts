@@ -23,6 +23,8 @@ export interface DataInterface extends NodeInterface {
     getContentType(): string | undefined;
     setData(data: Buffer | undefined): void;
     getData(): Buffer | undefined;
+    setAnnotations(annotations: Buffer | undefined): void;
+    getAnnotations(): Buffer | undefined;
     setSpecial(special: boolean): void;
     isSpecial(): boolean;
     embed(targetPublicKey: Buffer): DataInterface | undefined;
@@ -30,6 +32,10 @@ export interface DataInterface extends NodeInterface {
     getCopiedNode(): DataInterface | undefined;
     getDataConfig(): undefined | number;
     setDataConfig(dataConfig: number): void;
+    setAnnotationEdit(): void;
+    isAnnotationEdit(): boolean;
+    setAnnotationReaction(): void;
+    isAnnotationReaction(): boolean;
     setCertObject(cert: DataCertInterface | undefined): void;
     getCertObject(): DataCertInterface;
     setParams(params: DataParams): void;

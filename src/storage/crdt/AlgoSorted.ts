@@ -1,28 +1,54 @@
 import {
     AlgoInterface,
-    NodeAlgoValues,
+    ExtractNodeValues,
+    NodeValues,
 } from "./types";
+
+import {
+    DataInterface,
+} from "../../datamodel/node/secondary/interface";
+
+import {
+    CRDTMessagesAnnotations,
+} from "./CRDTMessagesAnnotations";
 
 /**
  * Sort nodes on creationTime or storageTime and make sure there are no duplicate entries.
  */
 export class AlgoSorted implements AlgoInterface {
     protected orderByStorageTime: boolean;
-    protected nodeIndexById1: {[id1: string]: number};
-    protected nodes: NodeAlgoValues[];
+    protected nodeIndexById1: {[id1: string]: number} = {};
+    protected nodesId1ById: {[id: string]: {[id1: string]: Buffer}} = {};
+    protected nodes: NodeValues[] = [];
     protected _isClosed: boolean;
     protected isDeletionTracking: boolean = false;
     protected deletionTracking: {[id1: string]: number} = {};
+    protected annotations?: string;
+
+    /** If set then annotations returned are prioritized for this key. */
+    protected targetPublicKey: string;
 
     /**
      * @param orderByStorageTime if true then order by storage time insteadof creationTime.
-     *
+     * @param conf if set should be JSON.
+     * @param targetPublicKey is using annotations this should be set.
      */
-    constructor(orderByStorageTime: boolean = false) {
+    constructor(orderByStorageTime: boolean = false, conf: string = "", targetPublicKey: string = "") {
         this.orderByStorageTime = orderByStorageTime;
-        this.nodeIndexById1 = {};
-        this.nodes = [];
         this._isClosed = true;
+
+        if (conf) {
+            try {
+                const obj = JSON.parse(conf);
+
+                this.annotations = obj.annotations?.format;
+            }
+            catch(e) {
+                // Do nothing
+            }
+        }
+
+        this.targetPublicKey = targetPublicKey;
     }
 
     public static GetId(): number {
@@ -37,8 +63,8 @@ export class AlgoSorted implements AlgoInterface {
         return this.nodes.length;
     }
 
-    public getAllNodes(): {[id1: string]: NodeAlgoValues} {
-        const allNodes: {[id1: string]: NodeAlgoValues} = {};
+    public getAllNodes(): {[id1: string]: NodeValues} {
+        const allNodes: {[id1: string]: NodeValues} = {};
 
         for (const id1 in this.nodeIndexById1) {
             allNodes[id1] = this.nodes[this.nodeIndexById1[id1]];
@@ -48,77 +74,130 @@ export class AlgoSorted implements AlgoInterface {
     }
 
     /**
-     * @returns [newNodes, transientUpdatesNodes][]
+     * @returns [newNodes, transientUpdatesNodesId1s][]
      * @throws on overflow
      */
-    public add(nodes: NodeAlgoValues[]): [NodeAlgoValues[], NodeAlgoValues[]] {
-        const newNodes: NodeAlgoValues[] = [];
-        const transientNodes: NodeAlgoValues[] = [];
+    public add(nodes: DataInterface[]): [NodeValues[], Buffer[]] {
+        const newNodes: NodeValues[] = [];
+        const transientNodes: Set<Buffer> = new Set();
 
-        if (nodes.length > 0) {
-            nodes.forEach( (node: NodeAlgoValues) => {
-                const id1 = node.id1;
-                if (!id1) {
-                    return;
+        const nodesLength = nodes.length;
+        for (let i=0; i<nodesLength; i++) {
+            const node = nodes[i];
+
+            const id1 = node.getId1();
+
+            const parentId = node.getParentId();
+
+            if (!id1 || !parentId) {
+                continue;
+            }
+
+            // Check if this is a child node and if we are using annotations.
+            // If not using annotations then child nodes will not be treated differently.
+            //
+            if (this.annotations === "messages") {
+                // Get all parents, in case multiple nodes are leveraging
+                // the id2 feature using the same id.
+                //
+                const parentNodes = this.getNodesById(parentId);
+
+                if (parentNodes.length > 0) {
+                    const updatedNodesId1s =
+                        CRDTMessagesAnnotations.Factory(node, parentNodes, this.targetPublicKey);
+
+                    updatedNodesId1s.forEach( id1 => transientNodes.add(id1) );
+
+                    continue;
                 }
+                else {
+                    // Fall through as this cannot be an annotation node.
+                }
+            }
 
-                const id1Str = id1.toString("hex");
+            const id1Str = id1.toString("hex");
+
+            if (this.isDeletionTracking) {
+                delete this.deletionTracking[id1Str];
+            }
+
+            const nodeValues = ExtractNodeValues(node);
+
+            const existingIndex = this.nodeIndexById1[id1Str];
+
+            if (existingIndex !== undefined) {
+                // Node already exists in the cache.
+
+                // See if the transient values have changed and in such
+                // case replace the node here and return it as inserted.
+                if (!nodeValues.transientHash.equals(this.nodes[existingIndex].transientHash)) {
+                    this.nodes[existingIndex] = nodeValues;
+                    transientNodes.add(nodeValues.id1);
+                }
 
                 if (this.isDeletionTracking) {
-                    delete this.deletionTracking[id1Str];
+                    // Remove the annotations of the node since they will be added back
+                    // accordingly.
+                    delete nodeValues.annotations;
                 }
+            }
+            else {
+                const id = nodeValues.id2 ?? nodeValues.id1;
 
-                const existingIndex = this.nodeIndexById1[id1Str];
+                const idStr = id.toString("hex");
 
-                if (existingIndex !== undefined) {
-                    // Node already exists in the cache.
-                    // See if the transient values have changed and in such
-                    // case replace the node here and return it as inserted.
-                    if (!node.transientHash.equals(this.nodes[existingIndex].transientHash)) {
-                        this.nodes[existingIndex] = node;
-                        transientNodes.push(node);
-                    }
-                }
-                else {
-                    newNodes.push(node);
-                }
-            });
+                const o = this.nodesId1ById[idStr] ?? {};
 
-            this.nodes.push(...newNodes);
+                this.nodesId1ById[idStr] = o;
 
-            this.nodes.sort( (a: NodeAlgoValues, b: NodeAlgoValues) => {
-                const diffCreationTime = (a.creationTime ?? 0) - (b.creationTime ?? 0);
-                const diffStorageTime = (a.transientStorageTime ?? 0) - (b.transientStorageTime ?? 0);
+                o[id1Str] = id1;
 
-                let diff = 0;
+                // Note that we are appending the nodes at first,
+                // the array will be sorted below.
+                //
+                this.nodeIndexById1[id1Str] = this.nodes.length;
+                this.nodes.push(nodeValues);
 
-                if (this.orderByStorageTime) {
-                    diff = diffStorageTime;
-                    if (diff === 0) {
-                        diff = diffCreationTime;
-                    }
-                }
-                else {
+                newNodes.push(nodeValues);
+            }
+        }
+
+        // Note: this could be optimzed since new nodes are more likely to be
+        // appended, not inserted.
+        //
+
+        this.nodes.sort( (a: NodeValues, b: NodeValues) => {
+            const diffCreationTime = (a.creationTime ?? 0) - (b.creationTime ?? 0);
+
+            const diffStorageTime = (a.transientStorageTime ?? 0) -
+                (b.transientStorageTime ?? 0);
+
+            let diff = 0;
+
+            if (this.orderByStorageTime) {
+                diff = diffStorageTime;
+                if (diff === 0) {
                     diff = diffCreationTime;
                 }
+            }
+            else {
+                diff = diffCreationTime;
+            }
 
-                if (diff === 0) {
-                    const id1a = a.id1;
-                    const id1b = b.id1;
-                    if (id1a && id1b) {
-                        diff = id1a.compare(id1b);
-                    }
+            if (diff === 0) {
+                const id1a = a.id1;
+                const id1b = b.id1;
+                if (id1a && id1b) {
+                    diff = id1a.compare(id1b);
                 }
+            }
 
-                return diff;
-            });
-        }
+            return diff;
+        });
 
-        if (newNodes.length > 0 || transientNodes.length > 0) {
-            this.updateIndexes();
-        }
+        this.updateIndexes();
 
-        return [newNodes, transientNodes];
+        return [newNodes, Array.from(transientNodes.values())];
     }
 
     public beginDeletionTracking() {
@@ -144,7 +223,7 @@ export class AlgoSorted implements AlgoInterface {
      * @returns undefined if cursor node does not exist.
      */
     public get(cursorId1: Buffer | undefined, cursorIndex: number, head: number, tail: number, reverse: boolean):
-        [NodeAlgoValues[], number[]] | undefined
+        [NodeValues[], number[]] | undefined
     {
 
         if ((tail === 0 && head === 0) || (tail !== 0 && head !== 0)) {
@@ -231,17 +310,32 @@ export class AlgoSorted implements AlgoInterface {
                 const node = this.nodes.splice(index, 1)[0];
                 if (node) {
                     const id1 = node.id1;
-                    if (!id1) {
-                        return;
-                    }
+
+                    const id = node.id2 ?? node.id1;
 
                     const id1Str = id1.toString("hex");
+
                     delete this.nodeIndexById1[id1Str];
+
+                    const idStr = id.toString("hex");
+
+                    delete (this.nodesId1ById[idStr] ?? {})[id1Str];
                 }
             }
         }
 
         this.updateIndexes();
+    }
+
+    /**
+     * @returns nodes based on their id (id2 || id1).
+     */
+    protected getNodesById(id: Buffer): NodeValues[] {
+        const idStr = id.toString("hex");
+
+        const id1sStr = Object.keys(this.nodesId1ById[idStr] ?? {});
+
+        return id1sStr.map( id1Str => this.nodes[this.nodeIndexById1[id1Str]] ).filter( nodeValues => nodeValues );
     }
 
     protected updateIndexes(start: number = 0) {
@@ -257,10 +351,12 @@ export class AlgoSorted implements AlgoInterface {
     }
 
     /**
+     * Get indexes of nodes based on their id1.
+     *
      * @throws if node does not exist in model
      */
-    public getIndexes(nodes: NodeAlgoValues[]): number[] {
-        return nodes.map( (node: NodeAlgoValues) => {
+    public getIndexes(nodes: NodeValues[]): number[] {
+        return nodes.map( (node: NodeValues) => {
             const id1 = node.id1;
             if (!id1) {
                 // cannot happen
@@ -284,6 +380,7 @@ export class AlgoSorted implements AlgoInterface {
 
         // Clear out the memory used.
         this.nodeIndexById1 = {};
+        this.nodesId1ById = {};
         this.nodes = [];
     }
 }

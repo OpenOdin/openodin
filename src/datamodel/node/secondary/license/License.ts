@@ -5,7 +5,7 @@ import {
 
 import {
     Signature,
-} from "../../../Crypto";
+} from "../../../types";
 
 import {
     Hash,
