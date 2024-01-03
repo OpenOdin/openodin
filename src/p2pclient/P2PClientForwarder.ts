@@ -62,7 +62,9 @@ export class P2PClientForwarder {
      * This is necessary in the cases when the receiving P2PClient does not have allowUncheckAccess
      * set, for instance when forwarding to a remote storage.
      */
-    constructor(senderClient: P2PClient, targetClient: P2PClient, muteMsgIds?: Buffer[], resetSender?: boolean) {
+    constructor(senderClient: P2PClient, targetClient: P2PClient, muteMsgIds?: Buffer[],
+        resetSender?: boolean)  //eslint-disable-line @typescript-eslint/no-unused-vars
+    {
         this.senderClient = senderClient;
         this.targetClient = targetClient;
         this.muteMsgIds = muteMsgIds ?? [];
@@ -137,6 +139,7 @@ export class P2PClientForwarder {
         }
     }
 
+    //eslint-disable-next-line @typescript-eslint/no-unused-vars
     protected handleFetchResponse(sendResponse: SendResponseFn<FetchResponse>, targetClient: P2PClient, fetchResponse: FetchResponse, fetchRequest: FetchRequest) {
         // Tunnel the response back to the senderClient.
         sendResponse(fetchResponse);

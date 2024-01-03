@@ -14,7 +14,7 @@ import {
  * The primary node interface this License node inherits from.
  * 16 bit BE uint encoded into data model header.
  */
-import {PRIMARY_INTERFACE_ID} from "../../primary/node/versionTypes";
+import {PRIMARY_INTERFACE_ID} from "../../primary/node/versionTypes";  //eslint-disable-line @typescript-eslint/no-unused-vars
 export {PRIMARY_INTERFACE_ID} from "../../primary/node/versionTypes";
 
 /**

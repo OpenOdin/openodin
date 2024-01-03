@@ -28,7 +28,7 @@ export class SignatureOffloaderRPCClient implements SignatureOffloaderInterface 
         return await this.rpc.call("init");
     }
 
-    public async addKeyPair(keyPair: KeyPair): Promise<void> {
+    public async addKeyPair(keyPair: KeyPair): Promise<void> {  //eslint-disable-line @typescript-eslint/no-unused-vars
         throw new Error("SignatureOffloaderRPCClient should not add key pairs of its own.");
     }
 

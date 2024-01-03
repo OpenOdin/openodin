@@ -68,6 +68,7 @@ export class RegionUtil {
         return ISO3166_EU_CODES.includes(countryCode);
     }
 
+    //eslint-disable-next-line @typescript-eslint/no-unused-vars
     public static GetRegionByIpAddress(ipAddress: string | undefined): string | undefined {
         //TODO: FIXME: 0.9.8-beta1.
         return undefined;

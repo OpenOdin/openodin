@@ -460,7 +460,8 @@ export abstract class Node implements NodeInterface {
      * @param length optional number of bytes if the node type to return.
      * @returns the nodes model type.
      */
-    public static GetType(length?: number): Buffer {
+    public static GetType(length?: number): Buffer  //eslint-disable-line @typescript-eslint/no-unused-vars
+    {
         throw new Error("Not implemented");
     }
 
@@ -500,7 +501,8 @@ export abstract class Node implements NodeInterface {
      * @param certType as 6 byte buffer.
      * @returns true if the provided cert type is accepted as a signing certificate.
      */
-    public isCertTypeAccepted(certType: Buffer): boolean {
+    public isCertTypeAccepted(certType: Buffer): boolean  //eslint-disable-line @typescript-eslint/no-unused-vars
+    {
         return false;
     }
 
@@ -510,7 +512,8 @@ export abstract class Node implements NodeInterface {
      * @param embeddedType as 6 byte buffer.
      * @returns true if the provided datamodel type is accepted as an embedded.
      */
-    public isEmbeddedTypeAccepted(embeddedType: Buffer): boolean {
+    public isEmbeddedTypeAccepted(embeddedType: Buffer): boolean  //eslint-disable-line @typescript-eslint/no-unused-vars
+    {
         return true;
     }
 
@@ -2125,7 +2128,9 @@ export abstract class Node implements NodeInterface {
      * @returns embedding node or undefined if not allowed to embed.
      * @throws on embedding error (such as field overflow).
      */
-    public embed(targetPublicKey: Buffer, creationTime?: number): NodeInterface | undefined {
+    public embed(targetPublicKey: Buffer, creationTime?: number):  //eslint-disable-line @typescript-eslint/no-unused-vars
+        NodeInterface | undefined
+    {
         return undefined;
     }
 
@@ -2165,7 +2170,8 @@ export abstract class Node implements NodeInterface {
      * @returns unsigned copy or undefined on error.
      * @throws is export/load procedure does not work.
      */
-    public copy(parentId?: Buffer): NodeInterface {
+    public copy(parentId?: Buffer): NodeInterface  //eslint-disable-line @typescript-eslint/no-unused-vars
+    {
         // This method must be overridden in subclass if it supports copy.
         throw new Error("copy not supported");
     }
@@ -2274,10 +2280,10 @@ export abstract class Node implements NodeInterface {
      *
      * @returns whether or not this node is allowed to be sent if embedded.
      */
-    public canSendEmbedded(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean {
+    public canSendEmbedded(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean  //eslint-disable-line @typescript-eslint/no-unused-vars
+    {
         return false;
     }
-
     /**
      * Check if this node can be sent privately to targetPublicKey from sourcePublicKey.
      *

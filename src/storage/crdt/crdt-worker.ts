@@ -65,7 +65,7 @@ export class CRDTManagerWorker {
     }
 
     public beginDeletionTracking(key: string) {
-        let algo = this.algos[key];
+        const algo = this.algos[key];
 
         if (algo) {
             algo.beginDeletionTracking();
@@ -73,7 +73,7 @@ export class CRDTManagerWorker {
     }
 
     public commitDeletionTracking(key: string) {
-        let algo = this.algos[key];
+        const algo = this.algos[key];
 
         if (algo) {
             algo.commitDeletionTracking();

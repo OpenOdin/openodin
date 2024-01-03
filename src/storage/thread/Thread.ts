@@ -36,7 +36,6 @@ import {
     LicenseInterface,
     NodeInterface,
     DataInterface,
-    LICENSE_NODE_TYPE,
     SPECIAL_NODES,
     Hash,
     Data,
@@ -542,7 +541,7 @@ export class Thread {
 
         return licenseNodes.filter( license => {
             const id1 = license.getId1()!;
-            return storedId1s.findIndex( id1b => id1.equals(id1) ) > -1;
+            return storedId1s.findIndex( id1b => id1b.equals(id1) ) > -1;
         });
     }
 

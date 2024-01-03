@@ -79,11 +79,6 @@ const BUSY_ERRORS = ["SQLITE_BUSY: database is locked", "canceling statement due
 
 const console = PocketConsole({module: "Storage"});
 
-let osModule: any;
-if (typeof process !== "undefined" && process?.versions?.node) {
-    osModule = require("os");
-}
-
 const EMPTY_FETCHRESPONSE: FetchResponse = {
     status: Status.RESULT,
     result: {
@@ -479,11 +474,7 @@ export class Storage {
             return;
         }
 
-        let trigger: Trigger | undefined;
         let status: Status | undefined;
-
-        // Collect all locks here in case finally needs to release all locks.
-        const locks: Mutex[] = [];
 
         try {
             // Deep copy the fetch request object since we might update some properties.
@@ -1437,7 +1428,6 @@ export class Storage {
         const key = CRDTManager.HashKey(fetchRequest);
 
         let rowCount: number = 0
-        let currentModel: [Buffer, Buffer][] = [];
 
         // The fetch drives through here.
         const fn = async (fetchReplyData: FetchReplyData) => {
@@ -1494,9 +1484,11 @@ export class Storage {
                             rowCount,
                             isLast: true,
                         };
+
+                        handleFetchReplyData(fetchReplyData);
                     }
                     else {
-                        let [missingNodesId1s, delta, crdtView, cursorIndex, length] = result;
+                        const [missingNodesId1s, delta, crdtView, cursorIndex, length] = result;
 
                         if (trigger) {
                             trigger.crdtView = crdtView;

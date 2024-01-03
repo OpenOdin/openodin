@@ -252,7 +252,7 @@ export abstract class BaseCert implements BaseCertInterface {
      * @param length optional number of bytes of the cert type to return.
      * @returns the cert's model type.
      */
-    public static GetType(length?: number): Buffer {
+    public static GetType(length?: number): Buffer {  //eslint-disable-line @typescript-eslint/no-unused-vars
         throw new Error("Not implemented");
     }
 
@@ -627,7 +627,7 @@ export abstract class BaseCert implements BaseCertInterface {
      * Function implented here to conform to the general data model structure.
      * To save storage space certs do not store their id1, it is calculated when asked for.
      */
-    public setId1(id1: Buffer) {
+    public setId1(id1: Buffer) {  //eslint-disable-line @typescript-eslint/no-unused-vars
         // Do nothing
     }
 

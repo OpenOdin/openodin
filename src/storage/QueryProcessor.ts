@@ -834,6 +834,7 @@ export class QueryProcessor {
     protected levelDone(): boolean {
         const currentLevelMatchesLength = this.currentLevelMatches.length;
         for (let i=0; i<currentLevelMatchesLength; i++) {
+            //eslint-disable-next-line @typescript-eslint/no-unused-vars
             const [match, state] = this.currentLevelMatches[i];
             if (!state.done) {
                 return false;
@@ -1174,6 +1175,7 @@ export class QueryProcessor {
         if (includeEmbeddableLicenses &&
             !this.fetchQuery.targetPublicKey.equals(this.fetchQuery.sourcePublicKey))
         {
+            //eslint-disable-next-line @typescript-eslint/no-unused-vars
             const [_, addedEmbeddableLicenses] = await this.filterLicensedNodes(allNodes,
                 this.fetchQuery.sourcePublicKey, true);
 
@@ -1721,8 +1723,6 @@ export class QueryProcessor {
                 if (!parentId) {
                     continue;
                 }
-
-                const id1Str = (node.getId1() as Buffer).toString("hex");
 
                 const id1List: Buffer[] = [];
 

@@ -1598,28 +1598,28 @@ export class License extends Node implements LicenseInterface {
     /**
      * Override to mute, since this field is not applicable to License.
      */
-    public setId2(id2: Buffer | undefined) {
+    public setId2(id2: Buffer | undefined) {  //eslint-disable-line @typescript-eslint/no-unused-vars
         // NOOP.
     }
 
     /**
      * Override to mute, since this field is not applicable to License.
      */
-    public setNetwork(network: Buffer | undefined) {
+    public setNetwork(network: Buffer | undefined) {  //eslint-disable-line @typescript-eslint/no-unused-vars
         // NOOP.
     }
 
     /**
      * Override to mute, since this field is not applicable to License.
      */
-    public setLicenseMinDistance(minDistance: number | undefined) {
+    public setLicenseMinDistance(minDistance: number | undefined) {  //eslint-disable-line @typescript-eslint/no-unused-vars
         // NOOP.
     }
 
     /**
      * Override to mute, since this field is not applicable to License.
      */
-    public setLicenseMaxDistance(minDistance: number | undefined) {
+    public setLicenseMaxDistance(minDistance: number | undefined) {  //eslint-disable-line @typescript-eslint/no-unused-vars
         // NOOP.
     }
 

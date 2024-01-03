@@ -51,7 +51,7 @@ export class CRDTManager {
             return this.initPromise;
         }
 
-        this.initPromise = new Promise<void>( async (resolve) => {
+        this.initPromise = new Promise<void>( (resolve) => {
             try {
                 const workerURI = isBrowser ? "crdt-worker-browser.js" :
                     "./build/src/storage/crdt/crdt-worker.js";
@@ -91,13 +91,13 @@ export class CRDTManager {
                 });
             });
 
-            await promise;
+            promise.then( () => {
+                this._isInited = true;
 
-            this._isInited = true;
+                this.initPromise = undefined;
 
-            this.initPromise = undefined;
-
-            resolve();
+                resolve();
+            });
         });
 
         return this.initPromise;

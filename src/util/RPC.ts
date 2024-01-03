@@ -196,6 +196,7 @@ export class RPC {
         const messageIds = Object.keys(this.promises);
 
         messageIds.forEach( messageId => {
+            //eslint-disable-next-line @typescript-eslint/no-unused-vars
             const [resolve, reject] = this.promises[messageId] ?? [];
             delete this.promises[messageId];
             reject("RPC endpoint closed");
