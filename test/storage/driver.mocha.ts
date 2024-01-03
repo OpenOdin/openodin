@@ -27,6 +27,7 @@ import {
     FetchRequest,
     DatabaseUtil,
     Hash,
+    NOW_TOLERANCE,
 } from "../../src";
 
 /**
@@ -817,7 +818,7 @@ function setupDriverTests(config: any) {
         // getNodeById1
         //
 
-        node = await driver.getNodeById1(node0.getId1(), 1);
+        node = await driver.getNodeById1(node0.getId1(), now);
         assert(node);
         assert(node !== node0);
         assert(node.getId1().equals(node0.getId1()));
@@ -841,7 +842,7 @@ function setupDriverTests(config: any) {
         assert(!rows[0].transienthash.equals(node0.hashTransient()));
 
 
-        node = await driver.getNodeById1(node0.getId1(), 1);
+        node = await driver.getNodeById1(node0.getId1(), now);
         assert(node);
         assert(node !== node0);
         assert(node.getId1().equals(node0.getId1()));
@@ -866,7 +867,7 @@ function setupDriverTests(config: any) {
         assert(rows[0].image.equals(node0.export(true)));
         assert(rows[0].transienthash.equals(node0.hashTransient()));
 
-        node = await driver.getNodeById1(node0.getId1(), 1);
+        node = await driver.getNodeById1(node0.getId1(), now);
         assert(node);
         assert(node !== node0);
         assert(node.getId1().equals(node0.getId1()));
@@ -999,7 +1000,7 @@ function setupDriverTests(config: any) {
 
             fetchRequest.query.rootNodeId1 = node.getId1() as Buffer;
 
-            let [eNode, fetchReplyData] = await driver.getRootNode(fetchRequest.query, 1);
+            let [eNode, fetchReplyData] = await driver.getRootNode(fetchRequest.query, now);
             if (error) {
                 assert(!eNode);
                 assert(fetchReplyData);
@@ -1169,6 +1170,12 @@ function setupDriverTests(config: any) {
 
         node = await driver.fetchSingleNode(nodeIdA, now, clientPublicKey, clientPublicKey);
         assert(node);
+
+        node = await driver.fetchSingleNode(nodeIdA, now-NOW_TOLERANCE, clientPublicKey, clientPublicKey);
+        assert(node);
+
+        node = await driver.fetchSingleNode(nodeIdA, now-NOW_TOLERANCE-1, clientPublicKey, clientPublicKey);
+        assert(!node);
 
         node = await driver.fetchSingleNode(nodeIdB1, now, clientPublicKey, clientPublicKey);
         assert(!node);

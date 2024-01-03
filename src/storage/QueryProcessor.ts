@@ -38,6 +38,7 @@ import {
     LicenseNodeEntry,
     SelectFriendCertPair,
     MAX_BATCH_SIZE,
+    NOW_TOLERANCE,
 } from "./types";
 
 import {
@@ -875,6 +876,8 @@ export class QueryProcessor {
             throw new Error("now not integer");
         }
 
+        const now2 = now + NOW_TOLERANCE;
+
         if (!Number.isInteger(offset)) {
             throw new Error("offset not integer");
         }
@@ -944,6 +947,7 @@ export class QueryProcessor {
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM universe_nodes
                 WHERE parentid IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
+                AND creationtime <= ${now2}
                 ${cutoff} ${ignoreInactive} ${ignoreOwn} ${region} ${jurisdiction}
                 ORDER BY ${orderByColumn} ${ordering} ${secondaryOrdering}, id1 ${ordering} LIMIT ${limit} OFFSET ${offset};`;
         }
@@ -953,6 +957,7 @@ export class QueryProcessor {
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM universe_nodes
                 WHERE id IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
+                AND creationtime <= ${now2}
                 AND isleaf = 0
                 ORDER BY ${orderByColumn}, id1 LIMIT ${limit} OFFSET ${offset};`;
         }
@@ -962,6 +967,7 @@ export class QueryProcessor {
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM universe_nodes
                 WHERE id IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
+                AND creationtime <= ${now2}
                 AND islicensed = 1 AND disallowparentlicensing = 0 AND isleaf = 0
                 ORDER BY ${orderByColumn}, id1 LIMIT ${limit} OFFSET ${offset};`;
         }
@@ -1389,6 +1395,8 @@ export class QueryProcessor {
             throw new Error("now not integer");
         }
 
+        const now2 = now + NOW_TOLERANCE;
+
         // Sprinkle some reality dust.
         //
         if (licenseOwners.length > 10000) {
@@ -1413,7 +1421,9 @@ export class QueryProcessor {
                 WHERE b.issuer = ${ph1} AND
                 a.issuer IN ${ph2} AND a.constraints = b.constraints
                 AND a.id1 = nodesa.id1 AND (nodesa.expiretime IS NULL OR nodesa.expiretime > ${now})
-                AND b.id1 = nodesb.id1 AND (nodesb.expiretime IS NULL OR nodesb.expiretime > ${now});`;
+                AND nodesa.creationTime <= ${now2}
+                AND b.id1 = nodesb.id1 AND (nodesb.expiretime IS NULL OR nodesb.expiretime > ${now})
+                AND nodesb.creationTime <= ${now2};`;
 
             try {
                 const rows = await this.db.all(sql, params);
@@ -1558,10 +1568,13 @@ export class QueryProcessor {
             throw new Error("now not integer");
         }
 
+        const now2 = now + NOW_TOLERANCE;
+
         const ph = this.db.generatePlaceholders(hashes.length);
 
         const sql = `SELECT sharedhash FROM universe_nodes WHERE sharedhash IN ${ph}
-            AND (expiretime IS NULL OR expiretime > ${now});`;
+            AND (expiretime IS NULL OR expiretime > ${now})
+            AND creationtime <= ${now2};`;
 
         const rows = await this.db.all(sql, hashes);
 
@@ -2108,6 +2121,8 @@ export class QueryProcessor {
             throw new Error("now not integer");
         }
 
+        const now2 = now + NOW_TOLERANCE;
+
         const onlyWriteLicensesSQL = selectOnlyWriteLicenses ?
             "AND (restrictivemodewriter = 1 OR restrictivemodemanager = 1)" : "";
 
@@ -2126,7 +2141,8 @@ export class QueryProcessor {
                 FROM universe_licensee_hashes AS hashes, universe_nodes AS nodes
                 WHERE hashes.hash IN ${ph} AND hashes.id1 = nodes.id1
                 ${onlyWriteLicensesSQL} AND
-                (nodes.expiretime IS NULL OR nodes.expiretime > ${now});`;
+                (nodes.expiretime IS NULL OR nodes.expiretime > ${now})
+                AND nodes.creationtime <= ${now2};`;
 
             try {
                 const rows = await this.db.all(sql, hashes);
@@ -2281,8 +2297,11 @@ export class QueryProcessor {
             throw new Error("now not integer");
         }
 
+        const now2 = now + NOW_TOLERANCE;
+
         const sql = `SELECT image, storagetime FROM universe_nodes WHERE id1 IN ${ph}
-            AND (expiretime IS NULL OR expiretime > ${now});`;
+            AND (expiretime IS NULL OR expiretime > ${now})
+            AND creationtime <= ${now2};`;
 
         const rows = await this.db.all(sql, id1s);
 

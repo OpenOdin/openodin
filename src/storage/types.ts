@@ -18,7 +18,20 @@ import {
 //} from "./plugin/types";
 //
 
-/** Max read length for a read blob request, any larger requests must be split into multiple requests. */
+/**
+ * The allowed tolerance for nodes with a creationTime larger than now().
+ * There will always be a time skew between system clocks, most common the skew
+ * is within the single digit seconds range, this value dictates that nodes
+ * with a creationTime too far in the future will be ignored when reading from the database.
+ * The reason to cut-off data to far in the future is that it might always be sorted to the top
+ * if it is always considered fresher than other data if the sorting/CRDT algorithm is depending
+ * heavily on creationTime as the basis of sorting.
+ */
+export const NOW_TOLERANCE = 60 * 1000;
+
+/**
+ * Max read length for a read blob request, any larger requests must be split into multiple requests.
+ */
 export const MAX_READBLOB_LENGTH = 1024 * 1024;
 
 /**

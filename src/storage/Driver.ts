@@ -29,6 +29,7 @@ import {
     InsertDestroyHash,
     InsertFriendCert,
     MAX_BATCH_SIZE,
+    NOW_TOLERANCE,
 } from "./types";
 
 import {
@@ -305,8 +306,11 @@ export class Driver implements DriverInterface {
             throw new Error("now not integer");
         }
 
+        const now2 = now + NOW_TOLERANCE;
+
         const sql = `SELECT image, storagetime FROM universe_nodes
-            WHERE id1 = ${ph} AND (expiretime IS NULL OR expiretime > ${now}) LIMIT 1;`;
+            WHERE id1 = ${ph} AND (expiretime IS NULL OR expiretime > ${now})
+            AND creationTime <= ${now2} LIMIT 1;`;
 
         const row = await this.db.get(sql, [nodeId1]);
 
@@ -345,8 +349,11 @@ export class Driver implements DriverInterface {
             throw new Error("now not integer");
         }
 
+        const now2 = now + NOW_TOLERANCE;
+
         const sql = `SELECT image, storagetime FROM universe_nodes WHERE id1 IN ${ph}
-            AND (expiretime IS NULL OR expiretime > ${now});`;
+            AND (expiretime IS NULL OR expiretime > ${now})
+            AND creationTime <= ${now2};`;
 
         const rows = await this.db.all(sql, id1s);
 
@@ -408,8 +415,11 @@ export class Driver implements DriverInterface {
             throw new Error("now not integer");
         }
 
+        const now2 = now + NOW_TOLERANCE;
+
         const sql = `SELECT image, storagetime FROM universe_nodes WHERE id IN ${ph}
-            AND (expiretime IS NULL OR expiretime > ${now});`;
+            AND (expiretime IS NULL OR expiretime > ${now})
+            AND creationTime <= ${now2};`;
 
         const rows = await this.db.all(sql, ids);
 
@@ -697,6 +707,8 @@ export class Driver implements DriverInterface {
             throw new Error("now not integer");
         }
 
+        const now2 = now + NOW_TOLERANCE;
+
         while (licenseHashes.length > 0) {
             const hashes = licenseHashes.splice(0, MAX_BATCH_SIZE);
 
@@ -705,7 +717,8 @@ export class Driver implements DriverInterface {
             const sql = `SELECT hash
             FROM universe_licensee_hashes AS hashes, universe_nodes AS nodes
             WHERE hashes.hash IN ${ph} AND hashes.id1 = nodes.id1 AND
-            (nodes.expiretime IS NULL OR nodes.expiretime > ${now});`;
+            (nodes.expiretime IS NULL OR nodes.expiretime > ${now})
+            AND nodes.creationTime <= ${now2};`;
 
             try {
                 const rows = await this.db.all(sql, hashes);
