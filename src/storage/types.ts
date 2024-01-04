@@ -232,8 +232,13 @@ export const BLOB_TABLES: {[table: string]: any} = {
             "fragmentnr integer NOT NULL",
             "finalized smallint NOT NULL",
             "fragment bytea NOT NULL",
+            "creationtime bigint NOT NULL",
         ],
         indexes: {
+            "idx_universe_blob_data_creationtime": {
+                columns: ["creationtime"],
+                unique: false,
+            },
             "idx_universe_blob_data_dataid": {
                 columns: ["dataid"],
                 unique: false,
@@ -301,10 +306,12 @@ export type BlobDriverInterface = {
      * @param dataId the hash of (nodeId1, sourcePublicKey).
      * @param pos the position (0-based) of where in the blob to start writing.
      * @param data the data buffer to write.
+     * @param now the creationtime to set. This is relevant for the GC to be able
+     * to eventually garbage collect unfinished writes.
      *
      * @throws if blob db not available or on malformed input parameters.
      */
-    writeBlob(dataId: Buffer, pos: number, data: Buffer): Promise<void>;
+    writeBlob(dataId: Buffer, pos: number, data: Buffer, now: number): Promise<void>;
 
     /**
      * Read data of finalized blob.
@@ -360,8 +367,23 @@ export type BlobDriverInterface = {
     /**
      * Dissociate a node id1 from a blob data set.
      * If it is the last node referecing the data set then also delete the data set.
+     *
+     * @param nodeId1s
+     * @returns how many blobs where deleted.
      */
-    deleteBlobs(nodeId1: Buffer[]): Promise<void>;
+    deleteBlobs(nodeId1: Buffer[]): Promise<number>;
+
+    /**
+     * Delete old non finalized blob data.
+     * This is part of the GC to garbage collect old stored blob data which never got finalized.
+     *
+     * @param timestamp UNIX time milliseconds timetstamp threshold, delete all non finalized data
+     * older than given timestamp.
+     * @param limit how many rows to delete. Do not set too high as it runs in a transaction and
+     * can stall the system if too many rows are considered.
+     * @returns nr of rows deleted.
+     */
+    deleteNonfinalizedBlobData(timestamp: number, limit?: number): Promise<number>;
 
     /**
      * Check which blobs do exist.
@@ -471,6 +493,13 @@ export type DriverInterface = {
     offClose(fn: ()=>void): void;
 
     close(): void;
+
+    /**
+     * Fetch list of node ID1s of expired nodes.
+     * @param now timestamp for expiration threshold.
+     * @param limit max limit of IDs to return, default is 1000.
+     */
+    getExpiredNodeId1s(now: number, limit?: number): Promise<Buffer[]>;
 };
 
 export type InsertAchillesHash = {

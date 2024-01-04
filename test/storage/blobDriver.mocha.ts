@@ -29,8 +29,8 @@ class BlobDriverTestWrapper extends BlobDriver {
         return super.calcBlobEndFragment(dataId, pos, index, data);
     }
 
-    public async writeBlobFragment(dataId: Buffer, fragment: Buffer, fragmentIndex: number) {
-        return super.writeBlobFragment(dataId, fragment, fragmentIndex);
+    public async writeBlobFragment(dataId: Buffer, fragment: Buffer, fragmentIndex: number, now: number) {
+        return super.writeBlobFragment(dataId, fragment, fragmentIndex, now);
     }
 
     public async readBlobFragment(dataId: Buffer, fragmentIndex: number, onlyFinalized: boolean = false): Promise<Buffer | undefined> {
@@ -511,7 +511,7 @@ function setupBlobTests(config: any) {
         let fragmentIndex = 0;
 
         await expectAsyncException(
-            driver.writeBlobFragment(dataId, fragment, fragmentIndex),
+            driver.writeBlobFragment(dataId, fragment, fragmentIndex, now),
             "Blob fragment too large");
 
         fragment = Buffer.alloc(BLOB_FRAGMENT_SIZE);
@@ -534,7 +534,7 @@ function setupBlobTests(config: any) {
         assert(!readFragment);
 
 
-        await driver.writeBlobFragment(dataId, fragment, fragmentIndex);
+        await driver.writeBlobFragment(dataId, fragment, fragmentIndex, now);
 
         readFragment = await driver.readBlobFragment(dataId, fragmentIndex, true);
         assert(!readFragment);
@@ -545,7 +545,7 @@ function setupBlobTests(config: any) {
         assert(readFragment.equals(fragment));
 
 
-        await driver.writeBlobFragment(dataId, fragment2, fragmentIndex);
+        await driver.writeBlobFragment(dataId, fragment2, fragmentIndex, now);
         readFragment = await driver.readBlobFragment(dataId, fragmentIndex);
 
         assert(readFragment);
@@ -557,7 +557,7 @@ function setupBlobTests(config: any) {
         let length = await driver.readBlobIntermediaryLength(dataId);
         assert(length === fragment2.length);
 
-        await driver.writeBlobFragment(dataId, fragment, fragmentIndex+1);
+        await driver.writeBlobFragment(dataId, fragment, fragmentIndex+1, now);
         readFragment = await driver.readBlobFragment(dataId, fragmentIndex+1);
 
         assert(readFragment);
@@ -593,9 +593,9 @@ function setupBlobTests(config: any) {
         // Write blob data again
         //
 
-        await driver.writeBlobFragment(dataId, fragment2, fragmentIndex);
+        await driver.writeBlobFragment(dataId, fragment2, fragmentIndex, now);
 
-        await driver.writeBlobFragment(dataId, fragment, fragmentIndex+1);
+        await driver.writeBlobFragment(dataId, fragment, fragmentIndex+1, now);
 
         await driver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
 
@@ -608,7 +608,7 @@ function setupBlobTests(config: any) {
         // Try rewriting finalized blob fragments (without success).
         //
         let fragment3 = Buffer.alloc(1024);
-        await driver.writeBlobFragment(dataId, fragment3, fragmentIndex+1);
+        await driver.writeBlobFragment(dataId, fragment3, fragmentIndex+1, now);
         readFragment = await driver.readBlobFragment(dataId, fragmentIndex+1, true);
 
         assert(readFragment);
@@ -718,7 +718,7 @@ function setupBlobTests(config: any) {
                 assert(readData === undefined);
 
                 for(let fragment of blobWrite.write) {
-                    await driver.writeBlob(dataId, fragment.pos, fragment.data);
+                    await driver.writeBlob(dataId, fragment.pos, fragment.data, now);
 
                     const readData = await driver.readBlob(nodeId1, 0, 10);
                     assert(readData === undefined);
@@ -763,9 +763,9 @@ function setupBlobTests(config: any) {
 
         const dataId = Hash([blobHash, clientPublicKey]);
 
-        await driver.writeBlob(dataId, 0, fragment1);
+        await driver.writeBlob(dataId, 0, fragment1, now);
 
-        await driver.writeBlob(dataId, BLOB_FRAGMENT_SIZE, fragment2);
+        await driver.writeBlob(dataId, BLOB_FRAGMENT_SIZE, fragment2, now);
 
 
         await driver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
@@ -853,7 +853,7 @@ function setupBlobTests(config: any) {
         const dataId = Hash([blobHash, clientPublicKey]);
 
 
-        await driver.writeBlob(dataId, 0, data);
+        await driver.writeBlob(dataId, 0, data, now);
 
         await driver.finalizeWriteBlob(nodeId1, dataId, blobLength, blobHash, now);
 

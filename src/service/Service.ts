@@ -1070,7 +1070,7 @@ export class Service {
         const remoteProps = this.makePeerProps();
 
         while (true) {
-            const [driver, blobDriver] = await this.connectToDatabase(databaseConfig);
+            const [driver, blobDriver] = await Service.ConnectToDatabase(databaseConfig);
 
             if (driver) {
                 // Create virtual paired sockets.
@@ -1142,7 +1142,13 @@ export class Service {
         }
     }
 
-    protected async connectToDatabase(databaseConfig: DatabaseConfig): Promise<[DriverInterface | undefined, BlobDriverInterface | undefined]> {
+    /**
+     * Connect to databases and return drivers.
+     * @param databaseConfig
+     * @returns [DriverInterface?, BlobDriverInterface?]
+     * @throws on error
+     */
+    public static async ConnectToDatabase(databaseConfig: DatabaseConfig): Promise<[DriverInterface | undefined, BlobDriverInterface | undefined]> {
         let driver: DriverInterface | undefined;
         let blobDriver: BlobDriverInterface | undefined;
 
@@ -1158,19 +1164,22 @@ export class Service {
                 driver = new Driver(new DBClient(connection));
             }
 
-            if (databaseConfig.blobDriver?.sqlite) {
-                const db = isBrowser ?
-                    await DatabaseUtil.OpenSQLiteJS(false) :
-                    await DatabaseUtil.OpenSQLite(databaseConfig.blobDriver.sqlite, false);
-                blobDriver = new BlobDriver(new DBClient(db));
-            }
-            else if (databaseConfig.blobDriver?.pg) {
-                const connection = await DatabaseUtil.OpenPG(databaseConfig.blobDriver.pg, false);
-                blobDriver = new BlobDriver(new DBClient(connection));
+            if (driver) {
+                if (databaseConfig.blobDriver?.sqlite) {
+                    const db = isBrowser ?
+                        await DatabaseUtil.OpenSQLiteJS(false) :
+                        await DatabaseUtil.OpenSQLite(databaseConfig.blobDriver.sqlite, false);
+                    blobDriver = new BlobDriver(new DBClient(db));
+                }
+                else if (databaseConfig.blobDriver?.pg) {
+                    const connection = await DatabaseUtil.OpenPG(databaseConfig.blobDriver.pg, false);
+                    blobDriver = new BlobDriver(new DBClient(connection));
+                }
             }
         }
         catch(e) {
             console.warn(`Database connection error`, (e as Error).message);
+            driver?.close();
 
             return [undefined, undefined];
         }
@@ -1185,6 +1194,9 @@ export class Service {
             console.debug("Database tables created or already existing");
         }
         else {
+            driver.close();
+            blobDriver?.close();
+
             throw new Error("Database tables creation could not proceed due to inconsistent state");
         }
 
@@ -1195,7 +1207,9 @@ export class Service {
                 console.debug("Database blob tables created or already existing");
             }
             else {
-                driver?.close();
+                driver.close();
+                blobDriver.close();
+
                 throw new Error("Database blob tables creation could not proceed due to inconsistent state");
             }
         }

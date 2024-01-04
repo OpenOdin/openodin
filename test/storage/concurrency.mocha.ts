@@ -35,8 +35,8 @@ class DriverTestWrapper extends Driver {
 }
 
 class BlobDriverTestWrapper extends BlobDriver {
-    public async writeBlobFragment(dataId: Buffer, fragment: Buffer, fragmentIndex: number) {
-        return super.writeBlobFragment(dataId, fragment, fragmentIndex);
+    public async writeBlobFragment(dataId: Buffer, fragment: Buffer, fragmentIndex: number, now: number) {
+        return super.writeBlobFragment(dataId, fragment, fragmentIndex, now);
     }
 
     public async readBlobFragment(dataId: Buffer, fragmentIndex: number, onlyFinalized: boolean = false): Promise<Buffer | undefined> {
@@ -683,8 +683,10 @@ function setupBlobDriverTests(config: any) {
         let p1: Promise<any> | undefined;
         let p2: Promise<any> | undefined;
 
-        p1 = driver1.writeBlobFragment(dataId, fragment1, fragmentIndex);
-        p2 = driver2.writeBlobFragment(dataId, fragment2, fragmentIndex);
+        const now = Date.now();
+
+        p1 = driver1.writeBlobFragment(dataId, fragment1, fragmentIndex, now);
+        p2 = driver2.writeBlobFragment(dataId, fragment2, fragmentIndex, now);
 
         await p1;
         await p2;
@@ -697,7 +699,7 @@ function setupBlobDriverTests(config: any) {
         // Most often it equals fragment2, but not always.
         assert(rows[0].fragment.equals(fragment2) || rows[0].fragment.equals(fragment1));
 
-        p1 = driver1.writeBlobFragment(dataId, fragment1, fragmentIndex);
+        p1 = driver1.writeBlobFragment(dataId, fragment1, fragmentIndex, now);
         p2 = db2.all(`SELECT fragment FROM universe_blob_data WHERE dataid=${ph};`, [dataId]);
         await sleep(1);
         const p3 = db2.all(`SELECT fragment FROM universe_blob_data WHERE dataid=${ph};`, [dataId]);
@@ -730,6 +732,8 @@ function setupBlobDriverTests(config: any) {
         assert(db1);
         assert(db2);
 
+        const now = Date.now();
+
         const dataId = Buffer.alloc(32).fill(101);
         let fragment1 = Buffer.alloc(BLOB_FRAGMENT_SIZE).fill(1);
         let fragment2 = Buffer.alloc(BLOB_FRAGMENT_SIZE).fill(2);
@@ -738,9 +742,9 @@ function setupBlobDriverTests(config: any) {
         await db1.exec("BEGIN");
 
         // tx on db1 has not proceeded yet so it doesn't block.
-        await driver2.writeBlobFragment(dataId, fragment1, fragmentIndex),
+        await driver2.writeBlobFragment(dataId, fragment1, fragmentIndex, now),
 
-        await driver1.writeBlobFragment(dataId, fragment1, fragmentIndex);
+        await driver1.writeBlobFragment(dataId, fragment1, fragmentIndex, now);
 
         const ph = db1.generatePlaceholders(1);
 
@@ -749,11 +753,11 @@ function setupBlobDriverTests(config: any) {
         rows = await db2.all(`SELECT fragment FROM universe_blob_data WHERE dataid=${ph};`, [dataId]);
 
         await expectAsyncException(
-            driver2.writeBlobFragment(dataId, fragment1, fragmentIndex),
+            driver2.writeBlobFragment(dataId, fragment1, fragmentIndex, now),
             ["SQLITE_BUSY: database is locked", "canceling statement due to lock timeout"]);
 
         await db1.exec("COMMIT");
 
-        await driver2.writeBlobFragment(dataId, fragment2, fragmentIndex);
+        await driver2.writeBlobFragment(dataId, fragment2, fragmentIndex, now);
     });
 }

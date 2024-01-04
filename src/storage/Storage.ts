@@ -1135,7 +1135,7 @@ export class Storage {
 
             for (let retry=0; retry<=MAX_BUSY_RETRIES; retry++) {
                 try {
-                    await this.blobDriver.writeBlob(dataId, pos, data);
+                    await this.blobDriver.writeBlob(dataId, pos, data, now);
                     done = true;
                     break;
                 }

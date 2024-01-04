@@ -440,6 +440,21 @@ export class Driver implements DriverInterface {
         return nodes;
     }
 
+    public async getExpiredNodeId1s(now: number, limit: number = 1000): Promise<Buffer[]> {
+        if (!Number.isInteger(now)) {
+            throw new Error("now not integer");
+        }
+
+        const sql = `SELECT id1 FROM universe_nodes WHERE
+            expiretime IS NOT NULL AND expiretime <= ${now} LIMIT ${limit}`;
+
+        const rows = await this.db.all(sql);
+
+        const id1s = rows.map( row => row.id1 as Buffer );
+
+        return id1s;
+    }
+
     /**
      *
      * This function wraps the calls inside a transaction.

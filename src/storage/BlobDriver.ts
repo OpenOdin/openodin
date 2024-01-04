@@ -107,7 +107,7 @@ export class BlobDriver implements BlobDriverInterface {
         this.blobDb?.off("error", fn);
     }
 
-    public async deleteBlobs(nodeId1s: Buffer[]) {
+    public async deleteBlobs(nodeId1s: Buffer[]): Promise<number> {
         assert(this.blobDb, "Blob driver is not available");
 
         this.blobDb.exec("BEGIN;");
@@ -115,7 +115,8 @@ export class BlobDriver implements BlobDriverInterface {
         try {
             const ph = this.blobDb.generatePlaceholders(nodeId1s.length);
 
-            const dataIds = (await this.blobDb.all(`DELETE FROM universe_blob AS t WHERE t.node_id1 IN ${ph}
+            const dataIds = (await this.blobDb.all(`DELETE FROM universe_blob AS t
+                WHERE t.node_id1 IN ${ph}
                 RETURNING dataid;`, nodeId1s)).map( (row: any) => row.dataid );
 
             const ph2 = this.blobDb.generatePlaceholders(dataIds.length);
@@ -124,9 +125,34 @@ export class BlobDriver implements BlobDriverInterface {
                 AND bd.dataid NOT IN (SELECT dataid from universe_blob);`, dataIds);
 
             this.blobDb.exec("COMMIT;");
+
+            return dataIds.length;
         }
         catch(e) {
             this.blobDb.exec("ROLLBACK;");
+            throw e;
+        }
+    }
+
+    public async deleteNonfinalizedBlobData(timestamp: number, limit: number = 1000): Promise<number> {
+        assert(this.blobDb, "Blob driver is not available");
+
+        this.blobDb.exec("BEGIN;");
+
+        try {
+            const sql = `DELETE FROM universe_blob_data WHERE dataid IN
+                (SELECT dataid FROM universe_blob_data WHERE creationtime<${timestamp} AND finalized=0 LIMIT ${limit})
+                RETURNING creationtime;`;
+
+            const timestamps = await this.blobDb.all(sql);
+
+            this.blobDb.exec("COMMIT;");
+
+            return timestamps.length;
+        }
+        catch(e) {
+            this.blobDb.exec("ROLLBACK;");
+
             throw e;
         }
     }
@@ -139,7 +165,7 @@ export class BlobDriver implements BlobDriverInterface {
      * enough to only write the last byte in the last fragment.
      * The last byte of every fragment must in such case be written to.
      */
-    public async writeBlob(dataId: Buffer, pos: number, data: Buffer) {
+    public async writeBlob(dataId: Buffer, pos: number, data: Buffer, now: number) {
         assert(this.blobDb, "Blob driver is not available");
 
         await this.blobDb.exec("BEGIN;");
@@ -155,7 +181,7 @@ export class BlobDriver implements BlobDriverInterface {
 
             assert(fragment.length <= BLOB_FRAGMENT_SIZE);
 
-            await this.writeBlobFragment(dataId, fragment, startFragmentIndex);
+            await this.writeBlobFragment(dataId, fragment, startFragmentIndex, now);
 
             // calc end index, not including.
             const endFragmentIndex = Math.ceil((pos + data.length) / BLOB_FRAGMENT_SIZE);
@@ -171,7 +197,7 @@ export class BlobDriver implements BlobDriverInterface {
 
                 index += fragment.length;
 
-                await this.writeBlobFragment(dataId, fragment, fragmentIndex);
+                await this.writeBlobFragment(dataId, fragment, fragmentIndex, now);
 
                 fragmentIndex++;
             }
@@ -182,7 +208,7 @@ export class BlobDriver implements BlobDriverInterface {
                 const {fragment, lastFragmentIndex} =
                     await this.calcBlobEndFragment(dataId, pos, index, data);
 
-                await this.writeBlobFragment(dataId, fragment, lastFragmentIndex);
+                await this.writeBlobFragment(dataId, fragment, lastFragmentIndex, now);
             }
 
             await this.blobDb.exec("COMMIT;");
@@ -344,7 +370,7 @@ export class BlobDriver implements BlobDriverInterface {
      * @param fragmentIndex the fragment index to write to
      * @throws on error
      */
-    protected async writeBlobFragment(dataId: Buffer, fragment: Buffer, fragmentIndex: number) {
+    protected async writeBlobFragment(dataId: Buffer, fragment: Buffer, fragmentIndex: number, now: number) {
         assert(this.blobDb, "Blob driver is not available");
 
         if (fragment.length > BLOB_FRAGMENT_SIZE) {
@@ -354,14 +380,15 @@ export class BlobDriver implements BlobDriverInterface {
         // Note that this write runs in the parent transaction of caller.
         //
 
-        const ph = this.blobDb.generatePlaceholders(4);
+        const ph = this.blobDb.generatePlaceholders(5);
 
-        const sql = `INSERT INTO universe_blob_data (dataid, fragmentnr, finalized, fragment)
+        const sql = `INSERT INTO universe_blob_data (dataid, fragmentnr, finalized, fragment, creationtime)
             VALUES ${ph}
-            ON CONFLICT (dataid, fragmentnr) DO UPDATE SET fragment=excluded.fragment
+            ON CONFLICT (dataid, fragmentnr) DO UPDATE SET fragment=excluded.fragment,
+            creationtime=excluded.creationtime
             WHERE universe_blob_data.finalized=0;`;
 
-        await this.blobDb.run(sql, [dataId, fragmentIndex, 0, fragment]);
+        await this.blobDb.run(sql, [dataId, fragmentIndex, 0, fragment, now]);
     }
 
     /**
