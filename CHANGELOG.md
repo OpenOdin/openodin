@@ -2,6 +2,17 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.7.9] - 20240107
+BREAKING CHANGES.  
+Add node annotations CRDT feature for editing and reactions.  
+Add buggleTrigger flag for nodes to allow for update events bubbling.  
+Fix linting errors.  
+Add code coverage.  
+Add ThreaController (extracted from webchat).  
+Add future posting limit of 60 s.  
+Add Garbage Collection CLI tool.  
+Bugfixes.  
+
 ## [0.7.8] - 20231205
 BREAKING CHANGES.  
 Allow deduplication for blob data.  
