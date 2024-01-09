@@ -706,4 +706,118 @@ describe("certs", async function() {
         exportedLength = licenseCert.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
     });
+
+    it("countChainLength(): count the number of certs stacked together", async function() {
+        const keyPair1 = Crypto.GenKeyPair();
+        const keyPair2 = Crypto.GenKeyPair();
+        const keyPair3 = Crypto.GenKeyPair();
+
+        const certUtil = new CertUtil();
+        const creationTime = 10;
+        const expireTime = 100;
+
+        let chainCert = await certUtil.createChainCert({creationTime, expireTime,
+            targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
+            hasDynamicSelf: true,
+            multiSigThreshold: 3,
+            maxChainLength: 3,
+            lockedConfig: 123,
+            targetType: ChainCert.GetType(),
+            targetMaxExpireTime: Date.now() + 3600000,
+            transientConfig: 1,
+            constraints: Buffer.alloc(32).fill(111),
+            dynamicSelfSpec: Buffer.alloc(128)},
+            keyPair2.publicKey, keyPair2.secretKey);
+
+        assert(chainCert.countChainLength() == 1);
+    });
+
+    it("hash(): make sure cached cert object is properly set as cert image", async function() {
+        const keyPair1 = Crypto.GenKeyPair();
+        const keyPair2 = Crypto.GenKeyPair();
+        const keyPair3 = Crypto.GenKeyPair();
+
+        const certUtil = new CertUtil();
+        const creationTime = 10;
+        const expireTime = 100;
+
+        const chainCert = await certUtil.createChainCert({creationTime, expireTime, targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey], multiSigThreshold: 2, maxChainLength: 2}, keyPair2.publicKey, keyPair2.secretKey);
+        const dataCert = await certUtil.createDataCert({creationTime, expireTime, targetPublicKeys: [keyPair1.publicKey], cert: chainCert.export(), maxChainLength: 1}, keyPair1.publicKey, keyPair1.secretKey);
+
+        //@ts-ignore: direct access to protected data
+        assert(!chainCert.cachedCertObject);
+        assert(!chainCert.getCert());
+        //@ts-ignore: direct access to protected data
+        chainCert.cachedCertObject = dataCert;
+        chainCert.hash();
+        assert(chainCert.getCert());
+    });
+
+    it("setConfigBit(): bit toggling", async function() {
+        const keyPair1 = Crypto.GenKeyPair();
+        const keyPair2 = Crypto.GenKeyPair();
+        const keyPair3 = Crypto.GenKeyPair();
+
+        const certUtil = new CertUtil();
+        const creationTime = 10;
+        const expireTime = 100;
+
+        const chainCert = await certUtil.createChainCert({creationTime, expireTime, targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey], multiSigThreshold: 2, maxChainLength: 2}, keyPair2.publicKey, keyPair2.secretKey);
+
+        chainCert.setConfig(3);
+        assert(!chainCert.isConfigBitSet(3));
+        //@ts-ignore: direct access to protected data
+        chainCert.setConfigBit(3, true);
+        assert(chainCert.isConfigBitSet(3));
+        //@ts-ignore: direct access to protected data
+        chainCert.setConfigBit(3, false);
+        assert(!chainCert.isConfigBitSet(3));
+    });
+
+    it("setLockedConfigBit(): bit toggling", async function() {
+        const keyPair1 = Crypto.GenKeyPair();
+        const keyPair2 = Crypto.GenKeyPair();
+        const keyPair3 = Crypto.GenKeyPair();
+
+        const certUtil = new CertUtil();
+        const creationTime = 10;
+        const expireTime = 100;
+
+        const chainCert = await certUtil.createChainCert({creationTime, expireTime, targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey], multiSigThreshold: 2, maxChainLength: 2}, keyPair2.publicKey, keyPair2.secretKey);
+
+        chainCert.setLockedConfig(5);
+        assert(!chainCert.isLockedConfigBitSet(5));
+        //@ts-ignore: direct access to protected data
+        chainCert.setLockedConfigBit(5, true);
+        assert(chainCert.isLockedConfigBitSet(5));
+        //@ts-ignore: direct access to protected data
+        chainCert.setLockedConfigBit(5, false);
+        assert(!chainCert.isLockedConfigBitSet(5));
+    });
+
+    it("setTransientBit(): bit toggling", async function() {
+        const keyPair1 = Crypto.GenKeyPair();
+        const keyPair2 = Crypto.GenKeyPair();
+        const keyPair3 = Crypto.GenKeyPair();
+
+        const certUtil = new CertUtil();
+        const creationTime = 10;
+        const expireTime = 100;
+
+        const chainCert = await certUtil.createChainCert({creationTime, expireTime, targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey], multiSigThreshold: 2, maxChainLength: 2}, keyPair2.publicKey, keyPair2.secretKey);
+
+        chainCert.setTransientConfig(7);
+        //@ts-ignore: direct access to protected data
+        assert(!chainCert.isTransientBitSet(7));
+        //@ts-ignore: direct access to protected data
+        chainCert.setTransientBit(7, true);
+        //@ts-ignore: direct access to protected data
+        assert(chainCert.isTransientBitSet(7));
+        //@ts-ignore: direct access to protected data
+        chainCert.setTransientBit(7, false);
+        //@ts-ignore: direct access to protected data
+        assert(!chainCert.isTransientBitSet(7));
+    });
+
+
 });

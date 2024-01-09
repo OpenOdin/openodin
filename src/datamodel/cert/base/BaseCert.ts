@@ -425,6 +425,7 @@ export abstract class BaseCert implements BaseCertInterface {
                     return [false, "Cert cannot be decoded"];
                 }
                 const val = cert.validate(deepValidate, timeMS);
+                // Return tuple as is in case of invalid certificate
                 if (!val[0]) {
                     return val;
                 }
@@ -454,6 +455,7 @@ export abstract class BaseCert implements BaseCertInterface {
                 }
 
                 const val2 = cert.validateAgainstTarget(this.getParams(), deepValidate);
+                // Return tuple as is in case of invalid certificate
                 if (!val2[0]) {
                     return val2;
                 }
