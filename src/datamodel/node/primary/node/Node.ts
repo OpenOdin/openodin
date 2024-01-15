@@ -273,6 +273,8 @@ export abstract class Node implements NodeInterface {
      *
      * @param nodeType determines the model node type.
      * @param nodeFields specifies model fields property.
+     *
+     * @throws if first byte is unexpected (mismatched standard)
      */
     constructor(nodeType: ModelType, nodeFields: Fields) {
         if (nodeType[0] !== 0 || nodeType[1] !== PRIMARY_INTERFACE_ID) {  // Note: first byte is reserved to zero
@@ -281,9 +283,6 @@ export abstract class Node implements NodeInterface {
         const fields = {...FIELDS, ...nodeFields};
         this.model = new Model(nodeType, fields);
 
-        this.setDynamicSelfActive(false);
-        this.setDynamicCertActive(false);
-        this.setDynamicEmbeddingActive(false);
         // Set default value for config as convenience.
         this.setConfig(0);
     }
@@ -367,7 +366,8 @@ export abstract class Node implements NodeInterface {
     }
 
     /**
-     * If this node uses dynamic cert or embedded node and any object is destroyed then this function returns true 
+     * If this node uses dynamic cert or embedded node and any of those object are destroyed
+     * then this function returns true.
      * This is a transient value set by the environment.
      *
      * @returns true if this node is destroyed, either directly or indirectly.
@@ -397,7 +397,23 @@ export abstract class Node implements NodeInterface {
     }
 
     /**
-     * Look in this nodes all dynamic objects and update this nodes active status.
+     * Check if the node is using any transient properties.
+     *
+     * Currently this checks if the node isDynamic, but possibly
+     * other transient properties can be added later on.
+     *
+     * @returns true if the node uses and transient properties.
+     */
+    public hasTransient(): boolean {
+        return this.isDynamic();
+    }
+
+    /**
+     * Recursively check this nodes all dynamic cert and embedded nodes to update its active status.
+     * This is done to figure out this nodes active status, and can only be done if all its embedded
+     * nodes and certs have have had their dynamic statuses set by the outside environment.
+     * Note that when exported a nodes certs and embedded nodes never get exported with their
+     * transient properties preserved.
      */
     public updateDynamicStatus() {
         if (this.hasDynamicCert()) {
@@ -1723,6 +1739,12 @@ export abstract class Node implements NodeInterface {
         return this.model.getBuffer("signature");
     }
 
+    /**
+     * @returns an array of signatures
+     *
+     * @throws if unable to match target public key for retrieval.
+     * @throws if signature is malformed.
+     */
     public getSignatures(): Signature[] {
         const signature = this.getSignature();
 
@@ -1789,6 +1811,8 @@ export abstract class Node implements NodeInterface {
 
     /**
      * @returns all public keys eligible for signing.
+     *
+     * @throws if owner is unset.
      */
     public getEligibleSigningPublicKeys(onlyNonUsed: boolean = false): Buffer[] {
         const targetPublicKeys: Buffer[] = [];
@@ -1817,6 +1841,13 @@ export abstract class Node implements NodeInterface {
         return targetPublicKeys;
     }
 
+    /**
+     * @param signature Buffer representing signature to be added
+     * @param publicKey key to sign with
+     *
+     * @throws if public key to be added is not part of target public keys.
+     * @throws if public key has already been used to sign.
+     */
     public addSignature(signature: Buffer, publicKey: Buffer) {
         const index = this.getEligibleSigningPublicKeys().findIndex( targetPublicKey => targetPublicKey.equals(publicKey) );
 
@@ -1951,7 +1982,7 @@ export abstract class Node implements NodeInterface {
     }
 
     /**
-     * @param cert the exported cert image
+     * @param cert the exported cert image. Do not preserve transient values in the cert export.
      */
     public setCert(cert: Buffer | undefined) {
         this.model.setBuffer("cert", cert);
@@ -2018,6 +2049,8 @@ export abstract class Node implements NodeInterface {
     /**
      * Set the cached cert object for this node.
      * This will be exported when exporting the node.
+     *
+     * @throws if cert type is unnaceptable.
      */
     public setCertObject(cert: PrimaryNodeCertInterface | undefined) {
         if (cert && !this.isCertTypeAccepted(cert.getType())) {
@@ -2053,7 +2086,9 @@ export abstract class Node implements NodeInterface {
      * This is useful to allow the outside to decode, instantiate and set the cached embedded node for this node in
      * the cases this node cannot decode the embedded node itself.
      * The embedded node has to use the same primary and secondary interface as this node expects.
-     * @param node
+     * @param dataModel
+     *
+     * @throws when dataModel embedded type is unnaceptable.
      */
     public setEmbeddedObject(dataModel: DataModelInterface | undefined) {
         if (dataModel && !this.isEmbeddedTypeAccepted(dataModel.getType())) {
@@ -2207,8 +2242,14 @@ export abstract class Node implements NodeInterface {
      *
      * @param index the bit index in the integer.
      * @param isSet state to set the bit to.
+     *
+     * @throws if node is not configured as transient.
      */
     protected setTransientBit(index: TransientConfig, isSet: boolean) {
+        if (!this.hasTransient()) {
+            throw new Error("Setting transient bit on node is not allowed since not configured for it.");
+        }
+
         const mask = 1 << index;
         const config = this.model.getNumber("transientConfig") || 0;
         if (isSet) {
@@ -2237,13 +2278,20 @@ export abstract class Node implements NodeInterface {
 
     /**
      * @param transientConfig the transient config number.
+     *
+     * @throws if node is not configured as transient.
      */
     public setTransientConfig(transientConfig: number | undefined) {
+        if (!this.hasTransient()) {
+            throw new Error("Setting transient config on node is not allowed since not configured for it.");
+        }
+
         this.model.setNumber("transientConfig", transientConfig);
     }
 
     /**
-     * Hash the nodes transient values so they can be compared.
+     * Hash and return the nodes transient values so they can be compared.
+     *
      * @returns hash
      */
     public hashTransient(): Buffer {
@@ -2504,15 +2552,6 @@ export abstract class Node implements NodeInterface {
         if (params.licenseMaxDistance !== undefined) {
             this.setLicenseMaxDistance(params.licenseMaxDistance);
         }
-        if (params.transientConfig !== undefined) {
-            this.setTransientConfig(params.transientConfig);
-        }
-        if (params.transientStorageTime !== undefined) {
-            this.setTransientStorageTime(params.transientStorageTime);
-        }
-        if (params.isLeaf !== undefined) {
-            this.setLeaf(params.isLeaf);
-        }
         if (params.hasDynamicSelf !== undefined) {
             this.setHasDynamicSelf(params.hasDynamicSelf);
         }
@@ -2521,6 +2560,15 @@ export abstract class Node implements NodeInterface {
         }
         if (params.hasDynamicEmbedding !== undefined) {
             this.setHasDynamicEmbedding(params.hasDynamicEmbedding);
+        }
+        if (params.transientConfig !== undefined) {
+            this.setTransientConfig(params.transientConfig);
+        }
+        if (params.transientStorageTime !== undefined) {
+            this.setTransientStorageTime(params.transientStorageTime);
+        }
+        if (params.isLeaf !== undefined) {
+            this.setLeaf(params.isLeaf);
         }
         if (params.isPublic !== undefined) {
             this.setPublic(params.isPublic);

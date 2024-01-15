@@ -81,7 +81,7 @@ export const TABLES: {[table: string]: any} = {
             "disallowparentlicensing smallint NOT NULL",
             "isleaf smallint NOT NULL",
             "difficulty smallint NOT NULL",
-            "transienthash bytea NOT NULL",
+            "transienthash bytea NULL",
             "storagetime bigint NOT NULL",
             "updatetime bigint NOT NULL",
             "trailupdatetime bigint NOT NULL",
@@ -129,6 +129,10 @@ export const TABLES: {[table: string]: any} = {
             },
             "idx_universe_nodes_bumphash": {
                 columns: ["bumphash"],
+                unique: false,
+            },
+            "idx_universe_nodes_isdynamic": {
+                columns: ["isdynamic"],
                 unique: false,
             },
         },

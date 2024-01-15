@@ -669,6 +669,8 @@ export class Data extends Node implements DataInterface {
         fields.forEach( fieldName => {
             o[fieldName] = this.model.getAny(fieldName);
         });
+        o.hasDynamicSelf = this.hasDynamicSelf();
+        o.isDynamicSelfActive = this.isDynamicSelfActive();
 
         return JSON.stringify(StripObject(o), null, 4);
     }

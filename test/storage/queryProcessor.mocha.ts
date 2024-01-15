@@ -51,7 +51,7 @@ const friendCertImageASelf = Buffer.from("00020002000015000020b5d0a63764ba36056a
 const friendCertIIssuer = Buffer.from("41a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa6665448", "hex");
 
 class DriverTestWrapper extends Driver {
-    public async insertNodes(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<void> {
+    public async insertNodes(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<Buffer[]> {
         return super.insertNodes(nodes, now, preserveTransient);
     }
 
@@ -1740,7 +1740,8 @@ function setupTests(config: any) {
         let parentId = Buffer.alloc(32).fill(1);
 
 
-        const lvl1 = await createNodes(10, {parentId, owner: clientPublicKey, isPublic: true}, now, "lvl1");
+        const lvl1 = await createNodes(10, {hasDynamicSelf: true, isDynamicSelfActive: true, parentId,
+            owner: clientPublicKey, isPublic: true}, now, "lvl1");
 
         const parentId1a = lvl1[0].getId();
         const lvl2a = await createNodes(10, {parentId: parentId1a, owner: clientPublicKey, isPublic: true}, now, "lvl2a");
@@ -1748,12 +1749,13 @@ function setupTests(config: any) {
         const lvl2b = await createNodes(10, {parentId: parentId1a, owner: clientPublicKey, isPublic: true}, now+1000, "lvl2b");
 
         const parentId2a = lvl2a[0].getId();
-        const lvl3a = await createNodes(10, {parentId: parentId2a, owner: clientPublicKey, isPublic: true}, now, "lvl3a");
+        const lvl3a = await createNodes(10, {hasDynamicSelf: true, isDynamicSelfActive: true,
+            parentId: parentId2a, owner: clientPublicKey, isPublic: true}, now, "lvl3a");
 
         const parentId2b = lvl2b[0].getId();
         const lvl3b = await createNodes(10, {parentId: parentId2b, owner: clientPublicKey, isPublic: true}, now+1000, "lvl3b");
 
-        await driver.storeNodes([...lvl1, ...lvl2a, ...lvl2b, ...lvl3a, ...lvl3b], now);
+        await driver.storeNodes([...lvl1, ...lvl2a, ...lvl2b, ...lvl3a, ...lvl3b], now, true);
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
@@ -1810,7 +1812,7 @@ function setupTests(config: any) {
         // Update a node on third level.
         //
         node = lvl3a[5];
-        node.setDynamicSelfActive();
+        node.setDynamicSelfActive(false);
         await driver.storeNodes([node], now3, false);
         nodes2 = await fetch(db, fetchRequest, now, rootNode);
         assert(nodes2.length === 0);

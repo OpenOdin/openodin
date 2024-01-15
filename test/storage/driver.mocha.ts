@@ -68,7 +68,7 @@ class DriverTestWrapper extends Driver {
         return super.insertFriendCerts(friendCerts);
     }
 
-    public async insertNodes(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<void> {
+    public async insertNodes(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<Buffer[]> {
         return super.insertNodes(nodes, now, preserveTransient);
     }
 
@@ -393,6 +393,7 @@ function setupDriverTests(config: any) {
         });
 
         const node1 = await nodeUtil.createDataNode({
+            hasDynamicSelf: true,
             owner: Buffer.alloc(32).fill(16),
             id1: Buffer.alloc(32).fill(2),
             id2: Buffer.alloc(32).fill(22),
@@ -430,7 +431,7 @@ function setupDriverTests(config: any) {
         assert(parseInt(rows[0].expiretime) === now + 10000);
         assert(parseInt(rows[0].creationtime) === now);
         assert(rows[0].sharedhash.equals(nodes[0].hashShared()));
-        assert(rows[0].transienthash.equals(nodes[0].hashTransient()));
+        assert((rows[0].transienthash == null ) || rows[0].transienthash.equals(nodes[0].hashTransient()));
         assert(rows[0].image.equals(nodes[0].export()));
 
         assert(rows[1].id1.equals(nodes[1].getId1() as Buffer));
@@ -440,7 +441,7 @@ function setupDriverTests(config: any) {
         assert(parseInt(rows[1].expiretime) === now + 10001);
         assert(parseInt(rows[1].creationtime) === now + 1);
         assert(rows[1].sharedhash.equals(nodes[1].hashShared()));
-        assert(rows[1].transienthash.equals(nodes[1].hashTransient()));
+        assert(rows[1].transienthash == null || rows[1].transienthash.equals(nodes[1].hashTransient()));
         assert(rows[1].image.equals(nodes[1].export()));
 
 
@@ -787,6 +788,7 @@ function setupDriverTests(config: any) {
         const now = Date.now();
 
         const node0 = await nodeUtil.createDataNode({
+            hasDynamicSelf: true,
             owner: Buffer.alloc(32).fill(100),
             id1: Buffer.alloc(32).fill(1),
             id2: undefined,
@@ -802,7 +804,7 @@ function setupDriverTests(config: any) {
 
         // Store
         //
-        let result = await driver.store([node0], now);
+        let result = await driver.store([node0], now, true);
         assert(result[0].length === 1);
         assert(result[1].length === 1);
         assert(result[0][0].equals(node0.getId1()));
@@ -1229,7 +1231,10 @@ function setupDriverTests(config: any) {
         let nodeIdE2 = Buffer.alloc(32).fill(8);
 
         const nodeA = await nodeUtil.createDataNode({
+            hasDynamicSelf: true,
+            isDynamicSelfActive: true,
             id1: nodeIdA,
+            id2: Buffer.alloc(32).fill(0x0a),
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
@@ -1240,7 +1245,7 @@ function setupDriverTests(config: any) {
         const nodeB1 = await nodeUtil.createDataNode({
             id1: nodeIdB1,
             owner: clientPublicKey,
-            parentId: nodeIdA,
+            parentId: nodeA.getId(),
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
@@ -1249,13 +1254,16 @@ function setupDriverTests(config: any) {
         const nodeB2 = await nodeUtil.createDataNode({
             id1: nodeIdB2,
             owner: clientPublicKey,
-            parentId: nodeIdA,
+            parentId: nodeA.getId(),
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
         });
 
         const nodeC1 = await nodeUtil.createDataNode({
+            hasDynamicSelf: true,
+            isDynamicSelfActive: true,
+            id2: Buffer.alloc(32).fill(0xa1),
             id1: nodeIdC1,
             owner: clientPublicKey,
             parentId: nodeIdB1,
@@ -1270,13 +1278,16 @@ function setupDriverTests(config: any) {
         const nodeD = await nodeUtil.createDataNode({
             id1: nodeIdD,
             owner: clientPublicKey,
-            parentId: nodeIdC1,
+            parentId: nodeC1.getId(),
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
         });
 
         const nodeE1 = await nodeUtil.createDataNode({
+            hasDynamicSelf: true,
+            isDynamicSelfActive: true,
+            id2: Buffer.alloc(32).fill(0xa2),
             id1: nodeIdE1,
             owner: clientPublicKey,
             parentId: nodeIdD,
@@ -1294,7 +1305,7 @@ function setupDriverTests(config: any) {
             isPublic: true,
         });
 
-        let [id1s, parentIds] = await driver.store([nodeA, nodeB1, nodeB2, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], now);
+        let [id1s, parentIds] = await driver.store([nodeA, nodeB1, nodeB2, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], now, true);
         assert(id1s.length === 8);
 
 
@@ -1322,28 +1333,42 @@ function setupDriverTests(config: any) {
         assert(nodes.length === 0);
 
 
-        nodeA.setDynamicSelfActive();  // Change transient state so we can restore node.
+        nodeA.setDynamicSelfActive(false);  // Change transient state so we can re-store node.
+        [id1s, parentIds] = await driver.store([nodeA], now + 1, true);
+        assert(id1s.length === 1);
+
+        nodeA.setDynamicSelfActive(true);  // Change transient state so we can re-store node.
         [id1s, parentIds] = await driver.store([nodeA], now + 1, true);
         assert(id1s.length === 1);
 
         nodes = await fetch(db, fetchRequest, now, rootNode);
-        assert(nodes.length === 1);
+        let same = diffNodes([nodeA, nodeB1, nodeB2, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], nodes);
+        assert(same)
 
         fetchRequest.query.cutoffTime = BigInt(now + 2);
         nodes = await fetch(db, fetchRequest, now, rootNode);
         assert(nodes.length === 0);
+
+        nodeC1.setDynamicSelfActive(false);
+        [id1s, parentIds] = await driver.store([nodeC1], now + 3, true);
+        assert(id1s.length === 1);
 
         nodeC1.setDynamicSelfActive();
         [id1s, parentIds] = await driver.store([nodeC1], now + 3, true);
         assert(id1s.length === 1);
 
         nodes = await fetch(db, fetchRequest, now, rootNode);
-        let same = diffNodes([nodeC1], nodes);
+        same = diffNodes([nodeC1, nodeD, nodeE1, nodeE2], nodes);
         assert(same);
 
         fetchRequest.query.cutoffTime = BigInt(now + 4);
         nodes = await fetch(db, fetchRequest, now, rootNode);
         assert(nodes.length === 0);
+
+        nodeC2.setDynamicSelfActive(false);
+        nodeE1.setDynamicSelfActive(false);
+        [id1s, parentIds] = await driver.store([nodeC2, nodeE1], now + 5, true);
+        assert(id1s.length === 2);
 
         nodeC2.setDynamicSelfActive();
         nodeE1.setDynamicSelfActive();
@@ -1351,7 +1376,7 @@ function setupDriverTests(config: any) {
         assert(id1s.length === 2);
 
         nodes = await fetch(db, fetchRequest, now, rootNode);
-        same = diffNodes([nodeC2, nodeE1], nodes);
+        same = diffNodes([nodeC2, nodeD, nodeE1, nodeE2], nodes);
         assert(same);
     });
 

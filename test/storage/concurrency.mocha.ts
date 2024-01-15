@@ -29,7 +29,7 @@ import fs from "fs";
  *
  */
 class DriverTestWrapper extends Driver {
-    public async insertNodes(nodes: NodeInterface[], now: number): Promise<void> {
+    public async insertNodes(nodes: NodeInterface[], now: number): Promise<Buffer[]> {
         return super.insertNodes(nodes, now);
     }
 }

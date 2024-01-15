@@ -173,26 +173,29 @@ export enum NodeConfig {
     BUBBLE_TRIGGER                  = 16,
 }
 
-// Config bits set on objects by its environment. Not persisted to disk.
-// Embedded nodes never have transient values set to anything than default.
+// Config bits set on objects by its environment.
+// Embedded nodes and certs never have transient values set to anything than default.
 export enum TransientConfig {
     /**
-     * Set to true on nodes who uses a dynamic ID when its id2 is active as the nodeId (transient value not stored)
+     * Set to true on nodes who uses a dynamic ID when its id2 is active as the nodeId.
      */
     DYNAMIC_SELF_ACTIVE             = 0,
 
     /**
-     * Set to true on nodes who uses a dynamic Cert when its cert is active (transient value not stored)
+     * Set to true on nodes who uses a dynamic Cert when its cert is active.
      */
     DYNAMIC_CERT_ACTIVE             = 1,
 
     /**
-     * Set to true on nodes embedding a dynamic node when the embedded node is active (transient value not stored)
+     * Set to true on nodes embedding a dynamic node when the embedded node is active.
      */
     DYNAMIC_EMBEDDING_ACTIVE        = 2,
 
     /**
-     * Set to true on dynamic nodes if the node it self or any of their dynamic embeddings or certs have been permanently invalidated (transient value not stored)
+     * Set to true on dynamic nodes if the node it self or any of their dynamic embeddings
+     * or certs have been permanently INVALIDATED.
+     * This makes the node inactive, but it does not delete the node, it can still
+     * be fetched (as inactive).
      */
     DYNAMIC_DESTROYED               = 3,
 }

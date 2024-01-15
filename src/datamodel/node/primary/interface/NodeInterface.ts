@@ -87,6 +87,7 @@ export interface NodeInterface extends DataModelInterface {
     setEmbeddedObject(node: DataModelInterface | undefined): void;
     embed(targetPublicKey: Buffer, creationTime?: number): NodeInterface | undefined;
     hashTransient(): Buffer;
+    hasTransient(): boolean;
     checkFilters(filters: Filter[]): boolean;
     canSendEmbedded(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean;
     canSendPrivately(sourcePublicKey: Buffer, targetPublicKey: Buffer): boolean;

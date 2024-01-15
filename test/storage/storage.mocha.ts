@@ -39,7 +39,6 @@ import {
     HandlerFn,
     StoreResponse,
     Crypto,
-    Decoder,
     UnsubscribeRequest,
     UnsubscribeResponse,
     WriteBlobRequest,
@@ -57,7 +56,7 @@ import {
     CRDTMessagesAnnotations,
 } from "../../src";
 
-class StorageWrapper extends Storage {
+export class StorageWrapper extends Storage {
     public addTrigger(fetchRequest: FetchRequest, msgId: Buffer, sendResponse?: SendResponseFn<FetchResponse>): Trigger {
         const trigger = super.addTrigger(fetchRequest, msgId);
 

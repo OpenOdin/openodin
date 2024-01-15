@@ -308,7 +308,7 @@ export class Driver implements DriverInterface {
 
         const now2 = now + NOW_TOLERANCE;
 
-        const sql = `SELECT image, storagetime FROM universe_nodes
+        const sql = `SELECT image, isactive, storagetime FROM universe_nodes
             WHERE id1 = ${ph} AND (expiretime IS NULL OR expiretime > ${now})
             AND creationTime <= ${now2} LIMIT 1;`;
 
@@ -316,7 +316,18 @@ export class Driver implements DriverInterface {
 
         if (row) {
             const node = Decoder.DecodeNode(row.image, true);
+
+            // We might need to update the node's dynamic self flag.
+            // If the active flag has been turned off in the table row it means that
+            // the node does no longer have the id2 (dynamic self) active,
+            // so we need to switch it off in the node after deserialising it.
+            //
+            if (!row.isactive && node.isDynamicSelfActive()) {
+                node.setDynamicSelfActive(false);
+            }
+
             node.setTransientStorageTime(row.storagetime);
+
             return node;
         }
 
@@ -351,7 +362,7 @@ export class Driver implements DriverInterface {
 
         const now2 = now + NOW_TOLERANCE;
 
-        const sql = `SELECT image, storagetime FROM universe_nodes WHERE id1 IN ${ph}
+        const sql = `SELECT image, isactive, storagetime FROM universe_nodes WHERE id1 IN ${ph}
             AND (expiretime IS NULL OR expiretime > ${now})
             AND creationTime <= ${now2};`;
 
@@ -362,8 +373,21 @@ export class Driver implements DriverInterface {
         const rowsLength = rows.length;
         for (let index=0; index<rowsLength; index++) {
             try {
-                const node = Decoder.DecodeNode(rows[index].image, true);
-                node.setTransientStorageTime(rows[index].storagetime);
+                const row = rows[index];
+
+                const node = Decoder.DecodeNode(row.image, true);
+
+                // We might need to update the node's dynamic self flag.
+                // If the active flag has been turned off in the table row it means that
+                // the node does no longer have the id2 (dynamic self) active,
+                // so we need to switch it off in the node after deserialising it.
+                //
+                if (!row.isactive && node.isDynamicSelfActive()) {
+                    node.setDynamicSelfActive(false);
+                }
+
+                node.setTransientStorageTime(row.storagetime);
+
                 nodes.push(node);
             }
             catch(e) {
@@ -417,7 +441,7 @@ export class Driver implements DriverInterface {
 
         const now2 = now + NOW_TOLERANCE;
 
-        const sql = `SELECT image, storagetime FROM universe_nodes WHERE id IN ${ph}
+        const sql = `SELECT image, isactive, storagetime FROM universe_nodes WHERE id IN ${ph}
             AND (expiretime IS NULL OR expiretime > ${now})
             AND creationTime <= ${now2};`;
 
@@ -428,8 +452,21 @@ export class Driver implements DriverInterface {
         const rowsLength = rows.length;
         for (let index=0; index<rowsLength; index++) {
             try {
-                const node = Decoder.DecodeNode(rows[index].image, true);
-                node.setTransientStorageTime(rows[index].storagetime);
+                const row = rows[index];
+
+                const node = Decoder.DecodeNode(row, true);
+
+                // We might need to update the node's dynamic self flag.
+                // If the active flag has been turned off in the table row it means that
+                // the node does no longer have the id2 (dynamic self) active,
+                // so we need to switch it off in the node after deserialising it.
+                //
+                if (!row.isactive && node.isDynamicSelfActive()) {
+                    node.setDynamicSelfActive(false);
+                }
+
+                node.setTransientStorageTime(row.storagetime);
+
                 nodes.push(node);
             }
             catch(e) {
@@ -563,7 +600,12 @@ export class Driver implements DriverInterface {
                 }
             }
 
-            await this.storeNodes(nodesToStore, now, preserveTransient);
+            const parentIds = await this.storeNodes(nodesToStore, now, preserveTransient);
+
+            parentIds.forEach( parentId => {
+                const parentIdStr = parentId.toString("hex");
+                parentIdMap[parentIdStr] = parentId;
+            });
 
             await this.freshenParentTrail(Object.values(bottomNodeParentIds), now);
 
@@ -824,7 +866,7 @@ export class Driver implements DriverInterface {
             const id1 = node.getId1() as Buffer;
             const id1Str = id1.toString("hex");
 
-            const transientHash = preserveTransient ? node.hashTransient() : undefined;
+            const transientHash = preserveTransient && node.hasTransient() ? node.hashTransient() : undefined;
 
             toKeep[id1Str] = {
                 transientHash,
@@ -943,9 +985,13 @@ export class Driver implements DriverInterface {
      *
      * This function expects to be already within a transaction.
      *
+     * @returns parentIds to be triggered for updates due to id2 nodes becoming inactive.
+     *
      * @throws on error
      */
-    protected async storeNodes(nodes: NodeInterface[], now: number, preserveTransient: boolean = false) {
+    protected async storeNodes(nodes: NodeInterface[], now: number,
+        preserveTransient: boolean = false): Promise<Buffer[]>
+    {
         const destroyHashes = this.extractDestroyHashes(nodes);
 
         const achillesHashes = this.extractAchillesHashes(nodes);
@@ -970,7 +1016,9 @@ export class Driver implements DriverInterface {
             await this.insertLicenseeHashes(licenseeHashes);
         }
 
-        await this.insertNodes(nodes, now, preserveTransient);
+        const parentIds = await this.insertNodes(nodes, now, preserveTransient);
+
+        return parentIds;
     }
 
     protected extractDestroyHashes(nodes: NodeInterface[]): InsertDestroyHash[] {
@@ -1262,9 +1310,11 @@ export class Driver implements DriverInterface {
      *
      * @throws on error
      */
-    protected async insertNodes(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<void> {
+    protected async insertNodes(nodes: NodeInterface[], now: number,
+        preserveTransient: boolean = false): Promise<Buffer[]>
+    {
         if (nodes.length === 0) {
-            return;
+            return [];
         }
 
         if (!Number.isInteger(now)) {
@@ -1272,6 +1322,10 @@ export class Driver implements DriverInterface {
         }
 
         const params: any[] = [];
+
+        // Keep track of id2 to clear isactive flags for.
+        //
+        const id2List: {[id2: string]: Buffer} = {};
 
         const length = nodes.length;
         for (let index=0; index<length; index++) {
@@ -1286,6 +1340,17 @@ export class Driver implements DriverInterface {
                 bumpHash = Hash([node.getRefId(), node.getParentId()]);
             }
 
+            if (preserveTransient && node.hasDynamicSelf()) {
+                if (node.isDynamicSelfActive()) {
+                    const id1 = node.getId1();
+                    const id2 = node.getId2();
+                    if (id1 && id2) {
+                        const id2Str = id2.toString("hex");
+                        id2List[id2Str] = id1;
+                    }
+                }
+            }
+
             params.push(
                 node.getId1(),
                 node.getId2() ?? null,
@@ -1297,21 +1362,20 @@ export class Driver implements DriverInterface {
                 node.getJurisdiction() ?? null,
                 node.getOwner(),
                 node.isDynamic() ? 1 : 0,
-                node.isDynamic() && node.isDynamicActive() ? 1 : 0,
+                preserveTransient && node.isDynamic() && node.isDynamicActive() ? 1 : 0,
                 node.isPublic() ? 1 : 0,
                 node.isLicensed() ? 1 : 0,
                 node.disallowParentLicensing() ? 1 : 0,
                 node.isLeaf() ? 1 : 0,
                 node.getDifficulty() ?? 0,
                 node.hashShared(),
-                node.hashTransient(),
+                preserveTransient && node.hasTransient() ? node.hashTransient() : null,
                 now,
                 now,
                 now,
                 bumpHash,
-                node.export(preserveTransient));
+                node.export(preserveTransient && node.hasTransient()));
         }
-
 
         const ph = this.db.generatePlaceholders(23, nodes.length);
 
@@ -1340,6 +1404,47 @@ export class Driver implements DriverInterface {
         }
 
         await this.db.run(sql, params);
+
+        const id2s = Object.keys(id2List).map( id2Str => Buffer.from(id2Str, "hex") );
+
+        if (id2s.length > 0) {
+            const id1s = Object.values(id2List);
+
+            const parentIds = await this.clearIsActiveId2Nodes(id2s, id1s);
+
+            return parentIds;
+        }
+
+        return [];
+    }
+
+    /**
+     * Clear the isactive flag for all nodes who have id2 in the given list but
+     * are not in the given id1 list.
+     *
+     * The reason id2s and id1s are list is to be able to do many updates in a single UPDATE statement.
+     */
+    protected async clearIsActiveId2Nodes(id2s: Buffer[], id1s: Buffer[]): Promise<Buffer[]> {
+        // TODO test properly
+        //
+        const params: Buffer[] = [];
+
+        const phId2 = this.db.generatePlaceholders(id2s.length);
+
+        params.push(...id2s);
+
+        const phId1 = this.db.generatePlaceholders(id1s.length, 1, params.length + 1);
+
+        params.push(...id1s);
+
+        const sql = `UPDATE universe_nodes SET isactive=0 WHERE id2 IN ${phId2}
+            AND id1 NOT IN ${phId1} RETURNING id1 as parentid;`;
+
+        const rows = await this.db.all(sql, params);
+
+        const parentIds = rows.map( row => row.parentid );
+
+        return [... new Set(parentIds)];
     }
 
     /**

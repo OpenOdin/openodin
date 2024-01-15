@@ -112,7 +112,7 @@ export class Storage {
 
     /**
      * Transient values are properties which a node can hold but is not necessarily persisted to
-     * storage and is never part of the hashing a node.
+     * storage and is never part of the hashing of a node.
      *
      * Transient values represent states a node can hold although the data of the node is still
      * immutable.

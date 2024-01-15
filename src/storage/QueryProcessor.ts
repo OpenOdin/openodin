@@ -500,7 +500,7 @@ export class QueryProcessor {
                     continue;
                 }
 
-                obj1.trailUpdateTime = Math.max(obj1.trailUpdateTime, parentObj1.trailUpdateTime);
+                obj1.updateTime = Math.max(obj1.updateTime, parentObj1.updateTime);
 
                 obj1.restrictiveNodes.push(...parentObj1.restrictiveNodes);
 
@@ -741,7 +741,7 @@ export class QueryProcessor {
                 // Populate next level IDs.
                 //
                 if (this.reverseFetch === ReverseFetch.OFF) {
-                    if (!obj1.bottom && this.fetchQuery.cutoffTime <= obj1.trailUpdateTime) {
+                    if (!obj1.bottom && this.fetchQuery.cutoffTime <= Math.max(obj1.trailUpdateTime, obj1.updateTime)) {
                         if (!node.isLeaf() &&
                             (!node.hasDynamicSelf() || node.isDynamicSelfActive())) {
 

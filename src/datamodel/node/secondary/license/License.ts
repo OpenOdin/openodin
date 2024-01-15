@@ -784,6 +784,8 @@ export class License extends Node implements LicenseInterface {
      * Set the cert object uses for signing as the cached cert.
      * When exprting this node this cached cert will get exported and set as the certImage.
      * @param cert the certificate object.
+     *
+     * @throws if cert type is not acceptable.
      */
     public setCertObject(cert: LicenseCertInterface | undefined) {
         if (cert && !this.isCertTypeAccepted(cert.getType())) {
@@ -904,8 +906,14 @@ export class License extends Node implements LicenseInterface {
 
     /**
      * @param licenseTransientConfig the license transient config number.
+     *
+     * @throws if license transient configuration is unset.
      */
     public setLicenseTransientConfig(licenseTransientConfig: number | undefined) {
+        if (!this.hasTransient()) {
+            throw new Error("Setting transient config on license node is not allowed since not configured for it.");
+        }
+
         this.model.setNumber("licenseTransientConfig", licenseTransientConfig);
     }
 
@@ -914,8 +922,14 @@ export class License extends Node implements LicenseInterface {
      *
      * @param index the bit index in the integer.
      * @param isSet state to set the bit to.
+     *
+     * @throws if license transient configuration is unset.
      */
     protected setLicenseTransientBit(index: LicenseTransientConfig, isSet: boolean) {
+        if (!this.hasTransient()) {
+            throw new Error("Setting transient bit on license node is not allowed since not configured for it.");
+        }
+
         const mask = 1 << index;
         const config = this.model.getNumber("licenseTransientConfig") || 0;
         if (isSet) {
@@ -1008,7 +1022,9 @@ export class License extends Node implements LicenseInterface {
      * This is useful to allow the outside to decode, instantiate and set the cached embedded node for this node in
      * the cases this node cannot decode the embedded node itself.
      * The embedded node has to use the same primary and secondary interface as this node expects.
-     * @param node
+     * @param license
+     *
+     * @throws if license type is unnaceptable.
      */
     public setEmbeddedObject(license: LicenseInterface | undefined) {
         if (license && !this.isEmbeddedTypeAccepted(license.getType())) {
@@ -1553,6 +1569,22 @@ export class License extends Node implements LicenseInterface {
      */
     public hasDynamicFriendCert(): boolean {
         return this.isLicenseConfigBitSet(LicenseConfig.HAS_DYNAMIC_FRIENDCERT);
+    }
+
+    /**
+     * @returns true if node leverages either dynamic IDs, dynamic certs, dynamic
+     * embeddings or dynamic friend certs.
+     */
+    public isDynamic(): boolean {
+        if (!super.isDynamic()) {
+            return false;
+        }
+
+        if (this.hasDynamicFriendCert()) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
