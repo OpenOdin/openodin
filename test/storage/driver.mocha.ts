@@ -393,7 +393,7 @@ function setupDriverTests(config: any) {
         });
 
         const node1 = await nodeUtil.createDataNode({
-            hasDynamicSelf: true,
+            hasOnlineValidation: true,
             owner: Buffer.alloc(32).fill(16),
             id1: Buffer.alloc(32).fill(2),
             id2: Buffer.alloc(32).fill(22),
@@ -449,7 +449,7 @@ function setupDriverTests(config: any) {
         //
 
         // Change the transient hash.
-        node1.setDynamicSelfActive();
+        node1.setOnlineValidated();
 
         let nodes3 = await driver.filterExisting([node0, node1, node2]);
 
@@ -788,7 +788,7 @@ function setupDriverTests(config: any) {
         const now = Date.now();
 
         const node0 = await nodeUtil.createDataNode({
-            hasDynamicSelf: true,
+            hasOnlineValidation: true,
             owner: Buffer.alloc(32).fill(100),
             id1: Buffer.alloc(32).fill(1),
             id2: undefined,
@@ -825,12 +825,12 @@ function setupDriverTests(config: any) {
         assert(node !== node0);
         assert(node.getId1().equals(node0.getId1()));
         assert(node.hashTransient().equals(node0.hashTransient()));
-        assert(!node.isDynamicSelfActive());
+        assert(!node.isOnlineValidated());
 
 
         // update transient values, store again, expect no changes.
         //
-        node0.setDynamicSelfActive();
+        node0.setOnlineValidated();
         assert(!node.hashTransient().equals(node0.hashTransient()));
 
         result = await driver.store([node0], now + 1);
@@ -851,7 +851,7 @@ function setupDriverTests(config: any) {
         assert(!node.hashTransient().equals(node0.hashTransient()));
         assert(node.hashTransient().equals(oldTransientHash));
         assert(node.getTransientStorageTime() === now);
-        assert(!node.isDynamicSelfActive());
+        assert(!node.isOnlineValidated());
 
         // Store and update transient hash
         //
@@ -876,7 +876,7 @@ function setupDriverTests(config: any) {
         assert(node.hashTransient().equals(node0.hashTransient()));
         assert(!node.hashTransient().equals(oldTransientHash));
         assert(node.getTransientStorageTime() === now);
-        assert(node.isDynamicSelfActive());
+        assert(node.isOnlineValidated());
     });
 
     it.skip("#getNodesById1 also with transient values", async function() {
@@ -1231,8 +1231,8 @@ function setupDriverTests(config: any) {
         let nodeIdE2 = Buffer.alloc(32).fill(8);
 
         const nodeA = await nodeUtil.createDataNode({
-            hasDynamicSelf: true,
-            isDynamicSelfActive: true,
+            hasOnlineValidation: true,
+            isOnlineValidated: true,
             id1: nodeIdA,
             id2: Buffer.alloc(32).fill(0x0a),
             owner: clientPublicKey,
@@ -1261,8 +1261,8 @@ function setupDriverTests(config: any) {
         });
 
         const nodeC1 = await nodeUtil.createDataNode({
-            hasDynamicSelf: true,
-            isDynamicSelfActive: true,
+            hasOnlineValidation: true,
+            isOnlineValidated: true,
             id2: Buffer.alloc(32).fill(0xa1),
             id1: nodeIdC1,
             owner: clientPublicKey,
@@ -1285,8 +1285,8 @@ function setupDriverTests(config: any) {
         });
 
         const nodeE1 = await nodeUtil.createDataNode({
-            hasDynamicSelf: true,
-            isDynamicSelfActive: true,
+            hasOnlineValidation: true,
+            isOnlineValidated: true,
             id2: Buffer.alloc(32).fill(0xa2),
             id1: nodeIdE1,
             owner: clientPublicKey,
@@ -1333,11 +1333,11 @@ function setupDriverTests(config: any) {
         assert(nodes.length === 0);
 
 
-        nodeA.setDynamicSelfActive(false);  // Change transient state so we can re-store node.
+        nodeA.setOnlineValidated(false);  // Change transient state so we can re-store node.
         [id1s, parentIds] = await driver.store([nodeA], now + 1, true);
         assert(id1s.length === 1);
 
-        nodeA.setDynamicSelfActive(true);  // Change transient state so we can re-store node.
+        nodeA.setOnlineValidated(true);  // Change transient state so we can re-store node.
         [id1s, parentIds] = await driver.store([nodeA], now + 1, true);
         assert(id1s.length === 1);
 
@@ -1349,11 +1349,11 @@ function setupDriverTests(config: any) {
         nodes = await fetch(db, fetchRequest, now, rootNode);
         assert(nodes.length === 0);
 
-        nodeC1.setDynamicSelfActive(false);
+        nodeC1.setOnlineValidated(false);
         [id1s, parentIds] = await driver.store([nodeC1], now + 3, true);
         assert(id1s.length === 1);
 
-        nodeC1.setDynamicSelfActive();
+        nodeC1.setOnlineValidated();
         [id1s, parentIds] = await driver.store([nodeC1], now + 3, true);
         assert(id1s.length === 1);
 
@@ -1365,13 +1365,13 @@ function setupDriverTests(config: any) {
         nodes = await fetch(db, fetchRequest, now, rootNode);
         assert(nodes.length === 0);
 
-        nodeC2.setDynamicSelfActive(false);
-        nodeE1.setDynamicSelfActive(false);
+        nodeC2.setOnlineValidated(false);
+        nodeE1.setOnlineValidated(false);
         [id1s, parentIds] = await driver.store([nodeC2, nodeE1], now + 5, true);
         assert(id1s.length === 2);
 
-        nodeC2.setDynamicSelfActive();
-        nodeE1.setDynamicSelfActive();
+        nodeC2.setOnlineValidated();
+        nodeE1.setOnlineValidated();
         [id1s, parentIds] = await driver.store([nodeC2, nodeE1], now + 5, true);
         assert(id1s.length === 2);
 

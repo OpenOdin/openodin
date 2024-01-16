@@ -13,11 +13,6 @@ import {
     CRDTViewType,
 } from "./crdt/types";
 
-//import {
-    //DynamicStatus,
-//} from "./plugin/types";
-//
-
 /**
  * The allowed tolerance for nodes with a creationTime larger than now().
  * There will always be a time skew between system clocks, most common the skew
@@ -74,8 +69,8 @@ export const TABLES: {[table: string]: any} = {
             "region char(2) NULL",
             "jurisdiction char(2) NULL",
             "owner bytea NOT NULL",
-            "isdynamic smallint NOT NULL",
-            "isactive smallint NOT NULL",
+            "hasonline smallint NOT NULL",
+            "isonline smallint NOT NULL",
             "ispublic smallint NOT NULL",
             "islicensed smallint NOT NULL",
             "disallowparentlicensing smallint NOT NULL",
@@ -131,8 +126,8 @@ export const TABLES: {[table: string]: any} = {
                 columns: ["bumphash"],
                 unique: false,
             },
-            "idx_universe_nodes_isdynamic": {
-                columns: ["isdynamic"],
+            "idx_universe_nodes_hasonline": {
+                columns: ["hasonline"],
                 unique: false,
             },
         },
@@ -578,5 +573,3 @@ export type Trigger = {
      */
     crdtView: CRDTViewType,
 };
-
-//export type DynamicObserverEventHandler = (nodeId1: Buffer, dynamicId: Buffer, updatedStatus: DynamicStatus) => void;

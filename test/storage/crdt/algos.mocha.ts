@@ -24,15 +24,12 @@ async function testSorted(algoSorted: AlgoInterface) {
 
     const keyPair = Crypto.GenKeyPair();
 
-    const id2 = Buffer.alloc(32).fill(0xa0);
-    const network = Buffer.from("some network");
-
-    const node1 = await nodeUtil.createDataNode({hasDynamicSelf: true, id2, network, creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
-    const node1copy = await nodeUtil.createDataNode({hasDynamicSelf: true, id2, network, creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+    const node1 = await nodeUtil.createDataNode({hasOnlineValidation: true, creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+    const node1copy = await nodeUtil.createDataNode({hasOnlineValidation: true, creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
 
     assert(node1.getId1()?.equals(node1copy.getId1()!));
 
-    node1copy.setDynamicSelfActive();
+    node1copy.setOnlineIdValidated();
 
     let [addedNodes, transientNodes] = algoSorted.add([node1]);
     assert(addedNodes.length === 1);

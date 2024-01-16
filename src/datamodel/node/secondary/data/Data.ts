@@ -77,9 +77,9 @@ const FIELDS: Fields = {
         index: 12,
 
         /**
-         * Max length for DataCert needed is 1982 bytes.
+         * Max length for DataCert needed is 1454 bytes.
          */
-        maxSize: 1982,
+        maxSize: 1454,
     },
 
     /**
@@ -655,7 +655,7 @@ export class Data extends Node implements DataInterface {
     public toString(short: boolean = false): string {
         const shortFields = ["id1", "id2", "parentId", "owner", "refId", "expireTime"];
 
-        const longFields = ["id1", "id2", "parentId", "config", "network", "owner", "refId", "creationTime",
+        const longFields = ["id1", "id2", "parentId", "config", "onlineIdNetwork", "owner", "refId", "creationTime",
             "expireTime", "difficulty", "blobHash", "blobLength", "licenseMinDistance", "licenseMaxDistance",
             "childMinDifficulty", "region", "jurisdiction", "dataConfig", "userConfig", "contentType", "data",
             "transientConfig"];
@@ -669,8 +669,8 @@ export class Data extends Node implements DataInterface {
         fields.forEach( fieldName => {
             o[fieldName] = this.model.getAny(fieldName);
         });
-        o.hasDynamicSelf = this.hasDynamicSelf();
-        o.isDynamicSelfActive = this.isDynamicSelfActive();
+        o.hasOnline = this.hasOnline();
+        o.isOnline = this.isOnline();
 
         return JSON.stringify(StripObject(o), null, 4);
     }

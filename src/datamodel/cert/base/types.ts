@@ -16,14 +16,13 @@ export type BaseCertParams = {
     signingPublicKeys?: Buffer[],  // Only set on getParams. Used internally between certs.
     multiSigThreshold?: number,
     targetMaxExpireTime?: number,
-    dynamicSelfSpec?: Buffer,
     transientConfig?: number,
-    hasDynamicSelf?: boolean,
-    hasDynamicCert?: boolean,
+    hasOnlineValidation?: boolean,
+    hasOnlineCert?: boolean,
     isIndestructible?: boolean,
-    isDynamicSelfActive?: boolean,
-    isDynamicCertActive?: boolean,
-    isDynamicDestroyed?: boolean,
+    isOnlineValidated?: boolean,
+    isOnlineRevoked?: boolean,
+    isOnlineCertOnline?: boolean,
 };
 
 /**
@@ -31,19 +30,29 @@ export type BaseCertParams = {
  */
 export enum BaseCertConfig {
     /**
-     * The cert it self needs to be validated externally (online).
+     * The cert itself needs to be validated online.
+     *
+     * The validator process will examine the properties of the cert to determine
+     * how and where the validation takes place.
+     *
+     * This property also opens up for having certs being revoked online.
+     *
+     * A cert can have three states:
+     * 1. not validated or revoked (unknown),
+     * 2. validated (allowed to be toggled on/off),
+     * 3. revoked (overrides validated, and not allowed to return to the validated state).
      */
-    HAS_DYNAMIC_SELF    = 0,
+    HAS_ONLINE_VALIDATION   = 0,
 
     /**
-     * If a cert is embedding a cert which is dynamic then this bit must be set.
+     * If a cert is embedding a cert which is online then this bit must be set.
      */
-    HAS_DYNAMIC_CERT    = 1,
+    HAS_ONLINE_CERT         = 1,
 
     /**
      * If set then the cert cannot be destroyed by destruction nodes.
      */
-    IS_INDESTRUCTIBLE   = 2,
+    IS_INDESTRUCTIBLE       = 2,
 }
 
 export enum BaseCertLockedConfig {}
@@ -52,15 +61,13 @@ export enum BaseCertLockedConfig {}
  * Transient bits set by the outside on base cert level.
  */
 export enum BaseCertTransientConfig {
-    /** Set if this cert is dynamic and active. */
-    DYNAMIC_SELF_ACTIVE = 0,
+    ONLINE_VALIDATED    = 0,
+
+    ONLINE_REVOKED      = 1,
 
     /**
-     * Set to true on certs who uses a dynamic Cert when the
-     * dynamic cert is active (transient value not stored).
+     * Set to true on certs who uses an online cert when the
+     * online cert is online.
      */
-    DYNAMIC_CERT_ACTIVE  = 1,
-
-    /** Set if this cert is dynamic and destroyed. */
-    DYNAMIC_DESTROYED   = 2,
+    ONLINE_CERT_ONLINE  = 2,
 }

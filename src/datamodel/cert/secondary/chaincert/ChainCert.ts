@@ -201,7 +201,7 @@ export class ChainCert extends PrimaryChainCert implements ChainCertInterface {
 
         const longFields = ["owner", "targetPublicKeys", "config", "lockedConfig", "creationTimeSeconds",
             "expireTimeSeconds", "constraints", "targetType", "maxChainLength", "targetMaxExpireTimeSeconds",
-            "dynamicSelfSpec", "transientConfig", "multiSigThreshold"];
+            "transientConfig", "multiSigThreshold"];
 
         const fields = short ? shortFields : longFields;
 

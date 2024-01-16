@@ -817,10 +817,10 @@ function setupTests(config: any) {
             creationTime: now,
             expireTime: now + 10000,
             isLicensed: true,
-            hasDynamicSelf: true,
-            isDynamicSelfActive: true,
-            hasDynamicCert: true,
-            isDynamicCertActive: true,
+            hasOnlineValidation: true,
+            isOnlineValidated: true,
+            hasOnlineCert: true,
+            isOnlineCertOnline: true,
         });
 
         // Public
@@ -991,7 +991,7 @@ function setupTests(config: any) {
         assert((fetchedNodes[5].getId1() as Buffer).equals(nodeId1A));
         assert((fetchedNodes[6].getId1() as Buffer).equals(nodeId1B));
 
-        // TODO test more of pathHash, disallowParentLicensing, isDynamic isDynamicActive, hasDynamicSelf.
+        // TODO test more of pathHash, disallowParentLicensing, hasOnline, isOnline, hasOnlineValidation.
         // TODO test even more complex trees.
         // TODO test for licensed embedded (and moved) nodes.
     });
@@ -1373,9 +1373,9 @@ function setupTests(config: any) {
 
 
         const node0 = lvl1[0];
-        node0.setHasDynamicSelf();
-        node0.setHasDynamicSelf();
-        node0.setDynamicSelfActive(false);
+        node0.setHasOnlineValidation();
+        node0.setHasOnlineValidation();
+        node0.setOnlineValidated(false);
         await driver.insertNodes([node0], now);
 
         fetchRequest = StorageUtil.CreateFetchRequest({query: {
@@ -1740,7 +1740,7 @@ function setupTests(config: any) {
         let parentId = Buffer.alloc(32).fill(1);
 
 
-        const lvl1 = await createNodes(10, {hasDynamicSelf: true, isDynamicSelfActive: true, parentId,
+        const lvl1 = await createNodes(10, {hasOnlineValidation: true, isOnlineValidated: true, parentId,
             owner: clientPublicKey, isPublic: true}, now, "lvl1");
 
         const parentId1a = lvl1[0].getId();
@@ -1749,7 +1749,7 @@ function setupTests(config: any) {
         const lvl2b = await createNodes(10, {parentId: parentId1a, owner: clientPublicKey, isPublic: true}, now+1000, "lvl2b");
 
         const parentId2a = lvl2a[0].getId();
-        const lvl3a = await createNodes(10, {hasDynamicSelf: true, isDynamicSelfActive: true,
+        const lvl3a = await createNodes(10, {hasOnlineValidation: true, isOnlineValidated: true,
             parentId: parentId2a, owner: clientPublicKey, isPublic: true}, now, "lvl3a");
 
         const parentId2b = lvl2b[0].getId();
@@ -1794,7 +1794,7 @@ function setupTests(config: any) {
         // Update the transient hash, restore it.
         // the now2 will now be set as the storageTime of the node.
         //
-        node.setDynamicSelfActive();
+        node.setOnlineValidated();
         await driver.storeNodes([node], now2, false);
         nodes2 = await fetch(db, fetchRequest, now, rootNode);
         assert(nodes2.length === 0);
@@ -1812,7 +1812,7 @@ function setupTests(config: any) {
         // Update a node on third level.
         //
         node = lvl3a[5];
-        node.setDynamicSelfActive(false);
+        node.setOnlineValidated(false);
         await driver.storeNodes([node], now3, false);
         nodes2 = await fetch(db, fetchRequest, now, rootNode);
         assert(nodes2.length === 0);

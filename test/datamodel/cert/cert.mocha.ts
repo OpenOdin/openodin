@@ -253,13 +253,12 @@ describe("certs", async function() {
 
         chainCert = await certUtil.createChainCert({creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey],
-            hasDynamicSelf: true,
+            hasOnlineValidation: true,
             multiSigThreshold: 2,
-            maxChainLength: 1,
-            dynamicSelfSpec: Buffer.alloc(128)},
+            maxChainLength: 1},
             keyPair2.publicKey, keyPair2.secretKey);
 
-        expectedLength = 334;
+        expectedLength = 202;
         exportedLength = chainCert.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
@@ -274,13 +273,12 @@ describe("certs", async function() {
 
         chainCert = await certUtil.createChainCert({creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
-            hasDynamicSelf: true,
+            hasOnlineValidation: true,
             multiSigThreshold: 3,
-            maxChainLength: 1,
-            dynamicSelfSpec: Buffer.alloc(128)},
+            maxChainLength: 1},
             keyPair2.publicKey, keyPair2.secretKey);
 
-        expectedLength = 367;
+        expectedLength = 235;
         exportedLength = chainCert.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
@@ -294,15 +292,14 @@ describe("certs", async function() {
 
         chainCert = await certUtil.createChainCert({creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
-            hasDynamicSelf: true,
+            hasOnlineValidation: true,
             multiSigThreshold: 1,
             maxChainLength: 1,
             lockedConfig: 123,
-            constraints: Buffer.alloc(32).fill(111),
-            dynamicSelfSpec: Buffer.alloc(128)},
+            constraints: Buffer.alloc(32).fill(111)},
             keyPair2.publicKey, keyPair2.secretKey);
 
-        expectedLength = 406;
+        expectedLength = 274;
         exportedLength = chainCert.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
@@ -317,16 +314,15 @@ describe("certs", async function() {
 
         chainCert = await certUtil.createChainCert({creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
-            hasDynamicSelf: true,
+            hasOnlineValidation: true,
             multiSigThreshold: 1,
             maxChainLength: 1,
             lockedConfig: 123,
             targetType: Buffer.from([0,0,0,0,0,0]),
-            constraints: Buffer.alloc(32).fill(111),
-            dynamicSelfSpec: Buffer.alloc(128)},
+            constraints: Buffer.alloc(32).fill(111)},
             keyPair2.publicKey, keyPair2.secretKey);
 
-        expectedLength = 416;
+        expectedLength = 284;
         exportedLength = chainCert.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
@@ -341,17 +337,16 @@ describe("certs", async function() {
 
         chainCert = await certUtil.createChainCert({creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
-            hasDynamicSelf: true,
+            hasOnlineValidation: true,
             multiSigThreshold: 1,
             maxChainLength: 1,
             lockedConfig: 123,
             targetType: Buffer.from([0,0,0,0,0,0]),
             targetMaxExpireTime: 10101,
-            constraints: Buffer.alloc(32).fill(111),
-            dynamicSelfSpec: Buffer.alloc(128)},
+            constraints: Buffer.alloc(32).fill(111)},
             keyPair2.publicKey, keyPair2.secretKey);
 
-        expectedLength = 422;
+        expectedLength = 290;
         exportedLength = chainCert.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
@@ -365,18 +360,17 @@ describe("certs", async function() {
 
         chainCert = await certUtil.createChainCert({creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
-            hasDynamicSelf: true,
+            hasOnlineValidation: true,
             multiSigThreshold: 3,
             maxChainLength: 3,
             lockedConfig: 123,
             targetType: ChainCert.GetType(),
             targetMaxExpireTime: Date.now() + 3600000,
             transientConfig: 1,
-            constraints: Buffer.alloc(32).fill(111),
-            dynamicSelfSpec: Buffer.alloc(128)},
+            constraints: Buffer.alloc(32).fill(111)},
             keyPair2.publicKey, keyPair2.secretKey);
 
-        expectedLength = 422;
+        expectedLength = 290;
         exportedLength = chainCert.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
@@ -389,29 +383,17 @@ describe("certs", async function() {
 
         // Export with transient config preserved
         //
-        expectedLength = 426;
+        expectedLength = 294;
         exportedLength = chainCert.export(true).length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
-        //422 total length (without transient values preserved);
-        //
-        //add cert adds 4 byte overhead + cert length and - owner public key of 36 bytes
-        //since owner is not set when using cert + two more signatures of 65 byte each.
-        //
-        //meaning 1 cert with embedded cert can be
-        //
-        //520 + 422
-        //
-        //meaning 2 cert with embedded certs can be
-        //
-        //520 + 520 + 422
 
         // Embed cert
         //
         let chainCert2 = await certUtil.createChainCert({creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
-            hasDynamicSelf: true,
-            hasDynamicCert: true,
+            hasOnlineValidation: true,
+            hasOnlineCert: true,
             multiSigThreshold: 3,
             maxChainLength: 2,
             lockedConfig: 123,
@@ -419,8 +401,7 @@ describe("certs", async function() {
             targetMaxExpireTime: Date.now() + 3600000,
             transientConfig: 1,
             cert: chainCert.export(),
-            constraints: Buffer.alloc(32).fill(111),
-            dynamicSelfSpec: Buffer.alloc(128)},
+            constraints: Buffer.alloc(32).fill(111)},
             keyPair1.publicKey, keyPair1.secretKey);
 
 
@@ -435,7 +416,7 @@ describe("certs", async function() {
 
         // Embedded cert and two extra signatures minus the owner public key which is not set
         // when using a cert.
-        expectedLength = (422+4+65*2-36) + 422;  //=942
+        expectedLength = (290+4+65*2-36) + 290;  //=678
         exportedLength = chainCert2.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
@@ -444,8 +425,8 @@ describe("certs", async function() {
         let chainCert3 = await certUtil.createChainCert({
             creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
-            hasDynamicSelf: true,
-            hasDynamicCert: true,
+            hasOnlineValidation: true,
+            hasOnlineCert: true,
             multiSigThreshold: 3,
             maxChainLength: 1,
             lockedConfig: 123,
@@ -453,8 +434,7 @@ describe("certs", async function() {
             targetMaxExpireTime: Date.now() + 3600000,
             transientConfig: 1,
             cert: chainCert2.export(),
-            constraints: Buffer.alloc(32).fill(111),
-            dynamicSelfSpec: Buffer.alloc(128)},
+            constraints: Buffer.alloc(32).fill(111)},
             keyPair1.publicKey, keyPair1.secretKey);
 
 
@@ -467,7 +447,7 @@ describe("certs", async function() {
         status = chainCert3.verify();
         assert(status);
 
-        expectedLength = (422+4+65*2-36)*2 + 422;  //=1462
+        expectedLength = (290+4+65*2-36)*2 + 290;  //=1066
         exportedLength = chainCert3.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
@@ -484,8 +464,8 @@ describe("certs", async function() {
             isLockedOnLevel: true,
             creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
-            hasDynamicSelf: true,
-            hasDynamicCert: true,
+            hasOnlineValidation: true,
+            hasOnlineCert: true,
             multiSigThreshold: 3,
             maxChainLength: 0,
             lockedConfig: 123,
@@ -493,7 +473,6 @@ describe("certs", async function() {
             targetMaxExpireTime: Date.now() + 3600000,
             transientConfig: 1,
             constraints: Buffer.alloc(32).fill(111),
-            dynamicSelfSpec: Buffer.alloc(128),
             cert: chainCert3.export(),
         }, keyPair1.publicKey, keyPair1.secretKey);
 
@@ -506,7 +485,7 @@ describe("certs", async function() {
         status = friendCert.verify();
         assert(status);
 
-        expectedLength = 1462 + 422 + 4 + 36 + 65*2 - 36; // 2018
+        expectedLength = 1066 + 290 + 4 + 36 + 65*2 - 36; // 1490
         exportedLength = friendCert.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
@@ -516,8 +495,8 @@ describe("certs", async function() {
         let chainCert3b = await certUtil.createChainCert({
             creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
-            hasDynamicSelf: true,
-            hasDynamicCert: true,
+            hasOnlineValidation: true,
+            hasOnlineCert: true,
             multiSigThreshold: 3,
             maxChainLength: 1,
             lockedConfig: 123,
@@ -525,8 +504,7 @@ describe("certs", async function() {
             targetMaxExpireTime: Date.now() + 3600000,
             transientConfig: 1,
             cert: chainCert2.export(),
-            constraints: Buffer.alloc(32).fill(111),
-            dynamicSelfSpec: Buffer.alloc(128)},
+            constraints: Buffer.alloc(32).fill(111)},
             keyPair1.publicKey, keyPair1.secretKey);
 
 
@@ -539,7 +517,7 @@ describe("certs", async function() {
         status = chainCert3b.verify();
         assert(status);
 
-        expectedLength = (422+4+65*2-36)*2 + 422;  //=1462
+        expectedLength = (290+4+65*2-36)*2 + 290;  //=1066
         exportedLength = chainCert3b.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
@@ -549,13 +527,12 @@ describe("certs", async function() {
             isLockedOnJurisdiction: true,
             creationTime, expireTime,
             targetPublicKeys: [keyPair3.publicKey],
-            hasDynamicSelf: true,
-            hasDynamicCert: true,
+            hasOnlineValidation: true,
+            hasOnlineCert: true,
             maxChainLength: 0,
             lockedConfig: 123,
             transientConfig: 1,
             constraints: Buffer.alloc(32).fill(111),
-            dynamicSelfSpec: Buffer.alloc(128),
             cert: chainCert3b.export(),
         }, keyPair1.publicKey, keyPair1.secretKey);
 
@@ -568,7 +545,7 @@ describe("certs", async function() {
         status = authCert.verify();
         assert(status);
 
-        expectedLength = 1462 + 4 + 422 + 65*2 - 36 - 3 - 10 - 33*2 - 6; // 1897
+        expectedLength = 1066 + 4 + 290 + 65*2 - 36 - 3 - 10 - 33*2 - 6; // 1369
         exportedLength = authCert.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
@@ -578,8 +555,8 @@ describe("certs", async function() {
         let chainCert3c = await certUtil.createChainCert({
             creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
-            hasDynamicSelf: true,
-            hasDynamicCert: true,
+            hasOnlineValidation: true,
+            hasOnlineCert: true,
             multiSigThreshold: 3,
             maxChainLength: 1,
             lockedConfig: 123,
@@ -587,8 +564,7 @@ describe("certs", async function() {
             targetMaxExpireTime: Date.now() + 3600000,
             transientConfig: 1,
             cert: chainCert2.export(),
-            constraints: Buffer.alloc(32).fill(111),
-            dynamicSelfSpec: Buffer.alloc(128)},
+            constraints: Buffer.alloc(32).fill(111)},
             keyPair1.publicKey, keyPair1.secretKey);
 
 
@@ -601,7 +577,7 @@ describe("certs", async function() {
         status = chainCert3c.verify();
         assert(status);
 
-        expectedLength = (422+4+65*2-36)*2 + 422;  //=1462
+        expectedLength = (290+4+65*2-36)*2 + 290;  //=1066
         exportedLength = chainCert3c.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
@@ -611,8 +587,8 @@ describe("certs", async function() {
             isLockedOnUserBits: true,
             creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
-            hasDynamicSelf: true,
-            hasDynamicCert: true,
+            hasOnlineValidation: true,
+            hasOnlineCert: true,
             multiSigThreshold: 3,
             maxChainLength: 0,
             lockedConfig: 123,
@@ -620,7 +596,6 @@ describe("certs", async function() {
             targetMaxExpireTime: Date.now() + 3600000,
             transientConfig: 1,
             constraints: Buffer.alloc(32).fill(111),
-            dynamicSelfSpec: Buffer.alloc(128),
             cert: chainCert3c.export(),
         }, keyPair1.publicKey, keyPair1.secretKey);
 
@@ -633,7 +608,7 @@ describe("certs", async function() {
         status = dataCert.verify();
         assert(status);
 
-        expectedLength = 1462 + 422 + 4 + 65*2 - 36; // 1982
+        expectedLength = 1066 + 290 + 4 + 65*2 - 36; // 1454
         exportedLength = dataCert.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
@@ -643,8 +618,8 @@ describe("certs", async function() {
         let chainCert3d = await certUtil.createChainCert({
             creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
-            hasDynamicSelf: true,
-            hasDynamicCert: true,
+            hasOnlineValidation: true,
+            hasOnlineCert: true,
             multiSigThreshold: 3,
             maxChainLength: 1,
             lockedConfig: 123,
@@ -652,8 +627,7 @@ describe("certs", async function() {
             targetMaxExpireTime: Date.now() + 3600000,
             transientConfig: 1,
             cert: chainCert2.export(),
-            constraints: Buffer.alloc(32).fill(111),
-            dynamicSelfSpec: Buffer.alloc(128)},
+            constraints: Buffer.alloc(32).fill(111)},
             keyPair1.publicKey, keyPair1.secretKey);
 
 
@@ -666,7 +640,7 @@ describe("certs", async function() {
         status = chainCert3d.verify();
         assert(status);
 
-        expectedLength = (422+4+65*2-36)*2 + 422;  //=1462
+        expectedLength = (290+4+65*2-36)*2 + 290;  //=1066
         exportedLength = chainCert3d.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
 
@@ -680,8 +654,8 @@ describe("certs", async function() {
             isLockedOnMaxExtensions: true,
             creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
-            hasDynamicSelf: true,
-            hasDynamicCert: true,
+            hasOnlineValidation: true,
+            hasOnlineCert: true,
             multiSigThreshold: 3,
             maxChainLength: 0,
             lockedConfig: 123,
@@ -689,7 +663,6 @@ describe("certs", async function() {
             targetMaxExpireTime: Date.now() + 3600000,
             transientConfig: 1,
             constraints: Buffer.alloc(32).fill(111),
-            dynamicSelfSpec: Buffer.alloc(128),
             cert: chainCert3d.export(),
         }, keyPair1.publicKey, keyPair1.secretKey);
 
@@ -702,7 +675,7 @@ describe("certs", async function() {
         status = licenseCert.verify();
         assert(status);
 
-        expectedLength = 1462 + 422 + 4 + 65*2 - 36 + 3; // 1985
+        expectedLength = 1066 + 290 + 4 + 65*2 - 36 + 3; // 1457
         exportedLength = licenseCert.export().length;
         assert(exportedLength === expectedLength, `${exportedLength} !== ${expectedLength}`);
     });
@@ -718,15 +691,14 @@ describe("certs", async function() {
 
         let chainCert = await certUtil.createChainCert({creationTime, expireTime,
             targetPublicKeys: [keyPair1.publicKey, keyPair2.publicKey, keyPair3.publicKey],
-            hasDynamicSelf: true,
+            hasOnlineValidation: true,
             multiSigThreshold: 3,
             maxChainLength: 3,
             lockedConfig: 123,
             targetType: ChainCert.GetType(),
             targetMaxExpireTime: Date.now() + 3600000,
             transientConfig: 1,
-            constraints: Buffer.alloc(32).fill(111),
-            dynamicSelfSpec: Buffer.alloc(128)},
+            constraints: Buffer.alloc(32).fill(111)},
             keyPair2.publicKey, keyPair2.secretKey);
 
         assert(chainCert.countChainLength() == 1);

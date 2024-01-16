@@ -1327,12 +1327,12 @@ export class Service {
      * Validate the certificate in the storage and if applicable also online.
      * A cert which is not marked as indestructible can have been destroyed by destroy-nodes,
      * this we must check in our connected storage.
-     * Furthermore if the auth cert is dynamic in it self then we need to see that the cert is marked as active.
+     * Furthermore if the auth cert is online in it self then we need to see that the cert is marked as validated.
      * We assume that the auth cert is already cryptographically verified and validated against its intended target.
      *
      * @returns 0 if auth cert successfully validates in the storage.
      * 1 if the auth cert cannot be verified likely due to a destroy node destroying the cert.
-     * 2 if a dynamic cert did not become active within the timeout.
+     * 2 if a online cert did not become validated within the timeout.
      */
     protected async validateAuthCert(authCert: AuthCertInterface, storageP2PClient: P2PClient): Promise<number> {
         let wrappedAuthCertDataNode = await this.fetchAuthCertDataWrapper(authCert, storageP2PClient);
@@ -1353,19 +1353,19 @@ export class Service {
             return 1;
         }
 
-        if (!wrappedAuthCertDataNode.isDynamic()) {
-            // If the node is not dynamic then we are all good already.
+        if (!wrappedAuthCertDataNode.hasOnline()) {
+            // If the node is not online then we are all good already.
             return 0;
         }
 
-        // Node is dynamic but not marked as active.
+        // Node is online but not marked as validated.
         // Fetch is immediately first, then wait i*3 secs before fetching it again
-        // to give it time to become active. Try three times in total.
+        // to give it time to become online. Try three times in total.
         for (let i=0; i<4; i++) {
-            // Sleep some to await cert potentially becoming active.
+            // Sleep some to await cert potentially becoming valid.
             await sleep(i * 3000);
 
-            // Now fetch the wrapper again, but tell it to ignore any non-active nodes.
+            // Now fetch the wrapper again, but tell it to ignore any non-valid nodes.
             // Note we could solve this using preserveTransient, but storages are not require
             // to support that feature. This way is rock solid.
             wrappedAuthCertDataNode = await this.fetchAuthCertDataWrapper(authCert, storageP2PClient, true);
@@ -1447,7 +1447,7 @@ export class Service {
 
         const dataNode = await this.nodeUtil.createDataNode(
             {
-                hasDynamicEmbedding: authCert.isDynamic(),
+                hasOnlineEmbedding: authCert.hasOnline(),
                 owner: this.publicKey,
                 parentId,
                 embedded: exportedAuthCert,

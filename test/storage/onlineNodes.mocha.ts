@@ -135,7 +135,7 @@ describe("Storage: update transient values on nodes", function() {
         }
     });
 
-    it("Should be able to persist transient values and have dynamic nodes behave as expected", async function() {
+    it("Should be able to persist transient values and have online nodes behave as expected", async function() {
         assert(storageInstance);
 
         const {
@@ -154,16 +154,15 @@ describe("Storage: update transient values on nodes", function() {
         const sourcePublicKey = keyPair1.publicKey;
         const targetPublicKey = keyPair1.publicKey;
         const id2 = Buffer.alloc(32).fill(0x10);
-        const network = Buffer.from("some network");
+        const onlineIdNetwork = Buffer.from("some network");
 
         const nodeUtil = new NodeUtil();
         const now = Date.now();
 
         const node1A = await nodeUtil.createDataNode({
             id2,
-            hasDynamicSelf: true,
-            isDynamicSelfActive: true,
-            network,
+            isOnlineIdValidated: true,
+            onlineIdNetwork,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -171,9 +170,8 @@ describe("Storage: update transient values on nodes", function() {
 
         const node1B = await nodeUtil.createDataNode({
             id2,
-            hasDynamicSelf: true,
-            isDynamicSelfActive: false,
-            network,
+            isOnlineIdValidated: false,
+            onlineIdNetwork,
             parentId,
             expireTime: now + 10000,
             creationTime: now + 1,
@@ -188,7 +186,7 @@ describe("Storage: update transient values on nodes", function() {
             creationTime: now,
         }, keyPair1.publicKey, keyPair1.secretKey);
 
-        assert(node1A.isDynamicSelfActive());
+        assert(node1A.isOnlineIdValidated());
         assert(node2.getParentId()?.equals(node1A.getId2()!));
 
         let storeRequest: StoreRequest = {
@@ -214,19 +212,19 @@ describe("Storage: update transient values on nodes", function() {
 
         const node1Ab = await driver.getNodeById1(node1A.getId1()!, now);
         assert(node1Ab);
-        assert(node1Ab.hasDynamicSelf());
-        assert(!node1Ab.isDynamicSelfActive());
+        assert(node1Ab.hasOnlineId());
+        assert(!node1Ab.isOnlineIdValidated());
 
         const node1Bb = await driver.getNodeById1(node1B.getId1()!, now);
         assert(node1Bb);
-        assert(node1Bb.hasDynamicSelf());
-        assert(!node1Bb.isDynamicSelfActive());
+        assert(node1Bb.hasOnlineId());
+        assert(!node1Bb.isOnlineIdValidated());
 
         const node2b = await driver.getNodeById1(node2.getId1()!, now);
 
         assert(node2b);
 
-        assert(!node2b.hasDynamicSelf());
+        assert(!node2b.hasOnlineId());
 
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
@@ -269,8 +267,8 @@ describe("Storage: update transient values on nodes", function() {
 
         assert(node1Ac);
 
-        assert(node1Ac.hasDynamicSelf());
-        assert(node1Ac.isDynamicSelfActive());
+        assert(node1Ac.hasOnlineId());
+        assert(node1Ac.isOnlineIdValidated());
 
         nodes = await runFetch(fetchRequest, storageInstance);
 
@@ -281,7 +279,7 @@ describe("Storage: update transient values on nodes", function() {
         // Now swap the the id2 active nodes
         //
 
-        node1B.setDynamicSelfActive(true);
+        node1B.setOnlineIdValidated(true);
 
         storeRequest.nodes = [node1B.export(true)];
 
@@ -333,16 +331,15 @@ describe("Concensus: test streaming updates", async function() {
         const targetPublicKey = keyPair1.publicKey;
         const id2 = Buffer.alloc(32).fill(0x10);
         const id2B = Buffer.alloc(32).fill(0x11);
-        const network = Buffer.from("some network");
+        const onlineIdNetwork = Buffer.from("some network");
 
         const nodeUtil = new NodeUtil();
         const now = Date.now();
 
         const node1A = await nodeUtil.createDataNode({
             id2,
-            hasDynamicSelf: true,
-            isDynamicSelfActive: false,
-            network,
+            isOnlineIdValidated: false,
+            onlineIdNetwork,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
@@ -350,9 +347,8 @@ describe("Concensus: test streaming updates", async function() {
 
         const node1B = await nodeUtil.createDataNode({
             id2,
-            hasDynamicSelf: true,
-            isDynamicSelfActive: false,
-            network,
+            isOnlineIdValidated: false,
+            onlineIdNetwork,
             parentId,
             expireTime: now + 10000,
             creationTime: now + 1,
@@ -360,9 +356,8 @@ describe("Concensus: test streaming updates", async function() {
 
         const node1C = await nodeUtil.createDataNode({
             id2: id2B,
-            hasDynamicSelf: true,
-            isDynamicSelfActive: false,
-            network,
+            isOnlineIdValidated: false,
+            onlineIdNetwork,
             parentId,
             expireTime: now + 10000,
             creationTime: now + 2,
@@ -444,9 +439,9 @@ describe("Concensus: test streaming updates", async function() {
         // Update and expect streaming
         fetchedNodes.length = 0;
 
-        node1A.setDynamicSelfActive(true);
+        node1A.setOnlineIdValidated(true);
 
-        assert(node1A.isDynamicSelfActive());
+        assert(node1A.isOnlineIdValidated());
 
         storeRequest.nodes = [node1A.export(true)];
 
@@ -463,11 +458,11 @@ describe("Concensus: test streaming updates", async function() {
 
         assert(node1Aa);
 
-        assert(node1Aa.hasDynamicSelf());
-        assert(node1Aa.isDynamicSelfActive());
+        assert(node1Aa.hasOnlineId());
+        assert(node1Aa.isOnlineIdValidated());
 
         assert(fetchedNodes.length === 2);
-        assert(fetchedNodes[0].isDynamicSelfActive());
+        assert(fetchedNodes[0].isOnlineIdValidated());
         assert(fetchedNodes[0].getId1()!.equals(node1A.getId1()!));
         assert(fetchedNodes[1].getId1()!.equals(node2A.getId1()!));
 
@@ -475,9 +470,9 @@ describe("Concensus: test streaming updates", async function() {
 
         fetchedNodes.length = 0;
 
-        node1B.setDynamicSelfActive(true);
+        node1B.setOnlineIdValidated(true);
 
-        assert(node1B.isDynamicSelfActive());
+        assert(node1B.isOnlineIdValidated());
 
         storeRequest.nodes = [node1B.export(true)];
 
@@ -494,18 +489,18 @@ describe("Concensus: test streaming updates", async function() {
 
         assert(node1Ba);
 
-        assert(node1Ba.hasDynamicSelf());
-        assert(node1Ba.isDynamicSelfActive());
+        assert(node1Ba.hasOnlineId());
+        assert(node1Ba.isOnlineIdValidated());
 
         node1Aa = await driver.getNodeById1(node1A.getId1()!, now);
 
         assert(node1Aa);
 
-        assert(node1Aa.hasDynamicSelf());
-        assert(!node1Aa.isDynamicSelfActive());
+        assert(node1Aa.hasOnlineId());
+        assert(!node1Aa.isOnlineIdValidated());
 
         assert(fetchedNodes.length === 2);
-        assert(fetchedNodes[0].isDynamicSelfActive());
+        assert(fetchedNodes[0].isOnlineIdValidated());
         assert(fetchedNodes[0].getId1()!.equals(node1B.getId1()!));
         assert(fetchedNodes[1].getId1()!.equals(node2A.getId1()!));
     });

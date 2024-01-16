@@ -67,10 +67,10 @@ export interface LicenseInterface extends NodeInterface {
     setLicenseTransientConfig(licenseTransientConfig: number | undefined): void;
     setCertObject(cert: LicenseCertInterface | undefined): void;
     getCertObject(): LicenseCertInterface;
-    setHasDynamicFriendCert(isDynamic: boolean): void;
-    hasDynamicFriendCert(): boolean;
-    isDynamicFriendCertsActive(): boolean;
-    setDynamicFriendCertsActive(isActive: boolean): void;
+    setHasOnlineFriendCert(isOnline: boolean): void;
+    hasOnlineFriendCert(): boolean;
+    isOnlineFriendCertsOnline(): boolean;
+    setOnlineFriendCertsOnline(isInline: boolean): void;
     setParams(params: LicenseParams): void;
     getParams(): LicenseParams;
 }

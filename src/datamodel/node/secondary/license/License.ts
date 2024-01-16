@@ -79,9 +79,9 @@ const FIELDS: Fields = {
         index: 12,
 
         /**
-         * Max length for DataCert needed is 1982 bytes.
+         * Max length for LicenseCert needed is 1457 bytes.
          */
-        maxSize: 1985,
+        maxSize: 1457,
     },
 
     /**
@@ -128,13 +128,13 @@ const FIELDS: Fields = {
     friendCertA: {
         name: "friendCertA",
         type: FieldType.BYTES,
-        maxSize: 2018,
+        maxSize: 1490,
         index: 35,
     },
     friendCertB: {
         name: "friendCertB",
         type: FieldType.BYTES,
-        maxSize: 2018,
+        maxSize: 1490,
         index: 36,
     },
     licenseTransientConfig: {
@@ -168,7 +168,7 @@ const FIELDS: Fields = {
         hash: false,
     },
     network: {
-        name: "network",
+        name: "onlineIdNetwork",
         type: FieldType.NONE,
         index: 4,
     },
@@ -600,8 +600,8 @@ export class License extends Node implements LicenseInterface {
             return [false, `License cannot have an id2`];
         }
 
-        if (this.hasDynamicSelf()) {
-            return [false, `License cannot be configured for dynamic ID`];
+        if (this.getOnlineIdNetwork()) {
+            return [false, `License cannot be configured for online ID`];
         }
 
         if (!this.getNodeId1()) {
@@ -692,11 +692,11 @@ export class License extends Node implements LicenseInterface {
                 return [false, "Friend certB type is not accepted by license"];
             }
 
-            if ((certA.isDynamic() || certB.isDynamic()) && !this.hasDynamicFriendCert()) {
-                return [false, "If either friend cert A or B is dynamic then license must be flagged as hasDynamicFriendCert"];
+            if ((certA.hasOnline() || certB.hasOnline()) && !this.hasOnlineFriendCert()) {
+                return [false, "If either friend cert A or B is online then license must be flagged as hasOnlineFriendCert"];
             }
-            if ( (!certA.isDynamic() && !certB.isDynamic()) && this.hasDynamicFriendCert()) {
-                return [false, "If neither friend cert A or B is dynamic then license must not be flagged with hasDynamicFriendCert"];
+            if ( (!certA.hasOnline() && !certB.hasOnline()) && this.hasOnlineFriendCert()) {
+                return [false, "If neither friend cert A or B is online then license must not be flagged with hasOnlineFriendCert"];
             }
 
             const creationTime = this.getCreationTime();
@@ -823,32 +823,32 @@ export class License extends Node implements LicenseInterface {
 
     /**
      * Add the extraction of friend certs.
-     * @see Node.extractDynamicObjects().
+     * @see Node.extractOnlineObjects().
      */
-    public extractDynamicObjects(): DataModelInterface[] {
-        const objects = super.extractDynamicObjects();
-        if (this.hasDynamicFriendCert()) {
+    public extractOnlineObjects(): DataModelInterface[] {
+        const objects = super.extractOnlineObjects();
+        if (this.hasOnlineFriendCert()) {
             const certA = this.getFriendACertObject();
             const certB = this.getFriendBCertObject();
-            if (certA.isDynamic()) {
-                objects.push(...certA.extractDynamicObjects());
+            if (certA.hasOnline()) {
+                objects.push(...certA.extractOnlineObjects());
             }
-            if (certB.isDynamic()) {
-                objects.push(...certB.extractDynamicObjects());
+            if (certB.hasOnline()) {
+                objects.push(...certB.extractOnlineObjects());
             }
         }
         return objects;
     }
 
     /**
-     * Adds to check for dynamic friend certs.
-     * @see Node.isDynamicActive();
+     * Adds to check for online friend certs.
+     * @see Node.isOnline();
      */
-    public isDynamicActive(): boolean {
-        if (!super.isDynamicActive()) {
+    public isOnline(): boolean {
+        if (!super.isOnline()) {
             return false;
         }
-        if (this.hasDynamicFriendCert() && !this.isDynamicFriendCertsActive()) {
+        if (this.hasOnlineFriendCert() && !this.isOnlineFriendCertsOnline()) {
             return false;
         }
         return true;
@@ -857,43 +857,45 @@ export class License extends Node implements LicenseInterface {
     /**
      * Transient value set by Storage layer on object.
      *
-     * @param isActive state to be set
+     * @param isOnline state to be set
      */
-    public setDynamicFriendCertsActive(isActive: boolean = true) {
-        this.setLicenseTransientBit(LicenseTransientConfig.DYNAMIC_FRIENDCERTS_ACTIVE, isActive);
+    public setOnlineFriendCertsOnline(isOnline: boolean = true) {
+        this.setLicenseTransientBit(LicenseTransientConfig.ONLINE_FRIENDCERTS_ONLINE, isOnline);
     }
 
     /**
-     * If this license uses dynamic friend certs and the certs are active then this function returns true 
+     * If this license uses online friend certs and the certs are validated then
+     * this function returns true.
+     *
      * This is a transient value set by the environment.
      *
-     * @returns whether or not the node has active friend certs.
+     * @returns whether or not the node has online friend certs.
      */
-    public isDynamicFriendCertsActive(): boolean {
-        return this.isLicenseTransientBitSet(LicenseTransientConfig.DYNAMIC_FRIENDCERTS_ACTIVE);
+    public isOnlineFriendCertsOnline(): boolean {
+        return this.isLicenseTransientBitSet(LicenseTransientConfig.ONLINE_FRIENDCERTS_ONLINE);
     }
 
     /**
      * Adds checks of the friend certs.
-     * @see Node.updateDynamicStatus().
+     * @see Node.updateOnlineStatus().
      */
-    public updateDynamicStatus() {
-        super.updateDynamicStatus();
-        if (this.hasDynamicFriendCert()) {
+    public updateOnlineStatus() {
+        super.updateOnlineStatus();
+        if (this.hasOnlineFriendCert()) {
             const certA = this.getFriendACertObject();
             const certB = this.getFriendBCertObject();
-            let isActive = true;
-            if (certA.isDynamic()) {
-                if (!certA.isDynamicActive()) {
-                    isActive = false;
+            let isOnline = true;
+            if (certA.hasOnline()) {
+                if (!certA.isOnline()) {
+                    isOnline = false;
                 }
             }
-            if (certB.isDynamic()) {
-                if (!certB.isDynamicActive()) {
-                    isActive = false;
+            if (certB.hasOnline()) {
+                if (!certB.isOnline()) {
+                    isOnline = false;
                 }
             }
-            this.setDynamicFriendCertsActive(isActive);
+            this.setOnlineFriendCertsOnline(isOnline);
         }
     }
 
@@ -1558,33 +1560,17 @@ export class License extends Node implements LicenseInterface {
     }
 
     /**
-     * @param isDynamic true if this license uses dynamic friend certs.
+     * @param isOnline true if this license uses online friend certs.
      */
-    public setHasDynamicFriendCert(isDynamic: boolean = true) {
-        this.setLicenseConfigBit(LicenseConfig.HAS_DYNAMIC_FRIENDCERT, isDynamic);
+    public setHasOnlineFriendCert(isOnline: boolean = true) {
+        this.setLicenseConfigBit(LicenseConfig.HAS_ONLINE_FRIENDCERT, isOnline);
     }
 
     /**
-     * @returns true if this license uses dynamic friend certs.
+     * @returns true if this license uses online friend certs.
      */
-    public hasDynamicFriendCert(): boolean {
-        return this.isLicenseConfigBitSet(LicenseConfig.HAS_DYNAMIC_FRIENDCERT);
-    }
-
-    /**
-     * @returns true if node leverages either dynamic IDs, dynamic certs, dynamic
-     * embeddings or dynamic friend certs.
-     */
-    public isDynamic(): boolean {
-        if (!super.isDynamic()) {
-            return false;
-        }
-
-        if (this.hasDynamicFriendCert()) {
-            return true;
-        }
-
-        return false;
+    public hasOnlineFriendCert(): boolean {
+        return this.isLicenseConfigBitSet(LicenseConfig.HAS_ONLINE_FRIENDCERT);
     }
 
     /**
@@ -1637,7 +1623,7 @@ export class License extends Node implements LicenseInterface {
     /**
      * Override to mute, since this field is not applicable to License.
      */
-    public setNetwork(network: Buffer | undefined) {  //eslint-disable-line @typescript-eslint/no-unused-vars
+    public setOnlineIdNetwork(onlineIdNetwork: Buffer | undefined) {  //eslint-disable-line @typescript-eslint/no-unused-vars
         // NOOP.
     }
 
@@ -1697,11 +1683,11 @@ export class License extends Node implements LicenseInterface {
         if (params.isRestrictiveModeManager !== undefined) {
             this.setRestrictiveModeManager(params.isRestrictiveModeManager);
         }
-        if (params.hasDynamicFriendCert !== undefined) {
-            this.setHasDynamicFriendCert(params.hasDynamicFriendCert);
+        if (params.hasOnlineFriendCert !== undefined) {
+            this.setHasOnlineFriendCert(params.hasOnlineFriendCert);
         }
-        if (params.isDynamicFriendCertsActive !== undefined) {
-            this.setDynamicFriendCertsActive(params.isDynamicFriendCertsActive);
+        if (params.isOnlineFriendCertsOnline !== undefined) {
+            this.setOnlineFriendCertsOnline(params.isOnlineFriendCertsOnline);
         }
         if (params.nodeId1 !== undefined) {
             this.setNodeId1(params.nodeId1);
@@ -1733,8 +1719,8 @@ export class License extends Node implements LicenseInterface {
         const disallowRetroLicensing = this.disallowRetroLicensing();
         const isRestrictiveModeWriter = this.isRestrictiveModeWriter();
         const isRestrictiveModeManager = this.isRestrictiveModeManager();
-        const hasDynamicFriendCert = this.hasDynamicFriendCert();
-        const isDynamicFriendCertsActive = this.isDynamicFriendCertsActive();
+        const hasOnlineFriendCert = this.hasOnlineFriendCert();
+        const isOnlineFriendCertsOnline = this.isOnlineFriendCertsOnline();
         const nodeId1 = this.getNodeId1();
         const jumpPeerPublicKey = this.getJumpPeerPublicKey();
         const parentPathHash = this.getParentPathHash();
@@ -1743,7 +1729,7 @@ export class License extends Node implements LicenseInterface {
         const nodeParams = super.getParams();
         // Remove properties from general node which are not used in License.
         delete nodeParams.id2;
-        delete nodeParams.network;
+        delete nodeParams.onlineIdNetwork;
         delete nodeParams.licenseMinDistance;
         delete nodeParams.licenseMaxDistance;
 
@@ -1761,8 +1747,8 @@ export class License extends Node implements LicenseInterface {
             disallowRetroLicensing,
             isRestrictiveModeWriter,
             isRestrictiveModeManager,
-            hasDynamicFriendCert,
-            isDynamicFriendCertsActive,
+            hasOnlineFriendCert,
+            isOnlineFriendCertsOnline,
             nodeId1,
             jumpPeerPublicKey,
             parentPathHash,

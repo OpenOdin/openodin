@@ -308,7 +308,7 @@ export class Driver implements DriverInterface {
 
         const now2 = now + NOW_TOLERANCE;
 
-        const sql = `SELECT image, isactive, storagetime FROM universe_nodes
+        const sql = `SELECT image, isonline, storagetime FROM universe_nodes
             WHERE id1 = ${ph} AND (expiretime IS NULL OR expiretime > ${now})
             AND creationTime <= ${now2} LIMIT 1;`;
 
@@ -317,13 +317,13 @@ export class Driver implements DriverInterface {
         if (row) {
             const node = Decoder.DecodeNode(row.image, true);
 
-            // We might need to update the node's dynamic self flag.
-            // If the active flag has been turned off in the table row it means that
-            // the node does no longer have the id2 (dynamic self) active,
+            // We might need to update the node's onlide id validation flag.
+            // If the isonline flag has been turned off in the table row it means that
+            // the node does no longer have the id2 (online id) valid,
             // so we need to switch it off in the node after deserialising it.
             //
-            if (!row.isactive && node.isDynamicSelfActive()) {
-                node.setDynamicSelfActive(false);
+            if (!row.isonline && node.isOnlineIdValidated()) {
+                node.setOnlineIdValidated(false);
             }
 
             node.setTransientStorageTime(row.storagetime);
@@ -362,7 +362,7 @@ export class Driver implements DriverInterface {
 
         const now2 = now + NOW_TOLERANCE;
 
-        const sql = `SELECT image, isactive, storagetime FROM universe_nodes WHERE id1 IN ${ph}
+        const sql = `SELECT image, isonline, storagetime FROM universe_nodes WHERE id1 IN ${ph}
             AND (expiretime IS NULL OR expiretime > ${now})
             AND creationTime <= ${now2};`;
 
@@ -377,13 +377,13 @@ export class Driver implements DriverInterface {
 
                 const node = Decoder.DecodeNode(row.image, true);
 
-                // We might need to update the node's dynamic self flag.
-                // If the active flag has been turned off in the table row it means that
-                // the node does no longer have the id2 (dynamic self) active,
+                // We might need to update the node's onlide id validation flag.
+                // If the isonline flag has been turned off in the table row it means that
+                // the node does no longer have the id2 (online id) valid,
                 // so we need to switch it off in the node after deserialising it.
                 //
-                if (!row.isactive && node.isDynamicSelfActive()) {
-                    node.setDynamicSelfActive(false);
+                if (!row.isonline && node.isOnlineIdValidated()) {
+                    node.setOnlineIdValidated(false);
                 }
 
                 node.setTransientStorageTime(row.storagetime);
@@ -441,7 +441,7 @@ export class Driver implements DriverInterface {
 
         const now2 = now + NOW_TOLERANCE;
 
-        const sql = `SELECT image, isactive, storagetime FROM universe_nodes WHERE id IN ${ph}
+        const sql = `SELECT image, isonline, storagetime FROM universe_nodes WHERE id IN ${ph}
             AND (expiretime IS NULL OR expiretime > ${now})
             AND creationTime <= ${now2};`;
 
@@ -456,13 +456,13 @@ export class Driver implements DriverInterface {
 
                 const node = Decoder.DecodeNode(row, true);
 
-                // We might need to update the node's dynamic self flag.
-                // If the active flag has been turned off in the table row it means that
-                // the node does no longer have the id2 (dynamic self) active,
+                // We might need to update the node's onlide id validation flag.
+                // If the isonline flag has been turned off in the table row it means that
+                // the node does no longer have the id2 (online id) valid,
                 // so we need to switch it off in the node after deserialising it.
                 //
-                if (!row.isactive && node.isDynamicSelfActive()) {
-                    node.setDynamicSelfActive(false);
+                if (!row.isonline && node.isOnlineIdValidated()) {
+                    node.setOnlineIdValidated(false);
                 }
 
                 node.setTransientStorageTime(row.storagetime);
@@ -985,7 +985,7 @@ export class Driver implements DriverInterface {
      *
      * This function expects to be already within a transaction.
      *
-     * @returns parentIds to be triggered for updates due to id2 nodes becoming inactive.
+     * @returns parentIds to be triggered for updates due to id2 nodes becoming invalid.
      *
      * @throws on error
      */
@@ -1323,7 +1323,7 @@ export class Driver implements DriverInterface {
 
         const params: any[] = [];
 
-        // Keep track of id2 to clear isactive flags for.
+        // Keep track of id2 to clear isonline flags for.
         //
         const id2List: {[id2: string]: Buffer} = {};
 
@@ -1340,8 +1340,8 @@ export class Driver implements DriverInterface {
                 bumpHash = Hash([node.getRefId(), node.getParentId()]);
             }
 
-            if (preserveTransient && node.hasDynamicSelf()) {
-                if (node.isDynamicSelfActive()) {
+            if (preserveTransient && node.hasOnlineId()) {
+                if (node.isOnlineIdValidated()) {
                     const id1 = node.getId1();
                     const id2 = node.getId2();
                     if (id1 && id2) {
@@ -1361,8 +1361,8 @@ export class Driver implements DriverInterface {
                 node.getRegion() ?? null,
                 node.getJurisdiction() ?? null,
                 node.getOwner(),
-                node.isDynamic() ? 1 : 0,
-                preserveTransient && node.isDynamic() && node.isDynamicActive() ? 1 : 0,
+                node.hasOnline() ? 1 : 0,
+                preserveTransient && node.hasOnline() && node.isOnline() ? 1 : 0,
                 node.isPublic() ? 1 : 0,
                 node.isLicensed() ? 1 : 0,
                 node.disallowParentLicensing() ? 1 : 0,
@@ -1383,21 +1383,21 @@ export class Driver implements DriverInterface {
 
         if (preserveTransient) {
             sql = `INSERT INTO universe_nodes
-            (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner, isdynamic,
-            isactive, ispublic, islicensed, disallowparentlicensing, isleaf,
+            (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner, hasonline,
+            isonline, ispublic, islicensed, disallowparentlicensing, isleaf,
             difficulty, sharedhash, transienthash, storagetime, updatetime, trailupdatetime, bumphash, image)
             VALUES ${ph}
             ON CONFLICT (id1) DO UPDATE SET
             transienthash=excluded.transienthash,
             updatetime=excluded.updatetime,
             trailupdatetime=excluded.trailupdatetime,
-            isactive=excluded.isactive,
+            isonline=excluded.isonline,
             image=excluded.image;`
         }
         else {
             sql = `INSERT INTO universe_nodes
-            (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner, isdynamic,
-            isactive, ispublic, islicensed, disallowparentlicensing, isleaf,
+            (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner, hasonline,
+            isonline, ispublic, islicensed, disallowparentlicensing, isleaf,
             difficulty, sharedhash, transienthash, storagetime, updatetime, trailupdatetime, bumphash, image)
             VALUES ${ph}
             ON CONFLICT (id1) DO NOTHING;`
@@ -1410,7 +1410,7 @@ export class Driver implements DriverInterface {
         if (id2s.length > 0) {
             const id1s = Object.values(id2List);
 
-            const parentIds = await this.clearIsActiveId2Nodes(id2s, id1s);
+            const parentIds = await this.clearIsOnlineId2Nodes(id2s, id1s);
 
             return parentIds;
         }
@@ -1419,12 +1419,12 @@ export class Driver implements DriverInterface {
     }
 
     /**
-     * Clear the isactive flag for all nodes who have id2 in the given list but
+     * Clear the isonline flag for all nodes who have id2 in the given list but
      * are not in the given id1 list.
      *
      * The reason id2s and id1s are list is to be able to do many updates in a single UPDATE statement.
      */
-    protected async clearIsActiveId2Nodes(id2s: Buffer[], id1s: Buffer[]): Promise<Buffer[]> {
+    protected async clearIsOnlineId2Nodes(id2s: Buffer[], id1s: Buffer[]): Promise<Buffer[]> {
         // TODO test properly
         //
         const params: Buffer[] = [];
@@ -1437,7 +1437,7 @@ export class Driver implements DriverInterface {
 
         params.push(...id1s);
 
-        const sql = `UPDATE universe_nodes SET isactive=0 WHERE id2 IN ${phId2}
+        const sql = `UPDATE universe_nodes SET isonline=0 WHERE id2 IN ${phId2}
             AND id1 NOT IN ${phId1} RETURNING id1 as parentid;`;
 
         const rows = await this.db.all(sql, params);

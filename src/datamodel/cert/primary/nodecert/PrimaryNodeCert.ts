@@ -119,7 +119,7 @@ export abstract class PrimaryNodeCert extends BaseTopCert implements PrimaryNode
         }
 
         if (this.isLockedOnNetwork()) {
-            values.push(target.network);
+            values.push(target.onlineIdNetwork);
         }
         else {
             values.push(undefined);

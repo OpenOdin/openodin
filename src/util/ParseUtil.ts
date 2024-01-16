@@ -1233,7 +1233,7 @@ export class ParseUtil {
      *  parentId?: hexstring | Buffer,
      *  copiedParentId?: hexstring | Buffer,
      *  config?: number,
-     *  network?: hexstring | Buffer,
+     *  onlineIdNetwork?: hexstring | Buffer,
      *  owner?: hexstring | Buffer,
      *  signature?: hexstring | Buffer,
      *  copiedSignature?: hexstring | Buffer,
@@ -1251,9 +1251,9 @@ export class ParseUtil {
      *  transientConfig?: number,
      *  transientStorageTime?: number,
      *  isLeaf?: boolean,
-     *  hasDynamicSelf?: boolean,
-     *  hasDynamicCert?: boolean,
-     *  hasDynamicEmbedding?: boolean,
+     *  hasOnlineValidation?: boolean,
+     *  hasOnlineCert?: boolean,
+     *  hasOnlineEmbedding?: boolean,
      *  isPublic?: boolean,
      *  isLicensed?: boolean,
      *  isPrivate?: boolean,
@@ -1285,7 +1285,7 @@ export class ParseUtil {
         const parentId = ParseUtil.ParseVariable("parentId must be hex-string or Buffer, if set", params.parentId, "hex",true);
         const copiedParentId = ParseUtil.ParseVariable("copiedParentId must be hex-string or Buffer, if set", params.copiedParentId, "hex",true);
         const config = ParseUtil.ParseVariable("config must be number, if set", params.config, "number", true);
-        const network = ParseUtil.ParseVariable("network must be hex-string or Buffer, if set", params.network, "hex",true);
+        const onlineIdNetwork = ParseUtil.ParseVariable("onlineIdNetwork must be hex-string or Buffer, if set", params.onlineIdNetwork, "hex",true);
         const owner = ParseUtil.ParseVariable("owner must be hex-string or Buffer, if set", params.owner, "hex",true);
         const signature = ParseUtil.ParseVariable("signature must be hex-string or Buffer, if set", params.signature, "hex",true);
         const copiedSignature = ParseUtil.ParseVariable("copiedSignature must be hex-string or Buffer, if set", params.copiedSignature, "hex",true);
@@ -1303,9 +1303,9 @@ export class ParseUtil {
         const transientConfig = ParseUtil.ParseVariable("transientConfig must be number, if set", params.transientConfig, "number", true);
         const transientStorageTime = ParseUtil.ParseVariable("transientStorageTime must be number, if set", params.transientStorageTime, "number", true);
         const isLeaf = ParseUtil.ParseVariable("isLeaf must be boolean, if set", params.isLeaf, "boolean", true);
-        const hasDynamicSelf = ParseUtil.ParseVariable("hasDynamicSelf must be boolean, if set", params.hasDynamicSelf, "boolean", true);
-        const hasDynamicCert = ParseUtil.ParseVariable("hasDynamicCert must be boolean, if set", params.hasDynamicCert, "boolean", true);
-        const hasDynamicEmbedding = ParseUtil.ParseVariable("hasDynamicEmbedding must be boolean, if set", params.hasDynamicEmbedding, "boolean", true);
+        const hasOnlineValidation = ParseUtil.ParseVariable("hasOnlineValidation must be boolean, if set", params.hasOnlineValidation, "boolean", true);
+        const hasOnlineCert = ParseUtil.ParseVariable("hasOnlineCert must be boolean, if set", params.hasOnlineCert, "boolean", true);
+        const hasOnlineEmbedding = ParseUtil.ParseVariable("hasOnlineEmbedding must be boolean, if set", params.hasOnlineEmbedding, "boolean", true);
         const isPublic = ParseUtil.ParseVariable("isPublic must be boolean, if set", params.isPublic, "boolean", true);
         const isLicensed = ParseUtil.ParseVariable("isLicensed must be boolean, if set", params.isLicensed, "boolean", true);
         const isPrivate = ParseUtil.ParseVariable("isPrivate must be boolean, if set", params.isPrivate, "boolean", true);
@@ -1330,7 +1330,7 @@ export class ParseUtil {
             parentId,
             copiedParentId,
             config,
-            network,
+            onlineIdNetwork,
             owner,
             signature,
             copiedSignature,
@@ -1348,10 +1348,10 @@ export class ParseUtil {
             transientConfig,
             transientStorageTime,
             isLeaf,
-            hasDynamicSelf,
-            hasDynamicCert,
-            hasDynamicEmbedding,
             isPublic,
+            hasOnlineValidation,
+            hasOnlineCert,
+            hasOnlineEmbedding,
             isLicensed,
             isPrivate,
             allowEmbed,
@@ -1421,8 +1421,8 @@ export class ParseUtil {
      *  disallowRetroLicensing?: boolean,
      *  isRestrictiveModeWriter?: boolean,
      *  isRestrictiveModeManager?: boolean,
-     *  hasDynamicFriendCert?: boolean,
-     *  isDynamicFriendCertsActive?: boolean,
+     *  hasOnlineFriendCert?: boolean,
+     *  isOnlineFriendCertsOnline?: boolean,
      *  nodeId1?: hexstring | Buffer,  // Overwrites refId if set.
      *  jumpPeerPublicKey?: hexstring | Buffer,
      *  parentPathHash?: hexstring | Buffer,
@@ -1450,8 +1450,8 @@ export class ParseUtil {
         const disallowRetroLicensing = ParseUtil.ParseVariable("disallowRetroLicensing must be boolean, if set", params.disallowRetroLicensing, "boolean", true);
         const isRestrictiveModeWriter = ParseUtil.ParseVariable("isRestrictiveModeWriter must be boolean, if set", params.isRestrictiveModeWriter, "boolean", true);
         const isRestrictiveModeManager = ParseUtil.ParseVariable("isRestrictiveModeManager must be boolean, if set", params.isRestrictiveModeManager, "boolean", true);
-        const hasDynamicFriendCert = ParseUtil.ParseVariable("hasDynamicFriendCert must be boolean, if set", params.hasDynamicFriendCert, "boolean", true);
-        const isDynamicFriendCertsActive = ParseUtil.ParseVariable("isDynamicFriendCertsActive must be boolean, if set", params.isDynamicFriendCertsActive, "boolean", true);
+        const hasOnlineFriendCert = ParseUtil.ParseVariable("hasOnlineFriendCert must be boolean, if set", params.hasOnlineFriendCert, "boolean", true);
+        const isOnlineFriendCertsOnline = ParseUtil.ParseVariable("isOnlineFriendCertsOnline must be boolean, if set", params.isOnlineFriendCertsOnline, "boolean", true);
         const nodeId1 = ParseUtil.ParseVariable("nodeId1 must be hex-string or Buffer, if set", params.nodeId1, "hex", true);
         const jumpPeerPublicKey = ParseUtil.ParseVariable("jumpPeerPublicKey must be hex-string or Buffer, if set", params.jumpPeerPublicKey, "hex", true);
         const parentPathHash = ParseUtil.ParseVariable("parentPathHash must be hex-string or Buffer, if set", params.parentPathHash, "hex", true);
@@ -1471,8 +1471,8 @@ export class ParseUtil {
             disallowRetroLicensing,
             isRestrictiveModeWriter,
             isRestrictiveModeManager,
-            hasDynamicFriendCert,
-            isDynamicFriendCertsActive,
+            hasOnlineFriendCert,
+            isOnlineFriendCertsOnline,
             nodeId1,
             jumpPeerPublicKey,
             parentPathHash,
@@ -1676,9 +1676,8 @@ export class ParseUtil {
      *  maxChainLength?: number,
      *  targetMaxExpireTime?: number,
      *  signature?: hexstring | Buffer,
-     *  dynamicSelfSpec?: hexstring | Buffer,
-     *  hasDynamicSelf?: boolean,
-     *  hasDynamicCert?: boolean,
+     *  hasOnlineValidation?: boolean,
+     *  hasOnlineCert?: boolean,
      *  isIndestructible?: boolean,
      * }
      * @returns BaseCertParams object
@@ -1703,9 +1702,8 @@ export class ParseUtil {
         const maxChainLength = ParseUtil.ParseVariable("maxChainLength must be number, if set", params.maxChainLength, "number", true);
         const targetMaxExpireTime = ParseUtil.ParseVariable("targetMaxExpireTime must be number, if set", params.targetMaxExpireTime, "number", true);
         const signature = ParseUtil.ParseVariable("signature must be hex-string or Buffer, if set", params.signature, "hex", true);
-        const dynamicSelfSpec = ParseUtil.ParseVariable("dynamicSelfSpec must be hex-string or Buffer, if set", params.dynamicSelfSpec, "hex", true);
-        const hasDynamicSelf = ParseUtil.ParseVariable("hasDynamicSelf must be boolean, if set", params.hasDynamicSelf, "boolean", true);
-        const hasDynamicCert = ParseUtil.ParseVariable("hasDynamicCert must be boolean, if set", params.hasDynamicCert, "boolean", true);
+        const hasOnlineValidation = ParseUtil.ParseVariable("hasOnlineValidation must be boolean, if set", params.hasOnlineValidation, "boolean", true);
+        const hasOnlineCert = ParseUtil.ParseVariable("hasOnlineCert must be boolean, if set", params.hasOnlineCert, "boolean", true);
         const isIndestructible = ParseUtil.ParseVariable("isIndestructible must be boolean, if set", params.isIndestructible, "boolean", true);
 
         return {
@@ -1723,9 +1721,8 @@ export class ParseUtil {
             maxChainLength,
             targetMaxExpireTime,
             signature,
-            dynamicSelfSpec,
-            hasDynamicSelf,
-            hasDynamicCert,
+            hasOnlineValidation,
+            hasOnlineCert,
             isIndestructible,
         };
     }

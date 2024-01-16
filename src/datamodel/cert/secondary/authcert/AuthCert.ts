@@ -222,7 +222,7 @@ export class AuthCert extends PrimaryDefaultCert implements AuthCertInterface {
 
         const longFields = ["owner", "targetPublicKeys", "config", "lockedConfig", "creationTimeSeconds",
             "expireTimeSeconds", "constraints", "targetType", "maxChainLength", "targetMaxExpireTimeSeconds",
-            "dynamicSelfSpec", "transientConfig", "multiSigThreshold"];
+            "transientConfig", "multiSigThreshold"];
 
         const fields = short ? shortFields : longFields;
 

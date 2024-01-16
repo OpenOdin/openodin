@@ -78,8 +78,8 @@ type NodeRow = {
     region?: string,
     jurisdiction?: string,
     owner: Buffer,
-    isdynamic: number,
-    isactive: number,
+    hasonline: number,
+    isonline: number,
     transienthash: Buffer,
     sharedhash: Buffer,
     ispublic: number,
@@ -743,7 +743,7 @@ export class QueryProcessor {
                 if (this.reverseFetch === ReverseFetch.OFF) {
                     if (!obj1.bottom && this.fetchQuery.cutoffTime <= Math.max(obj1.trailUpdateTime, obj1.updateTime)) {
                         if (!node.isLeaf() &&
-                            (!node.hasDynamicSelf() || node.isDynamicSelfActive())) {
+                            (!node.hasOnlineId() || node.isOnlineIdValidated())) {
 
                             this.nextLevelIds[(node.getId() as Buffer).toString("hex")] =
                                 node.getId() as Buffer;
@@ -761,8 +761,8 @@ export class QueryProcessor {
                 else if (this.reverseFetch === ReverseFetch.ONLY_LICENSED) {
                     // NOTE: criterias are handled in the SQL-query.
                     //
-                    if (node.usesParentLicense() && !node.hasDynamicSelf() &&
-                        (!node.isDynamic() || node.isDynamicActive())) {
+                    if (node.usesParentLicense() && !node.hasOnlineId() &&
+                        (!node.hasOnline() || node.isOnline())) {
 
                         const parentId = node.getParentId();
 
@@ -906,7 +906,7 @@ export class QueryProcessor {
 
             const secondaryOrdering = this.fetchQuery.orderByStorageTime ? `,creationTime ${ordering}` : "";
 
-            const ignoreInactive = this.fetchQuery.ignoreInactive ? `AND (isdynamic = 0 OR isactive = 1)` : "";
+            const ignoreInactive = this.fetchQuery.ignoreInactive ? `AND (hasonline = 0 OR isonline = 1)` : "";
 
             let ignoreOwn = "";
             if (this.fetchQuery.ignoreOwn) {
@@ -943,7 +943,7 @@ export class QueryProcessor {
             }
 
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
-                owner, isdynamic, isactive, ispublic, difficulty, transienthash, sharedhash, image,
+                owner, hasonline, isonline, ispublic, difficulty, transienthash, sharedhash, image,
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM universe_nodes
                 WHERE parentid IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
@@ -953,7 +953,7 @@ export class QueryProcessor {
         }
         else if (this.reverseFetch === ReverseFetch.ALL_PARENTS) {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
-                owner, isdynamic, isactive, ispublic, difficulty, transienthash, sharedhash, image,
+                owner, hasonline, isonline, ispublic, difficulty, transienthash, sharedhash, image,
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM universe_nodes
                 WHERE id IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
@@ -963,7 +963,7 @@ export class QueryProcessor {
         }
         else if (this.reverseFetch === ReverseFetch.ONLY_LICENSED) {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
-                owner, isdynamic, isactive, ispublic, difficulty, transienthash, sharedhash, image,
+                owner, hasonline, isonline, ispublic, difficulty, transienthash, sharedhash, image,
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM universe_nodes
                 WHERE id IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
@@ -1990,9 +1990,9 @@ export class QueryProcessor {
      * 2. Each parent nodes min/maxLicenseDistance does not matter,
      *    as long as each parent node use parent licenses themselves. It is the first
      *    node given as first argument which decide the maximum distance used.
-     * 3. Parents are not fetched if the parent node to get parents by has dynamicSelf (id2).
+     * 3. Parents are not fetched if the parent node to get parents by has online id (id2).
      *    We do not go past such a node.
-     * 4. A parent is allowed to be dynamic, but it must be active.
+     * 4. A parent is allowed to be validated online, but it must be valid.
      * 5. A parent cannot be configured with disallowParentLicensing.
      *
      * @param node The node to start building the tree from (bottom node).
@@ -2046,8 +2046,8 @@ export class QueryProcessor {
                     break;
                 }
 
-                if (distance > 0 && node.hasDynamicSelf()) {
-                    // We can't step past a parent node who is self dynamic.
+                if (distance > 0 && node.hasOnlineId()) {
+                    // We can't step past a parent node who has online id.
                     continue;
                 }
 
@@ -2084,8 +2084,8 @@ export class QueryProcessor {
                             continue;
                         }
 
-                        if (parentNode.isDynamic() && !parentNode.isDynamicActive()) {
-                            // We can't use a parent node who is inactive.
+                        if (parentNode.hasOnline() && !parentNode.isOnline()) {
+                            // We can't use a parent node who is not online.
                             continue;
                         }
 
@@ -2218,7 +2218,7 @@ export class QueryProcessor {
                     if (index2 > -1) {
                         const node2 = nodes[index2];
                         if ((allNodes[index].getParentId() as Buffer).equals(node2.getParentId() as Buffer)) {
-                            if (!node2.isDynamic() || node2.isDynamicActive()) {
+                            if (!node2.hasOnline() || node2.isOnline()) {
                                 keep[index] = true;
                             }
                         }

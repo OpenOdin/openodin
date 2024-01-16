@@ -142,7 +142,7 @@ export class DataCert extends PrimaryNodeCert implements DataCertInterface {
 
         const longFields = ["owner", "targetPublicKeys", "config", "lockedConfig", "creationTimeSeconds",
             "expireTimeSeconds", "constraints", "targetType", "maxChainLength", "targetMaxExpireTimeSeconds",
-            "dynamicSelfSpec", "transientConfig", "multiSigThreshold"];
+            "transientConfig", "multiSigThreshold"];
 
         const fields = short ? shortFields : longFields;
 

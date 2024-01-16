@@ -254,7 +254,7 @@ export type FetchQuery = {
      */
     orderByStorageTime: boolean,
 
-    /** Set to true to not include inactive dynamic nodes in result. Default is to include inactive nodes in resultset. */
+    /** Set to true to not include not valid online nodes in result. Default is to include not valid nodes in resultset. */
     ignoreInactive: boolean,
 
     /**
@@ -265,8 +265,11 @@ export type FetchQuery = {
     ignoreOwn: boolean,
 
     /**
-     * Set to true to preserve nodes transient values across serialization boundaries. This is useful when a client wants to piggy-back on the peer's knowledge of the dynamic properties of nodes,
-     * such as if it is active/inactive or for CRDT annotations.
+     * Set to true to preserve nodes transient values across serialization boundaries when fetching.
+     *
+     * This is useful when a client wants to piggy-back on the peer's knowledge of the online transient
+     * properties of nodes, such as if it is validate and also for CRDT annotations.
+     *
      * Only use this if trusting the peer, also transient values are not guaranteed to be provided by the peer.
      */
     preserveTransient: boolean,

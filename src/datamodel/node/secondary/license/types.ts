@@ -36,8 +36,8 @@ export type LicenseParams = NodeParams & {
     disallowRetroLicensing?: boolean,
     isRestrictiveModeWriter?: boolean,
     isRestrictiveModeManager?: boolean,
-    hasDynamicFriendCert?: boolean,
-    isDynamicFriendCertsActive?: boolean,
+    hasOnlineFriendCert?: boolean,
+    isOnlineFriendCertsOnline?: boolean,
     nodeId1?: Buffer,  // Overwrites refId if set.
     jumpPeerPublicKey?: Buffer,
     parentPathHash?: Buffer,
@@ -78,14 +78,14 @@ export enum LicenseConfig {
      */
     RESTRICTIVEMODE_MANAGER         = 3,
 
-    /** Must be set if the License embeds any friend certs which are dynamic. */
-    HAS_DYNAMIC_FRIENDCERT          = 4,
+    /** Must be set if the License embeds any friend certs which are online. */
+    HAS_ONLINE_FRIENDCERT          = 4,
 }
 
 /** The License transient config number. */
 export enum LicenseTransientConfig {
     /**
-     * Set to true on nodes who uses dynamic friend certs when those certs are active (transient value not stored).
+     * Set to true on nodes who uses online friend certs when those certs are online.
      */
-    DYNAMIC_FRIENDCERTS_ACTIVE = 0,
+    ONLINE_FRIENDCERTS_ONLINE = 0,
 }

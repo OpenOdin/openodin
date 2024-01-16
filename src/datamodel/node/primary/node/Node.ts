@@ -78,7 +78,7 @@ const FIELDS: Fields = {
         index: 0,
         hash: false,
     },
-    id2: { // The dynamic ID attached to this node. If set then id2 needs to be mapped by the outer environment to "id1".
+    id2: { // The online ID attached to this node. Online validator needs to validate this.
         name: "id2",
         type: FieldType.BYTE32,
         index: 1,
@@ -94,8 +94,8 @@ const FIELDS: Fields = {
         type: FieldType.UINT32BE,
         index: 3,
     },
-    network: {
-        name: "network",
+    onlineIdNetwork: {
+        name: "onlineIdNetwork",
         type: FieldType.BYTES,
         maxSize: 32,
         index: 4,
@@ -247,8 +247,9 @@ const FIELDS: Fields = {
  * Some transient values can be set by the Database on a best effort basis, depending for example if the Database supports a particular CRDT function on fetch requests.
  * Transient values can in some circumstances be serialized and passed between peers, also sometimes get stores to disk.
  *
- * Some notes on "dynamic" values on nodes:
- * A node can have dnamic properties, which are set as active or inactive using transient values.
+ * Some notes on "online" values on nodes:
+ * A node can have online properties, which are set as unkown, valid or revoked using
+ * transient values.
  *
  * General rules for embedding nodes:
  *  A node must have allowEmbed set to be able to be embedded.
@@ -300,168 +301,212 @@ export abstract class Node implements NodeInterface {
     }
 
     /**
-     * Transient value set by Storage layer on object but is not stored.
+     * Set to have the node being validated online.
      *
-     * @param isActive state to be set
+     * @param hasOnlineValidation
      */
-    public setDynamicSelfActive(isActive: boolean = true) {
-        this.setTransientBit(TransientConfig.DYNAMIC_SELF_ACTIVE, isActive);
+    public setHasOnlineValidation(hasOnlineValidation: boolean = true) {
+        this.setConfigBit(NodeConfig.HAS_ONLINE_VALIDATION, hasOnlineValidation);
     }
 
     /**
-     * If true on dynamic nodes with id2 then this node is the current bearer of the ID.
-     * This is a transient value set by an outside actor.
+     * Return true if this node used online validation.
      *
-     * @returns whether or not the node is the current bearer of id2.
+     * @returns true if using online validation.
      */
-    public isDynamicSelfActive(): boolean {
-        return this.isTransientBitSet(TransientConfig.DYNAMIC_SELF_ACTIVE);
+    public hasOnlineValidation(): boolean {
+        return this.isConfigBitSet(NodeConfig.HAS_ONLINE_VALIDATION);
     }
 
     /**
-     * Transient value updated by updateDynamicStatus().
-     *
-     * @param isActive state to be set
+     * @returns true if this node it self or any embedded node or cert is validated online.
      */
-    protected setDynamicCertActive(isActive: boolean = true) {
-        this.setTransientBit(TransientConfig.DYNAMIC_CERT_ACTIVE, isActive);
+    public hasOnline(): boolean {
+        return this.hasOnlineId() || this.hasOnlineValidation() ||
+            this.hasOnlineCert() || this.hasOnlineEmbedding();
     }
 
     /**
-     * If this node uses a dynamic cert and that cert is active then this function returns true 
-     * Transient value updated by updateDynamicStatus().
-     *
-     * @returns whether or not the node has valid dynamic certs.
+     * Check for online features and returns false if any of the fetures are not online.
+     * @returns true if the node is online.
      */
-    public isDynamicCertActive(): boolean {
-        return this.isTransientBitSet(TransientConfig.DYNAMIC_CERT_ACTIVE);
-    }
-
-    /**
-     * Transient value set by Storage layer on object.
-     *
-     * @param isActive state to be set.
-     */
-    public setDynamicEmbeddingActive(isActive: boolean = true) {
-        this.setTransientBit(TransientConfig.DYNAMIC_EMBEDDING_ACTIVE, isActive);
-    }
-
-    /**
-     * If this node uses dynamic cert and that cert is active then this function returns true.
-     * This is a transient value set by the environment.
-     *
-     * @returns whether or not the node has valid dynamic embedded node.
-     */
-    public isDynamicEmbeddingActive(): boolean {
-        return this.isTransientBitSet(TransientConfig.DYNAMIC_EMBEDDING_ACTIVE);
-    }
-
-    /**
-     * Transient value set by Storage layer on object.
-     *
-     * @param isDestroyed state to be set.
-     */
-    public setDynamicDestroyed(isDestroyed: boolean = true) {
-        this.setTransientBit(TransientConfig.DYNAMIC_DESTROYED, isDestroyed);
-    }
-
-    /**
-     * If this node uses dynamic cert or embedded node and any of those object are destroyed
-     * then this function returns true.
-     * This is a transient value set by the environment.
-     *
-     * @returns true if this node is destroyed, either directly or indirectly.
-     */
-    public isDynamicDestroyed(): boolean {
-        return this.isTransientBitSet(TransientConfig.DYNAMIC_DESTROYED);
-    }
-
-    /**
-     * Check for dynamic features and returns false if any of the fetures are not active.
-     * @returns true if the node is active, false if inactive.
-     */
-    public isDynamicActive(): boolean {
-        if (this.isDynamicDestroyed()) {
+    public isOnline(): boolean {
+        if (this.hasOnlineValidation() && !this.isOnlineValidated()) {
             return false;
         }
-        if (this.hasDynamicSelf() && !this.isDynamicSelfActive()) {
+        if (this.hasOnlineCert() && !this.isOnlineCertOnline()) {
             return false;
         }
-        if (this.hasDynamicCert() && !this.isDynamicCertActive()) {
-            return false;
-        }
-        if (this.hasDynamicEmbedding() && !this.isDynamicEmbeddingActive()) {
+        if (this.hasOnlineEmbedding() && !this.isOnlineEmbeddingOnline()) {
             return false;
         }
         return true;
     }
 
     /**
+     * Transient value set by environment.
+     *
+     * @param isValidated state to be set
+     */
+    public setOnlineIdValidated(isValidated: boolean = true) {
+        this.setTransientBit(TransientConfig.ONLINE_ID_VALIDATED, isValidated);
+    }
+
+    /**
+     * If true on online ID nodes with id2 then this node is the current bearer of the ID.
+     * This is a transient value set by the environment.
+     *
+     * @returns true if id is online
+     */
+    public isOnlineIdValidated(): boolean {
+        return this.isTransientBitSet(TransientConfig.ONLINE_ID_VALIDATED);
+    }
+
+    /**
+     * If this node uses an online cert and that cert is valid then this function returns true.
+     *
+     * This is a transient value set by the environment by calling updateOnlineStatus().
+     *
+     * @returns whether or not the node has valid online certs.
+     */
+    public isOnlineCertOnline(): boolean {
+        return this.isTransientBitSet(TransientConfig.ONLINE_CERT_ONLINE);
+    }
+
+    protected setOnlineCertOnline(isOnline: boolean = true) {
+        this.setTransientBit(TransientConfig.ONLINE_CERT_ONLINE, isOnline);
+    }
+
+    /**
+     * If this node uses an online embedding and that embedding is online then this
+     * function returns true.
+     *
+     * This is a transient value set by the environment by calling updateOnlineStatus().
+     *
+     * @returns whether or not the node has valid online embeddings.
+     */
+    public isOnlineEmbeddingOnline(): boolean {
+        return this.isTransientBitSet(TransientConfig.ONLINE_EMBEDDING_ONLINE);
+    }
+
+    protected setOnlineEmbeddingOnline(isOnline: boolean = true) {
+        this.setTransientBit(TransientConfig.ONLINE_EMBEDDING_ONLINE, isOnline);
+    }
+
+    /**
+     * Set the online validation transient bit for this cert.
+     *
+     * The environment is responsible for setting this.
+     *
+     * @param onlineValidated state to be set
+     */
+    public setOnlineValidated(onlineValidated: boolean = true) {
+        this.setTransientBit(TransientConfig.ONLINE_VALIDATED, onlineValidated);
+    }
+
+    /**
+     * Check if transient online validated bit is set, unless the revoked bit is set.
+     *
+     * The environment is responsible for setting this.
+     *
+     * @returns true if this node has been validated online (and not revoked online).
+     */
+    public isOnlineValidated(): boolean {
+        if (this.isOnlineRevoked()) {
+            return false;
+        }
+
+        return this.isTransientBitSet(TransientConfig.ONLINE_VALIDATED);
+    }
+
+    /**
+     * Set the online revoked transient bit for this node.
+     *
+     * The environment is responsible for setting this.
+     *
+     * @param onlineRevoked state to be set
+     */
+    public setOnlineRevoked(onlineRevoked: boolean = true) {
+        this.setTransientBit(TransientConfig.ONLINE_REVOKED, onlineRevoked);
+    }
+
+    /**
+     * Check if transient online revoked bit is set.
+     *
+     * The environment is responsible for setting this.
+     *
+     * @returns true if this node has been revoked online.
+     */
+    public isOnlineRevoked(): boolean {
+        return this.isTransientBitSet(TransientConfig.ONLINE_REVOKED);
+    }
+
+    /**
      * Check if the node is using any transient properties.
      *
-     * Currently this checks if the node isDynamic, but possibly
+     * Currently this checks if the node is validated online, but possibly
      * other transient properties can be added later on.
      *
      * @returns true if the node uses and transient properties.
      */
     public hasTransient(): boolean {
-        return this.isDynamic();
+        return this.hasOnline();
     }
 
     /**
-     * Recursively check this nodes all dynamic cert and embedded nodes to update its active status.
-     * This is done to figure out this nodes active status, and can only be done if all its embedded
-     * nodes and certs have have had their dynamic statuses set by the outside environment.
+     * Recursively check this nodes all online cert and embedded nodes to update its online status.
+     * This is done to figure out this nodes online status, and can only be done if all its embedded
+     * nodes and certs have have had their online statuses set by the outside environment.
      * Note that when exported a nodes certs and embedded nodes never get exported with their
      * transient properties preserved.
      */
-    public updateDynamicStatus() {
-        if (this.hasDynamicCert()) {
+    public updateOnlineStatus() {
+        if (this.hasOnlineCert()) {
             const cert = this.getCertObject();
-            cert.updateDynamicStatus();
+            cert.updateOnlineStatus();
 
-            if (cert.isDynamicDestroyed()) {
+            if (cert.isOnlineRevoked()) {
                 // Non reversible set
-                this.setDynamicDestroyed();  // This is also destroyed.
-                this.setDynamicCertActive(false);
+                this.setOnlineRevoked();  // Also revoke this node.
+                this.setOnlineCertOnline(false);
             }
             else {
-                const status = cert.isDynamicActive();
-                this.setDynamicCertActive(status);
+                const status = cert.isOnline();
+                this.setOnlineCertOnline(status);
             }
         }
-        if (this.hasDynamicEmbedding()) {
+        if (this.hasOnlineEmbedding()) {
             const embedded = this.getEmbeddedObject();
-            embedded.updateDynamicStatus();
+            embedded.updateOnlineStatus();
 
-            if (embedded.isDynamicDestroyed()) {
-                this.setDynamicDestroyed();  // This is also destroyed.
-                this.setDynamicEmbeddingActive(false);
+            if (embedded.isOnlineRevoked()) {
+                this.setOnlineRevoked();  // Also revoke this node.
+                this.setOnlineEmbeddingOnline(false);
             }
             else {
-                const status = embedded.isDynamicActive();
-                this.setDynamicEmbeddingActive(status);
+                const status = embedded.isOnline();
+                this.setOnlineEmbeddingOnline(status);
             }
         }
     }
 
     /**
-     * Extract all dynamic objects in this node, recursively.
-     * This is used by the environment to assess if this node is active/inactive/destroyed.
-     * @returns list of dynamic objects.
+     * Extract all online objects in this node, recursively.
+     * This is used by the environment to assess if this node is unknown, validated or revoked.
+     * @returns list of online objects.
      */
-    public extractDynamicObjects(): DataModelInterface[] {
+    public extractOnlineObjects(): DataModelInterface[] {
         const objects: DataModelInterface[] = [];
-        if (this.hasDynamicSelf()) {
+        if (this.hasOnlineValidation()) {
             objects.push(this);
         }
-        if (this.hasDynamicCert()) {
+        if (this.hasOnlineCert()) {
             const cert = this.getCertObject();
-            objects.push(...cert.extractDynamicObjects());
+            objects.push(...cert.extractOnlineObjects());
         }
-        if (this.hasDynamicEmbedding()) {
+        if (this.hasOnlineEmbedding()) {
             const embedded = this.getEmbeddedObject();
-            objects.push(...embedded.extractDynamicObjects());
+            objects.push(...embedded.extractOnlineObjects());
         }
         return objects;
     }
@@ -576,8 +621,7 @@ export abstract class Node implements NodeInterface {
      * - Work is invalid;
      * - Embedding validation fails verification;
      * - Incompatible permissions configuration or mismatch, such as private and public at the same time;
-     * - Dynamic ID node has no id2 or network set;
-     * - Dynamic Cert node has no cert set;
+     * - Online ID node has no id2 or onlineIdNetwork set;
      */
     public validate(deepValidate: number = 1, timeMS?: number): [boolean, string] {
         // Export the data to have the model check for issues
@@ -676,15 +720,15 @@ export abstract class Node implements NodeInterface {
             return [false, `Node cannot be licensed and public at the same time`];
         }
 
-        if (this.hasDynamicCert()) {
+        if (this.hasOnlineCert()) {
             if (!this.hasCert()) {
-                return [false, `A dynamic Cert node must have cert set`];
+                return [false, `An online Cert node must have cert set`];
             }
         }
 
-        if (this.hasDynamicEmbedding()) {
+        if (this.hasOnlineEmbedding()) {
             if (!this.hasEmbedded()) {
-                return [false, `A dynamic embedding node must have embedded set`];
+                return [false, `An online embedding node must have embedded set`];
             }
         }
 
@@ -694,20 +738,20 @@ export abstract class Node implements NodeInterface {
             }
         }
 
+        if (this.isCopy() && !this.getId2()) {
+            return [false, `A copy node must have id2 set`];
+        }
+
         if (this.getId2()) {
-            if (!this.isCopy() && !this.hasDynamicSelf()) {
-                return [false, `A node having id2 set must be a copy or must be flagged as hasDynamicSelf`];
+            if (!this.isCopy() && !this.hasOnlineId()) {
+                return [false, `A node having id2 set must be a copy or must have its onlineIdNetwork set`];
             }
         }
 
-        // Check dynamic ID node
-        if (this.hasDynamicSelf()) {
-            if (!this.getId2()) {
-                return [false, `A dynamic ID node must have id2 set`];
-            }
-            if (this.getNetwork() === undefined) {
-                return [false, `A dynamic ID node must have network set`];
-            }
+        // Check online ID node.
+        //
+        if (this.hasOnlineId() && !this.getId2()) {
+            return [false, `A node using onlineId must have its id2 set`];
         }
 
         if (this.isLeaf() && (this.isBeginRestrictiveWriteMode() || this.isEndRestrictiveWriteMode())) {
@@ -782,8 +826,8 @@ export abstract class Node implements NodeInterface {
                     return [false, "Cert type is not accepted by node"];
                 }
 
-                if (certObject.isDynamic() !== this.hasDynamicCert()) {
-                    return [false, "Node dynamic cert flag must match cert's dynamic flag"];
+                if (certObject.hasOnline() !== this.hasOnlineCert()) {
+                    return [false, "Node hasOnlineCert flag must match cert's online flag"];
                 }
 
                 if (timeMS !== undefined) {
@@ -868,8 +912,8 @@ export abstract class Node implements NodeInterface {
             }
         }
 
-        if (this.hasDynamicEmbedding() !== embedded.isDynamic()) {
-            return [false, "Node and embedded datamodel do not match on their dynamic flags. hasDynamicEmbedding of node must match isDynamic of embedded datamodel"];
+        if (embedded.hasOnline() !== this.hasOnlineEmbedding()) {
+            return [false, "Node and embedded datamodel do not match on their online flags."];
         }
 
         return [true, ""];
@@ -1020,11 +1064,11 @@ export abstract class Node implements NodeInterface {
      **/
     public calcId2(): Buffer {
         const owner = this.getOwner();
-        const network = this.getNetwork();
-        if (owner === undefined || network === undefined) {
-            throw new Error("Owner and network must be set when calculating id2");
+        const onlineIdNetwork = this.getOnlineIdNetwork();
+        if (owner === undefined || onlineIdNetwork === undefined) {
+            throw new Error("Owner and onlineIdNetwork must be set when calculating id2");
         }
-        return Hash([this.hash1(), owner, network]);
+        return Hash([this.hash1(), owner, onlineIdNetwork]);
     }
 
     /**
@@ -1188,7 +1232,7 @@ export abstract class Node implements NodeInterface {
     }
 
     /**
-     * @returns the dynamic node identifier id2.
+     * @returns the online or copied node identifier id2.
      */
     public getId2(): Buffer | undefined {
         return this.model.getBuffer("id2");
@@ -1196,10 +1240,11 @@ export abstract class Node implements NodeInterface {
 
     /**
      * Set the id2 of the node.
-     * The node has to be activated from the outside.
+     * If online node the node has to be validated from the outside.
+     * If a copy node this is the getId() of the original node.
      *
-     * @param id2 the dynamic node ID, if set to empty buffer then
-     * it will set the calcId2 value of the node, so the node is the original id2 node.
+     * @param id2 the copy node id or the online node ID. If set to empty buffer
+     * for an online ID node this will be automatically set to calcId2() result.
      */
     public setId2(id2: Buffer | undefined) {
         if (id2 && id2.length === 0) {
@@ -1269,19 +1314,19 @@ export abstract class Node implements NodeInterface {
     }
 
     /**
-     * Mark this node has having a dynamic certificate.
-     * @param isDynamic
+     * Mark this node has having an online certificate.
+     * @param isOnline
      */
-    public setHasDynamicCert(isDynamic: boolean = true) {
-        this.setConfigBit(NodeConfig.HAS_DYNAMIC_CERT, isDynamic);
+    public setHasOnlineCert(isOnline: boolean = true) {
+        this.setConfigBit(NodeConfig.HAS_ONLINE_CERT, isOnline);
     }
 
     /**
-     * Check if this node is marked as having dynamic cert.
-     * @returns true if node uses dynamic cert.
+     * Check if this node is marked as having online cert.
+     * @returns true if node uses online cert.
      */
-    public hasDynamicCert(): boolean {
-        return this.isConfigBitSet(NodeConfig.HAS_DYNAMIC_CERT);
+    public hasOnlineCert(): boolean {
+        return this.isConfigBitSet(NodeConfig.HAS_ONLINE_CERT);
     }
 
     /**
@@ -1297,7 +1342,6 @@ export abstract class Node implements NodeInterface {
 
     /**
      * Check if this node is marked as being indestructible by offline destruction nodes.
-     * Note that this is separate from the dynamic (online) node destroy property.
      * @returns true if node is indestructible.
      */
     public isIndestructible(): boolean {
@@ -1306,51 +1350,25 @@ export abstract class Node implements NodeInterface {
 
 
     /**
-     * Mark this node as having a dynamic node embedded.
-     * @param isDynamic
+     * Mark this node as having a online node embedded.
+     * @param isOnline
     */
-    public setHasDynamicEmbedding(isDynamic: boolean = true) {
-        this.setConfigBit(NodeConfig.HAS_DYNAMIC_EMBEDDING, isDynamic);
+    public setHasOnlineEmbedding(isOnline: boolean = true) {
+        this.setConfigBit(NodeConfig.HAS_ONLINE_EMBEDDING, isOnline);
     }
 
-    public hasDynamicEmbedding(): boolean {
-        return this.isConfigBitSet(NodeConfig.HAS_DYNAMIC_EMBEDDING);
+    public hasOnlineEmbedding(): boolean {
+        return this.isConfigBitSet(NodeConfig.HAS_ONLINE_EMBEDDING);
     }
 
     /**
-     * A node which has an id2 must be marked as dynamic self.
+     * Check if this online ID node is the original node who created
+     * the the id2 in the first place.
      *
-     * @param isDynamic
-     */
-    public setHasDynamicSelf(isDynamic: boolean = true) {
-        this.setConfigBit(NodeConfig.HAS_DYNAMIC_SELF, isDynamic);
-    }
-
-    /**
-     * Return true if this nodes leverages dynamic ID id2.
-     *
-     * @returns the dynamic node identifier state
-     */
-    public hasDynamicSelf(): boolean {
-        return this.isConfigBitSet(NodeConfig.HAS_DYNAMIC_SELF);
-    }
-
-    /**
-     * @returns true if node leverages either dynamic IDs, dynamic certs or dynamic embeddings.
-     */
-    public isDynamic(): boolean {
-        if (this.hasDynamicSelf() || this.hasDynamicCert() || this.hasDynamicEmbedding()) {
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Check if this dynamic ID node is the original node creating the id2.
      * @returns true if original node
      */
     public isId2Original(): boolean {
-        return this.hasDynamicSelf() && Boolean(this.getId2()?.equals(this.calcId2()));
+        return Boolean(this.hasOnlineId() && this.getId2()?.equals(this.calcId2()));
     }
 
     /**
@@ -1566,18 +1584,22 @@ export abstract class Node implements NodeInterface {
     }
 
     /**
-     * A node having id2 needs a network for mapping id2 to id1.
-     * @param network
+     * A node having id2 needs a onlineIdNetwork for mapping id2 to id1.
+     * @param onlineIdNetwork
      */
-    public setNetwork(network: Buffer | undefined) {
-        this.model.setBuffer("network", network);
+    public setOnlineIdNetwork(onlineIdNetwork: Buffer | undefined) {
+        this.model.setBuffer("onlineIdNetwork", onlineIdNetwork);
     }
 
     /**
-     * @returns network
+     * @returns onlineIdNetwork
      */
-    public getNetwork(): Buffer | undefined {
-        return this.model.getBuffer("network");
+    public getOnlineIdNetwork(): Buffer | undefined {
+        return this.model.getBuffer("onlineIdNetwork");
+    }
+
+    public hasOnlineId(): boolean {
+        return this.getOnlineIdNetwork() !== undefined;
     }
 
     /**
@@ -2177,27 +2199,32 @@ export abstract class Node implements NodeInterface {
      *
      * All other parameters of the node (other than the parentId) must stay the same.
      *
-     * A copied node with only an id1 (not an id2) will have its id1 set as id2 of the copy.
-     * A copied node who has an id2 set (dynamic self) will have its id2 set as the id2 of the copy.
+     * A copied (original) node with only an id1 set will have its id1 set as id2 of the copy,
+     * effectively giving the new node the id of the original node.
      *
-     * The copy node will store some original properties which are used to restore
+     * A copied node who has an id2 set (online Id) will instead have its id2 set as the id2
+     * of the copy.
+     *
+     * The copy node (new node) will store some original properties which are used to restore
      * and verify the original node. This is important as it is part of verifying
-     * that the copy node is a allowed copy of the original node.
+     * that the copy node is a allowed to be a copy of the original node.
      *
-     * A duplicate node will have its id2 set to the copied nodes id.
-     * A duplicate node can set its parentId to anything.
-     * A duplicate node will get its own id1 and its own signature.
+     * In general:
+     * A new copy node will have its id2 set to the copied node's id (id2 || id1).
+     * A new copy node can set its parentId to anything.
+     * A new copy node will get its own unique id1 and its own signature.
      *
      * A copy node has all properties exactly the same as the original, except:
      * - copiedSignature is set to original signature.
-     * - copiedParentId is set to the original parentId if parentId changed in copy.
-     * - copiedId is set to the original id1 IF the original has an id2 set.
+     * - copiedParentId is set to the original parentId if parentId changed in the copy.
+     * - copiedId is set to the original id1 IF the original node also has an id2 set.
      *
      * Using these saved properties the verificiation procedure can verify
-     * that the copy is a copy of the original node with the id1 we are referencing.
+     * that the copy is a copy of the original node with the id we are referencing
+     * as our id2.
      *
-     * The original node is exported then loaded into a new object, finally its
-     * properties are modified to become a copy.
+     * This suger function will export the original node, load it into a new object
+     * then modify its parameters so it becomes a copy.
      *
      * @param parentId optionally set this to set a new parentId for the copy.
      * If setting this later then set copiedParentId to the orignal parentId.
@@ -2504,8 +2531,8 @@ export abstract class Node implements NodeInterface {
         if (params.config !== undefined) {
             this.setConfig(params.config);
         }
-        if (params.network !== undefined) {
-            this.setNetwork(params.network);
+        if (params.onlineIdNetwork !== undefined) {
+            this.setOnlineIdNetwork(params.onlineIdNetwork);
         }
         if (params.owner !== undefined) {
             this.setOwner(params.owner);
@@ -2552,14 +2579,14 @@ export abstract class Node implements NodeInterface {
         if (params.licenseMaxDistance !== undefined) {
             this.setLicenseMaxDistance(params.licenseMaxDistance);
         }
-        if (params.hasDynamicSelf !== undefined) {
-            this.setHasDynamicSelf(params.hasDynamicSelf);
+        if (params.hasOnlineValidation !== undefined) {
+            this.setHasOnlineValidation(params.hasOnlineValidation);
         }
-        if (params.hasDynamicCert !== undefined) {
-            this.setHasDynamicCert(params.hasDynamicCert);
+        if (params.hasOnlineCert !== undefined) {
+            this.setHasOnlineCert(params.hasOnlineCert);
         }
-        if (params.hasDynamicEmbedding !== undefined) {
-            this.setHasDynamicEmbedding(params.hasDynamicEmbedding);
+        if (params.hasOnlineEmbedding !== undefined) {
+            this.setHasOnlineEmbedding(params.hasOnlineEmbedding);
         }
         if (params.transientConfig !== undefined) {
             this.setTransientConfig(params.transientConfig);
@@ -2624,17 +2651,20 @@ export abstract class Node implements NodeInterface {
         if (params.bubbleTrigger !== undefined) {
             this.setBubbleTrigger(params.bubbleTrigger);
         }
-        if (params.isDynamicSelfActive !== undefined) {
-            this.setDynamicSelfActive(params.isDynamicSelfActive);
+        if (params.isOnlineIdValidated !== undefined) {
+            this.setOnlineIdValidated(params.isOnlineIdValidated);
         }
-        if (params.isDynamicCertActive !== undefined) {
-            this.setDynamicCertActive(params.isDynamicCertActive);
+        if (params.isOnlineValidated !== undefined) {
+            this.setOnlineValidated(params.isOnlineValidated);
         }
-        if (params.isDynamicEmbeddingActive !== undefined) {
-            this.setDynamicEmbeddingActive(params.isDynamicEmbeddingActive);
+        if (params.isOnlineRevoked !== undefined) {
+            this.setOnlineRevoked(params.isOnlineRevoked);
         }
-        if (params.isDynamicDestroyed !== undefined) {
-            this.setDynamicDestroyed(params.isDynamicDestroyed);
+        if (params.isOnlineCertOnline !== undefined) {
+            this.setOnlineCertOnline(params.isOnlineCertOnline);
+        }
+        if (params.isOnlineEmbeddingOnline !== undefined) {
+            this.setOnlineEmbeddingOnline(params.isOnlineEmbeddingOnline);
         }
     }
 
@@ -2647,7 +2677,7 @@ export abstract class Node implements NodeInterface {
         const id2 = this.getId2();
         const parentId = this.getParentId();
         const config = this.getConfig();
-        const network = this.getNetwork();
+        const onlineIdNetwork = this.getOnlineIdNetwork();
         const owner = this.getOwner();
         const signature = this.getSignature();
         const signingPublicKeys = this.getSignatures().map( signature => signature.publicKey );
@@ -2666,9 +2696,9 @@ export abstract class Node implements NodeInterface {
         const transientConfig = this.getTransientConfig();
         const transientStorageTime = this.getTransientStorageTime();
         const isLeaf = this.isLeaf();
-        const hasDynamicSelf = this.hasDynamicSelf();
-        const hasDynamicCert = this.hasDynamicCert();
-        const hasDynamicEmbedding = this.hasDynamicEmbedding();
+        const hasOnlineValidation = this.hasOnlineValidation();
+        const hasOnlineCert = this.hasOnlineCert();
+        const hasOnlineEmbedding = this.hasOnlineEmbedding();
         const isPublic = this.isPublic();
         const isLicensed = this.isLicensed();
         const hasRightsByAssociation = this.hasRightsByAssociation();
@@ -2680,13 +2710,14 @@ export abstract class Node implements NodeInterface {
         const isIndestructible = this.isIndestructible();
         const region = this.getRegion();
         const jurisdiction = this.getJurisdiction();
-        const isDynamicSelfActive = this.isDynamicSelfActive();
-        const isDynamicCertActive = this.isDynamicCertActive();
-        const isDynamicEmbeddingActive = this.isDynamicEmbeddingActive();
-        const isDynamicDestroyed = this.isDynamicDestroyed();
         const disallowParentLicensing = this.disallowParentLicensing();
         const onlyOwnChildren = this.onlyOwnChildren();
         const disallowPublicChildren = this.disallowPublicChildren();
+        const isOnlineIdValidated = this.isOnlineIdValidated();
+        const isOnlineCertOnline = this.isOnlineCertOnline();
+        const isOnlineEmbeddingOnline = this.isOnlineEmbeddingOnline();
+        const isOnlineValidated = this.isOnlineValidated();
+        const isOnlineRevoked = this.isOnlineRevoked();
 
         const isPrivate = !isLicensed && !isPublic;
 
@@ -2696,7 +2727,7 @@ export abstract class Node implements NodeInterface {
             id2,
             parentId,
             config,
-            network,
+            onlineIdNetwork,
             owner,
             signature,
             signingPublicKeys,
@@ -2715,9 +2746,9 @@ export abstract class Node implements NodeInterface {
             transientConfig,
             transientStorageTime,
             isLeaf,
-            hasDynamicSelf,
-            hasDynamicCert,
-            hasDynamicEmbedding,
+            hasOnlineValidation,
+            hasOnlineCert,
+            hasOnlineEmbedding,
             isPublic,
             isLicensed,
             isPrivate,
@@ -2733,10 +2764,11 @@ export abstract class Node implements NodeInterface {
             disallowParentLicensing,
             onlyOwnChildren,
             disallowPublicChildren,
-            isDynamicSelfActive,
-            isDynamicCertActive,
-            isDynamicEmbeddingActive,
-            isDynamicDestroyed,
+            isOnlineIdValidated,
+            isOnlineCertOnline,
+            isOnlineEmbeddingOnline,
+            isOnlineValidated,
+            isOnlineRevoked,
         };
     }
 }

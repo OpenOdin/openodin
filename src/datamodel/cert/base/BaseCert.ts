@@ -132,7 +132,7 @@ const FIELDS: Fields = {
         name: "cert",
         type: FieldType.BYTES,
         index: 6,
-        maxSize: 1932,  // TODO: FIXME: 0.9.0.
+        maxSize: 1066,
     },
 
     /**
@@ -201,18 +201,7 @@ const FIELDS: Fields = {
         index: 11,
     },
 
-    /**
-     * For certificates who are self dynamic and need to be checked externally if active this
-     * is the specification of what the external connection is.
-     */
-    dynamicSelfSpec: {
-        name: "dynamicSelfSpec",
-        type: FieldType.BYTES,
-        maxSize: 128,
-        index: 12,
-    },
-
-    /** Transient values to keep track of dynamic properties. */
+    /** Transient values to keep track of online properties. */
     transientConfig: {
         name: "transientConfig",
         type: FieldType.UINT16BE,
@@ -390,18 +379,6 @@ export abstract class BaseCert implements BaseCertInterface {
             return [false, `Could not validate: ${(e as Error).message}`];
         }
 
-        if (this.hasDynamicSelf()) {
-            if (!this.getDynamicSelfSpec()) {
-                return [false, "For self dynamic certs the dynamicSelfSpec must be set"];
-            }
-        }
-
-        if (this.getDynamicSelfSpec()) {
-            if (!this.hasDynamicSelf()) {
-                return [false, "dynamicSelfSpec must only be set if the cert is set to self dynamic"];
-            }
-        }
-
         if (deepValidate > 0) {
             if (!this.hasCert()) {
                 if (deepValidate === 1) {
@@ -447,10 +424,11 @@ export abstract class BaseCert implements BaseCertInterface {
                     return [false, "Cert does not accept the embedded cert's type"];
                 }
 
-                // Check so dynamic status matches
-                if (!this.hasDynamicCert()) {
-                    if (cert.isDynamic()) {
-                        return [false, "When an embedded cert is flagged as dynamic the cert is required to have the hasDynamicCert flag set"];
+                // Check so online configurations match.
+                //
+                if (!this.hasOnlineCert()) {
+                    if (cert.hasOnline()) {
+                        return [false, "When an embedded cert is flagged as online the cert is required to have its hasOnlineCert flag set"];
                     }
                 }
 
@@ -784,41 +762,39 @@ export abstract class BaseCert implements BaseCertInterface {
     }
 
     /**
-     * Set for a cert which is dynamic in it self.
+     * Set to have the cert being validated online.
      *
-     * @param isDynamic
+     * @param hasOnlineValidation
      */
-    public setHasDynamicSelf(isDynamic: boolean = true) {
-        this.setConfigBit(BaseCertConfig.HAS_DYNAMIC_SELF, isDynamic);
+    public setHasOnlineValidation(hasOnlineValidation: boolean = true) {
+        this.setConfigBit(BaseCertConfig.HAS_ONLINE_VALIDATION, hasOnlineValidation);
     }
 
     /**
-     * Return true if this cert is dynamic in it self.
-     * This means that this actual cert has dynamic properties which need
-     * to be validated externally (online) for the cert to be valid.
+     * Return true if this cert used online validation.
      *
-     * @returns the dynamic node identifier state
+     * @returns true if using online validation.
      */
-    public hasDynamicSelf(): boolean {
-        return this.isConfigBitSet(BaseCertConfig.HAS_DYNAMIC_SELF);
+    public hasOnlineValidation(): boolean {
+        return this.isConfigBitSet(BaseCertConfig.HAS_ONLINE_VALIDATION);
     }
 
     /**
-     * If this cert is embedding any dynamic cert then this property must be set to true.
-     * @param hasDynamicCert
+     * If this cert is embedding any online cert then this property must be set to true.
+     * @param hasOnlineCert
      */
-    public setHasDynamicCert(hasDynamicCert: boolean = true) {
-        this.setConfigBit(BaseCertConfig.HAS_DYNAMIC_CERT, hasDynamicCert);
+    public setHasOnlineCert(hasOnlineCert: boolean = true) {
+        this.setConfigBit(BaseCertConfig.HAS_ONLINE_CERT, hasOnlineCert);
     }
 
     /**
-     * Returns true if this cert is set to having embedded any dynamic cert
+     * Returns true if this cert is set to having embedded any online cert
      * (could be anywhere in the stack).
      *
-     * @returns true if cert uses any dynamic cert.
+     * @returns true if cert uses any online cert.
      */
-    public hasDynamicCert(): boolean {
-        return this.isConfigBitSet(BaseCertConfig.HAS_DYNAMIC_CERT);
+    public hasOnlineCert(): boolean {
+        return this.isConfigBitSet(BaseCertConfig.HAS_ONLINE_CERT);
     }
 
     /**
@@ -832,7 +808,6 @@ export abstract class BaseCert implements BaseCertInterface {
 
     /**
      * Check if this cert is marked as being indestructible by offline destruction nodes.
-     * Note that this is separate from the dynamic (online) node destroy property.
      * An indestructible cert might still be destructed if any embedded cert is destroyed.
      * @returns true if cert is flagged as indestructible.
      */
@@ -841,114 +816,121 @@ export abstract class BaseCert implements BaseCertInterface {
     }
 
     /**
-     * @returns true if this cert it self or any embedded cert is dynamic.
+     * @returns true if this cert it self or any embedded cert is validated online.
      */
-    public isDynamic(): boolean {
-        return this.hasDynamicSelf() || this.hasDynamicCert();
+    public hasOnline(): boolean {
+        return this.hasOnlineValidation() || this.hasOnlineCert();
     }
 
+
     /**
-     * Check for dynamic features and returns false if any of the fetures are not active.
-     * @returns true if the cert is active, false if inactive.
+     * Check for online features and returns false if any of the fetures are not online.
+     * @returns true if the cert is online.
      */
-    public isDynamicActive(): boolean {
-        if (this.isDynamicDestroyed()) {
+    public isOnline(): boolean {
+        if (this.hasOnlineValidation() && !this.isOnlineValidated()) {
             return false;
         }
-        if (this.hasDynamicSelf() && !this.isDynamicSelfActive()) {
-            return false;
-        }
-        if (this.hasDynamicCert() && !this.isDynamicCertActive()) {
+        if (this.hasOnlineCert() && !this.isOnlineCertOnline()) {
             return false;
         }
         return true;
     }
 
     /**
-     * If this cert uses a dynamic cert and that cert is active then this function returns true 
-     * This is a transient value set by the environment.
+     * If this cert uses an online cert and that cert is valid then this function returns true.
      *
-     * @returns whether or not the node has valid dynamic certs.
+     * This is a transient value set by the environment by calling updateOnlineStatus().
+     *
+     * @returns whether or not the cert has valid online certs.
      */
-    public isDynamicCertActive(): boolean {
-        return this.isTransientBitSet(BaseCertTransientConfig.DYNAMIC_CERT_ACTIVE);
+    public isOnlineCertOnline(): boolean {
+        return this.isTransientBitSet(BaseCertTransientConfig.ONLINE_CERT_ONLINE);
     }
 
-    protected setDynamicCertActive(isActive: boolean = true) {
-        this.setTransientBit(BaseCertTransientConfig.DYNAMIC_CERT_ACTIVE, isActive);
+    protected setOnlineCertOnline(isOnline: boolean = true) {
+        this.setTransientBit(BaseCertTransientConfig.ONLINE_CERT_ONLINE, isOnline);
     }
 
-    public updateDynamicStatus() {
-        if (this.hasDynamicCert()) {
+    public updateOnlineStatus() {
+        if (this.hasOnlineCert()) {
             const cert = this.getCertObject();
-            cert.updateDynamicStatus();
+            cert.updateOnlineStatus();
 
-            if (cert.isDynamicDestroyed()) {
+            if (cert.isOnlineRevoked()) {
                 // Non reversibly set.
-                this.setDynamicDestroyed();  // This is also destroyed.
-                this.setDynamicCertActive(false);
+                this.setOnlineRevoked();  // Revoke this cert if embedded cert is revoked.
+                this.setOnlineCertOnline(false);
             }
             else {
-                const status = cert.isDynamicActive();
-                this.setDynamicCertActive(status);
+                const status = cert.isOnline();
+                this.setOnlineCertOnline(status);
             }
         }
     }
 
     /**
-     * Set the self active transient bit for this cert.
+     * Set the online validation transient bit for this cert.
+     *
      * The environment is responsible for setting this.
      *
-     * @param isActive state to be set
+     * @param onlineValidated state to be set
      */
-    public setDynamicSelfActive(isActive: boolean = true) {
-        this.setTransientBit(BaseCertTransientConfig.DYNAMIC_SELF_ACTIVE, isActive);
+    public setOnlineValidated(onlineValidated: boolean = true) {
+        this.setTransientBit(BaseCertTransientConfig.ONLINE_VALIDATED, onlineValidated);
     }
 
     /**
-     * Check if transient self active bit is set.
-     * This bit is set by the outside which is responsible for looking up the external
-     * active status of this cert.
+     * Check if transient online validated bit is set, unless the revoked bit is set.
      *
-     * @returns whether or not this cert is active.
-     */
-    public isDynamicSelfActive(): boolean {
-        return this.isTransientBitSet(BaseCertTransientConfig.DYNAMIC_SELF_ACTIVE);
-    }
-
-    /**
-     * Transient value set by (or inherited from) environment when the cert is destroyed by the outside.
+     * The environment is responsible for setting this.
      *
-     * @param isDestroyed state to be set
+     * @returns true if this cert has been validated online (and not revoked online).
      */
-    public setDynamicDestroyed(isDestroyed: boolean = true) {
-        this.setTransientBit(BaseCertTransientConfig.DYNAMIC_DESTROYED, isDestroyed);
+    public isOnlineValidated(): boolean {
+        if (this.isOnlineRevoked()) {
+            return false;
+        }
+
+        return this.isTransientBitSet(BaseCertTransientConfig.ONLINE_VALIDATED);
     }
 
     /**
-     * If this cert or any embedded sign cert is destroyed then return true.
-     * This is a transient value set by the environment or inherited when running updateDynamicStatus.
+     * Set the online revoked transient bit for this cert.
      *
-     * @returns whether or not this cert is destroyed.
+     * The environment is responsible for setting this.
+     *
+     * @param onlineRevoked state to be set
      */
-    public isDynamicDestroyed(): boolean {
-        return this.isTransientBitSet(BaseCertTransientConfig.DYNAMIC_DESTROYED);
+    public setOnlineRevoked(onlineRevoked: boolean = true) {
+        this.setTransientBit(BaseCertTransientConfig.ONLINE_REVOKED, onlineRevoked);
     }
 
     /**
-     * Extract all dynamic objects in this cert, recursively.
-     * This is used by the environment to assess if this cert is active/inactive/destroyed.
-     * @returns list of dynamic objects.
+     * Check if transient online revoked bit is set.
+     *
+     * The environment is responsible for setting this.
+     *
+     * @returns true if this cert has been revoked online.
      */
-    public extractDynamicObjects(): DataModelInterface[] {
+    public isOnlineRevoked(): boolean {
+        return this.isTransientBitSet(BaseCertTransientConfig.ONLINE_REVOKED);
+    }
+
+    /**
+     * Extract all online objects in this cert, recursively.
+     * This is used by the environment to assess if this cert is valid/revoked.
+     * @returns list of online objects.
+     */
+    public extractOnlineObjects(): DataModelInterface[] {
         const objects: DataModelInterface[] = [];
-        if (this.hasDynamicSelf()) {
+        if (this.hasOnlineValidation()) {
             objects.push(this);
         }
-        if (this.hasDynamicCert()) {
+        if (this.hasOnlineCert()) {
             try {
                 const cert = this.getCertObject();
-                objects.push(...cert.extractDynamicObjects());
+                objects.push(...cert.extractOnlineObjects());
             }
             catch(e) {
                 return [];
@@ -1240,21 +1222,6 @@ export abstract class BaseCert implements BaseCertInterface {
     }
 
     /**
-     * Get the specification of how to probe the active state of the self dynamic cert.
-     * @param dynamicSelfSpec
-     */
-    public setDynamicSelfSpec(dynamicSelfSpec: Buffer | undefined) {
-        this.model.setBuffer("dynamicSelfSpec", dynamicSelfSpec);
-    }
-
-    /**
-     * @returns the specification used to determine the dynamic self cert's active state.
-     */
-    public getDynamicSelfSpec(): Buffer | undefined {
-        return this.model.getBuffer("dynamicSelfSpec");
-    }
-
-    /**
      * Get the cert embedded image.
      * @returns image
      */
@@ -1492,29 +1459,26 @@ export abstract class BaseCert implements BaseCertInterface {
         if (params.targetMaxExpireTime !== undefined) {
             this.setTargetMaxExpireTime(params.targetMaxExpireTime);
         }
-        if (params.dynamicSelfSpec !== undefined) {
-            this.setDynamicSelfSpec(params.dynamicSelfSpec);
-        }
         if (params.transientConfig !== undefined) {
             this.setTransientConfig(params.transientConfig);
         }
-        if (params.hasDynamicSelf !== undefined) {
-            this.setHasDynamicSelf(params.hasDynamicSelf);
+        if (params.hasOnlineValidation !== undefined) {
+            this.setHasOnlineValidation(params.hasOnlineValidation);
         }
-        if (params.hasDynamicCert !== undefined) {
-            this.setHasDynamicCert(params.hasDynamicCert);
+        if (params.hasOnlineCert !== undefined) {
+            this.setHasOnlineCert(params.hasOnlineCert);
         }
         if (params.isIndestructible !== undefined) {
             this.setIndestructible(params.isIndestructible);
         }
-        if (params.isDynamicSelfActive !== undefined) {
-            this.setDynamicSelfActive(params.isDynamicSelfActive);
+        if (params.isOnlineValidated !== undefined) {
+            this.setOnlineValidated(params.isOnlineValidated);
         }
-        if (params.isDynamicCertActive !== undefined) {
-            this.setDynamicCertActive(params.isDynamicCertActive);
+        if (params.isOnlineRevoked !== undefined) {
+            this.setOnlineRevoked(params.isOnlineRevoked);
         }
-        if (params.isDynamicDestroyed !== undefined) {
-            this.setDynamicDestroyed(params.isDynamicDestroyed);
+        if (params.isOnlineCertOnline !== undefined) {
+            this.setOnlineCertOnline(params.isOnlineCertOnline);
         }
     }
 
@@ -1539,14 +1503,13 @@ export abstract class BaseCert implements BaseCertInterface {
         const signingPublicKeys = this.getSignatures().map( signature => signature.publicKey );
         const multiSigThreshold = this.getMultiSigThreshold();
         const targetMaxExpireTime = this.getTargetMaxExpireTime();
-        const dynamicSelfSpec = this.getDynamicSelfSpec();
         const transientConfig = this.getTransientConfig();
-        const hasDynamicSelf = this.hasDynamicSelf();
-        const hasDynamicCert = this.hasDynamicCert();
+        const hasOnlineValidation = this.hasOnlineValidation();
+        const hasOnlineCert = this.hasOnlineCert();
         const isIndestructible = this.isIndestructible();
-        const isDynamicSelfActive = this.isDynamicSelfActive();
-        const isDynamicCertActive = this.isDynamicCertActive();
-        const isDynamicDestroyed = this.isDynamicDestroyed();
+        const isOnlineValidated = this.isOnlineValidated();
+        const isOnlineRevoked = this.isOnlineRevoked();
+        const isOnlineCertOnline = this.isOnlineCertOnline();
 
         return {
             modelType,
@@ -1565,14 +1528,13 @@ export abstract class BaseCert implements BaseCertInterface {
             signingPublicKeys,
             multiSigThreshold,
             targetMaxExpireTime,
-            dynamicSelfSpec,
             transientConfig,
-            hasDynamicSelf,
-            hasDynamicCert,
+            hasOnlineValidation,
+            hasOnlineCert,
             isIndestructible,
-            isDynamicSelfActive,
-            isDynamicCertActive,
-            isDynamicDestroyed,
+            isOnlineValidated,
+            isOnlineRevoked,
+            isOnlineCertOnline,
         };
     }
 }

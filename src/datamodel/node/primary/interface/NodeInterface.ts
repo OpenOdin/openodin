@@ -22,10 +22,11 @@ export const PRIMARY_INTERFACE_NODE_ID = 4;
  *  A primary interface for Node.
  */
 export interface NodeInterface extends DataModelInterface {
-    setHasDynamicEmbedding(isDynamic?: boolean): void;
-    hasDynamicEmbedding(): boolean;
-    setDynamicEmbeddingActive(isActive?: boolean): void;
-    isDynamicEmbeddingActive(): boolean;
+    setHasOnlineEmbedding(isOnline?: boolean): void;
+    hasOnlineEmbedding(): boolean;
+    isOnlineEmbeddingOnline(): boolean;
+    setOnlineIdValidated(isValidated?: boolean): void;
+    isOnlineIdValidated(): boolean;
     getBaseVersion(): Version;
     getVersion(): Version;
     hashShared(): Buffer;
@@ -103,8 +104,9 @@ export interface NodeInterface extends DataModelInterface {
     getId2(): Buffer | undefined;
     setId2(id2: Buffer | undefined): void;
     isId2Original(): boolean;
-    setNetwork(network: Buffer | undefined): void;
-    getNetwork(): Buffer | undefined;
+    setOnlineIdNetwork(onlineIdNetwork: Buffer | undefined): void;
+    getOnlineIdNetwork(): Buffer | undefined;
+    hasOnlineId(): boolean;
     setBeginRestrictiveWriteMode(restrictiveWriterMode?: boolean): void;
     isBeginRestrictiveWriteMode(): boolean;
     setEndRestrictiveWriteMode(endRestrictiveWriterMode?: boolean): void;

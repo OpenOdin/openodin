@@ -34,7 +34,7 @@ export type NodeParams = {
     parentId?: Buffer,
     copiedParentId?: Buffer,
     config?: number,
-    network?: Buffer,
+    onlineIdNetwork?: Buffer,
     owner?: Buffer,
     signature?: Buffer,
     signingPublicKeys?: Buffer[],  // Only set on getParams. Used internally between nodes and certs.
@@ -54,9 +54,9 @@ export type NodeParams = {
     transientConfig?: number,
     transientStorageTime?: number,
     isLeaf?: boolean,
-    hasDynamicSelf?: boolean,
-    hasDynamicCert?: boolean,
-    hasDynamicEmbedding?: boolean,
+    hasOnlineValidation?: boolean,
+    hasOnlineCert?: boolean,
+    hasOnlineEmbedding?: boolean,
     isPublic?: boolean,
     isLicensed?: boolean,
     isPrivate?: boolean,  // Note that is for convenience only. It will make sure that isPublic and isLicensed are not set.
@@ -73,10 +73,11 @@ export type NodeParams = {
     onlyOwnChildren?: boolean,
     disallowPublicChildren?: boolean,
     bubbleTrigger?: boolean,
-    isDynamicSelfActive?: boolean,
-    isDynamicCertActive?: boolean,
-    isDynamicEmbeddingActive?: boolean,
-    isDynamicDestroyed?: boolean,
+    isOnlineIdValidated?: boolean,
+    isOnlineCertOnline?: boolean,
+    isOnlineEmbeddingOnline?: boolean,
+    isOnlineValidated?: boolean,
+    isOnlineRevoked?: boolean,
 };
 
 // These are general configs on nodes, deriving nodes might not allow or require some of these bit to be set.
@@ -85,14 +86,14 @@ export enum NodeConfig {
     // If set then no children are recognized
     IS_LEAF                         = 0,
 
-    // If set then id2 will be validated online
-    HAS_DYNAMIC_SELF                = 1,
+    HAS_ONLINE_VALIDATION           = 1,
 
-    // If set then any cert used will be validated online
-    HAS_DYNAMIC_CERT                = 2,
+    // If set then any cert used will be validated online.
+    HAS_ONLINE_CERT                 = 2,
 
-    // If set then this node is embedding nodes which are expected to have dynamic properties and must be validated online
-    HAS_DYNAMIC_EMBEDDING           = 3,
+    // If set then this node is embedding nodes which are expected to have online properties
+    // and must be validated online.
+    HAS_ONLINE_EMBEDDING            = 3,
 
     // If set then there are no restrictions on sharing
     IS_PUBLIC                       = 4,
@@ -146,7 +147,7 @@ export enum NodeConfig {
      * The private node which the client gets access to via rights by association
      * is still considered private.
      *
-     * The node with permissions checked must be active if dynamic.
+     * The node with permissions checked must be online if using online validation.
      *
      */
     HAS_RIGHTS_BY_ASSOCIATION       = 12,
@@ -176,26 +177,23 @@ export enum NodeConfig {
 // Config bits set on objects by its environment.
 // Embedded nodes and certs never have transient values set to anything than default.
 export enum TransientConfig {
-    /**
-     * Set to true on nodes who uses a dynamic ID when its id2 is active as the nodeId.
-     */
-    DYNAMIC_SELF_ACTIVE             = 0,
+    ONLINE_VALIDATED        = 0,
+
+    ONLINE_REVOKED          = 1,
 
     /**
-     * Set to true on nodes who uses a dynamic Cert when its cert is active.
+     * Set to true on nodes who uses a online ID when its id2 is validated.
      */
-    DYNAMIC_CERT_ACTIVE             = 1,
+    ONLINE_ID_VALIDATED     = 2,
 
     /**
-     * Set to true on nodes embedding a dynamic node when the embedded node is active.
+     * Set to true on certs who uses an online cert when the
+     * online cert is online.
      */
-    DYNAMIC_EMBEDDING_ACTIVE        = 2,
+    ONLINE_CERT_ONLINE      = 3,
 
     /**
-     * Set to true on dynamic nodes if the node it self or any of their dynamic embeddings
-     * or certs have been permanently INVALIDATED.
-     * This makes the node inactive, but it does not delete the node, it can still
-     * be fetched (as inactive).
+     * Set to true on nodes embedding an online node when the embedded node is online.
      */
-    DYNAMIC_DESTROYED               = 3,
+    ONLINE_EMBEDDING_ONLINE = 4,
 }

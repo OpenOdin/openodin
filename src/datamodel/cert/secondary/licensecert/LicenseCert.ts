@@ -246,7 +246,7 @@ export class LicenseCert extends PrimaryNodeCert implements LicenseCertInterface
 
         const longFields = ["owner", "targetPublicKeys", "config", "lockedConfig", "creationTimeSeconds",
             "expireTimeSeconds", "constraints", "targetType", "maxChainLength", "targetMaxExpireTimeSeconds",
-            "dynamicSelfSpec", "transientConfig", "multiSigThreshold", "maxExtensions"];
+            "transientConfig", "multiSigThreshold", "maxExtensions"];
 
         const fields = short ? shortFields : longFields;
 
