@@ -538,7 +538,7 @@ export class Model {
         if (value.length > maxSize) {
             throw new Error(`Field ${fieldName} is too long (${value.length} > ${maxSize})`);
         }
-        this.data[fieldName] = value;
+        this.data[fieldName] = CopyBuffer(value);
     }
 
     /**
@@ -1244,4 +1244,16 @@ export class Model {
 
         return Hash(binary);
     }
+}
+
+function CopyBuffer(buffer: Buffer): Buffer {
+    const l = buffer.length;
+
+    const buffer2 = Buffer.alloc(l);
+
+    for (let i=0; i<l; i++) {
+        buffer2[i] = buffer[i];
+    }
+
+    return buffer2;
 }

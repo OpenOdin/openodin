@@ -3,7 +3,7 @@ import { strict as assert } from "assert";
 import {
     DataInterface,
     SignatureOffloader,
-    CreateHandshakeFactoryFactory,
+    AuthFactory,
     sleep,
     Hash,
     BlobEvent,
@@ -62,8 +62,8 @@ async function main() {
     const keyPair2 = clientWallet.keyPairs[0];
     assert(keyPair2);
 
-    const handshakeFactoryFactory1 = CreateHandshakeFactoryFactory(keyPair1);
-    const handshakeFactoryFactory2 = CreateHandshakeFactoryFactory(keyPair2);
+    const handshakeFactoryFactory1 = new AuthFactory(keyPair1);
+    const handshakeFactoryFactory2 = new AuthFactory(keyPair2);
 
     const signatureOffloader1 = new SignatureOffloader();
     await signatureOffloader1.init();

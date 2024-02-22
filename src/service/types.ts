@@ -1,13 +1,4 @@
 import {
-    HandshakeFactoryConfig,
-    HandshakeFactoryInterface,
-} from "pocket-messaging";
-
-import {
-    PeerProps,
-} from "../p2pclient";
-
-import {
     P2PClientPermissions,
 } from "../p2pclient/types";
 
@@ -22,9 +13,12 @@ import {
     ThreadFetchParams,
 } from "../storage/thread";
 
+import {
+    AuthFactoryConfig,
+} from "../auth/types";
 
 export type ConnectionConfig = {
-    handshakeFactoryConfig: HandshakeFactoryConfig,
+    authFactoryConfig: AuthFactoryConfig,
     permissions: P2PClientPermissions,
     region?: string,
     jurisdiction?: string,
@@ -81,19 +75,8 @@ export type DatabaseConfig = {
     blobDriver?: DriverConfig,
 };
 
-export interface HandshakeFactoryFactoryInterface {
-    (handshakeFactoryConfig: HandshakeFactoryConfig, peerProps: PeerProps): Promise<HandshakeFactoryInterface>;
-}
-
-export type PeerConf = {
-    handshakeFactoryConfig: HandshakeFactoryConfig,
-    permissions:            P2PClientPermissions,
-    region?:                string,
-    jurisdiction?:          string,
-};
-
 export type StorageConf = {
-    peer?:      PeerConf,
+    peer?:      ConnectionConfig,
     database?:  DatabaseConfig,
 };
 
@@ -165,7 +148,7 @@ export type UniverseConf = {
     repository:     string,
     custom:         {[key: string]: any};
     threads:        {[name: string]: ThreadTemplate};
-    peers:          PeerConf[],
+    peers:          ConnectionConfig[],
     sync:           SyncConf[],
 };
 

@@ -103,11 +103,8 @@ const FIELDS: Fields = {
     /**
      * The public key of the owner of this node.
      *
-     * This key must be the same public key as the signing keypair.
-     *
-     * This field is not set when using a cert because then the embedded cert's
-     * targetPublicKeys are the public keys allowed to sign and the owner is the issuer
-     * public key of the cert (always the first cert in the stack of certs).
+     * This key must be the same public key as the signing keypair, or if using a cert it must
+     * be the same as the cert issuer public key.
      */
     owner: {
         name: "owner",

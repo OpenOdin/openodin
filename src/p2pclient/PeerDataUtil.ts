@@ -12,10 +12,6 @@ import {
 } from "../datamodel";
 
 import {
-    PeerProps,
-} from "./types";
-
-import {
     SignatureOffloaderInterface,
 } from "../signatureoffloader/types";
 
@@ -27,74 +23,79 @@ import {
  * A class of static functions to pack and unpack PeerData.
  */
 export class PeerDataUtil {
+    public static create(params: {[key: string]: any}): PeerData {
+        const peerData = new PeerData();
+
+        peerData.setVersion(params.version);
+        peerData.setSerializeFormat(params.serializeFormat);
+        if (params.handshakePublicKey) {
+            peerData.setHandshakePublicKey(params.handshakePublicKey);
+        }
+        peerData.setAuthCert(params.authCert);
+        peerData.setAuthCertPublicKey(params.authCertPublicKey);
+        peerData.setClockDiff(params.clockDiff ?? 0);
+        peerData.setRegion(params.region);
+        peerData.setJurisdiction(params.jurisdiction);
+        peerData.setAppVersion(params.appVersion);
+
+        return peerData;
+    }
 
     /**
-     * Convert PeerData into PeerProps.
-     * Will cryptographically verify any auth cert but will not check it online for validity.
+     * Convert HandshakeResult  into PeerData.
+     *
+     * Will cryptographically verify any auth cert given but will not check it online for validity.
      * @throws
      */
-    public static async HandshakeResultToProps(handshakeResult: HandshakeResult, localProps: PeerProps, signatureOffloader: SignatureOffloaderInterface): Promise<PeerProps> {
+    public static async HandshakeResultToPeerData(handshakeResult: HandshakeResult,
+        signatureOffloader: SignatureOffloaderInterface, region: string | undefined,
+        jurisdiction: string | undefined): Promise<PeerData>
+    {
         const peerData = new PeerData();
-        peerData.load(handshakeResult.peerData);
-        const version = peerData.getVersion();
-        const serializeFormat = peerData.getSerializeFormat();
-        const clock = peerData.getClock();
-        const appVersion = peerData.getAppVersion();
-        const jurisdiction = peerData.getJurisdiction();
-        const region = peerData.getRegion();
 
-        if (!version || serializeFormat === undefined || clock === undefined) {
+        peerData.load(handshakeResult.peerData);
+
+        peerData.setHandshakePublicKey(handshakeResult.peerLongtermPk);
+
+        const version           = peerData.getVersion();
+        const serializeFormat   = peerData.getSerializeFormat();
+
+        // the given clockDiff is for the local side, so we negate it
+        // and use it for the remote side.
+        //
+        peerData.setClockDiff(-handshakeResult.clockDiff);
+
+        if (!version || serializeFormat === undefined) {
             throw new Error("Missing required fields in handshakeResult.peerData");
         }
 
-        const authCertBin = peerData.getAuthCert();
-        let authCert: AuthCertInterface | undefined;
-        if (authCertBin) {
-            authCert = Decoder.DecodeAuthCert(authCertBin);
-            if ((await signatureOffloader.verify([authCert])).length !== 1) {
+        const authCert = peerData.getAuthCert();
+
+        let authCertObj: AuthCertInterface | undefined;
+        let authCertPublicKey: Buffer | undefined;
+
+        if (authCert) {
+            authCertObj = Decoder.DecodeAuthCert(authCert);
+            if ((await signatureOffloader.verify([authCertObj])).length !== 1) {
                 throw new Error("Could not verify signatures in auth cert.");
             }
+
+            authCertPublicKey = authCertObj.getIssuerPublicKey();
+
             const authConstraintvalues: AuthCertConstraintValues = {
                 publicKey: handshakeResult.peerLongtermPk,
                 creationTime: Date.now(),
-                jurisdiction: localProps.jurisdiction,
-                region: localProps.region,
+                jurisdiction,
+                region,
             };
-            const val = authCert.validateAgainstTarget(authConstraintvalues);
+            const val = authCertObj.validateAgainstTarget(authConstraintvalues);
             if (!val[0]) {
                 throw new Error(`Could not validate auth cert: ${val[1]}`);
             }
         }
 
-        const peerProps: PeerProps = {
-            version,
-            serializeFormat,
-            appVersion,
-            jurisdiction,
-            region,
-            handshakedPublicKey: handshakeResult.peerLongtermPk,
-            clock,
-            authCert,
-            authCertPublicKey: authCert ? authCert.getIssuerPublicKey() : undefined,
-        };
+        peerData.setAuthCertPublicKey(authCertPublicKey);
 
-        return peerProps;
-    }
-
-    /**
-     * Convert PeerProps into PeerData.
-     * @returns PeerData to be used in handshake.
-     * @throws if auth cert could not be exported.
-     */
-    public static PropsToPeerData(props: PeerProps): PeerData {
-        const peerData = new PeerData();
-        peerData.setVersion(props.version);
-        peerData.setSerializeFormat(props.serializeFormat);
-        peerData.setAppVersion(props.appVersion);
-        peerData.setJurisdiction(props.jurisdiction);
-        peerData.setRegion(props.region);
-        peerData.setClock(props.clock);
-        peerData.setAuthCert(props.authCert ? props.authCert.export() : undefined);
         return peerData;
     }
 }

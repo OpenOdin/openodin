@@ -825,10 +825,10 @@ export class Storage {
     protected handleFetchReplyDataFactory(sendResponse: SendResponseFn<FetchResponse>,
         trigger: Trigger | undefined, preserveTransient: boolean): HandleFetchReplyData {
 
-        let seq = 1;
+        let seq = 0;
 
         return (fetchReplyData: FetchReplyData) => {
-            const fetchResponses = Storage.ChunkFetchResponse(fetchReplyData, seq, preserveTransient);
+            const fetchResponses = Storage.ChunkFetchResponse(fetchReplyData, seq + 1, preserveTransient);
 
             if (fetchResponses.length === 0) {
                 return;

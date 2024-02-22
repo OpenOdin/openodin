@@ -1,3 +1,4 @@
+export * from "./auth";
 export * from "./service";
 export * from "./util";
 export * from "./datastreamer";

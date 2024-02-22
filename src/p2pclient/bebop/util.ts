@@ -42,17 +42,14 @@ export function UnpackFilters(filters: any[]): any[] {
     });
 }
 
-export function CopyToBuffer(inArray: Uint8Array): Buffer {
-    const out = Buffer.alloc(inArray.byteLength);
-    for (let i=0; i<inArray.byteLength; i++) {
-        out[i] = inArray[i];
-    }
-    return out;
-}
-
 export function MakeIntoBuffer(data: Uint8Array | undefined): Buffer {
-    if (data && Buffer.isBuffer(data)) {
-        return CopyToBuffer(data);
+    if (!data) {
+        return Buffer.alloc(0);
     }
-    return Buffer.alloc(0);
+
+    if (Buffer.isBuffer(data)) {
+        return data;
+    }
+
+    return Buffer.from(data);
 }

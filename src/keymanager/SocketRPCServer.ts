@@ -27,27 +27,29 @@ export class SocketRPCServer {
             localPort: client.getLocalPort(),
             remoteAddress: client.getRemoteAddress(),
             remotePort: client.getRemotePort(),
+            isWebSocket: client.isWebSocket(),
+            isTextMode: client.isTextMode(),
         };
 
         this.rpc.onCall(this.rpcPrefix + "connect", () => {
             return this.client.connect();
         });
 
-        this.rpc.onCall(this.rpcPrefix + "sendString", (data: string) => {
-            return this.client.sendString(data);
-        });
-
-        this.rpc.onCall(this.rpcPrefix + "send", (data: Buffer) => {
-            if (!Buffer.isBuffer(data)) {
-                data = Buffer.from(data);
+        this.rpc.onCall(this.rpcPrefix + "send", (data: Buffer | string) => {
+            if (typeof(data) !== "string") {
+                if (!Buffer.isBuffer(data)) {
+                    data = Buffer.from(data);
+                }
             }
 
             return this.client.send(data);
         });
 
-        this.rpc.onCall(this.rpcPrefix + "unRead", (data: Buffer) => {
-            if (!Buffer.isBuffer(data)) {
-                data = Buffer.from(data);
+        this.rpc.onCall(this.rpcPrefix + "unRead", (data: Buffer | string) => {
+            if (typeof(data) !== "string") {
+                if (!Buffer.isBuffer(data)) {
+                    data = Buffer.from(data);
+                }
             }
 
             return this.client.unRead(data);
@@ -78,12 +80,12 @@ export class SocketRPCServer {
         });
     }
 
-    protected socketData = (data: Buffer) => {
+    protected socketData = (data: Buffer | string) => {
         this.rpc.call(this.rpcPrefix + "onData", [data]);
     }
 
     /**
-     * @returns the underlaying socket client.
+     * @returns the underlying client.
      */
     public getClient(): ClientInterface {
         return this.client;

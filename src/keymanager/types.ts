@@ -4,6 +4,8 @@ export type ClientConfig = {
     remoteAddress?: string,
     remotePort?: number,
     localPort?: number,
+    isWebSocket: boolean,
+    isTextMode: boolean,
 };
 
 export type AuthResponse = {

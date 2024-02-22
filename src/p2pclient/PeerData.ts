@@ -17,33 +17,47 @@ const FIELDS: Fields = {
         type: FieldType.UINT16BE,
         index: 101,
     },
-    clock: {
-        name: "clock",
-        type: FieldType.UINT48BE,
-        index: 102,
-    },
     appVersion: {
         name: "peerAppVersion",
         type: FieldType.BYTE6,
-        index: 103,
+        index: 102,
     },
     authCert: {
         name: "authCert",
         type: FieldType.BYTES,
         maxSize: 1897,
-        index: 104,
+        index: 103,
     },
     region: {  // ISO 3166-1
         name: "region",
         type: FieldType.STRING,
         maxSize: 2,
-        index: 105,
+        index: 104,
     },
     jurisdiction: {  // ISO 3166-1
         name: "jurisdiction",
         type: FieldType.STRING,
         maxSize: 2,
+        index: 105,
+    },
+    clockDiff: {
+        name: "clockDiff",
+        type: FieldType.INT32BE,
         index: 106,
+        transient: true,
+    },
+    handshakePublicKey: {
+        name: "handshakePublicKey",
+        type: FieldType.BYTE32,
+        index: 107,
+        transient: true,
+    },
+    authCertPublicKey: {
+        name: "authCertPublicKey",
+        type: FieldType.BYTES,
+        maxSize: 32,
+        index: 108,
+        transient: true,
     },
 };
 
@@ -67,10 +81,10 @@ export class PeerData {
      *
      * @throws an error containing a message error when image load fails to decode.
      */
-    public load(image: Buffer) {
+    public load(image: Buffer, preserveTransient: boolean = false) {
         // Ignore unknown fields present in the image.
         // This is to allow for flexibility when loading peerData from different versions of P2PClient.
-        this.model.load(image, false, true);
+        this.model.load(image, preserveTransient, true);
     }
 
     /**
@@ -78,8 +92,8 @@ export class PeerData {
      *
      * @throws an error containing a message error when unable to export the current data model.
      */
-    public export(): Buffer {
-        return this.model.export();
+    public export(exportTransient: boolean = false): Buffer {
+        return this.model.export(exportTransient);
     }
 
     /**
@@ -97,20 +111,32 @@ export class PeerData {
         return this.model.getBuffer("version");
     }
 
+    public getMajorVersion(): number {
+        const version = this.getVersion();
+
+        if (!version) {
+            return 0;
+        }
+
+        return version.readUInt16BE(0);
+    }
+
+    public getMinorVersion(): number {
+        const version = this.getVersion();
+
+        if (!version) {
+            return 0;
+        }
+
+        return version.readUInt16BE(2);
+    }
+
     public setSerializeFormat(format: number | undefined) {
         this.model.setNumber("serializeFormat", format);
     }
 
     public getSerializeFormat(): number | undefined {
         return this.model.getNumber("serializeFormat");
-    }
-
-    public setClock(clock: number | undefined) {
-        this.model.setNumber("clock", clock);
-    }
-
-    public getClock(): number | undefined {
-        return this.model.getNumber("clock");
     }
 
     public setAppVersion(appVersion: Buffer | undefined) {
@@ -151,5 +177,35 @@ export class PeerData {
 
     public getRegion(): string | undefined {
         return this.model.getString("region");
+    }
+
+    public setClockDiff(clockDiff: number) {
+        this.model.setNumber("clockDiff", clockDiff);
+    }
+
+    public getClockDiff(): number {
+        return this.model.getNumber("clockDiff") ?? 0;
+    }
+
+    public setHandshakePublicKey(publicKey: Buffer) {
+        this.model.setBuffer("handshakePublicKey", publicKey);
+    }
+
+    public getHandshakePublicKey(): Buffer {
+        const publicKey = this.model.getBuffer("handshakePublicKey");
+
+        if (!publicKey) {
+            throw new Error("handshakePublicKey not set");
+        }
+
+        return publicKey;
+    }
+
+    public setAuthCertPublicKey(publicKey: Buffer | undefined) {
+        this.model.setBuffer("authCertPublicKey", publicKey);
+    }
+
+    public getAuthCertPublicKey(): Buffer | undefined {
+        return this.model.getBuffer("authCertPublicKey");
     }
 }

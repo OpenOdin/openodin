@@ -87,13 +87,15 @@ export function DeepEquals(o1: any, o2: any): boolean {
 
 /**
  * Return deep copy of an object.
- * Supports same types as GetType.
+ *
+ * Function cannot be copied.
+ * Class instances  must have a clone() function, which is called and the result is saved.
+ *
  * @param o object to copy.
- * @param returnUncopyable is set then return a value which cannot be copied as it is.
  * @returns copied object.
- * @throws on unknown data types.
+ * @throws on unknown or uncopyable data types.
  */
-export function DeepCopy(o: any, returnUncopyable: boolean = false): any {
+export function DeepCopy(o: any): any {
     const type = GetType(o);
 
     // Scalar types are directly returned.
@@ -101,30 +103,21 @@ export function DeepCopy(o: any, returnUncopyable: boolean = false): any {
         return o;
     }
     else if (type === "array") {
-        return o.map( (value: any) => DeepCopy(value, returnUncopyable) );
+        return o.map( (value: any) => DeepCopy(value) );
     }
     else if (type === "object") {
         const o2: any = {};
         const keys = Object.keys(o);
-        keys.forEach( (key: string) => o2[key] = DeepCopy(o[key], returnUncopyable) );
+        keys.forEach( (key: string) => o2[key] = DeepCopy(o[key]) );
         return o2;
     }
-    else if (type === "buffer") {
-        const o2 = Buffer.alloc(o.length);
-        o.copy(o2);
-        return o2;
-    }
-    else if (type === "arraybuffer") {
-        const o2 = Buffer.alloc(o.length);
+    else if (type === "buffer" || type === "arraybuffer") {
         const l = o.length;
+        const o2 = Buffer.alloc(l);
         for (let i=0; i<l; i++) {
             o2[i] = o[i];
         }
         return o2;
-    }
-
-    if (returnUncopyable) {
-        return o;
     }
 
     throw new Error(`Type not recognized for ${o}`);
@@ -135,36 +128,47 @@ export function DeepCopy(o: any, returnUncopyable: boolean = false): any {
  * @param o a scalar or object to determine type for.
  * @returns type as string or undefined if type could not be recognized.
  */
-export function GetType(o: any): "undefined" | "null" | "string" | "number" | "boolean" | "bigint" | "array" | "object" | "buffer" | "arraybuffer" | undefined {
+export function GetType(o: any): "undefined" | "null" | "string" | "number" | "boolean" | "bigint" |
+    "array" | "object" | "buffer" | "arraybuffer" | "class" | "function" | undefined
+{
     if (o === undefined) {
         return "undefined";
     }
     else if (o === null) {
         return "null";
     }
-    else if (typeof o === "string") {
-        return "string";
+
+    const type = typeof o as string;
+
+    if (type === "string") {
+        return type;
     }
-    else if (typeof o === "number") {
-        return "number";
+    else if (type === "number") {
+        return type;
     }
-    else if (typeof o === "boolean") {
-        return "boolean";
+    else if (type === "boolean") {
+        return type;
     }
-    else if (typeof o === "bigint") {
-        return "bigint";
+    else if (type === "bigint") {
+        return type;
+    }
+    else if (type === "function") {
+        return type;
     }
     else if (Array.isArray(o)) {
         return "array";
-    }
-    else if (typeof o === "object" && o.constructor === Object) {
-        return "object";
     }
     else if (Buffer.isBuffer(o)) {
         return "buffer";
     }
     else if (ArrayBuffer.isView(o)) {
         return "arraybuffer";
+    }
+    else if (type === "object" && o.constructor === Object) {
+        return type;
+    }
+    else if (type === "object") {
+        return "class";
     }
 
     return undefined;
@@ -176,11 +180,24 @@ export async function sleep(ms: number): Promise<void> {
     });
 }
 
-export function CopyBuffer(buffer: Buffer): Buffer {
-    const out = Buffer.alloc(buffer.byteLength);
-    for (let i=0; i<buffer.byteLength; i++) {
-        out[i] = buffer[i];
+export function CopyBuffer(...buffers: (Buffer | Uint8Array)[]): Buffer {
+    let length = 0;
+    const argsLength = buffers.length;
+    for (let i=0; i<argsLength; i++) {
+        const buffer = buffers[i];
+        length += buffer.byteLength;
     }
+
+    let pos = 0;
+    const out = Buffer.alloc(length);
+    for (let i=0; i<argsLength; i++) {
+        const buffer = buffers[i];
+
+        for (let i2=0; i2<buffer.byteLength; i2++) {
+            out[pos++] = buffer[i2];
+        }
+    }
+
     return out;
 }
 
@@ -243,6 +260,9 @@ export function DeepHash(o: any): Buffer {
 export function StripObject(obj: any): any {
     if (Buffer.isBuffer(obj)) {
         return obj.toString("hex");
+    }
+    else if (typeof(obj) === "bigint") {
+        return Number(obj);
     }
     else if (Array.isArray(obj)) {
         return obj.map( (elm: any) => {

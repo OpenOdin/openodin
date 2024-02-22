@@ -454,7 +454,7 @@ export class Driver implements DriverInterface {
             try {
                 const row = rows[index];
 
-                const node = Decoder.DecodeNode(row, true);
+                const node = Decoder.DecodeNode(row.image, true);
 
                 // We might need to update the node's onlide id validation flag.
                 // If the isonline flag has been turned off in the table row it means that

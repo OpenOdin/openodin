@@ -16,6 +16,7 @@ import {
     WriteBlobRequest,
     WriteBlobResponse,
     Status,
+    MESSAGE_SPLIT_BYTES,
 } from "../types";
 
 import {
@@ -62,8 +63,8 @@ export class BlobStreamWriter extends AbstractStreamWriter {
 
         // TODO: add logic too split up and handle larger datasets.
         //
-        if (data.length > 60 * 1024) {
-            const error = "BlobStreamWriter fed too large data chunk. Maximum 60 KiB chunk size allowed.";
+        if (data.length > MESSAGE_SPLIT_BYTES) {
+            const error = `BlobStreamWriter fed too large data chunk. Maximum ${MESSAGE_SPLIT_BYTES} KiB chunk size allowed.`;
             return [StreamStatus.UNRECOVERABLE, error];
         }
 

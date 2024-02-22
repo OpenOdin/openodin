@@ -13,13 +13,14 @@ import {
 } from "pocket-messaging";
 
 import {
+    PeerData,
+    PeerDataUtil,
     DatabaseUtil,
     DBClient,
     TABLES,
     BLOB_TABLES,
     Storage,
     P2PClient,
-    PeerProps,
     SignatureOffloader,
     Driver,
     BlobDriver,
@@ -131,9 +132,9 @@ describe("Storage: triggers", function() {
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
 
-        const clientProps = makePeerProps();
+        const clientProps = makePeerData();
 
-        const serverProps = makePeerProps();
+        const serverProps = makePeerData();
 
         p2pClient = new P2PClient(messaging1, serverProps, clientProps);
 
@@ -500,9 +501,9 @@ describe("Storage: SQLite WAL-mode", function() {
         messaging1.open();
         messaging2.open();
 
-        const clientProps = makePeerProps();
+        const clientProps = makePeerData();
 
-        const serverProps = makePeerProps();
+        const serverProps = makePeerData();
 
         p2pClient = new P2PClient(messaging1, serverProps, clientProps, PERMISSIVE_PERMISSIONS);
         p2pStorageClient = new P2PClient(messaging2, serverProps, clientProps);
@@ -584,9 +585,9 @@ describe.skip("Storage: SQLiteJS WAL-mode", function() {
         messaging1.open();
         messaging2.open();
 
-        const clientProps = makePeerProps();
+        const clientProps = makePeerData();
 
-        const serverProps = makePeerProps();
+        const serverProps = makePeerData();
 
         p2pClient = new P2PClient(messaging1, serverProps, clientProps, PERMISSIVE_PERMISSIONS);
         p2pStorageClient = new P2PClient(messaging2, serverProps, clientProps);
@@ -676,9 +677,9 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
         messaging1.open();
         messaging2.open();
 
-        const clientProps = makePeerProps();
+        const clientProps = makePeerData();
 
-        const serverProps = makePeerProps();
+        const serverProps = makePeerData();
 
         p2pClient = new P2PClient(messaging1, serverProps, clientProps, PERMISSIVE_PERMISSIONS);
         p2pStorageClient = new P2PClient(messaging2, serverProps, clientProps);
@@ -1824,10 +1825,10 @@ function setupTests(config: any) {
         let secretKey = keyPair1.secretKey;
 
         //@ts-ignore
-        p2pClient.remoteProps.handshakedPublicKey = publicKey;
+        p2pClient.remotePeerData.setHandshakePublicKey(publicKey);
 
         //@ts-ignore
-        p2pClient.localProps.handshakedPublicKey = publicKey;
+        p2pClient.localPeerData.setHandshakePublicKey(publicKey);
 
         let parentId = Buffer.alloc(32);
 
@@ -1936,10 +1937,10 @@ function setupTests(config: any) {
         let secretKey = keyPair1.secretKey;
 
         //@ts-ignore
-        p2pClient.remoteProps.handshakedPublicKey = publicKey;
+        p2pClient.remotePeerData.setHandshakePublicKey(publicKey);
 
         //@ts-ignore
-        p2pClient.localProps.handshakedPublicKey = publicKey;
+        p2pClient.localPeerData.setHandshakePublicKey(publicKey);
 
         let parentId = Buffer.alloc(32);
 
@@ -2070,16 +2071,15 @@ function setupTests(config: any) {
     });
 }
 
-function makePeerProps(): PeerProps {
-    return {
+function makePeerData(): PeerData {
+    return PeerDataUtil.create({
         version: P2PClient.Version,
         serializeFormat: P2PClient.Formats[0],
-        handshakedPublicKey: Buffer.alloc(0),
         authCert: undefined,
         authCertPublicKey: undefined,
-        clock: Date.now(),
+        clockDiff: 0,
         region: undefined,
         jurisdiction: undefined,
         appVersion: undefined,
-    };
+    });
 }

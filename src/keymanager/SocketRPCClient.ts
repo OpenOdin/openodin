@@ -20,7 +20,7 @@ export class SocketRPCClient implements ClientInterface {
     protected rpc: RPC;
     protected clientConfig: ClientConfig;
     protected handlers: {[type: string]: Callback[]} = {};
-    protected isClosed: boolean = false;
+    protected _isClosed: boolean = false;
     protected rpcPrefix: string;
 
     constructor(rpc: RPC, clientConfig: ClientConfig) {
@@ -29,9 +29,11 @@ export class SocketRPCClient implements ClientInterface {
 
         this.rpcPrefix = `${clientConfig.clientId}_`;
 
-        this.rpc.onCall(this.rpcPrefix + "onData", (data: Buffer) => {
-            if (!Buffer.isBuffer(data)) {
-                data = Buffer.from(data);
+        this.rpc.onCall(this.rpcPrefix + "onData", (data: Buffer | string) => {
+            if (typeof(data) !== "string") {
+                if (!Buffer.isBuffer(data)) {
+                    data = Buffer.from(data);
+                }
             }
 
             this.triggerEvent("data", data);
@@ -50,30 +52,46 @@ export class SocketRPCClient implements ClientInterface {
         });
     }
 
+    public async init() {
+        // Do nothing
+    }
+
+    public getSocket() {
+        throw new Error("getSocket not implemented in RPC");
+    }
+
+    public isTextMode(): boolean {
+        return this.clientConfig.isTextMode;
+    }
+
+    public isWebSocket(): boolean {
+        return this.clientConfig.isWebSocket;
+    }
+
     public connect() {
         this.rpc.call(this.rpcPrefix + "connect");
     }
 
-    public sendString(data: string) {
-        this.rpc.call(this.rpcPrefix + "sendString", [data]);
-    }
-
-    public send(data: Buffer) {
+    public send(data: Buffer | string) {
         this.rpc.call(this.rpcPrefix + "send", [data]);
     }
 
-    public unRead(data: Buffer) {
+    public unRead(data: Buffer | string) {
         this.rpc.call(this.rpcPrefix + "unRead", [data]);
     }
 
     public close() {
-        if (this.isClosed) {
+        if (this._isClosed) {
             return;
         }
 
-        this.isClosed = true;
+        this._isClosed = true;
 
         this.rpc.call(this.rpcPrefix + "close");
+    }
+
+    public isClosed(): boolean {
+        return this._isClosed;
     }
 
     public onError(fn: SocketErrorCallback) {

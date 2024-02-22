@@ -1,63 +1,19 @@
 import {
-    AuthCertInterface,
-} from "../datamodel";
-
-import {
     FetchRequest,
     AllowEmbed,
 } from "../types";
 
+export enum RouteAction {
+    STORE       = "store",
+    FETCH       = "fetch",
+    UNSUBSCRIBE = "unsubscribe",
+    WRITE_BLOB  = "write-blob",
+    READ_BLOB   = "read-blob",
+    MESSAGE     = "message",
+}
+
 export type SerializeInterface<DataType> = (data: DataType) => Buffer;
 export type DeserializeInterface<DataType> = (serialized: Buffer) => DataType;
-
-/**
- * These are the unpacked properties of "peerData" exchanged on handshake.
- */
-export type PeerProps = {
-    /** The P2PClient version of the peer (six bytes). */
-    version: Buffer,
-
-    /** The chosen serialize format by the peer. */
-    serializeFormat: number,
-
-    /**
-     * The UNIX time in milliseconds of when the peer entered the handshake phase.
-     * If the client and server's clocks are perfectly synchronized
-     * then the client's clock value will be slighly behind the server's clock value,
-     * this is because the client is the one initiating the handshake and therefore timestamping first.
-     */
-    clock: number,
-
-    /** The cryptographically handshaked public key of the peer. */
-    handshakedPublicKey: Buffer,
-
-    /**
-     * If the peer is using an auth cert this will differ from the handshakedPublicKey.
-     * This is the issuerPublicKey of the potentially set authCert, set here for convenience.
-     */
-    authCertPublicKey?: Buffer,
-
-    /**
-     * The optional semver appversion (six bytes) of the peer's application.
-     */
-    appVersion?: Buffer,
-
-    /**
-     * If the peer is using an auth cert on handshake this is set, decoded and cryptographically verified.
-     * It is however not automatically checked online for validity.
-     */
-    authCert?: AuthCertInterface,
-
-    /**
-     * The peer's physical region.
-     */
-    region?: string,
-
-    /**
-     * The peer's jurisdiction.
-     */
-    jurisdiction?: string,
-};
 
 /** Internally used struct for keeping track of subscriptions. */
 export type SubscriptionMap = {

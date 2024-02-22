@@ -30,20 +30,24 @@ import {
     SocketRPCClient,
 } from "./SocketRPCClient";
 
+import {
+    APIAuthFactoryConfig,
+} from "../auth/types";
+
 type Callback = (...args: any) => void;
 
-export class HandshakeFactoryRPCClient implements HandshakeFactoryInterface {
+export class APIHandshakeFactoryRPCClient implements HandshakeFactoryInterface {
     protected rpc: RPC;
     protected _isClosed = false;
     protected _isShutdown = false;
-    protected userHandshakeFactoryConfig: HandshakeFactoryConfig;
+    protected apiAuthFactoryConfig: APIAuthFactoryConfig;
     protected handlers: {[type: string]: Callback[]} = {};
     protected sockets: SocketRPCClient[] = [];
 
-    constructor(rpc: RPC, userHandshakeFactoryConfig: HandshakeFactoryConfig) {
+    constructor(rpc: RPC, apiAuthFactoryConfig: APIAuthFactoryConfig) {
         this.rpc = rpc;
 
-        this.userHandshakeFactoryConfig = userHandshakeFactoryConfig;
+        this.apiAuthFactoryConfig = apiAuthFactoryConfig;
 
         this.rpc.onCall("onHandshake", (clientId: string, peerData: Buffer, peerLongtermPk: Buffer, isServer: boolean) => {
             if (!Buffer.isBuffer(peerData)) {
@@ -155,7 +159,7 @@ export class HandshakeFactoryRPCClient implements HandshakeFactoryInterface {
      * the actual configuration used be the HandshakeFactoryRPCServer.
      */
     public getSocketFactoryConfig(): SocketFactoryConfig {
-        return this.userHandshakeFactoryConfig.socketFactoryConfig;
+        return this.apiAuthFactoryConfig.socketFactoryConfig;
     }
 
     /**
@@ -163,7 +167,7 @@ export class HandshakeFactoryRPCClient implements HandshakeFactoryInterface {
      * the actual configuration used be the HandshakeFactoryRPCServer.
      */
     public getHandshakeFactoryConfig(): HandshakeFactoryConfig {
-        return this.userHandshakeFactoryConfig;
+        return this.apiAuthFactoryConfig;
     }
 
     /**

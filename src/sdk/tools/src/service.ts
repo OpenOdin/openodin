@@ -2,10 +2,13 @@ import { strict as assert } from "assert";
 
 import {
     Service,
-    CreateHandshakeFactoryFactory,
     UniverseConf,
     WalletConf,
 } from "../../../service";
+
+import {
+    AuthFactory,
+} from "../../../auth/AuthFactory";
 
 import {
     P2PClient,
@@ -36,13 +39,13 @@ async function main(universeConf: UniverseConf, walletConf: WalletConf) {
 
     assert(keyPair);
 
-    const handshakeFactoryFactory = CreateHandshakeFactoryFactory(keyPair);
+    const authFactory = new AuthFactory(keyPair);
 
     const signatureOffloader = new SignatureOffloader();
 
     await signatureOffloader.init();
 
-    const service = new Service(universeConf, walletConf, signatureOffloader, handshakeFactoryFactory);
+    const service = new Service(universeConf, walletConf, signatureOffloader, authFactory);
 
     await service.init()
 

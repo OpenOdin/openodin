@@ -5,8 +5,8 @@ import {
 } from "../util/RPC";
 
 import {
-    CreateHandshakeFactoryFactoryRPCClient,
-} from "./HandshakeFactoryFactoryRPCClient";
+    AuthFactoryRPCClient,
+} from "./AuthFactoryRPCClient";
 
 import {
     SignatureOffloaderInterface,
@@ -21,7 +21,10 @@ import {
 } from "../service";
 
 import {
-    HandshakeFactoryFactoryInterface,
+    AuthFactoryInterface,
+} from "../auth/types";
+
+import {
     WalletConf,
     UniverseConf,
 } from "../service/types";
@@ -41,7 +44,7 @@ export class Universe {
     protected _isActive: boolean = false;
     protected _onActive?: () => void;
     protected signatureOffloader?: SignatureOffloaderInterface;
-    protected handshakeFactoryFactory?: HandshakeFactoryFactoryInterface;
+    protected authFactory?: AuthFactoryInterface;
     protected walletConf?: WalletConf;
     protected pendingAuth: boolean = false;
 
@@ -113,7 +116,7 @@ export class Universe {
         this.signatureOffloader = new SignatureOffloaderRPCClient(rpc1);
 
         const rpc2 = this.rpc.clone(authResponse.handshakeRPCId);
-        this.handshakeFactoryFactory = CreateHandshakeFactoryFactoryRPCClient(rpc2);
+        this.authFactory = new AuthFactoryRPCClient(rpc2);
 
         // TODO
         this.walletConf = ParseUtil.ParseWalletConf({});
@@ -127,8 +130,8 @@ export class Universe {
         return this.signatureOffloader;
     }
 
-    public getHandshakeFactoryFactory(): HandshakeFactoryFactoryInterface | undefined {
-        return this.handshakeFactoryFactory;
+    public getHandshakeFactoryFactory(): AuthFactoryInterface | undefined {
+        return this.authFactory;
     }
 
     public getWalletConf(): WalletConf | undefined {
@@ -147,11 +150,11 @@ export class Universe {
             throw new Error("Missing signatureOffloader");
         }
 
-        if (!this.handshakeFactoryFactory) {
-            throw new Error("Missing handshakeFactoryFactory");
+        if (!this.authFactory) {
+            throw new Error("Missing authFactory");
         }
 
-        const service = new Service(universeConf, this.walletConf, this.signatureOffloader, this.handshakeFactoryFactory);
+        const service = new Service(universeConf, this.walletConf, this.signatureOffloader, this.authFactory);
 
         await service.init()
 
@@ -160,7 +163,7 @@ export class Universe {
 
     public close(): Promise<void> {
         delete this.signatureOffloader;
-        delete this.handshakeFactoryFactory;
+        delete this.authFactory;
 
         return this.rpc.call("close");
     }

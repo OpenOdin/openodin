@@ -96,11 +96,13 @@ struct CRDTResult {
     uint32 length;
 }
 
+[opcode(0x00000001)]
 message BopFetchRequest {
     1 -> FetchQuery query;
     2 -> FetchCRDT crdt;
 }
 
+[opcode(0x00000002)]
 message BopFetchResponse {
     1 -> Status status;
     2 -> FetchResult result;
@@ -111,6 +113,7 @@ message BopFetchResponse {
     7 -> string error;
 }
 
+[opcode(0x00000003)]
 message BopStoreRequest {
     1 -> byte[][] nodes;
     2 -> byte[] sourcePublicKey;
@@ -119,6 +122,7 @@ message BopStoreRequest {
     5 -> bool preserveTransient;
 }
 
+[opcode(0x00000004)]
 message BopStoreResponse {
     1 -> Status status;
     2 -> byte[][] storedId1S;
@@ -127,16 +131,19 @@ message BopStoreResponse {
     5 -> string error;
 }
 
+[opcode(0x00000005)]
 message BopUnsubscribeRequest {
     1 -> byte[] originalMsgId;
     2 -> byte[] targetPublicKey;
 }
 
+[opcode(0x00000006)]
 message BopUnsubscribeResponse {
     1 -> Status status;
     2 -> string error;
 }
 
+[opcode(0x00000007)]
 message BopWriteBlobRequest {
     1 -> byte[] nodeId1;
     2 -> byte[] sourcePublicKey;
@@ -146,12 +153,14 @@ message BopWriteBlobRequest {
     6 -> byte[][] muteMsgIds;
 }
 
+[opcode(0x00000008)]
 message BopWriteBlobResponse {
     1 -> Status status;
     2 -> uint64 currentLength;
     3 -> string error;
 }
 
+[opcode(0x00000009)]
 message BopReadBlobRequest {
     1 -> byte[] nodeId1;
     2 -> byte[] targetPublicKey;
@@ -160,6 +169,7 @@ message BopReadBlobRequest {
     5 -> uint32 length;
 }
 
+[opcode(0x0000000a)]
 message BopReadBlobResponse {
     1 -> Status status;
     2 -> byte[] data;
@@ -169,12 +179,14 @@ message BopReadBlobResponse {
     6 -> string error;
 }
 
+[opcode(0x0000000b)]
 message BopGenericMessageRequest {
     1 -> string action;
     2 -> byte[] sourcePublicKey;
     3 -> byte[] data;
 }
 
+[opcode(0x0000000c)]
 message BopGenericMessageResponse {
     1 -> Status status;
     2 -> byte[] data;

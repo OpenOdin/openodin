@@ -27,7 +27,8 @@ import {
     DBClient,
     P2PClient,
     DatabaseUtil,
-    PeerProps,
+    PeerData,
+    PeerDataUtil,
     NodeUtil,
     Crypto,
     StoreRequest,
@@ -519,9 +520,9 @@ async function initStorageInstance(allowPreserveTransient: boolean = false): Pro
     const [socket1, socket2] = CreatePair();
     const messaging1 = new Messaging(socket1, 0);
 
-    const clientProps = makePeerProps();
+    const clientProps = makePeerData();
 
-    const serverProps = makePeerProps();
+    const serverProps = makePeerData();
 
     const p2pClient = new P2PClient(messaging1, serverProps, clientProps);
 
@@ -553,18 +554,17 @@ function closeStorageInstance(s: StorageInstance) {
     s.messaging1?.close();
 }
 
-function makePeerProps(): PeerProps {
-    return {
+function makePeerData(): PeerData {
+    return PeerDataUtil.create({
         version: P2PClient.Version,
         serializeFormat: P2PClient.Formats[0],
-        handshakedPublicKey: Buffer.alloc(0),
         authCert: undefined,
         authCertPublicKey: undefined,
-        clock: Date.now(),
+        clockDiff: 0,
         region: undefined,
         jurisdiction: undefined,
         appVersion: undefined,
-    };
+    });
 }
 
 async function runFetch(fetchRequest: FetchRequest, storageInstance: StorageInstance):

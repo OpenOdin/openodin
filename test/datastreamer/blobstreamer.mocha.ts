@@ -28,7 +28,8 @@ import {
     BlobDriver,
     DBClient,
     SignatureOffloader,
-    PeerProps,
+    PeerData,
+    PeerDataUtil,
     DatabaseUtil,
     Hash,
     Crypto,
@@ -113,9 +114,9 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
         messaging1 = new Messaging(socket1, 0);
         messaging2 = new Messaging(socket2, 0);
 
-        const clientProps = makePeerProps(keyPair1.publicKey);
+        const clientProps = makePeerData(keyPair1.publicKey);
 
-        const serverProps = makePeerProps(keyPairServer.publicKey);
+        const serverProps = makePeerData(keyPairServer.publicKey);
 
         serverP2pClient = new P2PClient(messaging1, serverProps, clientProps, PERMISSIVE_PERMISSIONS);
 
@@ -283,16 +284,16 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
     });
 });
 
-function makePeerProps(publicKey: Buffer): PeerProps {
-    return {
+function makePeerData(publicKey: Buffer): PeerData {
+    return PeerDataUtil.create({
         version: P2PClient.Version,
         serializeFormat: P2PClient.Formats[0],
-        handshakedPublicKey: publicKey,
+        handshakePublicKey: publicKey,
         authCert: undefined,
         authCertPublicKey: undefined,
-        clock: Date.now(),
+        clockDiff: 0,
         region: undefined,
         jurisdiction: undefined,
         appVersion: undefined,
-    };
+    });
 }

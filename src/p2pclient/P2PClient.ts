@@ -38,12 +38,16 @@ import {
 } from "./GetResponse";
 
 import {
-    PeerProps,
     DeserializeInterface,
     SerializeInterface,
     P2PClientPermissions,
     LOCKED_PERMISSIONS,
+    RouteAction,
 } from "./types";
+
+import {
+    PeerData,
+} from "./PeerData";
 
 import {
     CopyBuffer,
@@ -60,15 +64,6 @@ import {
 } from "pocket-console";
 
 const console = PocketConsole({module: "P2PClient"});
-
-enum RouteAction {
-    STORE       = "store",
-    FETCH       = "fetch",
-    UNSUBSCRIBE = "unsubscribe",
-    WRITE_BLOB  = "write-blob",
-    READ_BLOB   = "read-blob",
-    MESSAGE     = "message",
-}
 
 export type HandlerFn<RequestDataType, ResponseDataType> = (incoming: RequestDataType, peer: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<ResponseDataType>) => void;
 
@@ -111,8 +106,8 @@ export class P2PClient {
     protected handlerReadBlob?: HandlerFn<ReadBlobRequest, ReadBlobResponse>;
     protected handlerWriteBlob?: HandlerFn<WriteBlobRequest, WriteBlobResponse>;
     protected handlerGenericMessage?: HandlerFn<GenericMessageRequest, GenericMessageResponse>;
-    protected localProps: PeerProps;
-    protected remoteProps: PeerProps;
+    protected localPeerData: PeerData;
+    protected remotePeerData: PeerData;
     protected readonly permissions: P2PClientPermissions;
     protected serialize: BebopSerialize;      // Note this should become an interface if we have more than one type of serializer.
     protected deserialize: BebopDeserialize;  // Note this should become an interface if we have more than one type of deserializer.
@@ -128,30 +123,28 @@ export class P2PClient {
 
     /**
      * @param messaging is the handshaked Messaging instance.
-     * @param localProps the PeerProps representing this side.
-     * @param remoteProps the PeerProps representing the remote side.
+     * @param localPeerData the PeerData representing this side.
+     * @param remotePeerData the PeerData representing the remote side.
      * @param permissions which this p2pclient will enforce on incoming requests. Default permissions are locked down for incoming requests.
      * @param maxClockSkew milliseconds allowed between peer's clocks. No constraint if not set.
      */
-    constructor(messaging: Messaging, localProps: PeerProps, remoteProps: PeerProps, permissions?: P2PClientPermissions, maxClockSkew?: number) {
+    constructor(messaging: Messaging, localPeerData: PeerData, remotePeerData: PeerData, permissions?: P2PClientPermissions, maxClockSkew?: number) {
         this.messaging = messaging;
         this._isClosed = false;
         this.onCloseHandlers = [];
 
-        if (remoteProps.serializeFormat === 0) {
+        if (remotePeerData.getSerializeFormat() === 0) {
             this.serialize = new BebopSerialize();
             this.deserialize = new BebopDeserialize();
         }
         else {
-            throw new Error(`Given serialize format ${remoteProps.serializeFormat} is not supported by this P2PClient. Only these formats supported: ${P2PClient.Formats}`);
+            throw new Error(`Given serialize format ${remotePeerData.getSerializeFormat()} is not supported by this P2PClient. Only these formats supported: ${P2PClient.Formats}`);
         }
 
-        const remoteMajor = remoteProps.version.readUInt16BE(0);
-        const remoteMinor = remoteProps.version.readUInt16BE(2);
-        //const remotePatch = remoteProps.version.readUInt16BE(4);
+        const remoteMajor = remotePeerData.getMajorVersion();
+        const remoteMinor = remotePeerData.getMinorVersion();
         const localMajor = P2PClient.Version.readUInt16BE(0);
         const localMinor = P2PClient.Version.readUInt16BE(2);
-        //const localPatch = P2PClient.Version.readUInt16BE(4);
 
         if (remoteMajor > localMajor || (remoteMajor === localMajor && remoteMinor >= localMinor)) {
             // Peer is either greater or same as us, we continue and let peer
@@ -161,15 +154,19 @@ export class P2PClient {
         else {
             // Peer is lesser version than us, we decide if we can back adjust
             // and in such case instantiate that version of P2PClient.
-            throw new Error(`Peer versions do not match, remote peer has a lesser version: ${remoteProps.version} < ${P2PClient.Version}`);
-        }
-        const clockSkew = localProps.clock - remoteProps.clock;
-        if (maxClockSkew !== undefined && clockSkew > maxClockSkew) {
-            throw new Error(`Peer clock is too much off relatively to our clock. Our clock=${localProps.clock}, remote clock=${remoteProps.clock}, skew=${clockSkew} ms`);
+            throw new Error(`Peer versions do not match, remote peer has a lesser version: ${remotePeerData.getVersion()} < ${P2PClient.Version}`);
         }
 
-        this.localProps = DeepCopy(localProps, true);
-        this.remoteProps = DeepCopy(remoteProps, true);
+        if (maxClockSkew !== undefined && Math.abs(localPeerData.getClockDiff()) > maxClockSkew) {
+            throw new Error(`Peer clock is too much off relatively to our clock. diff is=${localPeerData.getClockDiff()} ms`);
+        }
+
+        // Copy the PeerData objects, keeping transient values.
+        //
+        this.localPeerData = new PeerData();
+        this.localPeerData.load(localPeerData.export(true), true);
+        this.remotePeerData = new PeerData();
+        this.remotePeerData.load(remotePeerData.export(true), true);
 
         // Default permissions are locked down.
         this.permissions = DeepCopy(permissions ?? LOCKED_PERMISSIONS);
@@ -201,10 +198,10 @@ export class P2PClient {
     }
 
     /**
-     * Get the PeerProps describing this peer.
+     * Get the PeerData describing this peer.
      */
-    public getLocalProps(): PeerProps {
-        return this.localProps;
+    public getLocalPeerData(): PeerData {
+        return this.localPeerData;
     }
 
     /**
@@ -212,14 +209,14 @@ export class P2PClient {
      * by this local peer to handshake.
      */
     public getLocalPublicKey(): Buffer {
-        return CopyBuffer(this.localProps.authCertPublicKey || this.localProps.handshakedPublicKey);
+        return CopyBuffer(this.localPeerData.getAuthCertPublicKey() ?? this.localPeerData.getHandshakePublicKey());
     }
 
     /**
-     * @returns the PeerProps describing the remote peer.
+     * @returns the PeerData describing the remote peer.
      */
-    public getRemoteProps(): PeerProps {
-        return this.remoteProps;
+    public getRemotePeerData(): PeerData {
+        return this.remotePeerData;
     }
 
     /**
@@ -228,7 +225,7 @@ export class P2PClient {
      * by an auth cert on handshake.
      */
     public getRemotePublicKey(): Buffer {
-        return CopyBuffer(this.remoteProps.authCertPublicKey || this.remoteProps.handshakedPublicKey);
+        return CopyBuffer(this.remotePeerData.getAuthCertPublicKey() ?? this.remotePeerData.getHandshakePublicKey());
     }
 
     public getPermissions(): P2PClientPermissions {
@@ -659,8 +656,8 @@ export class P2PClient {
         };
 
         // Forcefully set region and jurisdiction on the fetchQuery.
-        fetchRequest2.query.region = RegionUtil.IntersectRegions(this.getRemoteProps().region, this.getLocalProps().region);
-        fetchRequest2.query.jurisdiction = RegionUtil.IntersectJurisdictions(this.getRemoteProps().jurisdiction, this.getLocalProps().jurisdiction);
+        fetchRequest2.query.region = RegionUtil.IntersectRegions(this.remotePeerData.getRegion(), this.localPeerData.getRegion());
+        fetchRequest2.query.jurisdiction = RegionUtil.IntersectJurisdictions(this.remotePeerData.getJurisdiction(), this.localPeerData.getJurisdiction());
 
         if (this.permissions.allowUncheckedAccess) {
             if (fetchRequest2.query.sourcePublicKey.length === 0) {

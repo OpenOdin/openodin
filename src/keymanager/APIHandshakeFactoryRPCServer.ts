@@ -5,8 +5,6 @@ import {
 } from "../util/RPC";
 
 import {
-    HandshakeFactory,
-    HandshakeFactoryConfig,
     HandshakeResult,
 } from "pocket-messaging";
 
@@ -22,6 +20,14 @@ import {
     ClientConfig,
 } from "./types";
 
+import {
+    APIHandshakeFactory,
+} from "../auth/APIHandshakeFactory";
+
+import {
+    APIAuthFactoryConfig,
+} from "../auth/types";
+
 type RPCServer = {
     client: ClientInterface,
     clientConfig: ClientConfig,
@@ -29,14 +35,14 @@ type RPCServer = {
 };
 
 /**
- * Wrap a HandshakeFactory and provide RPC communication to it.
+ * Wrap a APIHandshakeFactory and provide RPC communication to it.
  *
  */
-export class HandshakeFactoryRPCServer extends HandshakeFactory {
+export class APIHandshakeFactoryRPCServer extends APIHandshakeFactory {
     protected rpc: RPC;
     protected rpcServers: RPCServer[] = [];
 
-    constructor(rpc: RPC, handshakeFactoryConfig: HandshakeFactoryConfig) {
+    constructor(rpc: RPC, handshakeFactoryConfig: APIAuthFactoryConfig) {
         super(handshakeFactoryConfig);
 
         this.rpc = rpc;

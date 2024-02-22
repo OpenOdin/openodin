@@ -42,6 +42,20 @@ import {
     Match,
     LimitField,
     FetchCRDT,
+    FetchRequest,
+    FetchResponse,
+    FetchResult,
+    CRDTResult,
+    StoreRequest,
+    StoreResponse,
+    UnsubscribeRequest,
+    UnsubscribeResponse,
+    WriteBlobRequest,
+    WriteBlobResponse,
+    ReadBlobRequest,
+    ReadBlobResponse,
+    GenericMessageResponse,
+    GenericMessageRequest,
 } from "../types";
 
 import {
@@ -60,7 +74,6 @@ import {
     DriverConfig,
     UniverseConf,
     WalletConf,
-    PeerConf,
     SyncConf,
     StorageConf,
 } from "../service/types";
@@ -76,7 +89,13 @@ import {
 
 import {
     DeepCopy,
+    StripObject,
 } from "../util/common";
+
+import {
+    APIAuthFactoryConfig,
+    NativeAuthFactoryConfig,
+} from "../auth/types";
 
 /**
  * Parse config object fragments.
@@ -166,7 +185,7 @@ export class ParseUtil {
             };
         }
 
-        const peers: PeerConf[] = [];
+        const peers: ConnectionConfig[] = [];
         (conf.peers ?? []).forEach( (peerConf: any) => {
             if (peerConf.permissions === null || peerConf.permissions === undefined) {
                 peerConf = {
@@ -498,7 +517,18 @@ export class ParseUtil {
      * @throws if malconfigured
      */
     public static ParseConfigConnectionConfig(connectionConfig: any): ConnectionConfig {
-        const handshakeFactoryConfig = ParseUtil.ParseHandshakeFactory(connectionConfig.connection);
+        let authFactoryConfig;
+
+        if (connectionConfig.connection?.factory === "api") {
+            authFactoryConfig = ParseUtil.ParseAPIAuthFactory(connectionConfig.connection);
+        }
+        else if (connectionConfig.connection?.factory === "native" || !connectionConfig.connection?.factory) {
+            authFactoryConfig = ParseUtil.ParseNativeAuthFactory(connectionConfig.connection);
+        }
+        else {
+            throw new Error("Uknkown factory, use native or api");
+        }
+
         let region: string | undefined;
         let jurisdiction: string | undefined;
 
@@ -514,17 +544,90 @@ export class ParseUtil {
         const permissions = ParseUtil.ParseP2PClientPermissions(connectionConfig.permissions);
 
         return {
-            handshakeFactoryConfig,
+            authFactoryConfig,
             region,
             jurisdiction,
             permissions,
         };
     }
 
+
+    /**
+     * {
+     *  client: {
+     *      auth: {
+     *          method: string,
+     *          config?: object,
+     *      }
+     *  },
+     *  server: {
+     *      auth: {
+     *          methods: {
+     *              method1: {config},
+     *              method2: {config},
+     *          },
+     *      }
+     *  },
+     *  ...HandshakeFactoryConfig,
+     * }
+     */
+    public static ParseAPIAuthFactory(obj: any): APIAuthFactoryConfig {
+        const handshakeFactoryConfig = ParseUtil.ParseHandshakeFactory(obj);
+
+        let clientAuth;
+        let serverAuth;
+
+        if (obj.client) {
+            const method = ParseUtil.ParseVariable(
+                "client.auth.method must be string",
+                obj.client.auth?.method, "string");
+
+            const config = ParseUtil.ParseVariable(
+                "client.auth.config must be object, if set",
+                obj.client.auth?.config, "object", true);
+
+            clientAuth = {
+                method,
+                config,
+            };
+        }
+
+        if (obj.server) {
+            const methods = ParseUtil.ParseVariable(
+                "server.auth.methods must be object",
+                obj.server.auth?.methods, "object");
+
+            serverAuth = {
+                methods,
+            };
+        }
+
+        return {
+            factory: "api",
+            clientAuth,
+            serverAuth,
+            ...handshakeFactoryConfig,
+        };
+    }
+
+    /**
+     * {
+     *  ...HandshakeFactoryConfig,
+     * }
+     */
+    public static ParseNativeAuthFactory(obj: any): NativeAuthFactoryConfig {
+        const handshakeFactoryConfig = ParseUtil.ParseHandshakeFactory(obj);
+
+        return {
+            factory: "native",
+            ...handshakeFactoryConfig,
+        };
+    }
+
     /**
      * @param obj object with the following properties:
      * {
-     *  galaxy: string,
+     *  discriminator?: string,
      *  maxConnections?: number,
      *  maxConnectionsPerIp?: number,
      *  maxConnectionsPerClient?: number,
@@ -561,8 +664,7 @@ export class ParseUtil {
      * @throws if malconfigured
      */
     public static ParseHandshakeFactory(obj: any): HandshakeFactoryConfig {
-        // NOTE: we refer to the discriminator at "galaxy" in this context.
-        const discriminator = Buffer.from(ParseUtil.ParseVariable("connection galaxy must be string, if set", obj.galaxy, "string", true) ?? "");
+        const discriminator = Buffer.from(ParseUtil.ParseVariable("connection discriminator must be string, if set", obj.discriminator, "string", true) ?? "");
 
         const maxConnections = ParseUtil.ParseVariable("connection maxConnections must be number, if set", obj.maxConnections, "number", true);
         const maxConnectionsPerIp = ParseUtil.ParseVariable("connection maxConnectionsPerIp must be number, if set", obj.maxConnectionsPerIp, "number", true);
@@ -597,6 +699,7 @@ export class ParseUtil {
                 cert,
                 key,
                 ca,
+                textMode: false,
             };
             client = {
                 socketType,
@@ -630,6 +733,7 @@ export class ParseUtil {
                 cert,
                 key,
                 ca,
+                textMode: false,
             };
             server = {
                 socketType,
@@ -799,6 +903,491 @@ export class ParseUtil {
     }
 
     /**
+     * Stringify request/response into JSON.
+     * Variable length binary fields are encoded as Base64,
+     * other binary fields are encoded as hex.
+     */
+    public static StringifyRequestType(obj: any): string {
+        if (typeof(obj) !== "object" || obj.constructor !== Object) {
+            throw new Error("Could not stringify request/response");
+        }
+
+        // FetchResult
+        if (obj.result?.nodes) {
+            obj.result.nodes = obj.result.nodes.map( (buf: Buffer) => buf.toString("base64") );
+        }
+
+        if (obj.result?.embed) {
+            obj.result.embed = obj.result.embed.map( (buf: Buffer) => buf.toString("base64") );
+        }
+
+        // CRDTResult
+        if (obj.crdtResult?.delta) {
+            obj.crdtResult.delta = obj.crdtResult.delta.toString("base64");
+        }
+
+        // StoreRequest
+        if (obj.nodes) {
+            obj.nodes = obj.nodes.map( (buf: Buffer) => buf.toString("base64") );
+        }
+
+        // WriteBlobRequest
+        // ReadblobResponse
+        // GenericMessageRequest
+        // GenericMessageResponse
+        //
+        if (obj.data) {
+            obj.data = obj.data.toString("base64");
+        }
+
+        return JSON.stringify(StripObject(obj));
+    }
+
+    /**
+     * Parse JSON.
+     * Detect request/response data type and parse it.
+     * Variable length binary fields are decoded as base64,
+     * other binary fields are decoded as hex.
+     *
+     * @returns parsed object
+     * @throws
+     */
+    public static ParseRequestType(body: string): FetchRequest | FetchResponse | StoreRequest |
+        StoreResponse | UnsubscribeRequest | UnsubscribeResponse | WriteBlobRequest |
+        WriteBlobResponse | ReadBlobRequest | ReadBlobResponse | GenericMessageResponse |
+        GenericMessageRequest
+    {
+        const obj = JSON.parse(body);
+
+        if (typeof(obj) !== "object" || obj.constructor !== Object) {
+            throw new Error("Could not parse request/response type");
+        }
+
+        if (obj.query) {
+            return ParseUtil.ParseFetchRequest(obj);
+        }
+        else if (obj.result) {
+            return ParseUtil.ParseFetchResponse(obj);
+        }
+        else if (obj.nodes) {
+            return ParseUtil.ParseStoreRequest(obj);
+        }
+        else if (obj.storedId1s) {
+            return ParseUtil.ParseStoreResponse(obj);
+        }
+        else if (obj.originalMsgId) {
+            return ParseUtil.ParseUnsubscribeRequest(obj);
+        }
+        else if (obj.nodeId1 && obj.data) {
+            return ParseUtil.ParseWriteBlobRequest(obj);
+        }
+        else if (obj.currentLength !== undefined) {
+            return ParseUtil.ParseWriteBlobResponse(obj);
+        }
+        else if (obj.nodeId1 && obj.length!== undefined) {
+            return ParseUtil.ParseReadBlobRequest(obj);
+        }
+        else if (obj.blobLength !== undefined) {
+            return ParseUtil.ParseReadBlobResponse(obj);
+        }
+        else if (obj.action !== undefined) {
+            return ParseUtil.ParseGenericMessageRequest(obj);
+        }
+        else if (obj.status !== undefined && obj.data !== undefined) {
+            return ParseUtil.ParseGenericMessageResponse(obj);
+        }
+        else if (obj.status !== undefined && obj.error !== undefined) {
+            return ParseUtil.ParseUnsubscribeResponse(obj);
+        }
+
+        throw new Error("Could not parse request/response type");
+    }
+
+    protected static ParseFetchRequest(obj: any): FetchRequest {
+        if (typeof obj !== "object" || obj.constructor !== Object) {
+            throw new Error("Expecting fetch request to be object.");
+        }
+
+        const query = ParseUtil.ParseQuery(obj.query);
+
+        const crdt = ParseUtil.ParseCRDT(obj.crdt ?? {});
+
+        return {
+            query,
+            crdt,
+        };
+    }
+
+    protected static ParseFetchResponse(obj: any): FetchResponse {
+        if (typeof obj !== "object" || obj.constructor !== Object) {
+            throw new Error("Expecting fetch response to be object.");
+        }
+
+        const status = ParseUtil.ParseVariable("fetchResponse status must be number",
+            obj.status, "number") as number;
+
+        const result = ParseUtil.ParseFetchResult(obj.result ?? {});
+
+        const crdtResult = ParseUtil.ParseCRDTResult(obj.crdtResult ?? {});
+
+        const seq = ParseUtil.ParseVariable("fetchResponse seq must be number, if set",
+            obj.seq, "number", true) ?? 1;
+
+        const endSeq = ParseUtil.ParseVariable("fetchResponse endSeq must be number, if set",
+            obj.endSeq, "number", true) ?? 0;
+
+        const error = ParseUtil.ParseVariable("fetchResponse error must be string, if set",
+            obj.error, "string", true) ?? "";
+
+        const rowCount = ParseUtil.ParseVariable("fetchResponse rowCount must be number, if set",
+            obj.rowCount, "number", true) ?? 0;
+
+        return {
+            status,
+            result,
+            crdtResult,
+            seq,
+            endSeq,
+            error,
+            rowCount,
+        };
+    }
+
+    protected static ParseFetchResult(obj: any): FetchResult {
+        if (typeof obj !== "object" || obj.constructor !== Object) {
+            throw new Error("Expecting fetch result to be object.");
+        }
+
+        const nodes = ParseUtil.ParseVariable(
+            "fetchResult nodes must be array of base64 or Buffer, if set",
+            obj.nodes, "base64[]", true) ?? [];
+
+        const embed = ParseUtil.ParseVariable(
+            "fetchResult embed must be array of base64 or Buffer, if set",
+            obj.embed, "base64[]", true) ?? [];
+
+        const cutoffTime = ParseUtil.ParseVariable(
+            "fetchResult cutoffTime must be number or bigint as string, if set",
+            obj.cutoffTime, "bigint", true) ?? 0n;
+
+        return {
+            nodes,
+            embed,
+            cutoffTime,
+        };
+    }
+
+    protected static ParseCRDTResult(obj: any): CRDTResult {
+        if (typeof obj !== "object" || obj.constructor !== Object) {
+            throw new Error("Expecting crdtResult to be object.");
+        }
+
+        const delta = ParseUtil.ParseVariable("crdtResult delta must be base64 or Buffer, if set",
+            obj.delta, "base64", true) ?? Buffer.alloc(0);
+
+        const cursorIndex = ParseUtil.ParseVariable("crdtResult cursorIndex must be number, if set",
+            obj.cursorIndex, "number", true) ?? 0;
+
+        const length = ParseUtil.ParseVariable("crdtResult length must be number, if set",
+            obj.length, "number", true) ?? 0;
+
+        return {
+            delta,
+            cursorIndex,
+            length,
+        };
+    }
+
+    protected static ParseStoreRequest(obj: any): StoreRequest {
+        if (typeof obj !== "object" || obj.constructor !== Object) {
+            throw new Error("Expecting storeRequest to be object.");
+        }
+
+        const nodes = ParseUtil.ParseVariable(
+            "storeRequest nodes must be array of base64 or Buffer, if set",
+            obj.nodes, "base64[]", true) ?? [];
+
+        const sourcePublicKey = ParseUtil.ParseVariable(
+            "storeRequest sourcePublicKey must be hex-string or Buffer, if set",
+            obj.sourcePublicKey, "hex", true) ?? Buffer.alloc(0);
+
+        const targetPublicKey = ParseUtil.ParseVariable(
+            "storeRequest targetPublicKey must be hex-string or Buffer, if set",
+            obj.targetPublicKey, "hex", true) ?? Buffer.alloc(0);
+
+        const muteMsgIds = ParseUtil.ParseVariable(
+            "storeRequest muteMsgIds must be array of hex-string or Buffer, if set",
+            obj.muteMsgIds, "hex[]", true) ?? [];
+
+        const preserveTransient = ParseUtil.ParseVariable(
+            "storeResponse preserveTransient must be boolean, if set",
+            obj.preserveTransient, "boolean", true) ?? false;
+
+        return {
+            nodes,
+            sourcePublicKey,
+            targetPublicKey,
+            muteMsgIds,
+            preserveTransient,
+        };
+    }
+
+    protected static ParseStoreResponse(obj: any): StoreResponse {
+        if (typeof obj !== "object" || obj.constructor !== Object) {
+            throw new Error("Expecting storeResponse to be object.");
+        }
+
+        const status = ParseUtil.ParseVariable(
+            "storeResponse status must be number",
+            obj.status, "number") as number;
+
+        const storedId1s = ParseUtil.ParseVariable(
+            "storeResponse storedId1s must be array of hex-string or Buffer, if set",
+            obj.storedId1s, "hex[]", true) ?? [];
+
+        const missingBlobId1s = ParseUtil.ParseVariable(
+            "storeResponse missingBlobId1s must be array of hex-string or Buffer, if set",
+            obj.missingBlobId1s, "hex[]", true) ?? [];
+
+        const missingBlobSizes = ParseUtil.ParseVariable(
+            "storeResponse missingBlobSizes must be array of numbers or bigints as strings, if set",
+            obj.missingBlobSizes, "bigint[]", true) ?? [];
+
+        const error = ParseUtil.ParseVariable("storeResponse error must be string, if set",
+            obj.error, "string", true) ?? "";
+
+        return {
+            status,
+            storedId1s,
+            missingBlobId1s,
+            missingBlobSizes,
+            error,
+        };
+    }
+
+    protected static ParseUnsubscribeRequest(obj: any): UnsubscribeRequest {
+        if (typeof obj !== "object" || obj.constructor !== Object) {
+            throw new Error("Expecting unsubscribeRequest to be object.");
+        }
+
+        const originalMsgId = ParseUtil.ParseVariable(
+            "unsubscribeRequest originalMsgId must be hex-string or Buffer",
+            obj.originalMsgId, "hex");
+
+        const targetPublicKey = ParseUtil.ParseVariable(
+            "unsubscribeRequest targetPublicKey must be hex-string or Buffer, if set",
+            obj.targetPublicKey, "hex", true) ?? Buffer.alloc(0);
+
+        return {
+            originalMsgId,
+            targetPublicKey,
+        };
+    }
+
+    protected static ParseUnsubscribeResponse(obj: any): UnsubscribeResponse {
+        if (typeof obj !== "object" || obj.constructor !== Object) {
+            throw new Error("Expecting unsubscribeResponse to be object.");
+        }
+
+        const status = ParseUtil.ParseVariable(
+            "unsubscribeResponse status must be number",
+            obj.status, "number") as number;
+
+        const error = ParseUtil.ParseVariable(
+            "unsubscribeResponse error must be string, if set",
+            obj.error, "string", true) ?? "";
+
+        return {
+            status,
+            error,
+        };
+    }
+
+    protected static ParseWriteBlobRequest(obj: any): WriteBlobRequest {
+        if (typeof obj !== "object" || obj.constructor !== Object) {
+            throw new Error("Expecting writeBlobRequest to be object.");
+        }
+
+        const nodeId1 = ParseUtil.ParseVariable(
+            "unsubscribeRequest nodeId1 must be hex-string or Buffer",
+            obj.nodeId1, "hex");
+
+        const pos = ParseUtil.ParseVariable(
+            "unsubscribeRequest pos must be number or bigint as string",
+            obj.pos, "bigint");
+
+        const data = ParseUtil.ParseVariable(
+            "unsubscribeRequest data must be base64 or Buffer",
+            obj.data, "base64");
+
+        const sourcePublicKey = ParseUtil.ParseVariable(
+            "unsubscribeRequest sourcePublicKey must be hex-string or Buffer, if set",
+            obj.sourcePublicKey, "hex", true) ?? Buffer.alloc(0);
+
+        const targetPublicKey = ParseUtil.ParseVariable(
+            "unsubscribeRequest targetPublicKey must be hex-string or Buffer, if set",
+            obj.targetPublicKey, "hex", true) ?? Buffer.alloc(0);
+
+        const muteMsgIds = ParseUtil.ParseVariable(
+            "writeBlobRequest muteMsgIds must be array of hex-string or Buffer, if set",
+            obj.muteMsgIds, "hex[]", true) ?? [];
+
+        return {
+            nodeId1,
+            pos,
+            data,
+            sourcePublicKey,
+            targetPublicKey,
+            muteMsgIds,
+        };
+    }
+
+    protected static ParseWriteBlobResponse(obj: any): WriteBlobResponse {
+        if (typeof obj !== "object" || obj.constructor !== Object) {
+            throw new Error("Expecting writeBlobResponse to be object.");
+        }
+
+        const status = ParseUtil.ParseVariable(
+            "writeBlobResponse status must be number",
+            obj.status, "number") as number;
+
+        const currentLength = ParseUtil.ParseVariable(
+            "writeBlobResponse currentLength must be number or bigint as string",
+            obj.currentLength, "bigint");
+
+        const error = ParseUtil.ParseVariable(
+            "writeBlobResponse error must be string, if set",
+            obj.error, "string", true) ?? "";
+
+        return {
+            status,
+            currentLength,
+            error,
+        };
+    }
+
+    protected static ParseReadBlobRequest(obj: any): ReadBlobRequest {
+        if (typeof obj !== "object" || obj.constructor !== Object) {
+            throw new Error("Expecting readBlobRequest to be object.");
+        }
+
+        const nodeId1 = ParseUtil.ParseVariable(
+            "readBlobRequest nodeId1 must be hex-string or Buffer",
+            obj.nodeId1, "hex");
+
+        const pos = ParseUtil.ParseVariable(
+            "readBlobRequest pos must be number or bigint as string",
+            obj.pos, "bigint");
+
+        const length = ParseUtil.ParseVariable(
+            "readBlobRequest length must be number",
+            obj.length, "number");
+
+        const targetPublicKey = ParseUtil.ParseVariable(
+            "readBlobRequest targetPublicKey must be hex-string or Buffer, if set",
+            obj.targetPublicKey, "hex", true) ?? Buffer.alloc(0);
+
+        const sourcePublicKey = ParseUtil.ParseVariable(
+            "readBlobRequest sourcePublicKey must be hex-string or Buffer, if set",
+            obj.sourcePublicKey, "hex", true) ?? Buffer.alloc(0);
+
+        return {
+            nodeId1,
+            pos,
+            length,
+            targetPublicKey,
+            sourcePublicKey,
+        };
+    }
+
+    protected static ParseReadBlobResponse(obj: any): ReadBlobResponse {
+        if (typeof obj !== "object" || obj.constructor !== Object) {
+            throw new Error("Expecting readBlobResponse to be object.");
+        }
+
+        const status = ParseUtil.ParseVariable(
+            "readBlobResponse status must be number",
+            obj.status, "number") as number;
+
+        const data = ParseUtil.ParseVariable(
+            "readBlobResponse data must be base64 or Buffer",
+            obj.data, "base64");
+
+        const seq = ParseUtil.ParseVariable(
+            "readBlobResponse seq must be number, if set",
+            obj.seq, "number", true) ?? 1;
+
+        const endSeq = ParseUtil.ParseVariable(
+            "readBlobResponse endSeq must be number, if set",
+            obj.endSeq, "number", true) ?? 0;
+
+        const blobLength = ParseUtil.ParseVariable(
+            "readBlobResponse blobLength must be number or bigint as string",
+            obj.blobLength, "bigint");
+
+        const error = ParseUtil.ParseVariable(
+            "readBlobResponse error must be string, if set",
+            obj.error, "string", true) ?? "";
+
+        return {
+            status,
+            data,
+            seq,
+            endSeq,
+            blobLength,
+            error,
+        };
+    }
+
+    protected static ParseGenericMessageRequest(obj: any): GenericMessageRequest {
+        if (typeof obj !== "object" || obj.constructor !== Object) {
+            throw new Error("Expecting genericMessageRequest to be object.");
+        }
+
+        const action = ParseUtil.ParseVariable(
+            "genericMessageRequest action must be string",
+            obj.action, "string");
+
+        const sourcePublicKey = ParseUtil.ParseVariable(
+            "genericMessageRequest sourcePublicKey must be hex-string or Buffer, if set",
+            obj.sourcePublicKey, "hex", true) ?? Buffer.alloc(0);
+
+        const data = ParseUtil.ParseVariable(
+            "genericMessageRequest data must be base64 or Buffer, if set",
+            obj.data, "base64", true) ?? Buffer.alloc(0);
+
+        return {
+            action,
+            sourcePublicKey,
+            data,
+        };
+    }
+
+    protected static ParseGenericMessageResponse(obj: any): GenericMessageResponse {
+        if (typeof obj !== "object" || obj.constructor !== Object) {
+            throw new Error("Expecting genericMessageResponse to be object.");
+        }
+
+        const status = ParseUtil.ParseVariable(
+            "genericMessageResponse status must be number",
+            obj.status, "number") as number;
+
+        const data = ParseUtil.ParseVariable(
+            "genericMessageResponse data must be base64 or Buffer, if set",
+            obj.data, "base64", true) ?? Buffer.alloc(0);
+
+        const error = ParseUtil.ParseVariable(
+            "genericMessageResponse error must be string, if set",
+            obj.error, "string", true) ?? "";
+
+        return {
+            status,
+            data,
+            error,
+        };
+    }
+
+    /**
      * @param query as:
      * {
      *  onlyTrigger?: boolean,
@@ -837,7 +1426,7 @@ export class ParseUtil {
         const match = ParseUtil.ParseMatch(ParseUtil.ParseVariable("query match must be object[], if set", query.match, "object[]", true) ?? []);
         const depth = ParseUtil.ParseVariable("query depth must be number, if set", query.depth, "number", true) ?? -1;
         const limit = ParseUtil.ParseVariable("query limit must be number, if set", query.limit, "number", true) ?? -1;
-        const cutoffTime = ParseUtil.ParseVariable("query cutoffTime must be number, if set", query.cutoffTime, "bigint", true) ?? 0n;
+        const cutoffTime = ParseUtil.ParseVariable("query cutoffTime must be number or bigint as string, if set", query.cutoffTime, "bigint", true) ?? 0n;
         const rootNodeId1 = ParseUtil.ParseVariable("query rootNodeId1 must be hex-string or Buffer, if set", query.rootNodeId1, "hex", true) ?? Buffer.alloc(0);
         const parentId = ParseUtil.ParseVariable("query parentId must be hex-string or Buffer, if set", query.parentId, "hex", true) ?? Buffer.alloc(0);
         const descending = ParseUtil.ParseVariable("query descending must be boolean, if set", query.descending, "boolean", true) ?? false;
@@ -1010,7 +1599,7 @@ export class ParseUtil {
 
         const depth = ParseUtil.ParseVariable("query depth must be number, if set", query.depth, "number", true) ?? -1;
         const limit = ParseUtil.ParseVariable("query limit must be number, if set", query.limit, "number", true) ?? -1;
-        const cutoffTime = ParseUtil.ParseVariable("query cutoffTime must be number, if set", query.cutoffTime, "bigint", true) ?? 0n;
+        const cutoffTime = ParseUtil.ParseVariable("query cutoffTime must be number or bigint as string, if set", query.cutoffTime, "bigint", true) ?? 0n;
         const rootNodeId1 = ParseUtil.ParseVariable("query rootNodeId1 must be hex-string or Buffer, if set", query.rootNodeId1, "hex", true) ?? Buffer.alloc(0);
         const parentId = ParseUtil.ParseVariable("query parentId must be hex-string or Buffer, if set", query.parentId, "hex", true) ?? Buffer.alloc(0);
         const descending = ParseUtil.ParseVariable("query descending must be boolean, if set", query.descending, "boolean", true) ?? false;
@@ -1297,7 +1886,7 @@ export class ParseUtil {
         const cert = ParseUtil.ParseVariable("cert must be hex-string or Buffer, if set", params.cert, "hex",true);
         const embedded = ParseUtil.ParseVariable("embedded must be hex-string or Buffer, if set", params.embedded, "hex",true);
         const blobHash = ParseUtil.ParseVariable("blobHash must be hex-string or Buffer, if set", params.blobHash, "hex",true);
-        const blobLength = ParseUtil.ParseVariable("blobLength must be number, if set", params.blobLength, "bigint", true);
+        const blobLength = ParseUtil.ParseVariable("blobLength must be number or bigint as string, if set", params.blobLength, "bigint", true);
         const licenseMinDistance = ParseUtil.ParseVariable("licenseMinDistance must be number, if set", params.licenseMinDistance, "number", true);
         const licenseMaxDistance = ParseUtil.ParseVariable("licenseMaxDistance must be number, if set", params.licenseMaxDistance, "number", true);
         const transientConfig = ParseUtil.ParseVariable("transientConfig must be number, if set", params.transientConfig, "number", true);
@@ -1825,9 +2414,17 @@ export class ParseUtil {
 
     /**
      * @param error: string the exception to throw when type does not match.
-     * @param expectedType: any "string", "number", "bigint", "boolean", "object", "hex", also suffix with "[]" to expect array as "string[]".
-     * "hex" is expected to be either hexadecimal string then translated to Buffer or already a Buffer.
-     * @param allowUndefined if true then allow value to be undefined (or null, undefined will be returned in null cases).
+     *
+     * @param expectedType: any "string", "number", "bigint", "boolean", "object", "hex", "base64",
+     * also suffix with "[]" to expect array as "string[]".
+     * "hex" is expected to be either hexadecimal string then translated to Buffer or already
+     * a Buffer.
+     * "base64" is expected to be either base64 encoded string then translated to Buffer or
+     * already a Buffer.
+     *
+     * @param allowUndefined if true then allow value to be undefined (or null, undefined will
+     * be returned in null cases).
+     *
      * @returns value, same as given as argument.
      * @throws if type of value does not match expected type.
      */
@@ -1848,13 +2445,13 @@ export class ParseUtil {
                 }
                 const value2: any[] = [];
                 value.forEach( (v: any) => {
-                    if (expectedType === "hex") {
+                    if (expectedType === "hex" || expectedType === "base64") {
                         if (!Buffer.isBuffer(v)) {
                             if (typeof v !== "string") {
                                 throw new Error(error);
                             }
-                            const v2 = Buffer.from(v, "hex");
-                            if (v2.toString("hex").toLowerCase() !== v.toLowerCase()) {
+                            const v2 = Buffer.from(v, expectedType);
+                            if (v2.toString(expectedType).toLowerCase() !== v.toLowerCase()) {
                                 throw new Error(error);
                             }
                             v = v2;
@@ -1871,20 +2468,25 @@ export class ParseUtil {
                 if (expectArray) {
                     throw new Error(error);
                 }
-                if (expectedType === "hex") {
+                if (expectedType === "hex" || expectedType === "base64") {
                     if (!Buffer.isBuffer(value)) {
                         if (typeof value !== "string") {
                             throw new Error(error);
                         }
-                        const value2 = Buffer.from(value, "hex");
-                        if (value2.toString("hex").toLowerCase() !== value.toLowerCase()) {
+                        const value2 = Buffer.from(value, expectedType);
+                        if (value2.toString(expectedType).toLowerCase() !== value.toLowerCase()) {
                             throw new Error(error);
                         }
                         return value2;
                     }
                 }
-                else if (typeof value !== expectedType) {
-                    throw new Error(error);
+                else {
+                    if (expectedType === "bigint") {
+                        value = BigInt(value);
+                    }
+                    else if (typeof value !== expectedType) {
+                        throw new Error(error);
+                    }
                 }
                 return DeepCopy(value);
             }

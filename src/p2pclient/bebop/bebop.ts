@@ -645,6 +645,7 @@ export interface IBopFetchRequest {
 }
 
 export const BopFetchRequest = {
+  opcode: 0x1,
   encode(message: IBopFetchRequest): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
@@ -713,6 +714,7 @@ export interface IBopFetchResponse {
 }
 
 export const BopFetchResponse = {
+  opcode: 0x2,
   encode(message: IBopFetchResponse): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
@@ -819,6 +821,7 @@ export interface IBopStoreRequest {
 }
 
 export const BopStoreRequest = {
+  opcode: 0x3,
   encode(message: IBopStoreRequest): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
@@ -937,6 +940,7 @@ export interface IBopStoreResponse {
 }
 
 export const BopStoreResponse = {
+  opcode: 0x4,
   encode(message: IBopStoreResponse): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
@@ -1066,6 +1070,7 @@ export interface IBopUnsubscribeRequest {
 }
 
 export const BopUnsubscribeRequest = {
+  opcode: 0x5,
   encode(message: IBopUnsubscribeRequest): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
@@ -1129,6 +1134,7 @@ export interface IBopUnsubscribeResponse {
 }
 
 export const BopUnsubscribeResponse = {
+  opcode: 0x6,
   encode(message: IBopUnsubscribeResponse): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
@@ -1196,6 +1202,7 @@ export interface IBopWriteBlobRequest {
 }
 
 export const BopWriteBlobRequest = {
+  opcode: 0x7,
   encode(message: IBopWriteBlobRequest): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
@@ -1306,6 +1313,7 @@ export interface IBopWriteBlobResponse {
 }
 
 export const BopWriteBlobResponse = {
+  opcode: 0x8,
   encode(message: IBopWriteBlobResponse): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
@@ -1380,6 +1388,7 @@ export interface IBopReadBlobRequest {
 }
 
 export const BopReadBlobRequest = {
+  opcode: 0x9,
   encode(message: IBopReadBlobRequest): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
@@ -1471,6 +1480,7 @@ export interface IBopReadBlobResponse {
 }
 
 export const BopReadBlobResponse = {
+  opcode: 0xA,
   encode(message: IBopReadBlobResponse): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
@@ -1567,6 +1577,7 @@ export interface IBopGenericMessageRequest {
 }
 
 export const BopGenericMessageRequest = {
+  opcode: 0xB,
   encode(message: IBopGenericMessageRequest): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
@@ -1639,6 +1650,7 @@ export interface IBopGenericMessageResponse {
 }
 
 export const BopGenericMessageResponse = {
+  opcode: 0xC,
   encode(message: IBopGenericMessageResponse): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();

@@ -3,8 +3,8 @@ import {
 } from "./SignatureOffloaderRPCServer";
 
 import {
-    HandshakeFactoryFactoryRPCServer,
-} from "./HandshakeFactoryFactoryRPCServer";
+    AuthFactoryRPCServer,
+} from "./AuthFactoryRPCServer";
 
 import {
     KeyPair,
@@ -23,7 +23,7 @@ export class KeyManager {
     protected rpc: RPC;
     protected triggerOnAuth?: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>;
     protected signatureOffloaderRPCServer?: SignatureOffloaderRPCServer;
-    protected handshakeFactoryFactoryRPCCserver?: HandshakeFactoryFactoryRPCServer;
+    protected authFactoryRPCCserver?: AuthFactoryRPCServer;
 
     constructor(rpc: RPC) {
         this.rpc = rpc;
@@ -46,7 +46,7 @@ export class KeyManager {
      */
     public close = () => {
         this.signatureOffloaderRPCServer?.close();
-        this.handshakeFactoryFactoryRPCCserver?.close();
+        this.authFactoryRPCCserver?.close();
     }
 
     /**
@@ -54,7 +54,7 @@ export class KeyManager {
      * @returns AuthResponse.
      */
     protected auth = async (): Promise<AuthResponse> => {
-        if (this.signatureOffloaderRPCServer || this.handshakeFactoryFactoryRPCCserver) {
+        if (this.signatureOffloaderRPCServer || this.authFactoryRPCCserver) {
             return {
                 error: "KeyManager already authenticated",
             };
@@ -101,7 +101,7 @@ export class KeyManager {
             await this.signatureOffloaderRPCServer.addKeyPair(keyPair2);
         }
 
-        this.handshakeFactoryFactoryRPCCserver = new HandshakeFactoryFactoryRPCServer(rpc2, keyPairs2);
+        this.authFactoryRPCCserver = new AuthFactoryRPCServer(rpc2, keyPairs2);
 
         return {
             signatureOffloaderRPCId,
