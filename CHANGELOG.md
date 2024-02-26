@@ -2,6 +2,9 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.8.1] - 20240226
+Bump pocket-messaging dependency to 5.0.0.  
+
 ## [0.8.0] - 20240226
 BREAKING CHANGES.  
 Add API handshake factory for textual "curlability".  
