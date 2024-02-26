@@ -33,7 +33,16 @@ export class PeerDataUtil {
         }
         peerData.setAuthCert(params.authCert);
         peerData.setAuthCertPublicKey(params.authCertPublicKey);
-        peerData.setClockDiff(params.clockDiff ?? 0);
+
+        let clockDiff = params.clockDiff ?? 0;
+        if (clockDiff < -2147483648) {
+            clockDiff = -2147483648;
+        }
+        else if (clockDiff > 2147483647) {
+            clockDiff = 2147483647;
+        }
+        peerData.setClockDiff(clockDiff);
+
         peerData.setRegion(params.region);
         peerData.setJurisdiction(params.jurisdiction);
         peerData.setAppVersion(params.appVersion);
@@ -63,7 +72,14 @@ export class PeerDataUtil {
         // the given clockDiff is for the local side, so we negate it
         // and use it for the remote side.
         //
-        peerData.setClockDiff(-handshakeResult.clockDiff);
+        let clockDiff = handshakeResult.clockDiff;
+        if (clockDiff < -2147483648) {
+            clockDiff = -2147483648;
+        }
+        else if (clockDiff > 2147483647) {
+            clockDiff = 2147483647;
+        }
+        peerData.setClockDiff(-clockDiff);
 
         if (!version || serializeFormat === undefined) {
             throw new Error("Missing required fields in handshakeResult.peerData");

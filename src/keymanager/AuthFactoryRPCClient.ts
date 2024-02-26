@@ -25,8 +25,8 @@ export class AuthFactoryRPCClient implements AuthFactoryInterface {
     constructor(protected rpc1: RPC) {}
 
     public async create(authFactoryConfig: AuthFactoryConfig): Promise<HandshakeFactoryInterface> {
-        if ((authFactoryConfig as any).peerData) {
-            throw new Error("handshakeFactoryConfig.peerData must be unset when using Handshake RPC.");
+        if (typeof((authFactoryConfig as any).peerData) === "function") {
+            throw new Error("handshakeFactoryConfig.peerData cannot be a function when using Handshake RPC.");
         }
 
         const rpcId2 = await this.rpc1.call("create", [authFactoryConfig]);

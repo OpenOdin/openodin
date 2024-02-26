@@ -39,7 +39,7 @@ export class AuthClientProcessHandshake implements AuthClientProcessInterface {
         let peerData: Buffer | undefined;
 
         if (typeof this.apiAuthFactoryConfig.peerData === "function") {
-            peerData = this.apiAuthFactoryConfig.peerData(true);
+            peerData = this.apiAuthFactoryConfig.peerData(/*isServer=*/false);
         }
         else {
             peerData = this.apiAuthFactoryConfig.peerData;
