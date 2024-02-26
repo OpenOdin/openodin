@@ -2,6 +2,12 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.8.0] - 20240226
+BREAKING CHANGES.  
+Add API handshake factory for textual "curlability".  
+Improve serialization.  
+Bug fixes.  
+
 ## [0.7.9] - 20240107
 BREAKING CHANGES.  
 Add node annotations CRDT feature for editing and reactions.  
