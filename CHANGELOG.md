@@ -2,6 +2,9 @@
 
 Note that any version below 1.0.0 can have breaking changes.  
 
+## [0.8.2] - 20240227
+Bug fix.  
+
 ## [0.8.1] - 20240226
 Bump pocket-messaging dependency to 5.0.0.  
 
