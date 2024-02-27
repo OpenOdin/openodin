@@ -719,11 +719,6 @@ export class Service {
         if (AuthFactory.IsNativeHandshake(connectionConfig.authFactoryConfig) ||
             AuthFactory.IsAPIHandshake(connectionConfig.authFactoryConfig))
         {
-            // Force this for storage connection factories.
-            //
-            (connectionConfig.authFactoryConfig as unknown as NativeAuthFactoryConfig).
-                socketFactoryConfig.maxConnections = 1;
-
             const handshakeFactoryConfig =
                 connectionConfig.authFactoryConfig as unknown as NativeAuthFactoryConfig;
 
