@@ -22,6 +22,7 @@ import {
     Universe,
     RPC,
     JSONUtil,
+    P2PClient,
 } from "../../../";
 
 import {
@@ -115,13 +116,8 @@ async function main() {
 
     const consoleServer = PocketConsole({module: "Server"});
 
-    chatServer.onPeerError( (e) => {
-        consoleMain.error("Peer connection error in server", e);
-        process.exit(1);
-    });
-
-    chatServer.onStorageConnect( async (e) => {
-        const storageClient = e.p2pClient;
+    chatServer.onStorageConnect( async (p2pClient: P2PClient) => {
+        const storageClient = p2pClient;
 
         const serverThread = chatServer.makeThread("channel", {parentId: Buffer.alloc(32),
             targets: [publicKey1]});
@@ -192,15 +188,10 @@ async function main() {
     const consoleClient = PocketConsole({module: "Client"});
 
 
-    chatClient.onPeerError( (e) => {
-        consoleMain.error("Peer error in client", e);
-        process.exit(1);
-    });
-
     let clientThread: Thread | undefined;
 
-    chatClient.onStorageConnect( (e) => {
-        const storageClient = e.p2pClient;
+    chatClient.onStorageConnect( (p2pClient: P2PClient) => {
+        const storageClient = p2pClient;
 
         clientThread = chatClient.makeThread("channel", {parentId: Buffer.alloc(32),
             targets: [publicKey2]});

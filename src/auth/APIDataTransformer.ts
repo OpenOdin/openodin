@@ -3,6 +3,7 @@ import {
     Header,
     MSG_ID_LENGTH,
     PING_ROUTE,
+    PONG_ROUTE,
     Messaging,
 } from "pocket-messaging"
 
@@ -122,8 +123,9 @@ export class APIDataTransformer {
             throw new Error("Bad request, bad msgId");
         }
 
-        const data = targetStr.toLowerCase() ===  PING_ROUTE.toLowerCase() ?
-            undefined : ParseUtil.ParseRequestType(request.data);
+        const data = (targetStr.toLowerCase() ===  PING_ROUTE.toLowerCase() ||
+            targetStr.toLowerCase() ===  PONG_ROUTE.toLowerCase()) ? undefined :
+            ParseUtil.ParseRequestType(request.data);
 
         return {
             sessionToken: request.sessionToken,
@@ -161,8 +163,10 @@ export class APIDataTransformer {
     public serialize(request: APIRequest): Buffer {
         let packed = Buffer.alloc(0);
 
-        if (request.target.toString().toLowerCase() === PING_ROUTE.toLowerCase()) {
-            // Ping messages
+        if (request.target.toString().toLowerCase() === PING_ROUTE.toLowerCase() ||
+            request.target.toString().toLowerCase() === PONG_ROUTE.toLowerCase())
+        {
+            // Ping-pong messages
             // Do not pack anything.
         }
         else {
@@ -200,8 +204,10 @@ export class APIDataTransformer {
 
         let dataObj = undefined;
 
-        if (header.target.equals(Buffer.from(PING_ROUTE))) {
-            // Ping message
+        if (header.target.equals(Buffer.from(PING_ROUTE)) ||
+            header.target.equals(Buffer.from(PONG_ROUTE)))
+        {
+            // Ping-pong message
             // Do not deserialize message, since there is none.
         }
         else {

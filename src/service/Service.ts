@@ -14,8 +14,6 @@ import {
     HandshakeFactoryConfig,
 } from "pocket-messaging";
 
-import {EVENTS as HANDSHAKEFACTORY_EVENTS} from "pocket-messaging";
-
 import {
     SignatureOffloaderInterface,
 } from "../signatureoffloader/types";
@@ -70,6 +68,31 @@ import {
     SyncConf,
     WalletConf,
     ThreadSyncConf,
+    ServiceStartCallback,
+    ServiceStopCallback,
+    ServicePeerCloseCallback,
+    ServicePeerConnectCallback,
+    ServicePeerFactoryCreateCallback,
+    ServicePeerParseErrorCallback,
+    ServicePeerAuthCertErrorCallback,
+    ServiceStorageCloseCallback,
+    ServiceStorageConnectCallback,
+    ServiceStorageFactoryCreateCallback,
+    ServiceStorageParseErrorCallback,
+    ServiceStorageAuthCertErrorCallback,
+    EVENT_SERVICE_START,
+    EVENT_SERVICE_STOP,
+    EVENT_SERVICE_BLOB,
+    EVENT_SERVICE_STORAGE_CLOSE,
+    EVENT_SERVICE_STORAGE_CONNECT,
+    EVENT_SERVICE_STORAGE_FACTORY_CREATE,
+    EVENT_SERVICE_STORAGE_AUTHCERT_ERROR,
+    EVENT_SERVICE_STORAGE_PARSE_ERROR,
+    EVENT_SERVICE_PEER_FACTORY_CREATE,
+    EVENT_SERVICE_PEER_CONNECT,
+    EVENT_SERVICE_PEER_CLOSE,
+    EVENT_SERVICE_PEER_AUTHCERT_ERROR,
+    EVENT_SERVICE_PEER_PARSE_ERROR,
 } from "./types";
 
 import {
@@ -189,132 +212,6 @@ type ServiceState = {
     localDatabaseReconnectDelay?: number,
 };
 
-/**
- */
-export const EVENTS = {
-    START: {
-       name: "START",
-    },
-    STOP: {
-       name: "STOP",
-    },
-    BLOB: {
-       name: "BLOB",
-    },
-    STORAGE_CLOSE: {
-       name: "STORAGE_CLOSE",
-    },
-    STORAGE_CONNECT: {
-       name: "STORAGE_CONNECT",
-    },
-    STORAGE_FACTORY_CREATE: {
-       name: "STORAGE_FACTORY_CREATE",
-    },
-    STORAGE_AUTHCERT_ERROR: {
-       name: "STORAGE_AUTHCERT_ERROR",
-    },
-    STORAGE_PARSE_ERROR: {
-       name: "STORAGE_PARSE_ERROR",
-    },
-    STORAGE_ERROR: {
-        ...HANDSHAKEFACTORY_EVENTS.ERROR,
-        subEvents: [...HANDSHAKEFACTORY_EVENTS.ERROR.subEvents, "STORAGE_PARSE_ERROR", "STORAGE_AUTHCERT_ERROR"],
-    },
-
-    STORAGE_CLIENT_FACTORY_CREATE: {
-       name: "STORAGE_CLIENT_FACTORY_CREATE",
-    },
-    STORAGE_CLIENT_CONNECT: {
-       name: "STORAGE_CLIENT_CONNECT",
-    },
-    STORAGE_CLIENT_CLOSE: {
-       name: "STORAGE_CLIENT_CLOSE",
-    },
-    STORAGE_CLIENT_AUTHCERT_ERROR: {
-       name: "STORAGE_CLIENT_AUTHCERT_ERROR",
-    },
-    STORAGE_CLIENT_PARSE_ERROR: {
-       name: "STORAGE_CLIENT_PARSE_ERROR",
-    },
-    STORAGE_CLIENT_ERROR: {
-        ...HANDSHAKEFACTORY_EVENTS.ERROR,
-        subEvents: [...HANDSHAKEFACTORY_EVENTS.ERROR.subEvents, "STORAGE_CLIENT_PARSE_ERROR", "STORAGE_CLIENT_AUTHCERT_ERROR"],
-    },
-
-    PEER_FACTORY_CREATE: {
-       name: "PEER_FACTORY_CREATE",
-    },
-    PEER_CONNECT: {
-       name: "PEER_CONNECT",
-    },
-    PEER_CLOSE: {
-       name: "PEER_CLOSE",
-    },
-    PEER_AUTHCERT_ERROR: {
-       name: "PEER_AUTHCERT_ERROR",
-    },
-    PEER_PARSE_ERROR: {
-       name: "PEER_PARSE_ERROR",
-    },
-    PEER_ERROR: {
-        ...HANDSHAKEFACTORY_EVENTS.ERROR,
-        subEvents: [...HANDSHAKEFACTORY_EVENTS.ERROR.subEvents, "PEER_PARSE_ERROR", "PEER_AUTHCERT_ERROR"],
-    },
-}
-
-/** Event emitted when user calls start(). */
-export type StartCallback = () => void;
-
-/** Event emitted when user calls stop(). */
-export type StopCallback = () => void;
-
-/**
- * Event emitted when there is an error on socket, handshake or validating an auth cert.
- */
-export type PeerErrorCallback = (e: {subEvent: string, e: any}) => void;
-
-/**
- * Event emitted when a connected peer has closed.
- */
-export type PeerCloseCallback = (e: {p2pClient: P2PClient}) => void;
-
-/**
- * Event emitted when a peer has connected.
- */
-export type PeerConnectCallback = (e: {p2pClient: P2PClient}) => void;
-
-/**
- * Event emitted when the handshake factory for a peer connection has been setup.
- * This factory can be used to more closely monitor events directly on the factory,
- * and also to tune and set parameters such as blocked IP addresses.
- */
-export type PeerFactoryCreateCallback = (e: {handshakeFactory: HandshakeFactoryInterface}) => void;
-
-export type PeerParseErrorCallback = (e: {error: Error}) => void;
-export type PeerAuthCertErrorCallback = (e: {p2pClient: P2PClient}) => void;
-
-/**
- * Event emitted when there is an error on socket, handshake or validating an auth cert.
- */
-export type StorageErrorCallback = (e: {subEvent: string, e: any}) => void;
-
-/** Event emitted when the storage connection has closed. */
-export type StorageCloseCallback = (e: {p2pClient: P2PClient}) => void;
-
-/**
- * Event emitted when a connection to Storage has been setup.
- */
-export type StorageConnectCallback = (e: {p2pClient: P2PClient}) => void;
-
-/**
- * Event emitted when the handshake factory for storage connections has been setup.
- * This factory can be used to more closely monitor events directly on the factory.
- */
-export type StorageFactoryCreateCallback = (e: {handshakeFactory: HandshakeFactoryInterface}) => void;
-
-export type StorageParseErrorCallback = (e: {error: Error}) => void;
-
-export type StorageAuthCertErrorCallback = (e: {p2pClient: P2PClient}) => void;
 
 /**
  */
@@ -452,7 +349,7 @@ export class Service {
 
         this._isRunning = true;
 
-        this.triggerEvent(EVENTS.START.name);
+        this.triggerEvent(EVENT_SERVICE_START);
 
         try {
             await this.initStorage();
@@ -460,11 +357,12 @@ export class Service {
         catch(e) {
             this._isRunning = false;
 
-            this.triggerEvent(EVENTS.STORAGE_PARSE_ERROR.name, {error: `${e}`});
+            const storageParseErrorEvent: Parameters<ServiceStorageParseErrorCallback> =
+                [e as Error];
 
-            this.triggerEvent(EVENTS.STORAGE_ERROR.name, {subEvent: EVENTS.STORAGE_PARSE_ERROR.name, e: {error: `${e}`}});
+            this.triggerEvent(EVENT_SERVICE_STORAGE_PARSE_ERROR, ...storageParseErrorEvent);
 
-            this.triggerEvent(EVENTS.STOP.name);
+            this.triggerEvent(EVENT_SERVICE_STOP);
         }
     }
 
@@ -479,7 +377,7 @@ export class Service {
         this._isRunning = false;
         this.closeEverythingStorage();
         this.closePeerConnectionFactories();
-        this.triggerEvent(EVENTS.STOP.name);
+        this.triggerEvent(EVENT_SERVICE_STOP);
     }
 
     /**
@@ -985,7 +883,16 @@ export class Service {
             const configToInit = configsToInit[i];
             const handshakeFactory = await this.initPeerConnectionFactory(configToInit);
             this.state.peerConnectionFactories.push(handshakeFactory);
-            handshakeFactory.init();
+
+            try {
+                handshakeFactory.init();
+            }
+            catch(error) {
+                const peerParseErrorEvent: Parameters<ServicePeerParseErrorCallback> =
+                    [error as Error];
+
+                this.triggerEvent(EVENT_SERVICE_PEER_PARSE_ERROR, ...peerParseErrorEvent);
+            }
         }
     }
 
@@ -1004,25 +911,28 @@ export class Service {
 
         const handshakeFactory = await this.authFactory.create(authFactoryConfig);
 
-        this.triggerEvent(EVENTS.PEER_FACTORY_CREATE.name, {handshakeFactory});
+        const peerFactoryCreateEvent: Parameters<ServicePeerFactoryCreateCallback> =
+            [handshakeFactory];
 
-        handshakeFactory.onHandshake( async (e: {isServer: boolean, handshakeResult: HandshakeResult,
-            client: ClientInterface, wrappedClient: ClientInterface}) =>
+        this.triggerEvent(EVENT_SERVICE_PEER_FACTORY_CREATE, ...peerFactoryCreateEvent);
+
+        handshakeFactory.onHandshake( async (isServer: boolean, client: ClientInterface,
+            wrappedClient: ClientInterface, handshakeResult: HandshakeResult) =>
         {
             try {
                 if (!this.state.storageClient) {
                     // If there is no storage client there is no point proceeding with this.
                     console.debug("No Storage connected, must close newly accepted socket.");
-                    e.wrappedClient.close();
+                    wrappedClient.close();
                     return;
                 }
 
-                remotePeerData = await PeerDataUtil.HandshakeResultToPeerData(e.handshakeResult,
+                remotePeerData = await PeerDataUtil.HandshakeResultToPeerData(handshakeResult,
                     this.signatureOffloader, config.region, config.jurisdiction);
 
                 // Validate region and jurisdiction provided by the remote peer.
                 //
-                this.validateRemotePeerData(remotePeerData, e.wrappedClient.getRemoteAddress());
+                this.validateRemotePeerData(remotePeerData, wrappedClient.getRemoteAddress());
 
                 // We need a dedicated instance of PeerData to pass on to P2PClient.
                 // We negate the clockDiff to get it for our side.
@@ -1030,9 +940,9 @@ export class Service {
                 const localPeerData = this.makePeerData(config.region, config.jurisdiction);
                 localPeerData.setClockDiff(-remotePeerData.getClockDiff());
 
-                await e.wrappedClient.init();
+                await wrappedClient.init();
 
-                const messaging = new Messaging(e.wrappedClient,
+                const messaging = new Messaging(wrappedClient,
                     (authFactoryConfig as unknown as HandshakeFactoryConfig).pingInterval);
 
                 const p2pClient = new P2PClient(messaging, localPeerData, remotePeerData,
@@ -1044,17 +954,22 @@ export class Service {
                 //
                 const authCert = remotePeerData.getAuthCert();
 
-                if (authCert && await this.validateAuthCert(authCert,
-                    this.state.storageClient) !== 0)
-                {
-                    this.triggerEvent(EVENTS.PEER_AUTHCERT_ERROR.name, {p2pClient});
+                if (authCert) {
+                    const status = await this.validateAuthCert(authCert, this.state.storageClient);
 
-                    this.triggerEvent(EVENTS.PEER_ERROR.name,
-                        {subEvent: EVENTS.PEER_AUTHCERT_ERROR.name, e: {p2pClient}});
+                    if (status !== 0) {
+                        const reason = status === 1 ? "The auth cert could not be verified likely due to a destroy node destroying the cert" :
+                            "The auth cert could not validate within the timeout";
 
-                    e.wrappedClient.close();
+                        const peerAuthCertErrorEvent: Parameters<ServicePeerAuthCertErrorCallback> =
+                            [new Error(reason), authCert];
 
-                    return;
+                        this.triggerEvent(EVENT_SERVICE_PEER_AUTHCERT_ERROR, ...peerAuthCertErrorEvent);
+
+                        wrappedClient.close();
+
+                        return;
+                    }
                 }
 
                 // Open after all hooks have been set.
@@ -1063,16 +978,13 @@ export class Service {
                 this.peerConnected(p2pClient);
             }
             catch (error) {
-                this.triggerEvent(EVENTS.PEER_PARSE_ERROR.name, {error});
+                const peerParseErrorEvent: Parameters<ServicePeerParseErrorCallback> =
+                    [error as Error];
 
-                this.triggerEvent(EVENTS.PEER_ERROR.name, {subEvent: EVENTS.PEER_PARSE_ERROR.name,
-                    e: {error}});
+                this.triggerEvent(EVENT_SERVICE_PEER_PARSE_ERROR, ...peerParseErrorEvent);
 
-                e.wrappedClient.close();
+                wrappedClient.close();
             }
-        });
-        handshakeFactory.onError( (e: {subEvent: string, e: object}) => {
-            this.triggerEvent(EVENTS.PEER_ERROR.name, e);
         });
 
         return handshakeFactory;
@@ -1282,7 +1194,16 @@ export class Service {
             const configToInit = configsToInit[i];
             const handshakeFactory = await this.initStorageConnectionFactory(configToInit);
             this.state.storageConnectionFactories.push(handshakeFactory);
-            handshakeFactory.init();
+
+            try {
+                handshakeFactory.init();
+            }
+            catch(error) {
+                const storageParseErrorEvent: Parameters<ServiceStorageParseErrorCallback> =
+                    [error as Error];
+
+                this.triggerEvent(EVENT_SERVICE_STORAGE_PARSE_ERROR, ...storageParseErrorEvent);
+            }
         }
     }
 
@@ -1311,24 +1232,28 @@ export class Service {
 
         const handshakeFactory = await this.authFactory.create(authFactoryConfig);
 
-        this.triggerEvent(EVENTS.STORAGE_FACTORY_CREATE.name, {handshakeFactory});
+        const storageFactoryCreateEvent: Parameters<ServiceStorageFactoryCreateCallback> =
+            [handshakeFactory];
 
-        handshakeFactory.onHandshake( async (e: {isServer: boolean, handshakeResult: HandshakeResult,
-            client: ClientInterface, wrappedClient: ClientInterface}) =>
+        this.triggerEvent(EVENT_SERVICE_STORAGE_FACTORY_CREATE, ...storageFactoryCreateEvent);
+
+
+        handshakeFactory.onHandshake( async (isServer: boolean, client: ClientInterface,
+            wrappedClient: ClientInterface, handshakeResult: HandshakeResult) =>
         {
             try {
                 if (this.state.storageClient) {
                     // If there is a storage client already there is no point proceeding with this.
                     console.debug("Storage client already present, closing newly opened.");
-                    e.wrappedClient.close();
+                    wrappedClient.close();
                     return;
                 }
 
-                remotePeerData = await PeerDataUtil.HandshakeResultToPeerData(e.handshakeResult,
+                remotePeerData = await PeerDataUtil.HandshakeResultToPeerData(handshakeResult,
                     this.signatureOffloader, config.region, config.jurisdiction);
 
                 // Validate region and jurisdiction provided by the remote peer.
-                this.validateRemotePeerData(remotePeerData, e.wrappedClient.getRemoteAddress());
+                this.validateRemotePeerData(remotePeerData, wrappedClient.getRemoteAddress());
 
                 // We need a dedicated instance of PeerData to pass on to P2PClient.
                 // We negate the clockDiff to get it for our side.
@@ -1336,9 +1261,9 @@ export class Service {
                 const localPeerData = this.makePeerData(config.region, config.jurisdiction);
                 localPeerData.setClockDiff(-remotePeerData.getClockDiff());
 
-                await e.wrappedClient.init();
+                await wrappedClient.init();
 
-                const messaging = new Messaging(e.wrappedClient,
+                const messaging = new Messaging(wrappedClient,
                     (authFactoryConfig as unknown as HandshakeFactoryConfig).pingInterval);
 
                 const p2pClient = new P2PClient(messaging, localPeerData, remotePeerData);
@@ -1349,15 +1274,23 @@ export class Service {
                 //
                 const authCert = remotePeerData.getAuthCert();
 
-                if (authCert && await this.validateAuthCert(authCert, p2pClient) !== 0) {
-                    this.triggerEvent(EVENTS.STORAGE_AUTHCERT_ERROR.name, {p2pClient});
+                if (authCert) {
+                    const status = await this.validateAuthCert(authCert, p2pClient);
 
-                    this.triggerEvent(EVENTS.STORAGE_ERROR.name,
-                        {subEvent: EVENTS.STORAGE_AUTHCERT_ERROR.name, e: {p2pClient}});
+                    if (status !== 0) {
+                        const reason = status === 1 ? "The auth cert could not be verified likely due to a destroy node destroying the cert" :
+                            "The auth cert could not validate within the timeout";
 
-                    e.wrappedClient.close();
+                        const storageAuthCertErrorEvent: Parameters<ServiceStorageAuthCertErrorCallback> =
+                            [new Error(reason), authCert];
 
-                    return;
+                        this.triggerEvent(EVENT_SERVICE_STORAGE_AUTHCERT_ERROR,
+                            ...storageAuthCertErrorEvent);
+
+                        wrappedClient.close();
+
+                        return;
+                    }
                 }
 
                 // Open after all hooks have been set.
@@ -1366,18 +1299,13 @@ export class Service {
                 await this.storageConnected(p2pClient, p2pClient);
             }
             catch (error) {
-                this.triggerEvent(EVENTS.STORAGE_PARSE_ERROR.name, {error});
+                const storageParseErrorEvent: Parameters<ServiceStorageParseErrorCallback> =
+                    [error as Error];
 
-                this.triggerEvent(EVENTS.STORAGE_ERROR.name,
-                    {subEvent: EVENTS.STORAGE_PARSE_ERROR.name,
-                        e: {error}});
+                this.triggerEvent(EVENT_SERVICE_STORAGE_PARSE_ERROR, ...storageParseErrorEvent);
 
-                e.wrappedClient.close();
+                wrappedClient.close();
             }
-        });
-
-        handshakeFactory.onError( (e: {subEvent: string, e: object}) => {
-            this.triggerEvent(EVENTS.STORAGE_ERROR.name, e);
         });
 
         return handshakeFactory;
@@ -1593,13 +1521,13 @@ export class Service {
             muteMsgIds, reverseMuteMsgIds);
 
         autoFetcher.onBlob( (blobEvent: BlobEvent) =>
-            this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
+            this.triggerEvent(EVENT_SERVICE_BLOB, blobEvent) )
 
         const autoFetcherReverse = new P2PClientAutoFetcher(p2pClient, this.state.storageClient,
             muteMsgIds, reverseMuteMsgIds, true);
 
         autoFetcherReverse.onBlob( (blobEvent: BlobEvent) =>
-            this.triggerEvent(EVENTS.BLOB.name, blobEvent) )
+            this.triggerEvent(EVENT_SERVICE_BLOB, blobEvent) )
 
         autoFetcher.addFetch(this.config.autoFetch);
         autoFetcherReverse.addFetch(this.config.autoFetch);
@@ -1633,10 +1561,12 @@ export class Service {
 
         p2pClient.onClose( () => {
             this.garbageCollectClients();
-            this.triggerEvent(EVENTS.PEER_CLOSE.name, {p2pClient});
+            const peerCloseEvent: Parameters<ServicePeerCloseCallback> = [p2pClient];
+            this.triggerEvent(EVENT_SERVICE_PEER_CLOSE, ...peerCloseEvent);
         });
 
-        this.triggerEvent(EVENTS.PEER_CONNECT.name, {p2pClient});
+        const peerConnectEvent: Parameters<ServicePeerConnectCallback> = [p2pClient];
+        this.triggerEvent(EVENT_SERVICE_PEER_CONNECT, ...peerConnectEvent);
     }
 
     /**
@@ -1659,14 +1589,18 @@ export class Service {
 
         this.state.storageClient.onClose( () => {
             delete this.state.storageClient;
-            this.triggerEvent(EVENTS.STORAGE_CLOSE.name, {p2pClient: externalStorageClient});
+            const storageCloseEvent: Parameters<ServiceStorageCloseCallback> =
+                [externalStorageClient];
+            this.triggerEvent(EVENT_SERVICE_STORAGE_CLOSE, ...storageCloseEvent);
             this.closePeerConnectionFactories();
             // Note: we do not delete storageFactory here, because it might spawn a new connection for us.
         });
 
         await this.initPeerConnectionFactories();
 
-        this.triggerEvent(EVENTS.STORAGE_CONNECT.name, {p2pClient: externalStorageClient});
+        const storageConnectEvent: Parameters<ServiceStorageConnectCallback> =
+            [externalStorageClient];
+        this.triggerEvent(EVENT_SERVICE_STORAGE_CONNECT, ...storageConnectEvent);
     }
 
     /**
@@ -1743,113 +1677,41 @@ export class Service {
      * Hook event for when the Service starts trying to connect to Storage.
      * @param callback
      */
-    public onStart(callback: StartCallback) {
-        this.hookEvent(EVENTS.START.name, callback);
+    public onStart(callback: ServiceStartCallback) {
+        this.hookEvent(EVENT_SERVICE_START, callback);
     }
 
     /**
      * Hook event for when the Service is stopped, either manually or if Storage connection closes.
      * @param callback
      */
-    public onStop(callback: StopCallback) {
-        this.hookEvent(EVENTS.STOP.name, callback);
+    public onStop(callback: ServiceStopCallback) {
+        this.hookEvent(EVENT_SERVICE_STOP, callback);
+    }
+
+    public onStorageParseError(callback: ServiceStorageParseErrorCallback) {
+        this.hookEvent(EVENT_SERVICE_STORAGE_PARSE_ERROR, callback);
+    }
+
+    /**
+     * Called when the storage supplies an auth cert for it self which is not valid.
+     */
+    public onStorageAuthCertError(callback: ServiceStorageAuthCertErrorCallback) {
+        this.hookEvent(EVENT_SERVICE_STORAGE_AUTHCERT_ERROR, callback);
     }
 
     /**
      * Event emitted when a connection to Storage has been setup.
      */
-    public onStorageFactoryCreate(callback: StorageFactoryCreateCallback) {
-        this.hookEvent(EVENTS.STORAGE_FACTORY_CREATE.name, callback);
-    }
-
-    public onStorageParseError(callback: StorageParseErrorCallback) {
-        this.hookEvent(EVENTS.STORAGE_PARSE_ERROR.name, callback);
-    }
-
-    public onStorageAuthCertError(callback: StorageAuthCertErrorCallback) {
-        this.hookEvent(EVENTS.STORAGE_AUTHCERT_ERROR.name, callback);
-    }
-
-    /**
-     * Event emitted when a connection to Storage has been setup.
-     */
-    public onStorageConnect(callback: StorageConnectCallback) {
-        this.hookEvent(EVENTS.STORAGE_CONNECT.name, callback);
+    public onStorageConnect(callback: ServiceStorageConnectCallback) {
+        this.hookEvent(EVENT_SERVICE_STORAGE_CONNECT, callback);
     }
 
     /**
      * Event emitted when the storage connection has closed.
      */
-    public onStorageClose(callback: StorageCloseCallback) {
-        this.hookEvent(EVENTS.STORAGE_CLOSE.name, callback);
-    }
-
-    /**
-     * Event emitted when there is an error on socket, handshake or validating an auth cert.
-     */
-    public onStorageError(callback: StorageErrorCallback) {
-        this.hookEvent(EVENTS.STORAGE_ERROR.name, callback);
-    }
-
-    /**
-     * Event emitted when the handshake factory for a peer connection has been setup.
-     * This factory can be used to more closely monitor events directly on the factory,
-     * and also to tune and set parameters such as blocked IP addresses.
-     */
-    public onPeerFactoryCreate(callback: PeerFactoryCreateCallback) {
-        this.hookEvent(EVENTS.PEER_FACTORY_CREATE.name, callback);
-    }
-
-    public onPeerParseError(callback: PeerParseErrorCallback) {
-        this.hookEvent(EVENTS.PEER_PARSE_ERROR.name, callback);
-    }
-
-    public onPeerAuthCertError(callback: PeerAuthCertErrorCallback) {
-        this.hookEvent(EVENTS.PEER_AUTHCERT_ERROR.name, callback);
-    }
-
-    /**
-     * Event emitted when a peer has connected.
-     */
-    public onPeerConnect(callback: PeerConnectCallback) {
-        this.hookEvent(EVENTS.PEER_CONNECT.name, callback);
-    }
-
-    /**
-     * Event emitted when a connected peer has closed.
-     */
-    public onPeerClose(callback: PeerCloseCallback) {
-        this.hookEvent(EVENTS.PEER_CLOSE.name, callback);
-    }
-
-    /**
-     * Event emitted when there is an error on socket, handshake or validating an auth cert.
-     */
-    public onPeerError(callback: PeerErrorCallback) {
-        this.hookEvent(EVENTS.PEER_ERROR.name, callback);
-    }
-
-    /**
-     * Event triggered when a blob has successfully been synced to the storage.
-     * The event is only fired once and then removed.
-     *
-     * @param id1 the id1 we are listening for.
-     * @param callback the callback to call when blob for id1 is available.
-     * @returns fn to call to unhook the given callback from this event.
-     */
-    public onBlob(id1: Buffer, callback: () => void): () => void {
-        const fn = (blobEvent: BlobEvent) => {
-            if (id1.equals(blobEvent.nodeId1)) {
-                this.unhookEvent(EVENTS.BLOB.name, fn);
-                callback();
-            }
-        };
-
-        this.hookEvent(EVENTS.BLOB.name, fn);
-
-        return () => {
-            this.unhookEvent(EVENTS.BLOB.name, fn);
-        };
+    public onStorageClose(callback: ServiceStorageCloseCallback) {
+        this.hookEvent(EVENT_SERVICE_STORAGE_CLOSE, callback);
     }
 
     /**
@@ -1857,24 +1719,81 @@ export class Service {
      * This factory can be used to more closely monitor events directly on the factory,
      * and also to tune and set parameters such as blocked IP addresses.
      */
-    public onClientStorageFactoryCreate(callback: PeerFactoryCreateCallback) {
-        this.hookEvent(EVENTS.PEER_FACTORY_CREATE.name, callback);
+    public onStorageFactoryCreate(callback: ServicePeerFactoryCreateCallback) {
+        this.hookEvent(EVENT_SERVICE_PEER_FACTORY_CREATE, callback);
     }
 
-    protected hookEvent(name: string, callback: ( (...args: any) => void)) {
+    public onPeerParseError(callback: ServicePeerParseErrorCallback) {
+        this.hookEvent(EVENT_SERVICE_PEER_PARSE_ERROR, callback);
+    }
+
+    /**
+     * Event called when connected peer's auth cert is not valid.
+     */
+    public onPeerAuthCertError(callback: ServicePeerAuthCertErrorCallback) {
+        this.hookEvent(EVENT_SERVICE_PEER_AUTHCERT_ERROR, callback);
+    }
+
+    /**
+     * Event emitted when a peer has connected.
+     */
+    public onPeerConnect(callback: ServicePeerConnectCallback) {
+        this.hookEvent(EVENT_SERVICE_PEER_CONNECT, callback);
+    }
+
+    /**
+     * Event emitted when a connected peer has closed.
+     */
+    public onPeerClose(callback: ServicePeerCloseCallback) {
+        this.hookEvent(EVENT_SERVICE_PEER_CLOSE, callback);
+    }
+
+    /**
+     * Event emitted when the handshake factory for a peer connection has been setup.
+     * This factory can be used to more closely monitor events directly on the factory,
+     * and also to tune and set parameters such as blocked IP addresses.
+     */
+    public onPeerFactoryCreate(callback: ServicePeerFactoryCreateCallback) {
+        this.hookEvent(EVENT_SERVICE_PEER_FACTORY_CREATE, callback);
+    }
+
+    /**
+     * Event triggered when a blob for a specific node Id1 has successfully been synced to the storage.
+     * The event is fired once and then the eventhandler is automatically unhooked.
+     *
+     * @param id1 the id1 we are listening for.
+     * @param callback the callback to call when blob for id1 is available.
+     * @returns fn to call to unhook the given callback from this event to cancel the event hook.
+     */
+    public onBlob(id1: Buffer, callback: () => void): () => void {
+        const fn = (blobEvent: BlobEvent) => {
+            if (id1.equals(blobEvent.nodeId1)) {
+                this.unhookEvent(EVENT_SERVICE_BLOB, fn);
+                callback();
+            }
+        };
+
+        this.hookEvent(EVENT_SERVICE_BLOB, fn);
+
+        return () => {
+            this.unhookEvent(EVENT_SERVICE_BLOB, fn);
+        };
+    }
+
+    protected hookEvent(name: string, callback: (...args: any[]) => void) {
         const cbs = this.handlers[name] || [];
         this.handlers[name] = cbs;
         cbs.push(callback);
     }
 
-    protected unhookEvent(name: string, callback: ( (...args: any) => void)) {
+    protected unhookEvent(name: string, callback: (...args: any[]) => void) {
         const cbs = (this.handlers[name] || []).filter( (cb: ( (...args: any) => void)) => callback !== cb );
         this.handlers[name] = cbs;
     }
 
-    protected triggerEvent(name: string, ...args: any) {
+    protected triggerEvent(name: string, ...args: any[]) {
         const cbs = this.handlers[name] || [];
-        cbs.forEach( (callback: ( (...args: any) => void)) => {
+        cbs.forEach( (callback: ( (...args: any[]) => void)) => {
             setImmediate( () => callback(...args) );
         });
     }

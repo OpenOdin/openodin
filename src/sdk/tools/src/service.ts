@@ -49,10 +49,6 @@ async function main(universeConf: UniverseConf, walletConf: WalletConf) {
 
     await service.init()
 
-    service.onPeerError( (e: {subEvent: string, e: any}) => {
-        console.debug("Peer connection error", `${e.e.error}`);
-    });
-
     service.onStorageConnect( () => {
         console.aced("Connected to storage");
     });
@@ -61,14 +57,45 @@ async function main(universeConf: UniverseConf, walletConf: WalletConf) {
         console.error("Disconnected from storage");
     });
 
-    service.onPeerConnect( (e: {p2pClient: P2PClient}) => {
-        const pubKey = e.p2pClient.getRemotePublicKey();
-        console.info(`Peer just connected to service, peer's publicKey is ${pubKey.toString("hex")}`);
+    service.onStorageParseError( (error) => {
+        console.error("Could not parse storage configuraton", error.message);
     });
 
-    service.onPeerClose( (e: {p2pClient: P2PClient}) => {
-        const pubKey = e.p2pClient.getRemotePublicKey();
-        console.info(`Peer disconnected, who has publicKey ${pubKey.toString("hex")}`);
+
+    service.onPeerConnect( (p2pClient: P2PClient) => {
+        const pubKey = p2pClient.getRemotePublicKey();
+        console.info(`Peer connected: ${pubKey.toString("hex")}`);
+
+        p2pClient.onMessagingError( (message: string) => {
+            console.error("Error in peer", message);
+        });
+
+        p2pClient.onMessagingPong( (roundTripTime: number) => {
+            //console.debug("Ping/pong round trip time [ms]", roundTripTime);
+        });
+    });
+
+    service.onPeerClose( (p2pClient: P2PClient) => {
+        const pubKey = p2pClient.getRemotePublicKey();
+        console.info(`Peer disconnected: ${pubKey.toString("hex")}`);
+    });
+
+    service.onPeerAuthCertError( (error: Error, authCert: Buffer) => {
+        console.info("Peer's auth cert not valid", error, authCert);
+    });
+
+    service.onPeerParseError( (error: Error) => {
+        console.error("Could not parse peer configuraton", error.message);
+    });
+
+    service.onPeerFactoryCreate( (handshakeFactory) => {
+        handshakeFactory.onSocketFactoryError( (name, error) => {
+            console.error("Socket error", name, error.message);
+        });
+
+        handshakeFactory.onHandshakeError( (error) => {
+            console.error("Handshake error", error.message);
+        });
     });
 
     service.onStop( () => {

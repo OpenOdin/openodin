@@ -1,6 +1,14 @@
 import {
+    HandshakeFactoryInterface,
+} from "pocket-messaging";
+
+import {
     P2PClientPermissions,
 } from "../p2pclient/types";
+
+import {
+    P2PClient,
+} from "../p2pclient/P2PClient";
 
 import {
     KeyPair,
@@ -158,3 +166,64 @@ export type WalletConf = {
     nodeCerts:      PrimaryNodeCertInterface[],
     storage:        StorageConf,
 };
+
+/** Event emitted when user calls start(). */
+export type ServiceStartCallback = () => void;
+
+/** Event emitted when user calls stop(). */
+export type ServiceStopCallback = () => void;
+
+/**
+ * Event emitted when a connected peer has closed.
+ */
+export type ServicePeerCloseCallback = (p2pClient: P2PClient) => void;
+
+/**
+ * Event emitted when a peer has connected.
+ */
+export type ServicePeerConnectCallback = (p2pClient: P2PClient) => void;
+
+/**
+ * Event emitted when the handshake factory for a peer connection has been setup.
+ * This factory can be used to more closely monitor events directly on the factory,
+ * and also to tune and set parameters such as blocked IP addresses.
+ */
+export type ServicePeerFactoryCreateCallback =
+    (handshakeFactory: HandshakeFactoryInterface) => void;
+
+export type ServicePeerParseErrorCallback = (error: Error) => void;
+
+export type ServicePeerAuthCertErrorCallback = (error: Error, authCert: Buffer) => void;
+
+/** Event emitted when the storage connection has closed. */
+export type ServiceStorageCloseCallback = (p2pClient: P2PClient) => void;
+
+/**
+ * Event emitted when a connection to Storage has been setup.
+ */
+export type ServiceStorageConnectCallback = (p2pClient: P2PClient) => void;
+
+/**
+ * Event emitted when the handshake factory for storage connections has been setup.
+ * This factory can be used to more closely monitor events directly on the factory.
+ */
+export type ServiceStorageFactoryCreateCallback = (handshakeFactory: HandshakeFactoryInterface) => void;
+
+export type ServiceStorageParseErrorCallback = (error: Error) => void;
+
+export type ServiceStorageAuthCertErrorCallback = (error: Error, authCert: Buffer) => void;
+
+export const EVENT_SERVICE_START = "SERVICE_START";
+export const EVENT_SERVICE_STOP = "SERVICE_STOP";
+export const EVENT_SERVICE_BLOB = "SERVICE_BLOB";
+export const EVENT_SERVICE_STORAGE_CLOSE = "SERVICE_STORAGE_CLOSE";
+export const EVENT_SERVICE_STORAGE_CONNECT = "SERVICE_STORAGE_CONNECT";
+export const EVENT_SERVICE_STORAGE_FACTORY_CREATE = "SERVICE_STORAGE_FACTORY_CREATE";
+export const EVENT_SERVICE_STORAGE_AUTHCERT_ERROR = "SERVICE_STORAGE_AUTHCERT_ERROR";
+export const EVENT_SERVICE_STORAGE_PARSE_ERROR = "SERVICE_STORAGE_PARSE_ERROR";
+export const EVENT_SERVICE_PEER_FACTORY_CREATE = "SERVICE_PEER_FACTORY_CREATE";
+export const EVENT_SERVICE_PEER_CONNECT = "SERVICE_PEER_CONNECT";
+export const EVENT_SERVICE_PEER_CLOSE = "SERVICE_PEER_CLOSE";
+export const EVENT_SERVICE_PEER_AUTHCERT_ERROR = "SERVICE_PEER_AUTHCERT_ERROR";
+export const EVENT_SERVICE_PEER_PARSE_ERROR = "SERVICE_PEER_PARSE_ERROR";
+export const EVENT_SERVICE_PEER_ERROR = "SERVICE_PEER_ERROR";

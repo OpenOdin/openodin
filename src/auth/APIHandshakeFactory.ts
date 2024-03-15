@@ -1,30 +1,35 @@
-// TODO: add counters, same as native HandshakeFactory has.
-//
+/**
+ * Experimental.
+ */
+
 import crypto from "crypto";
 
 import {
     SocketFactory,
-    ConnectCallback,
-    ErrorCallback,
+    SocketFactoryConnectCallback,
+    SocketFactoryErrorCallback,
     SocketFactoryConfig,
     SocketFactoryStats,
-    ServerInitErrorCallback,
-    ServerListenErrorCallback,
-    ClientInitErrorCallback,
-    ClientConnectErrorCallback,
-    CloseCallback,
-    ClientRefuseCallback,
+    SocketFactoryServerInitErrorCallback,
+    SocketFactoryServerListenErrorCallback,
+    SocketFactoryClientInitErrorCallback,
+    SocketFactoryClientConnectErrorCallback,
+    SocketFactoryCloseCallback,
+    SocketFactoryClientIPRefuseCallback,
     CreatePair,
     ClientInterface,
     WSClient,
+    WrappedClient,
 } from "pocket-sockets"
 
 import {
     HandshakeFactoryInterface,
-    HandshakeErrorCallback,
-    HandshakeCallback,
+    HandshakeFactoryHandshakeErrorCallback,
+    HandshakeFactoryHandshakeCallback,
     ExpectingReply,
     HandshakeResult,
+    EVENT_HANDSHAKEFACTORY_HANDSHAKE_ERROR,
+    HandshakeFactoryPublicKeyOverflowCallback,
 } from "pocket-messaging"
 
 import {
@@ -157,10 +162,6 @@ export class APIHandshakeFactory implements HandshakeFactoryInterface {
         this.socketFactory = new SocketFactory(socketFactoryConfig, socketFactoryStats);
 
         this.socketFactory.onConnect(this.handleOnConnect);
-
-        this.socketFactory.onError( error => {
-            this.triggerEvent("error", error);
-        });
     }
 
     public init() {
@@ -176,12 +177,12 @@ export class APIHandshakeFactory implements HandshakeFactoryInterface {
      * WebSocket are associated with its first session and cannot change sessions,
      * this is because traffic originating from the server can be pushed out on the websocket.
      */
-    protected handleOnConnect: ConnectCallback = async (e) => {
-        if (e.isServer) {
-            this.handleOnConnectServer(e.client);
+    protected handleOnConnect: SocketFactoryConnectCallback = async (client: ClientInterface, isServer: boolean) => {
+        if (isServer) {
+            this.handleOnConnectServer(client);
         }
         else {
-            this.handleOnConnectClient(e.client);
+            this.handleOnConnectClient(client);
         }
     }
 
@@ -195,8 +196,14 @@ export class APIHandshakeFactory implements HandshakeFactoryInterface {
         if (!handshakeResult || !sessionToken) {
             // Handshake failed.
             //
+            const handshakeErrorEvent: Parameters<HandshakeFactoryHandshakeErrorCallback> =
+                [new Error("Could not handshake")];
+
+            this.triggerEvent(EVENT_HANDSHAKEFACTORY_HANDSHAKE_ERROR,
+                ...handshakeErrorEvent);
+
             webSocket.close();
-            // TODO trigger onClientError
+
             return;
         }
 
@@ -205,8 +212,11 @@ export class APIHandshakeFactory implements HandshakeFactoryInterface {
 
         const wrappedClient = new APITransformerClient(webSocket, sessionToken);
 
-        this.triggerEvent("handshake", {isServer: false, handshakeResult,
-            client: webSocket, wrappedClient});
+        const handshakeEvent: Parameters<HandshakeFactoryHandshakeCallback> =
+            [false, webSocket, wrappedClient, handshakeResult];
+
+        this.triggerEvent("handshake",
+            ...handshakeEvent);
     }
 
     protected async authAsClient(webSocket: ClientInterface):
@@ -515,6 +525,12 @@ export class APIHandshakeFactory implements HandshakeFactoryInterface {
 
             sendResponse.sendObj(apiAuthResponse);
 
+            const handshakeErrorEvent: Parameters<HandshakeFactoryHandshakeErrorCallback> =
+                [new Error("Could not handshake")];
+
+            this.triggerEvent(EVENT_HANDSHAKEFACTORY_HANDSHAKE_ERROR,
+                ...handshakeErrorEvent);
+
             return;
         }
 
@@ -540,8 +556,11 @@ export class APIHandshakeFactory implements HandshakeFactoryInterface {
 
             session.messagingClient = messagingClient;
 
-            this.triggerEvent("handshake", {isServer: false, handshakeResult,
-                client: innerClient, wrappedClient: innerClient});
+            const handshakeEvent: Parameters<HandshakeFactoryHandshakeCallback> =
+                [true, innerClient, new WrappedClient(innerClient), handshakeResult];
+
+            this.triggerEvent("handshake",
+                ...handshakeEvent);
         }
     }
 
@@ -726,17 +745,21 @@ export class APIHandshakeFactory implements HandshakeFactoryInterface {
         return this.apiAuthFactoryConfig;
     }
 
-    public onHandshakeError(callback: HandshakeErrorCallback) {
+    public onHandshakeError(callback: HandshakeFactoryHandshakeErrorCallback) {
         this.hookEvent("handshakeError", callback);
     }
 
     /**
      * Event emitted upon successful handshake for a new session.
      */
-    public onHandshake(callback: HandshakeCallback) {
+    public onHandshake(callback: HandshakeFactoryHandshakeCallback) {
         this.hookEvent("handshake", callback);
     }
 
+    public onPublicKeyOverflow(callback: HandshakeFactoryPublicKeyOverflowCallback) {
+        // TODO: this is not yet implemented.
+        this.hookEvent("publicKeyOverflow", callback);
+    }
 
     // pocket-sockets interface
     //
@@ -744,12 +767,12 @@ export class APIHandshakeFactory implements HandshakeFactoryInterface {
     /**
      * Event emitted on the start of a handshake.
      */
-    public onConnect(callback: ConnectCallback) {
+    public onConnect(callback: SocketFactoryConnectCallback) {
         this.socketFactory.onConnect(callback);
     }
 
-    public onError(callback: ErrorCallback) {
-        this.hookEvent("error", callback);
+    public onSocketFactoryError(callback: SocketFactoryErrorCallback) {
+        this.socketFactory.onSocketFactoryError(callback);
     }
 
     public getSocketFactoryConfig(): SocketFactoryConfig {
@@ -776,28 +799,28 @@ export class APIHandshakeFactory implements HandshakeFactoryInterface {
         return this.socketFactory.getStats();
     }
 
-    public onServerInitError(callback: ServerInitErrorCallback) {
+    public onServerInitError(callback: SocketFactoryServerInitErrorCallback) {
         this.socketFactory.onServerInitError(callback);
     }
 
-    public onServerListenError(callback: ServerListenErrorCallback) {
+    public onServerListenError(callback: SocketFactoryServerListenErrorCallback) {
         this.socketFactory.onServerListenError(callback);
     }
 
-    public onClientInitError(callback: ClientInitErrorCallback) {
+    public onClientInitError(callback: SocketFactoryClientInitErrorCallback) {
         this.socketFactory.onClientInitError(callback);
     }
 
-    public onConnectError(callback: ClientConnectErrorCallback) {
+    public onConnectError(callback: SocketFactoryClientConnectErrorCallback) {
         this.socketFactory.onConnectError(callback);
     }
 
-    public onClose(callback: CloseCallback) {
+    public onClose(callback: SocketFactoryCloseCallback) {
         this.socketFactory.onClose(callback);
     }
 
-    public onRefusedClientConnection(callback: ClientRefuseCallback) {
-        this.socketFactory.onRefusedClientConnection(callback);
+    public onClientIPRefuse(callback: SocketFactoryClientIPRefuseCallback) {
+        this.socketFactory.onClientIPRefuse(callback);
     }
 
     protected hookEvent(name: string, callback: ( (...args: any) => void)) {
@@ -811,7 +834,7 @@ export class APIHandshakeFactory implements HandshakeFactoryInterface {
         this.handlers[name] = cbs;
     }
 
-    protected triggerEvent(name: string, ...args: any) {
+    protected triggerEvent(name: string, ...args: any[]) {
         const cbs = this.handlers[name] || [];
         cbs.forEach( (callback: ( (...args: any) => void)) => {
             setImmediate( () => callback(...args) );

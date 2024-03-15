@@ -11,6 +11,7 @@ import {
 export class APITransformerClient extends WrappedClient {
     protected aggregatedClientData = Buffer.alloc(0);
     protected apiDataTransformer = new APIDataTransformer();
+    protected handlers: {[type: string]: ((data?: any) => void)[]} = {};
 
     constructor(client: ClientInterface, protected sessionToken: string) {
         super(client);
@@ -78,4 +79,24 @@ export class APITransformerClient extends WrappedClient {
             // Do nothing
         }
     };
+
+    protected hookEvent(type: string, callback: (...args: any[]) => void) {
+        const cbs = this.handlers[type] || [];
+        this.handlers[type] = cbs;
+        cbs.push(callback);
+    }
+
+    protected unhookEvent(type: string, callback: (...args: any[]) => void) {
+        const cbs = (this.handlers[type] || []).filter( (cb: (data?: any[]) => void) =>
+            callback !== cb );
+
+        this.handlers[type] = cbs;
+    }
+
+    protected triggerEvent(type: string, ...args: any[]) {
+        const cbs = this.handlers[type] || [];
+        cbs.forEach( callback => {
+            callback(...args);
+        });
+    }
 }

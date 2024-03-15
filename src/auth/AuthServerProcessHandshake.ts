@@ -1,3 +1,7 @@
+/**
+ * Experimental.
+ */
+
 import {
     ClientInterface,
     CreatePair,
@@ -59,11 +63,19 @@ export class AuthServerProcessHandshake implements AuthServerProcessInterface {
 
         const allowedClientKeys = this.apiAuthFactoryConfig.allowedClients;
 
-        const p = HandshakeAsServer(socket2, serverLongtermSk, serverLongtermPk, discriminator,
-            allowedClientKeys, peerData);
+        // TODO: FIXME
+        // move from constructor.
+        // might having troubles catching bytesize timeout exceptions.
+        try {
+            const p = HandshakeAsServer(socket2, serverLongtermSk, serverLongtermPk, discriminator,
+                allowedClientKeys, peerData);
 
-        p.then((handshakeResult: HandshakeResult) => this.pResult.cb(undefined, handshakeResult)).
-            catch((error: Error) => this.pResult.cb(error));
+            p.then((handshakeResult: HandshakeResult) => this.pResult.cb(undefined, handshakeResult)).
+                catch((error: Error) => this.pResult.cb(error));
+        }
+        catch(e) {
+            // Do nothing
+        }
     }
 
     public async next(session: APISession, apiAuthRequest: APIAuthRequest):
@@ -136,12 +148,17 @@ export class AuthServerProcessHandshake implements AuthServerProcessInterface {
 
                 // We are done, await result.
                 //
-                const handshakeResult = await this.pResult.promise;
-                const proxy = undefined; // TODO
+                try {
+                    const handshakeResult = await this.pResult.promise;
+                    const proxy = undefined; // TODO
 
-                // write msg4 back to client
-                //
-                return [false, apiAuthResponse, handshakeResult, proxy];
+                    // write msg4 back to client
+                    //
+                    return [false, apiAuthResponse, handshakeResult, proxy];
+                }
+                catch(e) {
+                    return [true];
+                }
             }
             catch(e) {
                 // write error back to client

@@ -23,6 +23,7 @@ import {
     ExpectingReply,
     HandshakeResult,
     PING_ROUTE,
+    PONG_ROUTE,
 } from "pocket-messaging";
 
 import {
@@ -33,7 +34,7 @@ import {
     SendResponse,
 } from "./SendResponse";
 
-export const RouteActions = [...Object.values(RouteAction), PING_ROUTE];
+export const RouteActions = [...Object.values(RouteAction), PING_ROUTE, PONG_ROUTE];
 
 export interface AuthFactoryConfig {
     factory: "api" | "native",
@@ -112,7 +113,7 @@ export type APIRequest = {
     expectingReply: number,
 
     /**
-     * Optional in parsing for "_PING", but all other targets require this to be set.
+     * Optional in parsing for "_ping/_pong", but all other targets require this to be set.
      * Parsed as JSON string.
      * All binary (Buffer) fields of every request and response must are encoded into text,
      *  the rule is that every fixed length binary field is encoded as hex string and every

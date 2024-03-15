@@ -2,6 +2,8 @@ import {
     ClientOptions,
     ServerOptions,
     SocketFactoryConfig,
+    SOCKET_WEBSOCKET,
+    SOCKET_TCP,
 } from "pocket-sockets";
 
 import {
@@ -678,7 +680,7 @@ export class ParseUtil {
 
         if (obj.client) {
             const socketType = ParseUtil.ParseVariable("connection client socketType must be string", obj.client.socketType, "string");
-            if (socketType !== "WebSocket" && socketType !== "TCP") {
+            if (socketType !== SOCKET_WEBSOCKET && socketType !== SOCKET_TCP) {
                 throw new Error(`socketType must be "WebSocket" or "TCP"`);
             }
             serverPublicKey = ParseUtil.ParseVariable("connection client serverPublicKey must be hex-string or Buffer", obj.client.serverPublicKey, "hex");
@@ -709,7 +711,7 @@ export class ParseUtil {
         }
         if (obj.server) {
             const socketType = ParseUtil.ParseVariable("connection server socketType must be string", obj.server.socketType, "string");
-            if (socketType !== "WebSocket" && socketType !== "TCP") {
+            if (socketType !== SOCKET_WEBSOCKET && socketType !== SOCKET_TCP) {
                 throw new Error(`socketType must be "WebSocket" or "TCP"`);
             }
             allowedClients = ParseUtil.ParseVariable("connection server allowedClients must be hex-string[] or Buffer[], if set", obj.server.allowedClients, "hex[]", true);

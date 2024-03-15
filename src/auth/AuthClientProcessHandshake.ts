@@ -1,3 +1,7 @@
+/**
+ * Experimental.
+ */
+
 import {
     ClientInterface,
     ByteSize,
@@ -56,11 +60,18 @@ export class AuthClientProcessHandshake implements AuthClientProcessInterface {
 
         const discriminator = CopyBuffer(this.apiAuthFactoryConfig.discriminator);
 
-        const p = HandshakeAsClient(socket2, clientLongtermSk,
-            clientLongtermPk, serverLongtermPk, discriminator, peerData);
+        // TODO: FIXME
+        // move from constructor.
+        try {
+            const p = HandshakeAsClient(socket2, clientLongtermSk,
+                clientLongtermPk, serverLongtermPk, discriminator, peerData);
 
-        p.then((handshakeResult: HandshakeResult) => this.pResult.cb(undefined, handshakeResult)).
-            catch((error: Error) => this.pResult.cb(error));
+            p.then((handshakeResult: HandshakeResult) => this.pResult.cb(undefined, handshakeResult)).
+                catch((error: Error) => this.pResult.cb(error));
+        }
+        catch(e) {
+            // Do nothing
+        }
     }
 
     public async auth(): Promise<[HandshakeResult | undefined, string?]> {
@@ -135,9 +146,14 @@ export class AuthClientProcessHandshake implements AuthClientProcessInterface {
             //
             this.socket1.send(Buffer.from(msg4, "hex"));
 
-            const handshakeResult = await this.pResult.promise;
+            try {
+                const handshakeResult = await this.pResult.promise;
 
-            return [handshakeResult, sessionToken];
+                return [handshakeResult, sessionToken];
+            }
+            catch(e) {
+                return [undefined, undefined];
+            }
         }
         catch(e) {
             return [undefined, undefined];

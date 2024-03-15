@@ -1,6 +1,8 @@
 import {
     Messaging,
     RouteEvent,
+    PongEvent,
+    ErrorEvent,
     EventType,
     ExpectingReply,
 } from "pocket-messaging";
@@ -121,6 +123,9 @@ export class P2PClient {
     /** Supported serializer formats. */
     public static readonly Formats: number[] = [0];  // 0 means Bebop serializer
 
+    /** Event handlers who support multiple hooks. */
+    protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
+
     /**
      * @param messaging is the handshaked Messaging instance.
      * @param localPeerData the PeerData representing this side.
@@ -174,6 +179,12 @@ export class P2PClient {
         const eventEmitter = this.messaging.getEventEmitter();
         eventEmitter.on(EventType.CLOSE, this.close);
         eventEmitter.on(EventType.ROUTE, this.routeIncoming);
+
+        eventEmitter.on(EventType.PONG, (pongEvent: PongEvent) =>
+            this.triggerEvent("messagingPong", pongEvent.roundTripTime) );
+
+        eventEmitter.on(EventType.ERROR, (errorEvent: ErrorEvent) =>
+            this.triggerEvent("messagingError", errorEvent.error) );
     }
 
     public getMessaging(): Messaging {
@@ -327,6 +338,14 @@ export class P2PClient {
      */
     public onMessage(fn: HandlerFn<GenericMessageRequest, GenericMessageResponse>) {
         this.handlerGenericMessage = fn;
+    }
+
+    public onMessagingError(callback: (message: string) => void) {
+        this.hookEvent("messagingError", callback);
+    }
+
+    public onMessagingPong(callback: (roundTripTime: number) => void) {
+        this.hookEvent("messagingPong", callback);
     }
 
     /**
@@ -918,5 +937,23 @@ export class P2PClient {
         catch(e) {
             return {getResponse: undefined, msgId: undefined};
         }
+    }
+
+    protected hookEvent(name: string, callback: (...args: any[]) => void) {
+        const cbs = this.handlers[name] || [];
+        this.handlers[name] = cbs;
+        cbs.push(callback);
+    }
+
+    protected unhookEvent(name: string, callback: (...args: any[]) => void) {
+        const cbs = (this.handlers[name] || []).filter( (cb: ( (...args: any) => void)) => callback !== cb );
+        this.handlers[name] = cbs;
+    }
+
+    protected triggerEvent(name: string, ...args: any[]) {
+        const cbs = this.handlers[name] || [];
+        cbs.forEach( (callback: ( (...args: any[]) => void)) => {
+            setImmediate( () => callback(...args) );
+        });
     }
 }

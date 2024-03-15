@@ -12,6 +12,8 @@ import {
 
 import {
     ClientInterface,
+    SocketFactoryErrorCallbackNames,
+    SocketFactoryClientIPRefuseDetail,
 } from "pocket-sockets";
 
 import {
@@ -63,34 +65,32 @@ export class HandshakeFactoryRPCServer extends HandshakeFactory {
         // isClosed
         // isShutdown
 
-        this.onHandshake( async (e: {isServer: boolean, handshakeResult: HandshakeResult,
-            client: ClientInterface, wrappedClient: ClientInterface}) =>
+        this.onHandshake( async (isServer: boolean, client: ClientInterface,
+            wrappedClient: ClientInterface, handshakeResult: HandshakeResult) =>
         {
-            const socket = this.getRPCServerByClient(e.client);
+            const socket = this.getRPCServerByClient(client);
 
-            await e.wrappedClient.init();
+            await wrappedClient.init();
 
             const clientId = socket.clientConfig.clientId;
-            const rpcServer = new SocketRPCServer(this.rpc, e.wrappedClient, clientId);
+            const rpcServer = new SocketRPCServer(this.rpc, wrappedClient, clientId);
             socket.rpcServer = rpcServer;
 
-            const peerData = e.handshakeResult.peerData;
+            const longtermPk = handshakeResult.longtermPk;
+            const peerLongtermPk = handshakeResult.peerLongtermPk;
+            const peerData = handshakeResult.peerData;
+            const clockDiff = handshakeResult.clockDiff;
 
-            const peerLongtermPk = e.handshakeResult.peerLongtermPk;
-
-            this.rpc.call("onHandshake", [clientId, peerData, peerLongtermPk, e.isServer]);
+            this.rpc.call("onHandshake",
+                [clientId, longtermPk, peerLongtermPk, peerData, clockDiff, isServer]);
         });
 
-        this.onHandshakeError( (e: {error: Error, client: ClientInterface}) => {
-            const socket = this.getRPCServerByClient(e.client);
-
-            const clientId = socket.clientConfig.clientId;
-
-            this.rpc.call("onHandshakeError", [e.error.message, clientId]);
+        this.onHandshakeError( (error: Error) => {
+            this.rpc.call("onHandshakeError", [error.message]);
         });
 
-        this.onError( (e: {subEvent: string, e: {error: Error}}) => {
-            this.rpc.call("onError", [e.subEvent, e.e.error.message]);
+        this.onSocketFactoryError( (name: SocketFactoryErrorCallbackNames, error: Error) => {
+            this.rpc.call("onSocketFactoryError", [name, error.message]);
         });
 
         this.onServerInitError( (error: Error) => {
@@ -101,49 +101,49 @@ export class HandshakeFactoryRPCServer extends HandshakeFactory {
             this.rpc.call("onServerListenError", [error.message]);
         });
 
-        this.onClientInitError( (e: {error: Error}) => {
-            this.rpc.call("onClientInitError", [e.error.message]);
+        this.onClientInitError( (error: Error) => {
+            this.rpc.call("onClientInitError", [error.message]);
         });
 
         this.onConnectError( (error: Error) => {
             this.rpc.call("onConnectError", [error.message]);
         });
 
-        this.onConnect( (e: {client: ClientInterface, isServer: boolean}) => {
+        this.onConnect( (client: ClientInterface, isServer: boolean) => {
             const clientId = Buffer.from(crypto.randomBytes(8)).toString("hex");
 
             const clientConfig: ClientConfig = {
                 clientId,
-                localAddress: e.client.getLocalAddress(),
-                localPort: e.client.getLocalPort(),
-                remoteAddress: e.client.getRemoteAddress(),
-                remotePort: e.client.getRemotePort(),
-                isWebSocket: e.client.isWebSocket(),
-                isTextMode: e.client.isTextMode(),
+                localAddress: client.getLocalAddress(),
+                localPort: client.getLocalPort(),
+                remoteAddress: client.getRemoteAddress(),
+                remotePort: client.getRemotePort(),
+                isWebSocket: client.isWebSocket(),
+                isTextMode: client.isTextMode(),
             };
 
             this.rpcServers.push({
-                client: e.client,
+                client,
                 clientConfig,
                 rpcServer: undefined,
             });
 
-            this.rpc.call("onConnect", [clientConfig, e.isServer]);
+            this.rpc.call("onConnect", [clientConfig, isServer]);
         });
 
-        this.onClose( (e: {client: ClientInterface, isServer: boolean, hadError: boolean}) => {
-            const socket = this.getRPCServerByClient(e.client);
+        this.onClose( (client: ClientInterface, isServer: boolean, hadError: boolean) => {
+            const socket = this.getRPCServerByClient(client);
 
             const clientId = socket.clientConfig.clientId;
 
             // Clean up with a delay since onHandshakeError needs to find the client.
             setTimeout( () => this.removeRPCServer(clientId), 10000 );
 
-            this.rpc.call("onClose", [clientId, e.isServer, e.hadError]);
+            this.rpc.call("onClose", [clientId, isServer, hadError]);
         });
 
-        this.onRefusedClientConnection( (e: {reason: string, key: string}) => {
-            this.rpc.call("onRefusedClientConnection", [e.reason, e.key]);
+        this.onClientIPRefuse( (detail: SocketFactoryClientIPRefuseDetail, ipAddress: string) => {
+            this.rpc.call("onClientIPRefuse", [detail, ipAddress]);
         });
     }
 

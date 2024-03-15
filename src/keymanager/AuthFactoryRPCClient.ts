@@ -8,17 +8,12 @@ import {
 } from "../util/RPC";
 
 import {
-    HandshakeFactoryRPCClient,
-} from "./HandshakeFactoryRPCClient";
-
-import {
-    APIHandshakeFactoryRPCClient,
-} from "./APIHandshakeFactoryRPCClient";
+    CommonHandshakeFactoryRPCClient,
+} from "./CommonHandshakeFactoryRPCClient";
 
 import {
     AuthFactoryInterface,
     AuthFactoryConfig,
-    APIAuthFactoryConfig,
 } from "../auth/types";
 
 export class AuthFactoryRPCClient implements AuthFactoryInterface {
@@ -37,11 +32,12 @@ export class AuthFactoryRPCClient implements AuthFactoryInterface {
 
         const rpc2 = this.rpc1.clone(rpcId2);
 
+        // Same RPC client for both native and API handshake
         if (this.isNativeHandshake(authFactoryConfig)) {
-            return new HandshakeFactoryRPCClient(rpc2, authFactoryConfig as unknown as HandshakeFactoryConfig);
+            return new CommonHandshakeFactoryRPCClient(rpc2, authFactoryConfig as unknown as HandshakeFactoryConfig);
         }
         else if (this.isAPIHandshake(authFactoryConfig)) {
-            return new APIHandshakeFactoryRPCClient(rpc2, authFactoryConfig as unknown as APIAuthFactoryConfig);
+            return new CommonHandshakeFactoryRPCClient(rpc2, authFactoryConfig as unknown as HandshakeFactoryConfig);
         }
 
         throw new Error("Unknown handshake factory config");
