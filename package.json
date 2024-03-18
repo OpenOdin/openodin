@@ -24,16 +24,14 @@
     "main": "./build/index.js",
     "types": "./build/index.d.ts",
     "scripts": {
-        "build": "./node_modules/.bin/bebopc && ./node_modules/.bin/tsc && ./node_modules/.bin/browserify -i ./build/src/datastreamer/FileStreamWriter.js -i ./build/src/datastreamer/FileStreamReader.js ./build/src/signatureoffloader/signatureOffloader-worker.js -o ./build/src/signatureoffloader/signatureOffloader-worker-browser.js && ./node_modules/.bin/browserify -i ./build/src/datastreamer/FileStreamWriter.js -i ./build/src/datastreamer/FileStreamReader.js ./build/src/storage/crdt/crdt-worker.js -o ./build/src/storage/crdt/crdt-worker-browser.js",
-        "tsc": "./node_modules/.bin/tsc",
+        "build": "npx bebopc && npx tsc && npx browserify -i ./build/src/datastreamer/FileStreamWriter.js -i ./build/src/datastreamer/FileStreamReader.js ./build/src/signatureoffloader/signatureOffloader-worker.js -o ./build/src/signatureoffloader/signatureOffloader-worker-browser.js && npx browserify -i ./build/src/datastreamer/FileStreamWriter.js -i ./build/src/datastreamer/FileStreamReader.js ./build/src/storage/crdt/crdt-worker.js -o ./build/src/storage/crdt/crdt-worker-browser.js",
+        "tsc": "npx tsc",
         "clean": "rm -rf ./build",
         "prepublishOnly": "[ -z \"$(git status --porcelain)\" ] && npm run build",
-        "c-sdk": "./node_modules/.bin/tsc -p ./tsconfig-sdk.json",
-        "pkg-sdk": "npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/cert ./build-sdk/sdk/tools/src/CertCLI.js && npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/keygen ./build-sdk/sdk/tools/src/keygen.js && npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/service ./build-sdk/sdk/tools/src/service.js",
-        "test": "./node_modules/.bin/mocha -r ts-node/register --timeout 10000 'test/**/*.mocha.ts'",
-        "test-coverage": "nyc npm test",
-        "docs": "./node_modules/.bin/typedoc --entryDocument index.md --hideBreadcrumbs true --hideInPageTOC true --cleanOutputDir false ./src/*.ts && sed -i \"s/openodin/openodin ($(git describe --tags))/\" ./docs/modules.md",
-        "bebop": "./node_modules/.bin/bebopc",
+        "test": "npx mocha -r ts-node/register --timeout 10000 'test/**/*.mocha.ts'",
+        "test-coverage": "npx nyc npm test",
+        "docs": "npx typedoc --entryDocument index.md --hideBreadcrumbs true --hideInPageTOC true --cleanOutputDir false ./src/*.ts && sed -i \"s/openodin/openodin ($(git describe --tags))/\" ./docs/modules.md",
+        "bebop": "npx bebopc",
         "lint": "npx eslint ./src"
     },
     "devDependencies": {
@@ -60,10 +58,10 @@
         "typescript": "4.4.3"
     },
     "bin": {
-        "service": "./build/src/sdk/tools/src/service.js",
-        "keygen": "./build/src/sdk/tools/src/keygen.js",
-        "cert": "./build/src/sdk/tools/src/CertCLI.js",
-        "gc": "./build/src/sdk/tools/src/gc.js"
+        "service": "build/src/sdk/tools/src/service.js",
+        "keygen": "build/src/sdk/tools/src/keygen.js",
+        "cert": "build/src/sdk/tools/src/CertCLI.js",
+        "gc": "build/src/sdk/tools/src/gc.js"
     },
     "dependencies": {
         "@ethereumjs/util": "^9.0.1",
