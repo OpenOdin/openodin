@@ -74,7 +74,7 @@ import {
     DatabaseConfig,
     ConnectionConfig,
     DriverConfig,
-    UniverseConf,
+    ApplicationConf,
     WalletConf,
     SyncConf,
     StorageConf,
@@ -134,27 +134,27 @@ export class ParseUtil {
      *  }[]
      * }
      *
-     * @returns UniverseConf
+     * @returns ApplicationConf
      * @throws if malconfigured.
      */
-    public static ParseUniverseConf(conf: any): UniverseConf {
-        const format = ParseUtil.ParseVariable("universeConf.format must be number, if set", conf.format, "number", true) ?? 1;
+    public static ParseApplicationConf(conf: any): ApplicationConf {
+        const format = ParseUtil.ParseVariable("applicationConf.format must be number, if set", conf.format, "number", true) ?? 1;
 
         if (format !== 1) {
-            throw new Error("universeConf.format must be set to 1");
+            throw new Error("applicationConf.format must be set to 1");
         }
 
-        const name = ParseUtil.ParseVariable("universeConf.name must be string", conf.name, "string");
-        const version = ParseUtil.ParseVariable("universeConf.version must be string", conf.version, "string");
-        const title = ParseUtil.ParseVariable("universeConf.title must be string, if set", conf.title, "string", true) ?? "";
-        const description = ParseUtil.ParseVariable("universeConf.description must be string, if set", conf.description, "string", true) ?? "";
-        const homepage = ParseUtil.ParseVariable("universeConf.homepage must be string, if set", conf.homepage, "string", true) ?? "";
-        const author = ParseUtil.ParseVariable("universeConf.author must be string, if set", conf.author, "string", true) ?? "";
-        const repository = ParseUtil.ParseVariable("universeConf.repository must be string, if set", conf.repository, "string", true) ?? "";
-        const custom = ParseUtil.ParseVariable("universeConf.custom must be object, if set", conf.custom, "object", true) ?? {};
+        const name = ParseUtil.ParseVariable("applicationConf.name must be string", conf.name, "string");
+        const version = ParseUtil.ParseVariable("applicationConf.version must be string", conf.version, "string");
+        const title = ParseUtil.ParseVariable("applicationConf.title must be string, if set", conf.title, "string", true) ?? "";
+        const description = ParseUtil.ParseVariable("applicationConf.description must be string, if set", conf.description, "string", true) ?? "";
+        const homepage = ParseUtil.ParseVariable("applicationConf.homepage must be string, if set", conf.homepage, "string", true) ?? "";
+        const author = ParseUtil.ParseVariable("applicationConf.author must be string, if set", conf.author, "string", true) ?? "";
+        const repository = ParseUtil.ParseVariable("applicationConf.repository must be string, if set", conf.repository, "string", true) ?? "";
+        const custom = ParseUtil.ParseVariable("applicationConf.custom must be object, if set", conf.custom, "object", true) ?? {};
 
         const threads: {[name: string]: ThreadTemplate} = {};
-        const threadTemplates = ParseUtil.ParseVariable("universeConf.threads must be object, if set", conf.threads, "object", true) ?? {};
+        const threadTemplates = ParseUtil.ParseVariable("applicationConf.threads must be object, if set", conf.threads, "object", true) ?? {};
         for (const name in threadTemplates) {
             const threadTemplate = threadTemplates[name];
 
@@ -203,23 +203,23 @@ export class ParseUtil {
 
         const sync: SyncConf[] = [];
         (conf.sync ?? []).forEach( (syncConf: any) => {
-            const peerPublicKeys = ParseUtil.ParseVariable("universeConf.sync.peerPublicKeys must be hex-string or Buffer array", syncConf.peerPublicKeys, "hex[]");
+            const peerPublicKeys = ParseUtil.ParseVariable("applicationConf.sync.peerPublicKeys must be hex-string or Buffer array", syncConf.peerPublicKeys, "hex[]");
 
-            const blobSizeMaxLimit = ParseUtil.ParseVariable("universeConf.sync.blobSizeMaxLimit must be number, if set", syncConf.blobSizeMaxLimit, "number", true) ?? -1;
+            const blobSizeMaxLimit = ParseUtil.ParseVariable("applicationConf.sync.blobSizeMaxLimit must be number, if set", syncConf.blobSizeMaxLimit, "number", true) ?? -1;
 
             const threads: any[] = [];
             (syncConf.threads ?? []).forEach( (thread: any) => {
 
-                const name = ParseUtil.ParseVariable("universeConf.sync.threads.name must be string", thread.name, "string");
+                const name = ParseUtil.ParseVariable("applicationConf.sync.threads.name must be string", thread.name, "string");
 
-                const stream = ParseUtil.ParseVariable("universeConf.sync.threads.stream must be boolean, if set", thread.stream, "boolean", true) ?? false;
+                const stream = ParseUtil.ParseVariable("applicationConf.sync.threads.stream must be boolean, if set", thread.stream, "boolean", true) ?? false;
 
-                const direction = ParseUtil.ParseVariable("universeConf.sync.threads.direction must be string, if set", thread.direction, "string", true) ?? "pull";
+                const direction = ParseUtil.ParseVariable("applicationConf.sync.threads.direction must be string, if set", thread.direction, "string", true) ?? "pull";
 
                 const threadFetchParams = ParseUtil.ParseThreadFetchParams(thread.threadFetchParams ?? {});
 
                 if (!["push", "pull", "both"].includes(direction)) {
-                    throw new Error("universeConf.sync.threads.direction must be either \"push\", \"pull\", \"both\", if set");
+                    throw new Error("applicationConf.sync.threads.direction must be either \"push\", \"pull\", \"both\", if set");
                 }
 
                 threads.push({

@@ -945,7 +945,7 @@ export class QueryProcessor {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
                 owner, hasonline, isonline, ispublic, difficulty, transienthash, sharedhash, image,
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
-                FROM universe_nodes
+                FROM openodin_nodes
                 WHERE parentid IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
                 AND creationtime <= ${now2}
                 ${cutoff} ${ignoreInactive} ${ignoreOwn} ${region} ${jurisdiction}
@@ -955,7 +955,7 @@ export class QueryProcessor {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
                 owner, hasonline, isonline, ispublic, difficulty, transienthash, sharedhash, image,
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
-                FROM universe_nodes
+                FROM openodin_nodes
                 WHERE id IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
                 AND creationtime <= ${now2}
                 AND isleaf = 0
@@ -965,7 +965,7 @@ export class QueryProcessor {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
                 owner, hasonline, isonline, ispublic, difficulty, transienthash, sharedhash, image,
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
-                FROM universe_nodes
+                FROM openodin_nodes
                 WHERE id IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
                 AND creationtime <= ${now2}
                 AND islicensed = 1 AND disallowparentlicensing = 0 AND isleaf = 0
@@ -1416,8 +1416,8 @@ export class QueryProcessor {
 
             const sql = `SELECT a.id1 AS aid1, a.issuer AS aissuer, a.constraints AS aconstraints, a.image AS aimage,
                 b.id1 AS bid1, b.issuer AS bissuer, b.constraints AS bconstraints, b.image AS bimage
-                FROM universe_friend_certs AS a, universe_friend_certs AS b,
-                universe_nodes AS nodesa, universe_nodes AS nodesb
+                FROM openodin_friend_certs AS a, openodin_friend_certs AS b,
+                openodin_nodes AS nodesa, openodin_nodes AS nodesb
                 WHERE b.issuer = ${ph1} AND
                 a.issuer IN ${ph2} AND a.constraints = b.constraints
                 AND a.id1 = nodesa.id1 AND (nodesa.expiretime IS NULL OR nodesa.expiretime > ${now})
@@ -1572,7 +1572,7 @@ export class QueryProcessor {
 
         const ph = this.db.generatePlaceholders(hashes.length);
 
-        const sql = `SELECT sharedhash FROM universe_nodes WHERE sharedhash IN ${ph}
+        const sql = `SELECT sharedhash FROM openodin_nodes WHERE sharedhash IN ${ph}
             AND (expiretime IS NULL OR expiretime > ${now})
             AND creationtime <= ${now2};`;
 
@@ -2138,7 +2138,7 @@ export class QueryProcessor {
 
             const sql = `SELECT hash, disallowretrolicensing, parentpathhash, restrictivemodewriter,
                 restrictivemodemanager, nodes.creationtime AS creationtime, hashes.id1 AS id1
-                FROM universe_licensee_hashes AS hashes, universe_nodes AS nodes
+                FROM openodin_licensee_hashes AS hashes, openodin_nodes AS nodes
                 WHERE hashes.hash IN ${ph} AND hashes.id1 = nodes.id1
                 ${onlyWriteLicensesSQL} AND
                 (nodes.expiretime IS NULL OR nodes.expiretime > ${now})
@@ -2299,7 +2299,7 @@ export class QueryProcessor {
 
         const now2 = now + NOW_TOLERANCE;
 
-        const sql = `SELECT image, storagetime FROM universe_nodes WHERE id1 IN ${ph}
+        const sql = `SELECT image, storagetime FROM openodin_nodes WHERE id1 IN ${ph}
             AND (expiretime IS NULL OR expiretime > ${now})
             AND creationtime <= ${now2};`;
 

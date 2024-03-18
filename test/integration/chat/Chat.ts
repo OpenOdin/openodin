@@ -13,13 +13,12 @@ import {
     Service,
     Thread,
     StorageUtil,
-    UniverseConf,
+    ApplicationConf,
     WalletConf,
     BufferStreamWriter,
     BufferStreamReader,
     StreamStatus,
     KeyManager,
-    Universe,
     RPC,
     JSONUtil,
     P2PClient,
@@ -36,16 +35,16 @@ const BLOB_DATA = Buffer.concat([Buffer.alloc(1024 * 20).fill(0xa0),
 async function main() {
     const consoleMain = PocketConsole({module: "Main  "});
 
-    let serverConfig: UniverseConf;
-    let clientConfig: UniverseConf;
+    let serverConfig: ApplicationConf;
+    let clientConfig: ApplicationConf;
     let serverWallet: WalletConf;
     let clientWallet: WalletConf;
     try {
-        serverConfig = ParseUtil.ParseUniverseConf(
-            JSONUtil.LoadJSON(`${__dirname}/server-universe.json`, ['.']));
+        serverConfig = ParseUtil.ParseApplicationConf(
+            JSONUtil.LoadJSON(`${__dirname}/server-conf.json`, ['.']));
 
-        clientConfig = ParseUtil.ParseUniverseConf(
-            JSONUtil.LoadJSON(`${__dirname}/client-universe.json`, ['.']));
+        clientConfig = ParseUtil.ParseApplicationConf(
+            JSONUtil.LoadJSON(`${__dirname}/client-conf.json`, ['.']));
 
         serverWallet = ParseUtil.ParseWalletConf(
             JSONUtil.LoadJSON(`${__dirname}/server-wallet.json`, ['.']));

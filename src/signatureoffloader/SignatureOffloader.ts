@@ -332,7 +332,7 @@ class CryptoWorker implements CryptoWorkerInterface {
         try {
             const workerURIs = [
                 "./signatureOffloader-worker.js",
-                "./node_modules/universeai/build/src/signatureoffloader/signatureOffloader-worker.js",
+                "./node_modules/openodin/build/src/signatureoffloader/signatureOffloader-worker.js",
                 "./build/src/signatureoffloader/signatureOffloader-worker.js",
                 "signatureOffloader-worker-browser.js",
             ];

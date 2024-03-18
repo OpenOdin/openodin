@@ -4,7 +4,7 @@ import { strict as assert } from "assert";
 
 import {
     Service,
-    UniverseConf,
+    ApplicationConf,
     WalletConf,
 } from "../../../service";
 
@@ -34,7 +34,7 @@ import {
 
 const console = PocketConsole({module: "Service", format: "%t %c[%L%l]%C "});
 
-async function main(universeConf: UniverseConf, walletConf: WalletConf) {
+async function main(applicationConf: ApplicationConf, walletConf: WalletConf) {
     console.info("Initializing...");
 
     const keyPair = walletConf.keyPairs[0];
@@ -47,7 +47,7 @@ async function main(universeConf: UniverseConf, walletConf: WalletConf) {
 
     await signatureOffloader.init();
 
-    const service = new Service(universeConf, walletConf, signatureOffloader, authFactory);
+    const service = new Service(applicationConf, walletConf, signatureOffloader, authFactory);
 
     await service.init()
 
@@ -115,24 +115,24 @@ async function main(universeConf: UniverseConf, walletConf: WalletConf) {
 }
 
 if (process.argv.length < 4) {
-    console.getConsole().error(`Usage: service.ts universe.json wallet.json`);
+    console.getConsole().error(`Usage: service.ts application.json wallet.json`);
     process.exit(1);
 }
 
-const universeConfigPath = process.argv[2];
+const applicationConfigPath = process.argv[2];
 const walletConfigPath = process.argv[3];
 
-if (typeof(universeConfigPath) !== "string" || typeof(walletConfigPath) !== "string") {
-    console.getConsole().error(`Usage: service.ts universe.json wallet.json`);
+if (typeof(applicationConfigPath) !== "string" || typeof(walletConfigPath) !== "string") {
+    console.getConsole().error(`Usage: service.ts application.json wallet.json`);
     process.exit(1);
 }
 
-let universeConf: UniverseConf;
+let applicationConf: ApplicationConf;
 let walletConf: WalletConf;
 
 try {
-    universeConf = ParseUtil.ParseUniverseConf(
-        JSONUtil.LoadJSON(universeConfigPath, ['.']));
+    applicationConf = ParseUtil.ParseApplicationConf(
+        JSONUtil.LoadJSON(applicationConfigPath, ['.']));
 
     walletConf = ParseUtil.ParseWalletConf(
         JSONUtil.LoadJSON(walletConfigPath, ['.']));
@@ -142,4 +142,4 @@ catch(e) {
     process.exit(1);
 }
 
-main(universeConf, walletConf);
+main(applicationConf, walletConf);

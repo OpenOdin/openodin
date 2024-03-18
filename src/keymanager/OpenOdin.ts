@@ -26,7 +26,7 @@ import {
 
 import {
     WalletConf,
-    UniverseConf,
+    ApplicationConf,
 } from "../service/types";
 
 import {
@@ -39,7 +39,7 @@ import {
 
 declare const window: any;
 
-export class Universe {
+export class OpenOdin {
     protected rpc: RPC;
     protected _isActive: boolean = false;
     protected _onActive?: () => void;
@@ -82,7 +82,7 @@ export class Universe {
             return;
         }
 
-        const ret = await this.rpc.call("universe-hello");
+        const ret = await this.rpc.call("client-hello");
 
         if (ret === "keymanager-hello") {
             this._isActive = true;
@@ -141,7 +141,7 @@ export class Universe {
     /**
      * @throws on error
      */
-    public async initService(universeConf: UniverseConf): Promise<Service> {
+    public async initService(applicationConf: ApplicationConf): Promise<Service> {
         if (!this.walletConf) {
             throw new Error("Missing walletConf");
         }
@@ -154,7 +154,7 @@ export class Universe {
             throw new Error("Missing authFactory");
         }
 
-        const service = new Service(universeConf, this.walletConf, this.signatureOffloader, this.authFactory);
+        const service = new Service(applicationConf, this.walletConf, this.signatureOffloader, this.authFactory);
 
         await service.init()
 

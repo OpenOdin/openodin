@@ -308,7 +308,7 @@ export class Driver implements DriverInterface {
 
         const now2 = now + NOW_TOLERANCE;
 
-        const sql = `SELECT image, isonline, storagetime FROM universe_nodes
+        const sql = `SELECT image, isonline, storagetime FROM openodin_nodes
             WHERE id1 = ${ph} AND (expiretime IS NULL OR expiretime > ${now})
             AND creationTime <= ${now2} LIMIT 1;`;
 
@@ -362,7 +362,7 @@ export class Driver implements DriverInterface {
 
         const now2 = now + NOW_TOLERANCE;
 
-        const sql = `SELECT image, isonline, storagetime FROM universe_nodes WHERE id1 IN ${ph}
+        const sql = `SELECT image, isonline, storagetime FROM openodin_nodes WHERE id1 IN ${ph}
             AND (expiretime IS NULL OR expiretime > ${now})
             AND creationTime <= ${now2};`;
 
@@ -441,7 +441,7 @@ export class Driver implements DriverInterface {
 
         const now2 = now + NOW_TOLERANCE;
 
-        const sql = `SELECT image, isonline, storagetime FROM universe_nodes WHERE id IN ${ph}
+        const sql = `SELECT image, isonline, storagetime FROM openodin_nodes WHERE id IN ${ph}
             AND (expiretime IS NULL OR expiretime > ${now})
             AND creationTime <= ${now2};`;
 
@@ -482,7 +482,7 @@ export class Driver implements DriverInterface {
             throw new Error("now not integer");
         }
 
-        const sql = `SELECT id1 FROM universe_nodes WHERE
+        const sql = `SELECT id1 FROM openodin_nodes WHERE
             expiretime IS NOT NULL AND expiretime <= ${now} LIMIT ${limit}`;
 
         const rows = await this.db.all(sql);
@@ -641,7 +641,7 @@ export class Driver implements DriverInterface {
 
         const ph = this.db.generatePlaceholders(1);
 
-        const sql = `UPDATE universe_nodes
+        const sql = `UPDATE openodin_nodes
             SET updatetime=${now}, trailupdatetime=${now}
             WHERE id1=${ph};`;
 
@@ -772,7 +772,7 @@ export class Driver implements DriverInterface {
             const ph = this.db.generatePlaceholders(hashes.length);
 
             const sql = `SELECT hash
-            FROM universe_licensee_hashes AS hashes, universe_nodes AS nodes
+            FROM openodin_licensee_hashes AS hashes, openodin_nodes AS nodes
             WHERE hashes.hash IN ${ph} AND hashes.id1 = nodes.id1 AND
             (nodes.expiretime IS NULL OR nodes.expiretime > ${now})
             AND nodes.creationTime <= ${now2};`;
@@ -819,7 +819,7 @@ export class Driver implements DriverInterface {
         const ph = this.db.generatePlaceholders(allHashes.length);
 
         const sql = `SELECT COUNT(dh.hash), nodes.id1 AS id1
-            FROM universe_destroy_hashes AS dh, universe_nodes as nodes
+            FROM openodin_destroy_hashes AS dh, openodin_nodes as nodes
             WHERE dh.hash IN ${ph} AND dh.id1 = nodes.id1 GROUP BY nodes.id1;`;
 
         const destroyed: {[hash: string]: boolean} = {};
@@ -878,7 +878,7 @@ export class Driver implements DriverInterface {
 
         const ph = this.db.generatePlaceholders(id1s.length);
 
-        const sql = `SELECT id1, transienthash from universe_nodes WHERE id1 IN ${ph};`;
+        const sql = `SELECT id1, transienthash from openodin_nodes WHERE id1 IN ${ph};`;
 
         const rows = await this.db.all(sql, id1s);
 
@@ -945,7 +945,7 @@ export class Driver implements DriverInterface {
 
         const ph = this.db.generatePlaceholders(shared_hashes.length);
 
-        const sql = `SELECT id1, sharedhash from universe_nodes WHERE sharedhash IN ${ph};`;
+        const sql = `SELECT id1, sharedhash from openodin_nodes WHERE sharedhash IN ${ph};`;
 
         const rows = await this.db.all(sql, shared_hashes);
 
@@ -1199,7 +1199,7 @@ export class Driver implements DriverInterface {
 
         const ph = this.db.generatePlaceholders(2, achillesHashes.length);
 
-        await this.db.run(`INSERT INTO universe_achilles_hashes (id1, hash) VALUES ${ph};`, params);
+        await this.db.run(`INSERT INTO openodin_achilles_hashes (id1, hash) VALUES ${ph};`, params);
     }
 
     /**
@@ -1230,7 +1230,7 @@ export class Driver implements DriverInterface {
 
         const ph = this.db.generatePlaceholders(6, licenseeHashes.length);
 
-        await this.db.run(`INSERT INTO universe_licensee_hashes
+        await this.db.run(`INSERT INTO openodin_licensee_hashes
             (id1, hash, disallowretrolicensing, parentpathhash, restrictivemodewriter, restrictivemodemanager) VALUES ${ph};`,
             params);
     }
@@ -1263,12 +1263,12 @@ export class Driver implements DriverInterface {
 
         const ph = this.db.generatePlaceholders(2, destroyHashes.length);
 
-        await this.db.run(`INSERT INTO universe_destroy_hashes (id1, hash) VALUES ${ph};`, params);
+        await this.db.run(`INSERT INTO openodin_destroy_hashes (id1, hash) VALUES ${ph};`, params);
 
         const ph2 = this.db.generatePlaceholders(allHashes.length);
 
         const sql = `SELECT nodes.id1 AS id1
-            FROM universe_achilles_hashes AS ah, universe_nodes as nodes
+            FROM openodin_achilles_hashes AS ah, openodin_nodes as nodes
             WHERE ah.hash IN ${ph2} AND ah.id1 = nodes.id1 GROUP BY nodes.id1;`;
 
         const rows = await this.db.all(sql, allHashes);
@@ -1300,7 +1300,7 @@ export class Driver implements DriverInterface {
 
         const ph = this.db.generatePlaceholders(4, friendCerts.length);
 
-        await this.db.run(`INSERT INTO universe_friend_certs (issuer, constraints, image, id1)
+        await this.db.run(`INSERT INTO openodin_friend_certs (issuer, constraints, image, id1)
             VALUES ${ph};`, params);
     }
 
@@ -1382,7 +1382,7 @@ export class Driver implements DriverInterface {
         let sql: string;
 
         if (preserveTransient) {
-            sql = `INSERT INTO universe_nodes
+            sql = `INSERT INTO openodin_nodes
             (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner, hasonline,
             isonline, ispublic, islicensed, disallowparentlicensing, isleaf,
             difficulty, sharedhash, transienthash, storagetime, updatetime, trailupdatetime, bumphash, image)
@@ -1395,7 +1395,7 @@ export class Driver implements DriverInterface {
             image=excluded.image;`
         }
         else {
-            sql = `INSERT INTO universe_nodes
+            sql = `INSERT INTO openodin_nodes
             (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner, hasonline,
             isonline, ispublic, islicensed, disallowparentlicensing, isleaf,
             difficulty, sharedhash, transienthash, storagetime, updatetime, trailupdatetime, bumphash, image)
@@ -1437,7 +1437,7 @@ export class Driver implements DriverInterface {
 
         params.push(...id1s);
 
-        const sql = `UPDATE universe_nodes SET isonline=0 WHERE id2 IN ${phId2}
+        const sql = `UPDATE openodin_nodes SET isonline=0 WHERE id2 IN ${phId2}
             AND id1 NOT IN ${phId1} RETURNING id1 as parentid;`;
 
         const rows = await this.db.all(sql, params);
@@ -1462,7 +1462,7 @@ export class Driver implements DriverInterface {
 
         const ph = this.db.generatePlaceholders(id1s.length);
 
-        const sql = `UPDATE universe_nodes SET trailupdatetime=${now} WHERE id1 IN ${ph};`;
+        const sql = `UPDATE openodin_nodes SET trailupdatetime=${now} WHERE id1 IN ${ph};`;
 
         await this.db.run(sql, id1s);
     }
@@ -1483,7 +1483,7 @@ export class Driver implements DriverInterface {
 
         const ph = this.db.generatePlaceholders(bumpHashes.length);
 
-        const sql = `UPDATE universe_nodes
+        const sql = `UPDATE openodin_nodes
             SET updatetime=${now}, trailupdatetime=${now}
             WHERE bumphash IN ${ph}
             RETURNING parentid;`;
@@ -1518,15 +1518,15 @@ export class Driver implements DriverInterface {
 
             const ph = this.db.generatePlaceholders(id1s.length);
 
-            await this.db.run(`DELETE FROM universe_nodes AS t WHERE t.id1 IN ${ph};`, id1s);
+            await this.db.run(`DELETE FROM openodin_nodes AS t WHERE t.id1 IN ${ph};`, id1s);
 
-            await this.db.run(`DELETE FROM universe_achilles_hashes AS t WHERE t.id1 IN ${ph};`, id1s);
+            await this.db.run(`DELETE FROM openodin_achilles_hashes AS t WHERE t.id1 IN ${ph};`, id1s);
 
-            await this.db.run(`DELETE FROM universe_licensee_hashes AS t WHERE t.id1 IN ${ph};`, id1s);
+            await this.db.run(`DELETE FROM openodin_licensee_hashes AS t WHERE t.id1 IN ${ph};`, id1s);
 
-            await this.db.run(`DELETE FROM universe_destroy_hashes AS t WHERE t.id1 IN ${ph};`, id1s);
+            await this.db.run(`DELETE FROM openodin_destroy_hashes AS t WHERE t.id1 IN ${ph};`, id1s);
 
-            await this.db.run(`DELETE FROM universe_friend_certs AS t WHERE t.id1 IN ${ph};`, id1s);
+            await this.db.run(`DELETE FROM openodin_friend_certs AS t WHERE t.id1 IN ${ph};`, id1s);
         }
     }
 

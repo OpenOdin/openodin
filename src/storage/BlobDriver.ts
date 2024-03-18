@@ -115,14 +115,14 @@ export class BlobDriver implements BlobDriverInterface {
         try {
             const ph = this.blobDb.generatePlaceholders(nodeId1s.length);
 
-            const dataIds = (await this.blobDb.all(`DELETE FROM universe_blob AS t
+            const dataIds = (await this.blobDb.all(`DELETE FROM openodin_blob AS t
                 WHERE t.node_id1 IN ${ph}
                 RETURNING dataid;`, nodeId1s)).map( (row: any) => row.dataid );
 
             const ph2 = this.blobDb.generatePlaceholders(dataIds.length);
 
-            await this.blobDb.run(`DELETE FROM universe_blob_data AS bd WHERE bd.dataid IN ${ph2}
-                AND bd.dataid NOT IN (SELECT dataid from universe_blob);`, dataIds);
+            await this.blobDb.run(`DELETE FROM openodin_blob_data AS bd WHERE bd.dataid IN ${ph2}
+                AND bd.dataid NOT IN (SELECT dataid from openodin_blob);`, dataIds);
 
             this.blobDb.exec("COMMIT;");
 
@@ -140,8 +140,8 @@ export class BlobDriver implements BlobDriverInterface {
         this.blobDb.exec("BEGIN;");
 
         try {
-            const sql = `DELETE FROM universe_blob_data WHERE dataid IN
-                (SELECT dataid FROM universe_blob_data WHERE creationtime<${timestamp} AND finalized=0 LIMIT ${limit})
+            const sql = `DELETE FROM openodin_blob_data WHERE dataid IN
+                (SELECT dataid FROM openodin_blob_data WHERE creationtime<${timestamp} AND finalized=0 LIMIT ${limit})
                 RETURNING creationtime;`;
 
             const timestamps = await this.blobDb.all(sql);
@@ -382,11 +382,11 @@ export class BlobDriver implements BlobDriverInterface {
 
         const ph = this.blobDb.generatePlaceholders(5);
 
-        const sql = `INSERT INTO universe_blob_data (dataid, fragmentnr, finalized, fragment, creationtime)
+        const sql = `INSERT INTO openodin_blob_data (dataid, fragmentnr, finalized, fragment, creationtime)
             VALUES ${ph}
             ON CONFLICT (dataid, fragmentnr) DO UPDATE SET fragment=excluded.fragment,
             creationtime=excluded.creationtime
-            WHERE universe_blob_data.finalized=0;`;
+            WHERE openodin_blob_data.finalized=0;`;
 
         await this.blobDb.run(sql, [dataId, fragmentIndex, 0, fragment, now]);
     }
@@ -410,7 +410,7 @@ export class BlobDriver implements BlobDriverInterface {
 
         const ph = this.blobDb.generatePlaceholders(1);
 
-        const sql = `SELECT fragment FROM universe_blob_data
+        const sql = `SELECT fragment FROM openodin_blob_data
             WHERE dataid=${ph} AND fragmentnr=${fragmentIndex} ${finalized};`;
 
         const row = await this.blobDb.get(sql, [dataId]);
@@ -429,7 +429,7 @@ export class BlobDriver implements BlobDriverInterface {
         // Does not differ on finalized or unfinalized data.
         //
         const sql = `SELECT SUM(LENGTH(fragment)) AS length
-            FROM universe_blob_data
+            FROM openodin_blob_data
             WHERE dataid=${ph} GROUP BY dataid LIMIT 1`;
 
         const row = await this.blobDb.get(sql, [dataId]);
@@ -455,7 +455,7 @@ export class BlobDriver implements BlobDriverInterface {
         //
         const ph = this.blobDb.generatePlaceholders(1);
 
-        const sql = `SELECT COUNT(fragment) AS count FROM universe_blob_data
+        const sql = `SELECT COUNT(fragment) AS count FROM openodin_blob_data
                 WHERE dataid=${ph} AND finalized=1 LIMIT 1;`;
 
         const row = await this.blobDb.get(sql, [dataId]);
@@ -465,7 +465,7 @@ export class BlobDriver implements BlobDriverInterface {
         if (!row || row.count === 0) {
             const ph = this.blobDb.generatePlaceholders(1);
 
-            const sql = `SELECT fragment FROM universe_blob_data
+            const sql = `SELECT fragment FROM openodin_blob_data
                 WHERE dataid=${ph} AND finalized=0 ORDER BY fragmentnr;`;
 
             const blake = blake2b(32);
@@ -485,7 +485,7 @@ export class BlobDriver implements BlobDriverInterface {
 
             if (!hash.equals(blobHash)) {
                 // Delete data and commit.
-                const sqlDelete = `DELETE FROM universe_blob_data
+                const sqlDelete = `DELETE FROM openodin_blob_data
                     WHERE dataid=${ph} AND finalized=0;`;
 
                 await this.blobDb.run(sqlDelete, [dataId]);
@@ -497,7 +497,7 @@ export class BlobDriver implements BlobDriverInterface {
 
             const ph1 = this.blobDb.generatePlaceholders(1);
 
-            const sqlUpdate = `UPDATE universe_blob_data SET finalized=1
+            const sqlUpdate = `UPDATE openodin_blob_data SET finalized=1
             WHERE dataid=${ph1} AND finalized=0;`;
 
             try {
@@ -516,7 +516,7 @@ export class BlobDriver implements BlobDriverInterface {
         //
         const ph2 = this.blobDb.generatePlaceholders(3);
 
-        const sqlInsert = `INSERT INTO universe_blob (node_id1, dataid, storagetime) VALUES ${ph2};`;
+        const sqlInsert = `INSERT INTO openodin_blob (node_id1, dataid, storagetime) VALUES ${ph2};`;
 
         try {
             await this.blobDb.run(sqlInsert, [nodeId1, dataId, now]);
@@ -538,8 +538,8 @@ export class BlobDriver implements BlobDriverInterface {
 
         const ph = this.blobDb.generatePlaceholders(1);
 
-        const sql = `SELECT universe_blob.dataid FROM universe_blob, universe_blob_data
-            WHERE node_id1=${ph} AND universe_blob_data.dataid = universe_blob.dataid LIMIT 1`;
+        const sql = `SELECT openodin_blob.dataid FROM openodin_blob, openodin_blob_data
+            WHERE node_id1=${ph} AND openodin_blob_data.dataid = openodin_blob.dataid LIMIT 1`;
 
         const row = await this.blobDb.get(sql, [nodeId1]);
 
@@ -558,7 +558,7 @@ export class BlobDriver implements BlobDriverInterface {
 
         const ph = this.blobDb.generatePlaceholders(nodeId1s.length);
 
-        const sql = `SELECT node_id1 FROM universe_blob WHERE node_id1 IN ${ph};`;
+        const sql = `SELECT node_id1 FROM openodin_blob WHERE node_id1 IN ${ph};`;
 
         const rows = await this.blobDb.all(sql, nodeId1s);
 

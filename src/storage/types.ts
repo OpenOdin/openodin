@@ -58,7 +58,7 @@ export const MAX_QUERY_ROWS_LIMIT = 1_000_000;
  * SQLite does not put much weight on the declaration types.
  */
 export const TABLES: {[table: string]: any} = {
-    "universe_nodes": {
+    "openodin_nodes": {
         columns: [
             "id1 bytea PRIMARY KEY",
             "id2 bytea NULL",
@@ -90,49 +90,49 @@ export const TABLES: {[table: string]: any} = {
             "image bytea NOT NULL",
         ],
         indexes: {
-            "idx_universe_nodes_creationtime": {
+            "idx_openodin_nodes_creationtime": {
                 columns: ["creationtime"],
                 unique: false,
             },
-            "idx_universe_nodes_storagetime": {
+            "idx_openodin_nodes_storagetime": {
                 columns: ["storagetime"],
                 unique: false,
             },
-            "idx_universe_nodes_trailupdatetime": {
+            "idx_openodin_nodes_trailupdatetime": {
                 columns: ["trailupdatetime"],
                 unique: false,
             },
-            "idx_universe_nodes_expiretime": {
+            "idx_openodin_nodes_expiretime": {
                 columns: ["expiretime"],
                 unique: false,
             },
-            "idx_universe_nodes_id2": {
+            "idx_openodin_nodes_id2": {
                 columns: ["id2"],
                 unique: false,
             },
-            "idx_universe_nodes_id": {
+            "idx_openodin_nodes_id": {
                 columns: ["id"],
                 unique: false,
             },
-            "idx_universe_nodes_parentid": {
+            "idx_openodin_nodes_parentid": {
                 columns: ["parentid"],
                 unique: false,
             },
-            "idx_universe_nodes_owner": {
+            "idx_openodin_nodes_owner": {
                 columns: ["owner"],
                 unique: false,
             },
-            "idx_universe_nodes_bumphash": {
+            "idx_openodin_nodes_bumphash": {
                 columns: ["bumphash"],
                 unique: false,
             },
-            "idx_universe_nodes_hasonline": {
+            "idx_openodin_nodes_hasonline": {
                 columns: ["hasonline"],
                 unique: false,
             },
         },
     },
-    "universe_destroy_hashes": {
+    "openodin_destroy_hashes": {
         columns: [
             /** The id1 of the destroyer node bringing in this hash.
              *  If that node is deleted then we can also delete from here based on id1.
@@ -143,22 +143,22 @@ export const TABLES: {[table: string]: any} = {
             "hash bytea NOT NULL",
         ],
         indexes: {
-            "idx_universe_destroy_hashes_id1": {
+            "idx_openodin_destroy_hashes_id1": {
                 columns: ["id1"],
                 unique: false,
             },
-            "idx_universe_destroy_hashes_hash": {
+            "idx_openodin_destroy_hashes_hash": {
                 columns: ["hash"],
                 unique: false,
             },
             // We don't bother adding this unique constraint because it is not worth it.
-            //"idx_universe_destroy_hashes_id1_hash": {
+            //"idx_openodin_destroy_hashes_id1_hash": {
                 //columns: ["id1", "hash"],
                 //unique: true,
             //},
         },
     },
-    "universe_achilles_hashes": {
+    "openodin_achilles_hashes": {
         columns: [
             /** The id1 of the node this achilles hash belongs to. */
             "id1 bytea NOT NULL",
@@ -167,22 +167,22 @@ export const TABLES: {[table: string]: any} = {
             "hash bytea NOT NULL",
         ],
         indexes: {
-            "idx_universe_achilles_hashes_id1": {
+            "idx_openodin_achilles_hashes_id1": {
                 columns: ["id1"],
                 unique: false,
             },
-            "idx_universe_achilles_hashes_hash": {
+            "idx_openodin_achilles_hashes_hash": {
                 columns: ["hash"],
                 unique: false,
             },
             // We don't bother adding this unique constraint because it is not worth it.
-            //"idx_universe_achilles_hashes_id1_hash": {
+            //"idx_openodin_achilles_hashes_id1_hash": {
                 //columns: ["id1", "hash"],
                 //unique: true,
             //},
         },
     },
-    "universe_licensee_hashes": {
+    "openodin_licensee_hashes": {
         columns: [
             /** The id1 of the license node. */
             "id1 bytea NOT NULL",
@@ -196,17 +196,17 @@ export const TABLES: {[table: string]: any} = {
             "restrictivemodemanager smallint NOT NULL",
         ],
         indexes: {
-            "idx_universe_licensee_hashes_id1": {
+            "idx_openodin_licensee_hashes_id1": {
                 columns: ["id1"],
                 unique: false,
             },
-            "idx_universe_licensee_hashes_hash": {
+            "idx_openodin_licensee_hashes_hash": {
                 columns: ["hash"],
                 unique: false,
             },
         },
     },
-    "universe_friend_certs": {
+    "openodin_friend_certs": {
         columns: [
             /** The id1 of the node bringing in the friend cert. */
             "id1 bytea NOT NULL",
@@ -216,7 +216,7 @@ export const TABLES: {[table: string]: any} = {
             "image bytea NOT NULL",
         ],
         indexes: {
-            "idx_universe_friend_certs_constraints": {
+            "idx_openodin_friend_certs_constraints": {
                 columns: ["constraints"],
                 unique: false,
             },
@@ -225,7 +225,7 @@ export const TABLES: {[table: string]: any} = {
 };
 
 export const BLOB_TABLES: {[table: string]: any} = {
-    "universe_blob_data": {
+    "openodin_blob_data": {
         columns: [
             "dataid bytea NOT NULL",
             "fragmentnr integer NOT NULL",
@@ -234,21 +234,21 @@ export const BLOB_TABLES: {[table: string]: any} = {
             "creationtime bigint NOT NULL",
         ],
         indexes: {
-            "idx_universe_blob_data_creationtime": {
+            "idx_openodin_blob_data_creationtime": {
                 columns: ["creationtime"],
                 unique: false,
             },
-            "idx_universe_blob_data_dataid": {
+            "idx_openodin_blob_data_dataid": {
                 columns: ["dataid"],
                 unique: false,
             },
-            "idx_universe_blob_data_dataid_fragmentnr": {
+            "idx_openodin_blob_data_dataid_fragmentnr": {
                 columns: ["dataid", "fragmentnr"],
                 unique: true,
             },
         },
     },
-    "universe_blob": {
+    "openodin_blob": {
         // Note that there is a chance that we can get multiple records of the
         // same nodeId1 and dataId, but that will not matter and forcing a unique
         // constraint on the combination is not worth it.
@@ -258,11 +258,11 @@ export const BLOB_TABLES: {[table: string]: any} = {
             "storagetime bigint NOT NULL",
         ],
         indexes: {
-            "idx_universe_blob_node_id1": {
+            "idx_openodin_blob_node_id1": {
                 columns: ["node_id1"],
                 unique: false,
             },
-            "idx_universe_blob_dataid": {
+            "idx_openodin_blob_dataid": {
                 columns: ["dataid"],
                 unique: false,
             },

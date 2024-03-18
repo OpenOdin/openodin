@@ -64,7 +64,7 @@ import {
 import {
     DatabaseConfig,
     ConnectionConfig,
-    UniverseConf,
+    ApplicationConf,
     SyncConf,
     WalletConf,
     ThreadSyncConf,
@@ -239,31 +239,31 @@ export class Service {
 
     protected threadTemplates: ThreadTemplates = {};
 
-    protected universeConf: UniverseConf;
+    protected applicationConf: ApplicationConf;
 
     /**
      * After class has been constructed call init() then call start().
      *
-     * @param universeConf configuration object to setup the Service
+     * @param applicationConf configuration object to setup the Service
      * @param walletConf wallet confuguration data. KeyPairs are added to the given signatureOffloader.
      *  Note that the walletConf is kept as a reference, it is not copied, meaning the outside must not change it.
      * @param signatureOffloader if not already initiated with key pairs then keyPairs
      * must be provided in the walletConf.
      * @param authFactory
      */
-    constructor(universeConf: UniverseConf, protected walletConf: WalletConf,
+    constructor(applicationConf: ApplicationConf, protected walletConf: WalletConf,
         protected signatureOffloader: SignatureOffloaderInterface,
         protected authFactory: AuthFactoryInterface)
     {
-        if (universeConf.format !== 1) {
-            throw new Error("Unknown UniverseConf format, expecting 1");
+        if (applicationConf.format !== 1) {
+            throw new Error("Unknown ApplicationConf format, expecting 1");
         }
 
         if (walletConf.authCert && !walletConf.nodeCerts?.length) {
             throw new Error("When using an authCert also nodeCerts are required");
         }
 
-        this.universeConf   = DeepCopy(universeConf);
+        this.applicationConf   = DeepCopy(applicationConf);
 
         this.nodeUtil = new NodeUtil(this.signatureOffloader);
 
@@ -320,15 +320,15 @@ export class Service {
             throw new Error("Missing walletConf.storage configuration");
         }
 
-        for(const name in this.universeConf.threads) {
-            this.addThreadTemplate(name, this.universeConf.threads[name]);
+        for(const name in this.applicationConf.threads) {
+            this.addThreadTemplate(name, this.applicationConf.threads[name]);
         }
 
-        this.universeConf.peers.forEach( (peerConf: ConnectionConfig) => {
+        this.applicationConf.peers.forEach( (peerConf: ConnectionConfig) => {
             this.addPeerConnectionConfig(peerConf);
         });
 
-        this.universeConf.sync.forEach( (sync: SyncConf) => {
+        this.applicationConf.sync.forEach( (sync: SyncConf) => {
             this.addSync(sync);
         });
     }
@@ -480,10 +480,10 @@ export class Service {
     }
 
     /**
-     * @returns the custom object from the UniverseConf object.
+     * @returns the custom object from the ApplicationConf object.
      */
     public getCustomConfig(): {[key: string]: any} {
-        return DeepCopy(this.universeConf.custom);
+        return DeepCopy(this.applicationConf.custom);
     }
 
     /**

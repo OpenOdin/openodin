@@ -2018,7 +2018,7 @@ function setupTests(config: any) {
 
         // Store annotation nodes
         //
-        let node3 = await thread.postEdit("hello", nodeToEdit, {data: Buffer.from("Hello Universe")});
+        let node3 = await thread.postEdit("hello", nodeToEdit, {data: Buffer.from("Hello OpenOdin")});
 
         assert(node3.isAnnotationEdit());
 
@@ -2055,7 +2055,7 @@ function setupTests(config: any) {
 
         const updatedData = annotations.getEditNode()?.getData()?.toString();
 
-        assert(updatedData === "Hello Universe");
+        assert(updatedData === "Hello OpenOdin");
 
         const reactions = annotations.getReactions();
 

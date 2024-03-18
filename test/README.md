@@ -11,7 +11,7 @@ This is an example of how to start a Postgres server.
 
 Connecting to existing containers network:
 ```sh
-docker run --rm --name some-postgres -e POSTGRES_PASSWORD="THIS-WILL-DESTROY-ALL-YOUR-DATA" --network container:universe postgres
+docker run --rm --name some-postgres -e POSTGRES_PASSWORD="THIS-WILL-DESTROY-ALL-YOUR-DATA" --network container:openodin postgres
 ```
 
 Exposing the port:

@@ -1,116 +1,54 @@
-[![Continuous integration: main branch](https://github.com/universe-ai/universe/actions/workflows/ci.yml/badge.svg?branch=main)](#readme)
+# OpenOdin
 
-# The UniverseAI Protocol
+OpenOdin is a database built for modern interoperable applications.
 
-[![UniverseAI logo](https://universe.ai/logo4.svg)](https://universe.ai/)
+- [Quick Start](#quick-start)
 
-The UniverseAI Protocol is an interoperable application and data sharing protocol where each party keep ownership and control over their data. The protocol and this implementation is developed by The UniverseAI Foundation.
+## What is OpenOdin?
 
-Users are not required to host their own data but can let services host data while users can at any time sync home their data, or sync their data to another service.  
+OpenOdin is a permissioned graph database layered on top of PostgreSQL and SQLite.
 
-UniverseAI is a graph of data which is cryptographically signed by each user creating data. Data is either public, private or licensed. Users issue licenses on their licensed data towards other users for specific time ranges, for a specific intent and for how many times a license can be "extented" towards other users.  
+A graph data structure allows for many types of different applicatons and use cases since content most often has some parent relationship to other content. 
 
-All communication between peers are encrypted. 
+For example chat messages (child nodes) inside a chat room (the parent node) is a typical graph data structure.
 
-This repo is a production intended reference implementation of the UniverseAI protocol bundled with an SDK and licensed with the Apache license version 2.  
+Two benefits of using a graph data structure:
 
-This implementation is written in TypeScript meaning it can also be run in the browser. It uses relatively few dependencies.  
+1. Whole and/or parts of applications and data can have clear definitions and become easily interoperable
+2. Allow for efficient data licensing by adding license nodes alongside data nodes where permissions are automatically enforced by the database to lift that heavy work from applications and backends.
 
-Use this repo to:
+OpenOdin is written in TypeScript to work seamlessly both on server-side and in browsers.
 
-    - build decentralized applications using nothing else than UniverseAI as backend, or
-    - use UniverseAI as part of your applications backend and storage strategy
-    - create interoperable applications
-        - Move data between similar applications
-        - Sync data in near realtime to **complementing** applications to enrich your current dataset
-    - setup data lakes for data sharing amongst participants
+## Why use OpenOdin?
 
-## Roadmap
-This repo follows the semver versioning schema, however breaking changes are expected for any new version below 1.0.0.  
+By building your applications on an interoperable base layer you signal a modern approach of user respecting mentality.
 
-## Status
-The project is currently (2023-09-19) going through a wrapping up phase together with the Data Wallet browser extension ([https://github.com/universe-ai/datawallet](https://github.com/universe-ai/datawallet)) and the Web Chat application ([https://github.com/universe-ai/webchat/](https://github.com/universe-ai/webchat/)) in preparation for a stable release.  
+Simultanously you can automatically adhere to regulations such as GDPR, HIPAA and the Digital Markets Act by allowing users to own their interoperable data for them to regulate and move asthey wish.
 
-## Documentation
-Documentation is found at [https://universe.ai/docs/](https://universe.ai/docs/).  
+Overall by stepping into this new era of data interoperability we will see ecosystems of data enrichment grow where every application can serve as a building block for another application.
 
-## NPM
-This project is released on NPM as [https://www.npmjs.com/package/universeai](https://www.npmjs.com/package/universeai).  
+Be modern, respect your users and do not get headaches over data regulations as users are already in ownership and control over their data.
 
-## Test
-```sh
-npm i
-npm test
-```
+## Quick Start
 
-See also the chat integration test below.
+Want to jump straight into making interoperable applications?
 
-## Base setup
-```
-npm i
-```
+Follow these guides.
 
-## Build
-```
-npm run build
-```
+## User Documentation
 
-## Test
-```
-npm run test
-```
+The user documentation covers all aspects of building, debugging, running and deploying interoperable applications.
 
-## Chat reference example
+## Architectural documentation
 
-### Node.js
-```
-npx ts-node ./test/integration/chat/Chat.ts
-```
+Higher overview of how the graph database works for licensing, data policies, permissions and interoperability.
 
-Expected output:
-```
-2023-07-24T17:24:29 [ℹ INFO ] [Main  ] Init Chat Server
-2023-07-24T17:24:29 [ℹ INFO ] [Main  ] Storage connected, send message from Server side
-2023-07-24T17:24:30 [ℹ INFO ] [Main  ] Init Chat Client
-2023-07-24T17:24:30 [ℹ INFO ] [Main  ] Connection connected to server
-2023-07-24T17:24:30 [ℹ INFO ] [Main  ] Connection connected to client, send message from Client side
-2023-07-24T17:24:30 [ℹ INFO ] [Server] Hello from Server
-2023-07-24T17:24:30 [ℹ INFO ] [Client] Hello from Client
-2023-07-24T17:24:30 [ℹ INFO ] [Client] Hello from Server
-2023-07-24T17:24:31 [ℹ INFO ] [Server] Hello from Client
-2023-07-24T17:24:31 [ℹ INFO ] [Server] Downloaded blob
-2023-07-24T17:24:31 [✓ ACED ] [Main  ] All messages transferred, closing Server and Client
-2023-07-24T17:24:31 [ℹ INFO ] [Service] Database connection closed
-2023-07-24T17:24:31 [ℹ INFO ] [Service] Database connection closed
-```
+## Core Documentation
 
-### Browser
-Build and test in browser.  
+Auto generated documention from the source code. Relevant for when reviewing the code and making changes to it.
 
-```
-npm run c
-cp ./src/datamodel/decoder/thread.js ./build/src/datamodel/decoder/.
-npm run browser
-cp ./build/browser/Chat.js <dest>
-cp ./build/src/datamodel/decoder/thread.js <dest>
-cp ./test/integration/chat/index.html <dest>
-```
+## Licensing
 
-Double click index.html to run it locally.
+OpenOdin is open source and Apache II Licensed.
 
-Expected output:
-```
-2023-07-24T17:24:29 [ℹ INFO ] [Main  ] Init Chat Server
-2023-07-24T17:24:29 [ℹ INFO ] [Main  ] Storage connected, send message from Server side
-2023-07-24T17:24:30 [ℹ INFO ] [Main  ] Init Chat Client
-2023-07-24T17:24:30 [ℹ INFO ] [Main  ] Connection connected to server
-2023-07-24T17:24:30 [ℹ INFO ] [Main  ] Connection connected to client, send message from Client side
-2023-07-24T17:24:30 [ℹ INFO ] [Server] Hello from Server
-2023-07-24T17:24:30 [ℹ INFO ] [Client] Hello from Client
-2023-07-24T17:24:30 [ℹ INFO ] [Client] Hello from Server
-2023-07-24T17:24:31 [ℹ INFO ] [Server] Hello from Client
-2023-07-24T17:24:31 [ℹ INFO ] [Server] Downloaded blob
-2023-07-24T17:24:31 [✓ ACED ] [Main  ] All messages transferred, closing Server and Client
-2023-07-24T17:24:31 [ℹ INFO ] [Service] Database connection closed
-2023-07-24T17:24:31 [ℹ INFO ] [Service] Database connection closed
-```
+Made with 💜 in Sweden.

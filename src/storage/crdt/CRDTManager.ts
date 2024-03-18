@@ -57,7 +57,7 @@ export class CRDTManager {
             try {
                 const workerURIs = [
                     "./crdt-worker.js",
-                    "./node_modules/universeai/build/src/storage/crdt/crdt-worker.js",
+                    "./node_modules/openodin/build/src/storage/crdt/crdt-worker.js",
                     "./build/src/storage/crdt/crdt-worker.js",
                     "crdt-worker-browser.js",
                 ];

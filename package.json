@@ -1,20 +1,20 @@
 {
-    "name": "universeai",
-    "version": "0.8.3",
-    "description": "The UniverseAI Protocol is a complete package to build decentralized applications with real data interoperability. It is a protocol specification and an implementation of the protocol bundled with an SDK.",
+    "name": "openodin",
+    "version": "0.8.4",
+    "description": "OpenOdin is the open source database built for interoperable applications",
     "keywords": [
         "decentralized",
         "interoperable",
         "interoperability"
     ],
-    "homepage": "https://universe.ai",
-    "author": "The UniverseAI Foundation",
+    "homepage": "https://openodin.com",
+    "author": "OpenOdin",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/universe-ai/universe.git"
+        "url": "git+https://github.com/OpenOdin/openodin.git"
     },
     "bugs": {
-        "url": "https://github.com/universe-ai/universe/issues"
+        "url": "https://github.com/OpenOdin/openodin/issues"
     },
     "private": false,
     "license": "Apache-2.0",
@@ -32,7 +32,7 @@
         "pkg-sdk": "npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/cert ./build-sdk/sdk/tools/src/CertCLI.js && npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/keygen ./build-sdk/sdk/tools/src/keygen.js && npx pkg --targets node14-linux-x64 --output ./build-pkg/linux/service ./build-sdk/sdk/tools/src/service.js",
         "test": "./node_modules/.bin/mocha -r ts-node/register --timeout 10000 'test/**/*.mocha.ts'",
         "test-coverage": "nyc npm test",
-        "docs": "./node_modules/.bin/typedoc --entryDocument index.md --hideBreadcrumbs true --hideInPageTOC true --cleanOutputDir false ./src/*.ts && sed -i \"s/universeai/universeai ($(git describe --tags))/\" ./docs/modules.md",
+        "docs": "./node_modules/.bin/typedoc --entryDocument index.md --hideBreadcrumbs true --hideInPageTOC true --cleanOutputDir false ./src/*.ts && sed -i \"s/openodin/openodin ($(git describe --tags))/\" ./docs/modules.md",
         "bebop": "./node_modules/.bin/bebopc",
         "lint": "npx eslint ./src"
     },

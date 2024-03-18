@@ -1,6 +1,12 @@
-# CHANGELOG: universeai
+# CHANGELOG: openodin
 
 Note that any version below 1.0.0 can have breaking changes.  
+
+## [0.8.4] - 20240318
+Rebrand to OpenOdin.  
+
+## [0.8.3] - 20240318
+Improve ThreadController API.  
 
 ## [0.8.2] - 20240227
 Bug fix.  

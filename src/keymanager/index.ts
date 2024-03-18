@@ -1,5 +1,5 @@
 export * from "./KeyManager";
-export * from "./Universe";
+export * from "./OpenOdin";
 export * from "./AuthFactoryRPCClient";
 export * from "./AuthFactoryRPCServer";
 export * from "./HandshakeFactoryRPCServer";

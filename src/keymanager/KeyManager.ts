@@ -32,7 +32,7 @@ export class KeyManager {
 
         this.rpc.onCall("close", this.close);
 
-        this.rpc.onCall("universe-hello", async () => {
+        this.rpc.onCall("client-hello", async () => {
             return "keymanager-hello";
         });
     }

@@ -145,7 +145,7 @@ export type ThreadSyncConf = {
     peerPublicKeys?:    Buffer[],
 };
 
-export type UniverseConf = {
+export type ApplicationConf = {
     format:         1,
     name:           string,
     version:        string,

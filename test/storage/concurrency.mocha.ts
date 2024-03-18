@@ -321,9 +321,9 @@ function setupDriverTests(config: any) {
 
         await expectAsyncException(
             driver2.insertNodes([node1], now),
-            ["SQLITE_CONSTRAINT: UNIQUE constraint failed: universe_nodes.sharedhash",
+            ["SQLITE_CONSTRAINT: UNIQUE constraint failed: openodin_nodes.sharedhash",
                 "current transaction is aborted, commands ignored until end of transaction block",
-                `duplicate key value violates unique constraint "universe_nodes_sharedhash_key"`]);
+                `duplicate key value violates unique constraint "openodin_nodes_sharedhash_key"`]);
 
         await db2.exec("ROLLBACK");
     });
@@ -402,12 +402,12 @@ function setupDriverTests(config: any) {
 
         await driver1.insertNodes([node0], now);
 
-        let rows = await db2.all(`SELECT * FROM universe_nodes ORDER BY id1;`);
+        let rows = await db2.all(`SELECT * FROM openodin_nodes ORDER BY id1;`);
         assert(rows.length === 0);
 
         await db1.exec("COMMIT");
 
-        rows = await db2.all(`SELECT * FROM universe_nodes ORDER BY id1;`);
+        rows = await db2.all(`SELECT * FROM openodin_nodes ORDER BY id1;`);
         assert(rows.length === 1);
     });
 
@@ -444,11 +444,11 @@ function setupDriverTests(config: any) {
         await driver1.insertNodes([node0], now);
 
         // Reading within transaction
-        let rows = await db2.all(`SELECT * FROM universe_nodes ORDER BY id1;`);
+        let rows = await db2.all(`SELECT * FROM openodin_nodes ORDER BY id1;`);
         assert(rows.length === 0);
 
         // Reading without transaction but write tx is not comitted yet.
-        rows = await db3.all(`SELECT * FROM universe_nodes ORDER BY id1;`);
+        rows = await db3.all(`SELECT * FROM openodin_nodes ORDER BY id1;`);
         assert(rows.length === 0);
 
         // Try writing without using transaction while write transaction is currently in play.
@@ -459,20 +459,20 @@ function setupDriverTests(config: any) {
         await db1.exec("COMMIT");
 
         // Reading within transaction, again.
-        rows = await db2.all(`SELECT * FROM universe_nodes ORDER BY id1;`);
+        rows = await db2.all(`SELECT * FROM openodin_nodes ORDER BY id1;`);
         assert(rows.length === 0);
 
         // Reading without transaction and write tx is now comitted.
-        rows = await db3.all(`SELECT * FROM universe_nodes ORDER BY id1;`);
+        rows = await db3.all(`SELECT * FROM openodin_nodes ORDER BY id1;`);
         assert(rows.length === 1);
 
         // Double checking
-        rows = await db2.all(`SELECT * FROM universe_nodes ORDER BY id1;`);
+        rows = await db2.all(`SELECT * FROM openodin_nodes ORDER BY id1;`);
         assert(rows.length === 0);
 
         await db2.exec("COMMIT");
 
-        rows = await db2.all(`SELECT * FROM universe_nodes ORDER BY id1;`);
+        rows = await db2.all(`SELECT * FROM openodin_nodes ORDER BY id1;`);
         assert(rows.length === 1);
     });
 
@@ -534,20 +534,20 @@ function setupDriverTests(config: any) {
         await db3.exec("BEGIN");
 
         // This snapshots db2 before the write.
-        let rows = await db2.all(`SELECT * FROM universe_nodes ORDER BY id1;`);
+        let rows = await db2.all(`SELECT * FROM openodin_nodes ORDER BY id1;`);
         assert(rows.length === 0);
 
         await driver1.insertNodes([node0], now);
 
-        rows = await db2.all(`SELECT * FROM universe_nodes ORDER BY id1;`);
+        rows = await db2.all(`SELECT * FROM openodin_nodes ORDER BY id1;`);
         assert(rows.length === 0);
 
-        rows = await db3.all(`SELECT * FROM universe_nodes ORDER BY id1;`);
+        rows = await db3.all(`SELECT * FROM openodin_nodes ORDER BY id1;`);
         assert(rows.length === 1);
 
         await db2.exec("COMMIT");
 
-        rows = await db2.all(`SELECT * FROM universe_nodes ORDER BY id1;`);
+        rows = await db2.all(`SELECT * FROM openodin_nodes ORDER BY id1;`);
         assert(rows.length === 1);
     });
 }
@@ -693,16 +693,16 @@ function setupBlobDriverTests(config: any) {
 
         const ph = db1.generatePlaceholders(1);
 
-        let rows = await db1.all(`SELECT fragment FROM universe_blob_data WHERE dataid=${ph};`, [dataId]);
+        let rows = await db1.all(`SELECT fragment FROM openodin_blob_data WHERE dataid=${ph};`, [dataId]);
 
         assert(rows.length === 1);
         // Most often it equals fragment2, but not always.
         assert(rows[0].fragment.equals(fragment2) || rows[0].fragment.equals(fragment1));
 
         p1 = driver1.writeBlobFragment(dataId, fragment1, fragmentIndex, now);
-        p2 = db2.all(`SELECT fragment FROM universe_blob_data WHERE dataid=${ph};`, [dataId]);
+        p2 = db2.all(`SELECT fragment FROM openodin_blob_data WHERE dataid=${ph};`, [dataId]);
         await sleep(1);
-        const p3 = db2.all(`SELECT fragment FROM universe_blob_data WHERE dataid=${ph};`, [dataId]);
+        const p3 = db2.all(`SELECT fragment FROM openodin_blob_data WHERE dataid=${ph};`, [dataId]);
 
         rows = await p2;
         let rows2 = await p3;
@@ -748,9 +748,9 @@ function setupBlobDriverTests(config: any) {
 
         const ph = db1.generatePlaceholders(1);
 
-        let rows = await db1.all(`SELECT fragment FROM universe_blob_data WHERE dataid=${ph};`, [dataId]);
+        let rows = await db1.all(`SELECT fragment FROM openodin_blob_data WHERE dataid=${ph};`, [dataId]);
 
-        rows = await db2.all(`SELECT fragment FROM universe_blob_data WHERE dataid=${ph};`, [dataId]);
+        rows = await db2.all(`SELECT fragment FROM openodin_blob_data WHERE dataid=${ph};`, [dataId]);
 
         await expectAsyncException(
             driver2.writeBlobFragment(dataId, fragment1, fragmentIndex, now),
