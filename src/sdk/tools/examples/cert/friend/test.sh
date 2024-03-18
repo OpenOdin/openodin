@@ -3,7 +3,7 @@
 # Test creating a friend cert pair.
 #
 
-CERT="../../../cert"
+CERT="npx cert"
 
 set -e
 

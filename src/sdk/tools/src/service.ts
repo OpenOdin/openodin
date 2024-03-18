@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { strict as assert } from "assert";
 
 import {

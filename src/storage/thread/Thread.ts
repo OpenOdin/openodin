@@ -165,7 +165,14 @@ export class Thread {
         return this.threadStreamResponseAPI(getResponse, crdtView, fetchRequest);
     }
 
-    public async post(name: string, threadDataParams: ThreadDataParams = {}): Promise<DataInterface[]> {
+    /**
+     * Post a new node.
+     *
+     * @param name of the post template to use.
+     * @param threadDataParams fields on the Data node.
+     * @throws if data node could not be created or stored.
+     */
+    public async post(name: string, threadDataParams: ThreadDataParams = {}): Promise<DataInterface> {
         const dataParams = this.parsePost(name, threadDataParams);
 
         const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey, this.signerSecretKey);
@@ -173,21 +180,24 @@ export class Thread {
         const storedId1s = await this.storeNodes([dataNode]);
 
         if (storedId1s.length > 0) {
-            return [dataNode];
+            return dataNode;
         }
 
-        return [];
+        throw new Error("Thred could not store data node");
     }
 
     /**
      * Post a node which is an annotation node meant to edit the given node.
      *
+     * @param name of the post template to use.
      * @param nodeToEdit the node we want to annotate with an edited node.
-     * @param name thread name
      * @param threadDataParams should contain same data as for post() but where the data field is changed.
      * Note that it is application specific if the blobHash, etc values are relevant for the new edit node.
+     *
+     * @returns the edit node.
+     * @throws if edit node cannot be stored.
      */
-    public async postEdit(nodeToEdit: NodeInterface, name: string, threadDataParams: ThreadDataParams = {}): Promise<DataInterface[]> {
+    public async postEdit(name: string, nodeToEdit: NodeInterface, threadDataParams: ThreadDataParams = {}): Promise<DataInterface> {
         const dataParams = this.parsePost(name, threadDataParams);
 
         dataParams.parentId = nodeToEdit.getId();
@@ -199,21 +209,21 @@ export class Thread {
         const storedId1s = await this.storeNodes([dataNode]);
 
         if (storedId1s.length > 0) {
-            return [dataNode];
+            return dataNode;
         }
 
-        return [];
+        throw new Error("Thread could not store edit node");
     }
 
     /**
      * Post a node which is an annotation node meant as a reaction to a node.
      *
+     * @param name of the post template to use.
      * @param node the node we are reaction to.
-     * @param name thread name
      * @param threadDataParams should contain same data as for post() but where the data field is
      * Buffer.from("react/thumbsup") or Buffer.from("unreact/thumbsup"), where "thumbsup" is the reaction name.
      */
-    public async postReaction(node: NodeInterface, name: string, threadDataParams: ThreadDataParams = {}): Promise<DataInterface[]> {
+    public async postReaction(name: string, node: NodeInterface, threadDataParams: ThreadDataParams = {}): Promise<DataInterface> {
         const dataParams = this.parsePost(name, threadDataParams);
 
         dataParams.parentId = node.getId();
@@ -225,10 +235,10 @@ export class Thread {
         const storedId1s = await this.storeNodes([dataNode]);
 
         if (storedId1s.length > 0) {
-            return [dataNode];
+            return dataNode;
         }
 
-        return [];
+        throw new Error("Thread could not store rection node");
     }
 
     /**
@@ -494,7 +504,7 @@ export class Thread {
     }
 
     /**
-     * @param name of the thread.
+     * @param name of the post template to use.
      * @param node to create licenses for.
      * @param threadLicenseParams params to overwrite template values with.
      * @returns Promise containing an array with all successfully stored licenses.
@@ -560,7 +570,7 @@ export class Thread {
     }
 
     /**
-     * @param name of the thread
+     * @param name of the post template to use
      * @param node to create license for
      * @param threadLicenseParams
      * @returns LicenseParams
@@ -623,7 +633,7 @@ export class Thread {
     }
 
     /**
-     * @param name of the thread
+     * @param name of the post template to use
      * @param threadDataParams
      * @returns DataParams
      *

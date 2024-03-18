@@ -50,12 +50,14 @@ export class CRDTView {
             // Always replace the node in case it has updated transient values.
             this.model.nodes[id1Str] = node;
 
-            // If there has been lingering/preset data keep it.
+            // If no lingering or preset data create it.
+            //
             if (!this.model.datas[id1Str]) {
                 this.model.datas[id1Str] = {};
             }
             else {
-                // In case it already was tagged for deletion we untag it.
+                // In case existing data was tagged for deletion we untag it from deletion.
+                //
                 delete this.model.datas[id1Str]._deleted;
             }
         });
@@ -221,7 +223,7 @@ export class CRDTView {
      * This can be used to pre-create the object with pre-populated data.
      * If data object not set then set to given data param object.
      */
-    public setData(id1: Buffer, data: {[key: string]: any}) {
+    public setData(id1: Buffer, data: CRDTViewExternalData) {
         const id1Str = id1.toString("hex");
 
         const data2 = this.model.datas[id1Str] ?? data;

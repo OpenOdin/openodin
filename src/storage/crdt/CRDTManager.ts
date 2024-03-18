@@ -1,3 +1,5 @@
+import fs from "fs";
+
 import {
     RPC,
 } from "../../util/RPC";
@@ -53,8 +55,27 @@ export class CRDTManager {
 
         this.initPromise = new Promise<void>( (resolve) => {
             try {
-                const workerURI = isBrowser ? "crdt-worker-browser.js" :
-                    "./build/src/storage/crdt/crdt-worker.js";
+                const workerURIs = [
+                    "./crdt-worker.js",
+                    "./node_modules/universeai/build/src/storage/crdt/crdt-worker.js",
+                    "./build/src/storage/crdt/crdt-worker.js",
+                    "crdt-worker-browser.js",
+                ];
+
+                let workerURI = workerURIs.pop();
+
+                if (!isBrowser) {
+                    while (workerURI) {
+                        if (fs.existsSync(workerURI)) {
+                            break;
+                        }
+                        workerURI = workerURIs.pop();
+                    }
+
+                    if (!workerURI) {
+                        throw new Error("Could not find crdt-worker.js");
+                    }
+                }
 
                 this.workerThread = new Worker(workerURI);
 

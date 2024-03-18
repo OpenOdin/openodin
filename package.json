@@ -59,6 +59,12 @@
         "typedoc-plugin-markdown": "~3.11.0",
         "typescript": "4.4.3"
     },
+    "bin": {
+        "service": "./build/src/sdk/tools/src/service.js",
+        "keygen": "./build/src/sdk/tools/src/keygen.js",
+        "cert": "./build/src/sdk/tools/src/CertCLI.js",
+        "gc": "./build/src/sdk/tools/src/gc.js"
+    },
     "dependencies": {
         "@ethereumjs/util": "^9.0.1",
         "@ethereumjs/wallet": "^2.0.1",
@@ -72,8 +78,8 @@
         "pocket-console": "0.5.0",
         "pocket-messaging": "6.0.0",
         "pocket-sockets": "4.0.0",
-        "postgresql-client": "^2.5.5",
-        "sql.js": "^1.8.0",
+        "postgresql-client": "^2.10.5",
+        "sql.js": "=1.8.0",
         "sqlite3": "^5.1.5",
         "tweetnacl": "^1.0.3",
         "web-worker": "^1.2.0",

@@ -5,7 +5,7 @@
 # then feeding those params back into the `cert` program to sign it with the next key.
 #
 
-CERT="../../../cert"
+CERT="npx cert"
 
 set -e
 

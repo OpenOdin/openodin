@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /**
  * By default delete all expired nodes and their blobs.
  * Also delete all non finalized blob fragment data which is older than 7 days.

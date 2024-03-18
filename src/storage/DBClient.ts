@@ -174,10 +174,10 @@ export class DBClient {
 
             if (params.length > 0) {
                 const statement = await db.prepare(sql);
-                qr = await statement.execute({params, cursor: true, fetchCount, onErrorRollback: false, objectRows: true});
+                qr = await statement.execute({params, cursor: true, fetchCount, rollbackOnError: false, objectRows: true});
             }
             else {
-                qr = await db.query(sql, {params, cursor: true, fetchCount, onErrorRollback: false, objectRows: true});
+                qr = await db.query(sql, {params, cursor: true, fetchCount, rollbackOnError: false, objectRows: true});
             }
 
             assert(qr?.cursor, "cursor not set in DBClient.each");
@@ -261,13 +261,13 @@ export class DBClient {
             if (params.length > 0) {
                 const statement = await db.prepare(sql);
 
-                statement.execute({params, onErrorRollback: false, objectRows: true}).
+                statement.execute({params, rollbackOnError: false, objectRows: true}).
                     then( (res) => {p.cb(undefined, res.rows ?? [])}).
                     catch( (err) => {p.cb(err);} ).
                     finally( () => {statement.close();} );
             }
             else {
-                db.query(sql, {params, onErrorRollback: false, objectRows: true}).
+                db.query(sql, {params, rollbackOnError: false, objectRows: true}).
                     then( (res) => {p.cb(undefined, res.rows ?? [])}).
                     catch( (err) => {p.cb(err)} );
             }
@@ -364,7 +364,7 @@ export class DBClient {
                     finally( () => {statement.close();} );
             }
             else {
-                db.query(sql, {params, onErrorRollback: false, objectRows: true}).
+                db.query(sql, {params, rollbackOnError: false, objectRows: true}).
                     then( () => {p.cb()}).catch( (err) => {p.cb(err)} );
             }
         }

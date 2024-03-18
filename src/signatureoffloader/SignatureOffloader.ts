@@ -1,3 +1,5 @@
+import fs from "fs";
+
 import {
     RPC,
 } from "../util/RPC";
@@ -328,8 +330,27 @@ class CryptoWorker implements CryptoWorkerInterface {
      */
     public async init() {
         try {
-            const workerURI = isBrowser ? "signatureOffloader-worker-browser.js" :
-                "./build/src/signatureoffloader/signatureOffloader-worker.js";
+            const workerURIs = [
+                "./signatureOffloader-worker.js",
+                "./node_modules/universeai/build/src/signatureoffloader/signatureOffloader-worker.js",
+                "./build/src/signatureoffloader/signatureOffloader-worker.js",
+                "signatureOffloader-worker-browser.js",
+            ];
+
+            let workerURI = workerURIs.pop();
+
+            if (!isBrowser) {
+                while (workerURI) {
+                    if (fs.existsSync(workerURI)) {
+                        break;
+                    }
+                    workerURI = workerURIs.pop();
+                }
+
+                if (!workerURI) {
+                    throw new Error("Could not find signatureOffloader-worker.js");
+                }
+            }
 
             this.workerThread = new Worker(workerURI);
 

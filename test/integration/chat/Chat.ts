@@ -166,10 +166,8 @@ async function main() {
         // Here we send as soon as Storage is connected, peer might or might
         // not be connected yet.
         consoleMain.info("Storage connected, send message from Server side");
-        const [node] = await serverThread.post("message", {data: Buffer.from("Hello from Server")});
-        if (node) {
-            serverThread.postLicense("message", node);
-        }
+        const node = await serverThread.post("message", {data: Buffer.from("Hello from Server")});
+        serverThread.postLicense("message", node);
     });
 
     chatServer.onPeerConnect( () => {
@@ -221,16 +219,14 @@ async function main() {
         const blobLength = BigInt(BLOB_DATA.length);
         const blobHash = Hash(BLOB_DATA);
         const streamReader = new BufferStreamReader(BLOB_DATA);
-        const [node] = await clientThread!.post("message", {blobHash, blobLength, data: Buffer.from("Hello from Client with attachment")});
-        if (node) {
-            clientThread!.postLicense("message", node);
+        const node = await clientThread!.post("message", {blobHash, blobLength, data: Buffer.from("Hello from Client with attachment")});
+        clientThread!.postLicense("message", node);
 
-            const nodeId1 = node.getId1();
+        const nodeId1 = node.getId1();
 
-            const streamWriter = clientThread!.getBlobStreamWriter(nodeId1!, streamReader);
+        const streamWriter = clientThread!.getBlobStreamWriter(nodeId1!, streamReader);
 
-            const writeData = await streamWriter.run();
-        }
+        const writeData = await streamWriter.run();
     });
 
     chatClient.onStop( () => {

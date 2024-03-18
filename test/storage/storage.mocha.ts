@@ -1875,10 +1875,9 @@ function setupTests(config: any) {
         const thread = new Thread(threadTemplate, defaults, storageClient, nodeUtil,
             publicKey, publicKey, secretKey);
 
-        const nodes = await thread.post("hello");
-        assert(nodes.length === 1);
+        let node = await thread.post("hello");
 
-        const licenses = await thread.postLicense("hello", nodes[0]);
+        const licenses = await thread.postLicense("hello", node);
         assert(licenses.length === 1);
 
         let {promise, cb} = PromiseCallback<any>();
@@ -1893,7 +1892,7 @@ function setupTests(config: any) {
         assert(nodes2.length === 1);
 
 
-        const deleteNodes = await thread.delete(nodes[0]);
+        const deleteNodes = await thread.delete(node);
 
         assert(deleteNodes.length === 2);
 
@@ -1994,10 +1993,9 @@ function setupTests(config: any) {
         const thread = new Thread(threadTemplate, defaults, storageClient, nodeUtil,
             publicKey, publicKey, secretKey);
 
-        let nodes = await thread.post("hello");
-        assert(nodes.length === 1);
+        let node = await thread.post("hello");
 
-        let licenses = await thread.postLicense("hello", nodes[0]);
+        let licenses = await thread.postLicense("hello", node);
         assert(licenses.length === 1);
 
         let {promise, cb} = PromiseCallback<any>();
@@ -2010,33 +2008,30 @@ function setupTests(config: any) {
 
         assert(nodes2.length === 1);
 
-        let node = nodes2[0];
+        let node2 = nodes2[0];
 
-        assert(node.getAnnotations() === undefined);
+        assert(node2.getAnnotations() === undefined);
 
 
-        const nodeToEdit = nodes[0];
+        const nodeToEdit = node;
 
 
         // Store annotation nodes
         //
-        nodes = await thread.postEdit(nodeToEdit, "hello", {data: Buffer.from("Hello Universe")});
-        assert(nodes.length === 1);
+        let node3 = await thread.postEdit("hello", nodeToEdit, {data: Buffer.from("Hello Universe")});
 
-        assert(nodes[0].isAnnotationEdit());
+        assert(node3.isAnnotationEdit());
 
-        licenses = await thread.postLicense("hello", nodes[0]);
+        licenses = await thread.postLicense("hello", node3);
         assert(licenses.length === 1);
 
 
-        nodes = await thread.postReaction(nodeToEdit, "hello",
+        let node4 = await thread.postReaction("hello", nodeToEdit,
             {data: Buffer.from("react/thumbsup")});
 
-        assert(nodes.length === 1);
+        assert(node4.isAnnotationReaction());
 
-        assert(nodes[0].isAnnotationReaction());
-
-        licenses = await thread.postLicense("hello", nodes[0]);
+        licenses = await thread.postLicense("hello", node4);
         assert(licenses.length === 1);
 
 
@@ -2052,10 +2047,11 @@ function setupTests(config: any) {
 
         node = nodes2[0];
 
-        assert(node.getAnnotations() !== undefined);
+        const annot = node.getAnnotations();
+        assert(annot !== undefined);
 
         let annotations = new CRDTMessagesAnnotations();
-        annotations.load(node.getAnnotations());
+        annotations.load(annot);
 
         const updatedData = annotations.getEditNode()?.getData()?.toString();
 
