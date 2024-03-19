@@ -18,7 +18,6 @@ import {
     BufferStreamWriter,
     BufferStreamReader,
     StreamStatus,
-    KeyManager,
     RPC,
     JSONUtil,
     P2PClient,

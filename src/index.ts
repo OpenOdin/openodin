@@ -7,5 +7,5 @@ export * from "./decoder";
 export * from "./signatureoffloader";
 export * from "./p2pclient";
 export * from "./datamodel";
-export * from "./keymanager";
+export * from "./rpc";
 export * from "./types";
