@@ -1,9 +1,10 @@
 # CHANGELOG: openodin
 
-Note that any version below 1.0.0 can have breaking changes.  
+Note: any version below 1.0.0 can have breaking changes.  
 
-## [0.8.4] - 20240318
+## [0.8.4] - 20240319
 Rebrand to OpenOdin.  
+Refactor keymanager to rpc.  
 
 ## [0.8.3] - 20240318
 Improve ThreadController API.  
