@@ -19,7 +19,7 @@ import {
     AuthResponse2,
 } from "./types";
 
-export class KeyManager {
+export class OpenOdinRPCServer {
     protected rpc: RPC;
     protected triggerOnAuth?: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>;
     protected signatureOffloaderRPCServer?: SignatureOffloaderRPCServer;
@@ -33,7 +33,7 @@ export class KeyManager {
         this.rpc.onCall("close", this.close);
 
         this.rpc.onCall("client-hello", async () => {
-            return "keymanager-hello";
+            return "server-hello";
         });
     }
 
@@ -56,13 +56,13 @@ export class KeyManager {
     protected auth = async (): Promise<AuthResponse> => {
         if (this.signatureOffloaderRPCServer || this.authFactoryRPCCserver) {
             return {
-                error: "KeyManager already authenticated",
+                error: "OpenOdinRPCServer already authenticated",
             };
         }
 
         if (!this.triggerOnAuth) {
             return {
-                error: "No auth callback defined in KeyManager",
+                error: "No auth callback defined in OpenOdinRPCServer",
             };
         }
 

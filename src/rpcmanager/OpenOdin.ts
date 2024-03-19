@@ -84,7 +84,7 @@ export class OpenOdin {
 
         const ret = await this.rpc.call("client-hello");
 
-        if (ret === "keymanager-hello") {
+        if (ret === "server-hello") {
             this._isActive = true;
             this._onActive && this._onActive();
         }

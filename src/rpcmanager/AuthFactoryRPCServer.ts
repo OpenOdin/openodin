@@ -78,7 +78,7 @@ export class AuthFactoryRPCServer {
         const apiAuthFactoryConfig2 =
             DeepCopy(apiAuthFactoryConfig) as APIAuthFactoryConfig;
 
-        // Override given apiAuthFactoryConfig with the keymanager values.
+        // Override given apiAuthFactoryConfig with the rpc server values.
         //
         let keyPair: KeyPair | undefined;
 
@@ -140,7 +140,7 @@ export class AuthFactoryRPCServer {
         const userHandshakeFactoryConfig2 =
             DeepCopy(nativeAuthFactoryConfig) as HandshakeFactoryConfig;
 
-        // Override given nativeAuthFactoryConfig with the keymanager values.
+        // Override given nativeAuthFactoryConfig with the rpc server values.
         //
         let keyPair: KeyPair | undefined;
 
