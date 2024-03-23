@@ -1,3 +1,6 @@
+import path from "path";
+import fs from "fs";
+
 import sqlite3 from "sqlite3";
 
 import initSqlJs = require("sql.js");
@@ -23,6 +26,19 @@ export class DatabaseUtil {
      */
     public static async OpenSQLite(uri: string = ":memory:", walMode: boolean = true): Promise<sqlite3.Database> {
         try {
+            if (uri !== ":memory:") {
+                const dirname = path.dirname(uri);
+
+                if (dirname) {
+                    try {
+                        const stats = fs.statSync(dirname);
+                    }
+                    catch(e) {
+                        fs.mkdirSync(dirname);
+                    }
+                }
+            }
+
             const p = PromiseCallback();
 
             const db = new sqlite3.Database(uri, sqlite3.OPEN_READWRITE |

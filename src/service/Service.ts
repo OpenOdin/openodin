@@ -1143,7 +1143,7 @@ export class Service {
             }
         }
         catch(e) {
-            console.warn(`Database connection error`, (e as Error).message);
+            console.error(`Database connection error`, (e as Error).message);
             driver?.close();
 
             return [undefined, undefined];
@@ -1156,7 +1156,7 @@ export class Service {
         await driver.init();
 
         if (await driver.createTables()) {
-            console.debug("Database tables created or already existing");
+            console.debug("Database tables OK");
         }
         else {
             driver.close();
@@ -1169,7 +1169,7 @@ export class Service {
             await blobDriver.init();
 
             if (await blobDriver.createTables()) {
-                console.debug("Database blob tables created or already existing");
+                console.debug("Database blob tables OK");
             }
             else {
                 driver.close();
@@ -1639,7 +1639,7 @@ export class Service {
      *
      * Note that this has no size limit on the blob.
      *
-     * @returns Generator with return type {promise: Promise<boolean>, streamWriter: StreamWriterInterface}.
+     * @returns Generator witch return type {promise: Promise<boolean>, streamWriter: StreamWriterInterface}.
      */
     public *syncBlob(nodeId1: Buffer) {
 

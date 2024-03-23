@@ -49,7 +49,9 @@ async function main(applicationConf: ApplicationConf, walletConf: WalletConf) {
 
     const service = new Service(applicationConf, walletConf, signatureOffloader, authFactory);
 
-    await service.init()
+    await service.init();
+
+    console.info(`PublicKey: ${service.getPublicKey().toString("hex")}`);
 
     service.onStorageConnect( () => {
         console.aced("Connected to storage");
@@ -96,7 +98,7 @@ async function main(applicationConf: ApplicationConf, walletConf: WalletConf) {
         });
 
         handshakeFactory.onHandshakeError( (error) => {
-            console.error("Handshake error", error.message);
+            console.debug("Handshake error", error.message);
         });
     });
 

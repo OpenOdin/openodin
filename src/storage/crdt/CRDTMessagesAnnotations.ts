@@ -310,7 +310,7 @@ export class CRDTMessagesAnnotations {
     /**
      * Idempotent function to add a reaction.
      *
-     * Added reactions are aprsed in export().
+     * Added reactions are parsed in export().
      */
     public addReaction(id1: Buffer, creationTime: number, owner: Buffer, reaction: string): boolean {
         const [onOff, reactionName] = reaction.split("/");
