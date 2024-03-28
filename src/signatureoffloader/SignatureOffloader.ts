@@ -15,6 +15,10 @@ import {
 import Worker from "web-worker";
 
 import {
+    NonThreadedWorker,
+} from "./NonThreadedWorker";
+
+import {
     PocketConsole,
 } from "pocket-console";
 
@@ -32,15 +36,19 @@ import {
 const console = PocketConsole({module: "SignatureOffloader"});
 
 declare const window: any;
+declare const process: any;
+declare const browser: any;
+declare const chrome: any;
 
-// Check current environment: Node.js or Browser ?
+// Check current environment: Node.js, browser or browser plugin.
+//
 import { strict as assert } from "assert";
 const isNode = (typeof process !== "undefined" && process?.versions?.node);
 let isBrowser = false;
 if (!isNode) {
-    isBrowser = (typeof window !== "undefined");
+    isBrowser = typeof window !== "undefined" || typeof browser !== "undefined" || typeof chrome !== "undefined";
     if(!isBrowser) {
-        assert(false, "Unexpected error: current environment is neither Node.js or Browser");
+        assert(false, "Unexpected error: current environment is neither Node.js, browser or browser extension");
     }
 }
 
@@ -50,9 +58,8 @@ if (!isNode) {
  *  using threads to sign nodes (not recursive).
  */
 export class SignatureOffloader implements SignatureOffloaderInterface {
-    protected cryptoWorkers: CryptoWorkerInterface[];
-    protected nrOfWorkers: number;
-    protected cryptoWorkerIndex: number;  // Round robin schema for applying workloads.
+    protected cryptoWorkers: CryptoWorkerInterface[] = [];
+    protected cryptoWorkerIndex: number = 0;  // Round robin schema for applying workloads.
 
     // Keeping track of the public keys of the keypairs added.
     protected publicKeys: Buffer[] = [];
@@ -60,12 +67,15 @@ export class SignatureOffloader implements SignatureOffloaderInterface {
     /**
      * @param workers is the number of worker threads to spawn.
      * Recommended is to set this to the same amount of actual cores in the system.
+     * If singleThreaded is set to true set workers equal to 1.
+     *
+     * @param singleThreaded set to true to not spawn a thread but instead keep all work in the main
+     * thread. This behavior can be required when running in shrimpy environments who do not
+     * support spawning threads, but in genereal do not set this parameter to true because it will
+     * make the main thread "freeze" and getting hogged by doing all the heavy cryptographic work
+     * which we rather much do in dedicated threads.
      */
-    constructor(workers: number = 4) {
-        this.cryptoWorkers = [];
-        this.nrOfWorkers = workers ?? 4;
-        this.cryptoWorkerIndex = 0;
-    }
+    constructor(protected nrOfWorkers: number = 4, protected singleThreaded: boolean = false) {}
 
     /**
      * Init all worker threads.
@@ -77,7 +87,7 @@ export class SignatureOffloader implements SignatureOffloaderInterface {
         }
 
         for (let i=0; i<this.nrOfWorkers; i++) {
-            const worker = new CryptoWorker();
+            const worker = new CryptoWorker(this.singleThreaded);
 
             try {
                 await worker.init();
@@ -325,6 +335,8 @@ class CryptoWorker implements CryptoWorkerInterface {
     protected workerThread?: Worker;
     protected rpc?: RPC;
 
+    constructor(protected singleThreaded: boolean = false) {}
+
     /**
      * @throws if init fails
      */
@@ -352,7 +364,12 @@ class CryptoWorker implements CryptoWorkerInterface {
                 }
             }
 
-            this.workerThread = new Worker(workerURI);
+            if (this.singleThreaded) {
+                this.workerThread = new NonThreadedWorker() as Worker;  // Impersonate the Worker interface.
+            }
+            else {
+                this.workerThread = new Worker(workerURI);
+            }
 
             this.workerThread.onerror = (error: ErrorEvent) => {
                 console.error(`Error loading ${workerURI}`, error);
@@ -364,7 +381,7 @@ class CryptoWorker implements CryptoWorkerInterface {
 
             const listenMessage = (listener: any) => {
                 this.workerThread?.addEventListener("message", (event: any) => {
-                    listener(event.data.message);
+                    listener(event.data?.message);
                 });
             };
 
