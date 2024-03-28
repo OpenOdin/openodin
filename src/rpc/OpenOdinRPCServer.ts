@@ -20,7 +20,6 @@ import {
 } from "./types";
 
 export class OpenOdinRPCServer {
-    protected rpc: RPC;
     protected triggerOnAuth?: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>;
     protected signatureOffloaderRPCServer?: SignatureOffloaderRPCServer;
     protected authFactoryRPCCserver?: AuthFactoryRPCServer;
@@ -30,10 +29,8 @@ export class OpenOdinRPCServer {
     {
         this.rpc.onCall("auth", this.auth);
 
-        this.rpc.onCall("close", this.close);
-
-        this.rpc.onCall("client-hello", async () => {
-            return "server-hello";
+        this.rpc.onCall("noop", async () => {
+            return "noop";
         });
     }
 
@@ -42,7 +39,8 @@ export class OpenOdinRPCServer {
     }
 
     /**
-     * Close resources created when authed.
+     * Free resources created when authed.
+     * The RPC is not automatically closed.
      */
     public close = () => {
         this.signatureOffloaderRPCServer?.close();
