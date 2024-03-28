@@ -739,13 +739,13 @@ export class Thread {
             const storeResponse = anyData.response;
 
             if (!storeResponse || storeResponse.status !== Status.RESULT) {
-                throw new Error(`Could not store nodes: ${storeResponse?.error}`);
+                throw new Error(`Could not store nodes, status=${storeResponse?.status} error=${storeResponse?.error}`);
             }
 
             return storeResponse.storedId1s;
         }
         else {
-            throw new Error(`Could not store nodes: ${anyData.error}`);
+            throw new Error(`Could not store nodes, type=${anyData.type}, error=${anyData.error}`);
         }
     }
 
