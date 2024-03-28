@@ -138,13 +138,16 @@ import {
 } from "../auth/AuthFactory";
 
 declare const window: any;
+declare const process: any;
+declare const browser: any;
+declare const chrome: any;
 
 const isNode = (typeof process !== "undefined" && process?.versions?.node);
 let isBrowser = false;
 if (!isNode) {
-    isBrowser = (typeof (window as any) !== "undefined");
+    isBrowser = typeof window !== "undefined" || typeof browser !== "undefined" || typeof chrome !== "undefined";
     if(!isBrowser) {
-        assert(false, "Unexpected error: current environment is neither Node.js or Browser");
+        assert(false, "Unexpected error: current environment is neither Node.js, browser or browser extension");
     }
 }
 
@@ -217,6 +220,7 @@ type ServiceState = {
  */
 export class Service {
     protected _isRunning: boolean = false;
+    protected _isClosed: boolean = false;
     protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
 
     /** The configuration of the whole Service, which is partly allowed to change during runtime. */
@@ -339,6 +343,10 @@ export class Service {
      * @throws
      */
     public async start() {
+        if (this._isClosed) {
+            throw new Error("Attempting to (re-)start a Service which has been closed.");
+        }
+
         if (this._isRunning) {
             return;
         }
@@ -381,10 +389,31 @@ export class Service {
     }
 
     /**
+     * Stop the Service and make it unstartable again.
+     *
+     */
+    public close() {
+        if (this._isClosed) {
+            return;
+        }
+
+        this._isClosed = true;
+
+        this.stop();
+    }
+
+    /**
      * @returns true if the Service is running.
      */
     public isRunning(): boolean {
         return this._isRunning;
+    }
+
+    /**
+     * @returns true if Service has been explicitly closed by calling close().
+     */
+    public isClosed(): boolean {
+        return this._isClosed;
     }
 
     /**
