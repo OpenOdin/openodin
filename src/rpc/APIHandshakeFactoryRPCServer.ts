@@ -153,6 +153,14 @@ export class APIHandshakeFactoryRPCServer extends APIHandshakeFactory {
         });
     }
 
+    public close() {
+        this.rpc.close();
+
+        super.close();
+
+        this.rpcServers.map( o => o.rpcServer?.close() );
+    }
+
     protected getRPCServerByClient(client: ClientInterface): RPCServer {
         const socket = this.rpcServers.find( socket => socket.client === client );
 

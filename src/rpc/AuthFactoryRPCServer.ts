@@ -193,6 +193,8 @@ export class AuthFactoryRPCServer {
     }
 
     public close() {
+        this.rpc.close();
+
         this.handshakeFactories.forEach( handshakeFactoryRPCServer =>
             handshakeFactoryRPCServer.close() );
         this.handshakeFactories.length = 0;

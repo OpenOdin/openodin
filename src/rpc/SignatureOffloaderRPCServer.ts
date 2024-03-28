@@ -74,4 +74,10 @@ export class SignatureOffloaderRPCServer extends SignatureOffloader {
             return this.verifier(signaturesCollections);
         });
     }
+
+    public async close() {
+        this.rpc.close();
+
+        return super.close();
+    }
 }
