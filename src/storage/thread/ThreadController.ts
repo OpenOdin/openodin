@@ -195,8 +195,40 @@ export class ThreadController {
         return this.service.getPublicKey();
     }
 
+    /**
+     * Suger over this.threadStreamResponseAPI.getFetchRequest().crdt.tail
+     *
+     * @returns the current (possibly updated) value of tail.
+     */
     public getTail(): number {
-        return this.thread.getFetchRequest(this.params.threadFetchParams).crdt.tail;
+        return this.threadStreamResponseAPI.getFetchRequest().crdt.tail;
+    }
+
+    /**
+     * Suger over this.threadStreamResponseAPI.getFetchRequest().crdt.head
+     *
+     * @returns the current (possibly updated) value of head.
+     */
+    public getHead(): number {
+        return this.threadStreamResponseAPI.getFetchRequest().crdt.head;
+    }
+
+    /**
+     * Suger over this.threadStreamResponseAPI.getFetchRequest().crdt.cursorId1
+     *
+     * @returns the current (possibly updated) value of cursorId1.
+     */
+    public getCursorId1(): Buffer {
+        return this.threadStreamResponseAPI.getFetchRequest().crdt.cursorId1;
+    }
+
+    /**
+     * Suger over this.threadStreamResponseAPI.getFetchRequest().crdt.cursorIndex
+     *
+     * @returns the current (possibly updated) value of cursorIndex.
+     */
+    public getCursorIndex(): number {
+        return this.threadStreamResponseAPI.getFetchRequest().crdt.cursorIndex;
     }
 
     /**

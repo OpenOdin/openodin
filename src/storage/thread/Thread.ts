@@ -371,6 +371,7 @@ export class Thread {
         crdtView: CRDTView | undefined,
         fetchRequest: FetchRequest): ThreadStreamResponseAPI
     {
+        fetchRequest = DeepCopy(fetchRequest);
 
         const onDataCBs: Array<(nodes: DataInterface[]) => void> = [];
 
@@ -456,7 +457,6 @@ export class Thread {
 
             updateStream: (updateStreamParams: UpdateStreamParams) => {
                 // Replace with our new
-                fetchRequest = DeepCopy(fetchRequest);
 
                 fetchRequest.crdt.msgId = getResponse.getMsgId();
 
@@ -497,6 +497,10 @@ export class Thread {
                 }
 
                 return crdtView;
+            },
+
+            getFetchRequest(): FetchRequest {
+                return DeepCopy(fetchRequest);
             },
         };
 
