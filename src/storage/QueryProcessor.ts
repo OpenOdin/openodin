@@ -320,7 +320,7 @@ export class QueryProcessor {
                         await this.db.each(sql, params, this.addRow);
                     }
                     catch(e) {
-                        console.debug("error in db.each", e);
+                        console.error("error in db.each", e);
                         this._error = e as Error;
                         break;
                     }
@@ -399,7 +399,7 @@ export class QueryProcessor {
             }
         }
         catch(e) {
-            console.debug("Exception in QueryProcessor.addRow", e);
+            console.error("Exception in QueryProcessor.addRow", e);
             // Do nothing
         }
 
@@ -1036,7 +1036,7 @@ export class QueryProcessor {
                 }
             }
             catch(e) {
-                console.debug(e);
+                console.error(e);
                 continue;
             }
 
@@ -1457,7 +1457,7 @@ export class QueryProcessor {
                 }
             }
             catch(e) {
-                console.debug(e);
+                console.error(e);
                 return {};
             }
         }
@@ -1711,7 +1711,7 @@ export class QueryProcessor {
                             }
                         }
                         catch (e) {
-                            console.debug(e);
+                            console.error(e);
                             eyesOnNode = undefined;
                         }
                     }
@@ -1864,7 +1864,7 @@ export class QueryProcessor {
                             }
                         }
                         catch (e) {
-                            console.debug(e);
+                            console.error(e);
                             eyesOnNode = undefined;
                         }
                     }
@@ -1885,7 +1885,11 @@ export class QueryProcessor {
 
         const licenseNodeId1s = Object.values(addedLicenses);
 
-        const licenseNodes = await this.getNodesById1(licenseNodeId1s) as LicenseInterface[];
+        const licenseNodes: LicenseInterface[] = [];
+
+        while (licenseNodeId1s.length > 0) {
+            licenseNodes.push(...await this.getNodesById1(licenseNodeId1s.splice(0, MAX_BATCH_SIZE)) as LicenseInterface[]);
+        }
 
         return [allowedNodes, licenseNodes];
     }
@@ -2157,7 +2161,7 @@ export class QueryProcessor {
                 }
             }
             catch(e) {
-                console.debug(e);
+                console.error(e);
                 return {};
             }
         }
@@ -2272,7 +2276,7 @@ export class QueryProcessor {
             }
         }
         catch(e) {
-            console.debug("Exception calling node.checkFilters", e);
+            console.error("Exception calling node.checkFilters", e);
         }
 
         return false;
@@ -2315,7 +2319,7 @@ export class QueryProcessor {
                 nodes.push(node);
             }
             catch(e) {
-                console.debug(e);
+                console.error(e);
             }
         }
 
