@@ -616,7 +616,7 @@ export class Thread {
         }
 
         if (expireTime === undefined) {
-            expireTime = Date.now() + 30 * 24 * 3600;
+            expireTime = Date.now() + 30 * 24 * 3600 * 1000;
         }
 
         const nodeExpireTime = node.getExpireTime();
