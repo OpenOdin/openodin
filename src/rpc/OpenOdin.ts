@@ -58,10 +58,7 @@ declare const window: any;
  */
 export class OpenOdin {
     protected rpc: RPC;
-    protected _onOpen?: () => void;
-    protected _onAuth?: (service: Service) => void;
-    protected _onAuthFail?: (error: string) => void;
-    protected _onClose?: () => void;
+    protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
 
     protected _isClosed: boolean = false;
     protected _isOpen: boolean = false;
@@ -178,7 +175,7 @@ export class OpenOdin {
 
         this._isOpen = true;
 
-        this._onOpen?.();
+        this.triggerEvent("open");
 
         if (this.autoAuth && !this.pendingAuth && !this.isAuthed()) {
             this.auth();
@@ -199,6 +196,8 @@ export class OpenOdin {
         try {
             this.pendingAuth = true;
 
+            this.triggerEvent("preAuth");
+
             // TODO: pass along this.appConf and take back changes.
             //
             const authResponse = await this.rpc.call("auth") as AuthResponse;
@@ -206,7 +205,7 @@ export class OpenOdin {
             this.pendingAuth = false;
 
             if (authResponse.error || !authResponse.signatureOffloaderRPCId || !authResponse.handshakeRPCId) {
-                this._onAuthFail?.(authResponse.error ?? "Unknown error");
+                this.triggerEvent("authFail", authResponse.error ?? "Unknown error");
 
                 this.close();
 
@@ -223,7 +222,7 @@ export class OpenOdin {
             this.walletConf = ParseUtil.ParseWalletConf({});
         }
         catch(e) {
-            this._onAuthFail?.(`Error in auth process: ${e}`);
+            this.triggerEvent("authFail", `Error in auth process: ${e}`);
 
             this.close();
 
@@ -237,14 +236,14 @@ export class OpenOdin {
             await this.service.init();
         }
         catch(e) {
-            this._onAuthFail?.(`Could not init Service: ${e}`);
+            this.triggerEvent("authFail",`Could not init Service: ${e}`);
 
             this.close();
 
             return;
         }
 
-        this._onAuth?.(this.service);
+        this.triggerEvent("auth", this.service);
     }
 
     public isAuthed = (): boolean => {
@@ -310,7 +309,7 @@ export class OpenOdin {
 
         delete this.service;
 
-        this._onClose?.();
+        this.triggerEvent("close");
     }
 
     /**
@@ -318,11 +317,11 @@ export class OpenOdin {
      * After this event one can all auth(), if autoAuth is set auth() is called automatically.
      */
     public onOpen = ( cb: () => void ) => {
-        this._onOpen = cb;
+        this.hookEvent("open", cb);
     }
 
     public onPreAuth = ( cb: () => void ) => {
-        // TODO
+        this.hookEvent("preAuth", cb);
     }
 
     /**
@@ -334,7 +333,7 @@ export class OpenOdin {
      * For handling close events either hook the OpenOdin instance onClose() or the Service onClose().
      */
     public onAuth = ( cb: (service: Service) => void ) => {
-        this._onAuth = cb;
+        this.hookEvent("auth", cb);
     }
 
     /**
@@ -342,7 +341,7 @@ export class OpenOdin {
      * The OpenOdin instance cannot be reused.
      */
     public onAuthFail = ( cb: (error: string) => void ) => {
-        this._onAuthFail = cb;
+        this.hookEvent("authFail", cb);
     }
 
     /**
@@ -351,6 +350,24 @@ export class OpenOdin {
      * The OpenOdin instance cannot be used any further after close.
      */
     public onClose = ( cb: () => void ) => {
-        this._onClose = cb;
+        this.hookEvent("close", cb);
+    }
+
+    protected hookEvent(name: string, callback: (...args: any[]) => void) {
+        const cbs = this.handlers[name] || [];
+        this.handlers[name] = cbs;
+        cbs.push(callback);
+    }
+
+    protected unhookEvent(name: string, callback: (...args: any[]) => void) {
+        const cbs = (this.handlers[name] || []).filter( (cb: ( (...args: any) => void)) => callback !== cb );
+        this.handlers[name] = cbs;
+    }
+
+    protected triggerEvent(name: string, ...args: any[]) {
+        const cbs = this.handlers[name] || [];
+        cbs.forEach( (callback: ( (...args: any[]) => void)) => {
+            setImmediate( () => callback(...args) );
+        });
     }
 }
