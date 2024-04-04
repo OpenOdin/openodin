@@ -391,7 +391,6 @@ export class Thread {
             }
             else if (fetchResponse.status !== Status.RESULT) {
                 console.debug(`Error code (${fetchResponse.status}) returned on fetch, error message: ${fetchResponse.error}`);
-
             }
             else {
                 const nodes = (StorageUtil.ExtractFetchResponseNodes(fetchResponse, fetchRequest.query.preserveTransient,
@@ -415,7 +414,11 @@ export class Thread {
                     if (isLast) {
                         delta = Buffer.alloc(0);
 
-                        crdtView.triggerOnChange(addedNodesId1s, updatedNodesId1s, deletedNodesId1s);
+                        if (addedNodesId1s.length > 0 || updatedNodesId1s.length > 0 ||
+                            deletedNodesId1s.length > 0)
+                        {
+                            crdtView.triggerOnChange(addedNodesId1s, updatedNodesId1s, deletedNodesId1s);
+                        }
 
                         addedNodesId1s = [];
                         updatedNodesId1s = [];
