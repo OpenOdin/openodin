@@ -97,12 +97,22 @@ export class ThreadController {
     }
 
     protected handleCRDTViewOnChange(event: CRDTVIEW_EVENT) {
+        const added: CRDTViewItem[] = [];
+        const updated: CRDTViewItem[] = [];
+        const deleted: Buffer[] = [];
+
         event.added.forEach( id1 => {
             const node = this.threadStreamResponseAPI.getCRDTView().getNode(id1);
             const data = this.threadStreamResponseAPI.getCRDTView().getData(id1);
 
             if (node && data) {
                 this.makeData(node, data, false);
+
+                const item = this.threadStreamResponseAPI.getCRDTView().findItem(id1);
+
+                if (item) {
+                    added.push(item);
+                }
             }
         });
 
@@ -112,14 +122,36 @@ export class ThreadController {
 
             if (node && data) {
                 this.makeData(node, data, true);
+
+                const item = this.threadStreamResponseAPI.getCRDTView().findItem(id1);
+
+                if (item) {
+                    updated.push(item);
+                }
             }
         });
 
-        this.triggerEvent("change", event);
+        added.sort( (a, b) => a.index - b.index );
+
+        updated.sort( (a, b) => a.index - b.index );
+
+        if (added.length > 0 || updated.length > 0 || event.deleted.length > 0) {
+            this.triggerEvent("change", added, updated, event.deleted);
+        }
     }
 
-    public onChange(cb: (event: CRDTVIEW_EVENT) => void) {
+    /**
+     * onChange is called whenever an added, updated or delete event happened in the model.
+     * added and updated items provided are ordered on their index in the model always
+     * in ascending order.
+     * Deleted is a list of deleted nodes id1s.
+     */
+    public onChange(cb: (added: CRDTViewItem[], updated: CRDTViewItem[], deleted: Buffer[]) => void):
+        ThreadController
+    {
         this.hookEvent("change", cb);
+
+        return this;
     }
 
     /**
@@ -265,10 +297,18 @@ export class ThreadController {
         this.triggerEvent("close");
     }
 
+    /**
+     * Deriving controller should call this whenever a relevant change which should be
+     * reflected in the UI has happened.
+     */
     protected update(obj?: any) {
         this.triggerEvent("update", obj);
     }
 
+    /**
+     * onUpdate is triggered whenever there is a change which the UI should update.
+     * For some controllers onUpdate will be same as for onChange, but not necessarily.
+     */
     public onUpdate(cb: (obj: any) => void): ThreadController {
         this.hookEvent("update", cb);
 
