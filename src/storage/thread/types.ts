@@ -13,6 +13,7 @@ import {
 } from "../../datamodel";
 
 import {
+    FetchRequest,
     FetchResponse,
     FetchQuery,
     FetchCRDT,
@@ -185,12 +186,18 @@ export type ThreadStreamResponseAPI = {
 
     /**
      * Update the running fetch request for this stream.
+     * Only set (non undefined) properties are used to update the FetchRequest.
      */
     updateStream: (updateStreamParams: UpdateStreamParams) => void,
 
     getResponse: () => GetResponse<FetchResponse>,
 
     getCRDTView: () => CRDTView,
+
+    /**
+     * Returns the updated FetchRequest.
+     */
+    getFetchRequest: () => FetchRequest,
 };
 
 /**
