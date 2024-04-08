@@ -2,6 +2,12 @@
 
 Note: any version below 1.0.0 can have breaking changes.  
 
+## [0.8.5] - 20240408
+Improve Threads and ThreadController.  
+Improve RPC.  
+Fix bugs.  
+Add single threading feature to SignatureOffloader.  
+
 ## [0.8.4] - 20240319
 Rebrand to OpenOdin.  
 Refactor keymanager to rpc.  
