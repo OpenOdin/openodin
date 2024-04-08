@@ -159,7 +159,7 @@ export class CRDTManager {
 
         const images: Buffer[] = nodes.map( node => node.export(true) );
 
-        await this.rpc?.call("updateModel", [key, algoId, conf, fetchRequest.query.orderByStorageTime,
+        return this.rpc?.call("updateModel", [key, algoId, conf, fetchRequest.query.orderByStorageTime,
             images, fetchRequest.query.targetPublicKey]);
     }
 

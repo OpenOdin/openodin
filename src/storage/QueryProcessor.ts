@@ -320,7 +320,7 @@ export class QueryProcessor {
                         await this.db.each(sql, params, this.addRow);
                     }
                     catch(e) {
-                        console.error("error in db.each", e);
+                        console.debug("error in db.each", e);
                         this._error = e as Error;
                         break;
                     }
