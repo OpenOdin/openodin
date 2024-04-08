@@ -326,7 +326,7 @@ export class ThreadController {
     }
 
     /**
-     * Suger over this.threadStreamResponseAPI.getFetchRequest().crdt.tail
+     * Sugar over this.threadStreamResponseAPI.getFetchRequest().crdt.tail
      *
      * @returns the current (possibly updated) value of tail.
      */
@@ -335,7 +335,7 @@ export class ThreadController {
     }
 
     /**
-     * Suger over this.threadStreamResponseAPI.getFetchRequest().crdt.head
+     * Sugar over this.threadStreamResponseAPI.getFetchRequest().crdt.head
      *
      * @returns the current (possibly updated) value of head.
      */
@@ -344,7 +344,7 @@ export class ThreadController {
     }
 
     /**
-     * Suger over this.threadStreamResponseAPI.getFetchRequest().crdt.cursorId1
+     * Sugar over this.threadStreamResponseAPI.getFetchRequest().crdt.cursorId1
      *
      * @returns the current (possibly updated) value of cursorId1.
      */
@@ -353,7 +353,7 @@ export class ThreadController {
     }
 
     /**
-     * Suger over this.threadStreamResponseAPI.getFetchRequest().crdt.cursorIndex
+     * Sugar over this.threadStreamResponseAPI.getFetchRequest().crdt.cursorIndex
      *
      * @returns the current (possibly updated) value of cursorIndex.
      */

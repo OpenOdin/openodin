@@ -742,7 +742,7 @@ export class Service {
     }
 
     /**
-     * This is a suger function over addAutoFetch which uses a Thread template.
+     * This is a sugar function over addAutoFetch which uses a Thread template.
      */
     public addSync(sync: SyncConf) {
         this.syncConfToAutoFetch(sync).forEach( autoFetch => this.addAutoFetch(autoFetch) );
