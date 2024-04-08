@@ -180,7 +180,7 @@ export class Storage {
      * Always call this after instantiating the Storage.
      * It will hook the p2p events.
      */
-    public init() {
+    public async init() {
         this.driver.onClose( () => this.close());
         this.blobDriver?.onClose( () => this.close());
         this.p2pClient.onStore( this.handleStore );
@@ -189,6 +189,8 @@ export class Storage {
         this.p2pClient.onReadBlob( this.handleReadBlob );
         this.p2pClient.onWriteBlob( this.handleWriteBlob );
         this.p2pClient.onClose( this.handleClose );
+
+        await this.crdtManager.init();
     }
 
     /**

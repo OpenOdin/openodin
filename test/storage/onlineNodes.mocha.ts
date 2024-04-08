@@ -529,7 +529,7 @@ async function initStorageInstance(allowPreserveTransient: boolean = false): Pro
     const storage = new StorageWrapper(p2pClient, signatureOffloader, driver, undefined,
         allowPreserveTransient);
 
-    storage.init();
+    await storage.init();
 
     return {
         signatureOffloader,

@@ -1094,7 +1094,7 @@ export class Service {
                     blobDriver?.close();
                 });
 
-                storage.init();
+                await storage.init();
 
                 // This client only initiates requests and does not need any permissions to it.
                 const internalStorageClient = new P2PClient(messaging2, localPeerData,

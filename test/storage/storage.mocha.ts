@@ -140,7 +140,7 @@ describe("Storage: triggers", function() {
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver);
 
-        storage.init();
+        await storage.init();
     });
 
     afterEach("Close Storage instance", function() {
@@ -510,7 +510,7 @@ describe("Storage: SQLite WAL-mode", function() {
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
-        storage.init();
+        await storage.init();
 
         config.db = db;
         config.blobDb = blobDb;
@@ -594,7 +594,7 @@ describe.skip("Storage: SQLiteJS WAL-mode", function() {
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
-        storage.init();
+        await storage.init();
 
         config.db = db;
         config.blobDb = blobDb;
@@ -686,7 +686,7 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
-        storage.init();
+        await storage.init();
 
         config.db = db;
         config.blobDb = blobDb;
