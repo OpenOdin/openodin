@@ -8,7 +8,6 @@ import {
     Hash,
     BlobEvent,
     ParseUtil,
-    CRDTVIEW_EVENT,
     AbstractStreamReader,
     Service,
     Thread,
@@ -117,20 +116,27 @@ async function main() {
     chatServer.onStorageConnect( async (p2pClient: P2PClient) => {
         const storageClient = p2pClient;
 
-        const serverThread = chatServer.makeThread("channel", {parentId: Buffer.alloc(32),
-            targets: [publicKey1]});
+        const threadTemplate = chatServer.getThreadTemplates().channel;
+
+        const targets = [publicKey1];
+
+        const threadFetchParams = {query: {parentId: Buffer.alloc(32)}};
+
+        const serverThread = new Thread(threadTemplate, threadFetchParams,
+            chatServer.getStorageClient()!, chatServer.getNodeUtil(), chatServer.getPublicKey(),
+            chatServer.getSignerPublicKey());
 
         const responseAPI = serverThread.stream();
-        responseAPI.onChange( async (event) => {
-            if (event.added.length === 0) {
+        responseAPI.onChange( async (added) => {
+            if (added.length === 0) {
                 return;
             }
 
             messageCounter++;
 
-            assert(event.added.length === 1);
+            assert(added.length === 1);
 
-            const id1 = event.added[0];
+            const id1 = added[0];
 
             const dataNode = responseAPI.getCRDTView().getNode(id1);
 
@@ -165,7 +171,7 @@ async function main() {
         // not be connected yet.
         consoleMain.info("Storage connected, send message from Server side");
         const node = await serverThread.post("message", {data: Buffer.from("Hello from Server")});
-        serverThread.postLicense("message", node);
+        serverThread.postLicense("message", node, {targets});
     });
 
     chatServer.onPeerConnect( () => {
@@ -189,17 +195,22 @@ async function main() {
     chatClient.onStorageConnect( (p2pClient: P2PClient) => {
         const storageClient = p2pClient;
 
-        clientThread = chatClient.makeThread("channel", {parentId: Buffer.alloc(32),
-            targets: [publicKey2]});
+        const threadTemplate = chatServer.getThreadTemplates().channel;
+
+        const threadFetchParams = {query: {parentId: Buffer.alloc(32)}};
+
+        clientThread = new Thread(threadTemplate, threadFetchParams,
+            chatClient.getStorageClient()!, chatClient.getNodeUtil(), chatClient.getPublicKey(),
+            chatClient.getSignerPublicKey());
 
         const responseAPI = clientThread.stream();
 
-        responseAPI.onChange( (event) => {
-            if (event.added.length === 0) {
+        responseAPI.onChange( (added) => {
+            if (added.length === 0) {
                 return;
             }
 
-            event.added.forEach( id1 => {
+            added.forEach( id1 => {
                 messageCounter++;
 
                 const dataNode = responseAPI.getCRDTView().getNode(id1);
@@ -218,7 +229,10 @@ async function main() {
         const blobHash = Hash(BLOB_DATA);
         const streamReader = new BufferStreamReader(BLOB_DATA);
         const node = await clientThread!.post("message", {blobHash, blobLength, data: Buffer.from("Hello from Client with attachment")});
-        clientThread!.postLicense("message", node);
+
+        const targets = [publicKey2];
+
+        await clientThread!.postLicense("message", node, {targets});
 
         const nodeId1 = node.getId1();
 

@@ -49,7 +49,6 @@ import {
     Hash,
     DeepCopy,
     ThreadTemplate,
-    ThreadDefaults,
     Thread,
     PERMISSIVE_PERMISSIONS,
     PromiseCallback,
@@ -1869,10 +1868,7 @@ function setupTests(config: any) {
             }
         };
 
-        const defaults: ThreadDefaults = {};
-
-
-        const thread = new Thread(threadTemplate, defaults, storageClient, nodeUtil,
+        const thread = new Thread(threadTemplate, {}, storageClient, nodeUtil,
             publicKey, publicKey, secretKey);
 
         let node = await thread.post("hello");
@@ -1987,10 +1983,7 @@ function setupTests(config: any) {
             }
         };
 
-        const defaults: ThreadDefaults = {};
-
-
-        const thread = new Thread(threadTemplate, defaults, storageClient, nodeUtil,
+        const thread = new Thread(threadTemplate, {}, storageClient, nodeUtil,
             publicKey, publicKey, secretKey);
 
         let node = await thread.post("hello");

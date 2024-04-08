@@ -4,7 +4,6 @@ import {
 
 import {
     CRDTView,
-    CRDTVIEW_EVENT,
     NodeUtil,
 } from "../../../src";
 
@@ -15,10 +14,6 @@ describe("CRDTView", function() {
         const crdtView = new CRDTView();
 
         const nodeUtil = new NodeUtil();
-
-        //crdtView.onChange( (crdtViewEvents: CRDTVIEW_EVENT) => {
-            //console.log(crdtViewEvents);
-        //});
 
         const node1 = await nodeUtil.createDataNode({
             id1: Buffer.alloc(32).fill(10),

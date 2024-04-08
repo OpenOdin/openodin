@@ -131,29 +131,6 @@ export type ThreadLicenseParams = LicenseParams & {
     validSeconds?: number,
 };
 
-/**
- * Default parameters layered on top of template properties but below function parameters.
- */
-export type ThreadDefaults = {
-    /**
-     * Default parentId if parentId/rootNodeId1 if not set in post function params.
-     * If rootNodeId1 is set in query then it has precedence over parentId.
-     */
-    parentId?: Buffer,
-
-    /** Default license targets if not set in postLicense function params. */
-    targets?: Buffer[],
-
-    /** Default data and license expire time in milliseconds, if not set in function params. */
-    expireTime?: number,
-
-    /**
-     * Default data and license valid time in seconds, if not set in function params.
-     * Note that this property is only used if expireTime is not set.
-     */
-    validSeconds?: number,
-};
-
 export type UpdateStreamParams = {
     head?: number,
     tail?: number,
@@ -214,4 +191,9 @@ export type ThreadQueryResponseAPI = {
     onCancel: (cb: () => void) => ThreadQueryResponseAPI,
 
     getResponse: () => GetResponse<FetchResponse>,
+
+    /**
+     * Returns the FetchRequest.
+     */
+    getFetchRequest: () => FetchRequest,
 };

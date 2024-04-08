@@ -1,10 +1,13 @@
 /**
  * ThreadControllers work on Threads who are using CRDTs.
- * They provide a model to be used by the UI, either the CRDT view model (with added data) or its own model.
+ *
+ * They provide a model to be used by the UI, either the CRDT view model (with added data)
+ * or its own model.
  *
  * A ThreadController always runs a streaming fetch request using a CRDT.
  *
- * The underlaying FetchRequest can be updated to allow for expanding/changing the scope of the model (for example for paging and expanding history).
+ * The underlaying FetchRequest can be updated to allow for expanding/changing the scope of the
+ * model (for example for paging and expanding history).
  */
 
 import {
@@ -12,11 +15,15 @@ import {
 } from "./Thread";
 
 import {
-    ThreadDefaults,
     ThreadFetchParams,
+    ThreadTemplate,
     ThreadStreamResponseAPI,
     UpdateStreamParams,
 } from "./types";
+
+import {
+    FetchRequest,
+} from "../../types";
 
 import {
     DataInterface,
@@ -25,61 +32,145 @@ import {
 import {
     CRDTViewExternalData,
     CRDTViewItem,
-    CRDTVIEW_EVENT,
 } from "../crdt/types";
 
 import {
     Service,
 } from "../../service/Service";
 
-export type ThreadControllerParams = {
-    threadName?: string,  // this is optional just so extending classes can set the default.
+import {
+    AutoFetch,
+} from "../../p2pclient/types";
 
-    threadDefaults?: ThreadDefaults,
-
-    threadFetchParams?: ThreadFetchParams,
-};
+import {
+    DeepCopy,
+} from "../../util/common";
 
 export class ThreadController {
-    protected params: ThreadControllerParams;
+    protected threadTemplate: ThreadTemplate;
+
+    protected threadFetchParams: ThreadFetchParams;
+
     protected service: Service;
+
+    protected autoFetchers: AutoFetch[] = [];
+
     protected thread: Thread;
-    protected threadName: string;
+
     protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
+
     protected isClosed: boolean = false;
+
     protected threadStreamResponseAPI: ThreadStreamResponseAPI;
+
+    protected purgeInterval: number;
+
     protected purgeTimer?: ReturnType<typeof setInterval>;
 
-    constructor(params: ThreadControllerParams, service: Service,
+    /**
+     * @param service the Service object needed to communicate with storage and to sync from peers
+     * @param threadTemplate the ThreadTemplate of the Thred the controller will instantiate
+     * @param threadFetchParams the parameters to override the template with
+     * @param autoSync if true then automatically initiate sync fetch operations via the Service,
+     * default is true.
+     * @param purgeInterval how often in milliseconds to run a purge over old data to be
+     * garbage collected, default is 60000 milliseconds.
+     */
+    constructor(service: Service, threadTemplate: ThreadTemplate,
+        threadFetchParams: ThreadFetchParams = {},
+        autoSync: boolean = true,
         purgeInterval: number = 60_000)
     {
-        if (!params.threadName) {
-            throw new Error("ThreadControllerParams.threadName must be provided to controller");
+        this.service            = service;
+        this.threadTemplate     = threadTemplate;
+        this.threadFetchParams  = threadFetchParams;
+        this.purgeInterval      = purgeInterval;
+
+        const storageClient = service.getStorageClient();
+
+        if (!storageClient) {
+            throw new Error("Missing storageClient in Service");
         }
 
-        this.params     = params;
-        this.service    = service;
-        this.threadName = params.threadName;
+        this.thread = new Thread(threadTemplate, threadFetchParams,
+            storageClient, service.getNodeUtil(), service.getPublicKey(),
+            service.getSignerPublicKey());
 
-        this.thread = this.service.makeThread(this.threadName, params.threadDefaults ?? {});
+        if (autoSync) {
+            this.addAutoSync();
+        }
 
-        // Note that when we set includeLicenses=3 the Storage will automatically add relevent licenses
-        // to the response and also automatically request licenses to be extended for data matched.
-        // This is a more fine grained approach in requesting licenses than using
-        // query.embed and query.match on licenses.
-        const threadFetchParams = {...params.threadFetchParams};
-        threadFetchParams.query = threadFetchParams.query ?? {};
-        threadFetchParams.query.includeLicenses = 3;
-        this.service.addThreadSync(this.thread, threadFetchParams);
-
-        this.threadStreamResponseAPI = this.thread.stream(params.threadFetchParams);
+        this.threadStreamResponseAPI = this.thread.stream();
 
         this.threadStreamResponseAPI.onChange((...args) => this.handleCRDTViewOnChange(...args))
             .onCancel(() => this.close());
 
         if (purgeInterval) {
-            this.purgeTimer = setInterval( () => this.purge(), purgeInterval);
+            this.purgeTimer = setTimeout( () => this.purge(), purgeInterval);
         }
+    }
+
+    /**
+     * Create auto sync configurations and pass them to the Service object.
+     *
+     * @param fetchRequest deriving classes can optionally set this to override the thread template
+     * fetch request
+     * @param fetchRequestReverse deriving class can optionally set this to override the thread
+     * template fetch request for the reverse-fetch, that is what is pushed to remote peer(s).
+     */
+    protected addAutoSync(fetchRequest?: FetchRequest, fetchRequestReverse?: FetchRequest) {
+        this.removeAutoSync();
+
+        fetchRequest = fetchRequest ? DeepCopy(fetchRequest) as FetchRequest :
+            this.thread.getFetchRequest(true);
+
+        // Note that when we set includeLicenses=3 the Storage will automatically
+        // add relevent licenses to the response and also automatically request licenses
+        // to be extended for data matched.
+        // This is a more fine grained approach in requesting licenses than using
+        // query.embed and query.match on licenses.
+        //
+        fetchRequest.query.includeLicenses = 3;
+
+        // Not relevant/allowed for auto fetch.
+        //
+        fetchRequest.query.preserveTransient = false;
+        fetchRequest.crdt.algo = 0;
+
+        const autoFetch: AutoFetch = {
+            fetchRequest,
+            remotePublicKey: Buffer.alloc(0),
+            blobSizeMaxLimit: -1,
+            reverse: false,
+        };
+
+        this.service.addAutoFetch(autoFetch);
+
+        this.autoFetchers.push(autoFetch);
+
+
+        fetchRequestReverse = fetchRequestReverse ? DeepCopy(fetchRequestReverse) as FetchRequest :
+            this.thread.getFetchRequest(true);
+
+        fetchRequestReverse.query.includeLicenses = 3;
+        fetchRequestReverse.query.preserveTransient = false;
+        fetchRequestReverse.crdt.algo = 0;
+
+        const autoFetchReverse: AutoFetch = {
+            fetchRequest: fetchRequestReverse,
+            remotePublicKey: Buffer.alloc(0),
+            blobSizeMaxLimit: -1,
+            reverse: true,
+        };
+
+        this.service.addAutoFetch(autoFetchReverse);
+
+        this.autoFetchers.push(autoFetchReverse);
+    }
+
+    protected removeAutoSync() {
+        this.autoFetchers.forEach( autoFetch => this.service.removeAutoFetch(autoFetch) );
+        this.autoFetchers = [];
     }
 
     /**
@@ -87,21 +178,28 @@ export class ThreadController {
      *
      */
     protected purge(age: number = 600_000) {
+        delete this.purgeTimer;
+
         this.threadStreamResponseAPI.getCRDTView().purge(age).forEach( (data: any) => {
             this.purgeData(data);
         });
+
+        if (!this.isClosed) {
+            this.purgeTimer = setTimeout( () => this.purge(), this.purgeInterval);
+        }
     }
 
     protected purgeData(data: any) {
         // Do nothing. Override to use to free allocated resources.
     }
 
-    protected handleCRDTViewOnChange(event: CRDTVIEW_EVENT) {
+    protected handleCRDTViewOnChange(addedId1s: Buffer[], updatedId1s: Buffer[],
+        deletedId1s: Buffer[])
+    {
         const added: CRDTViewItem[] = [];
         const updated: CRDTViewItem[] = [];
-        const deleted: Buffer[] = [];
 
-        event.added.forEach( id1 => {
+        addedId1s.forEach( id1 => {
             const node = this.threadStreamResponseAPI.getCRDTView().getNode(id1);
             const data = this.threadStreamResponseAPI.getCRDTView().getData(id1);
 
@@ -116,7 +214,7 @@ export class ThreadController {
             }
         });
 
-        event.updated.forEach( id1 => {
+        updatedId1s.forEach( id1 => {
             const node = this.threadStreamResponseAPI.getCRDTView().getNode(id1);
             const data = this.threadStreamResponseAPI.getCRDTView().getData(id1);
 
@@ -135,8 +233,8 @@ export class ThreadController {
 
         updated.sort( (a, b) => a.index - b.index );
 
-        if (added.length > 0 || updated.length > 0 || event.deleted.length > 0) {
-            this.triggerEvent("change", added, updated, event.deleted);
+        if (added.length > 0 || updated.length > 0 || deletedId1s.length > 0) {
+            this.triggerEvent("change", added, updated, deletedId1s);
         }
     }
 
@@ -285,8 +383,10 @@ export class ThreadController {
         this.isClosed = true;
 
         if (this.purgeTimer) {
-            clearInterval(this.purgeTimer);
+            clearTimeout(this.purgeTimer);
         }
+
+        this.removeAutoSync();
 
         this.threadStreamResponseAPI.stopStream();
 

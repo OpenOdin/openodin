@@ -11,12 +11,10 @@ import {
     CRDTViewModel,
     CRDTViewItem,
     CRDTViewExternalData,
-    CRDTVIEW_EVENT,
+    CRDTOnChangeCallback,
 } from "./types";
 
 import * as fossilDelta from "fossil-delta";
-
-type ONCHANGE_CALLBACK = (crdtViewEvents: CRDTVIEW_EVENT) => void;
 
 export class CRDTView {
     protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
@@ -134,14 +132,8 @@ export class CRDTView {
         return datas;
     }
 
-    public triggerOnChange(added: Buffer[], updated: Buffer[], deleted: Buffer[]) {
-        const crdtViewEvent: CRDTVIEW_EVENT = {
-            added,
-            deleted,
-            updated,
-        };
-
-        this.triggerEvent("change", crdtViewEvent);
+    public triggerOnChange(addedId1s: Buffer[], updatedId1s: Buffer[], deletedId1s: Buffer[]) {
+        this.triggerEvent("change", addedId1s, updatedId1s, deletedId1s);
     }
 
     /**
@@ -249,7 +241,7 @@ export class CRDTView {
         this.handleResponse([], Buffer.alloc(0));
     }
 
-    public onChange(cb: ONCHANGE_CALLBACK): CRDTView {
+    public onChange(cb: CRDTOnChangeCallback): CRDTView {
         this.hookEvent("change", cb);
 
         return this;

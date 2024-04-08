@@ -57,7 +57,6 @@ import {
     ThreadFetchParams,
     ThreadDataParams,
     ThreadLicenseParams,
-    ThreadDefaults,
     ThreadStreamResponseAPI,
     ThreadQueryResponseAPI,
     UpdateStreamParams,
@@ -75,8 +74,14 @@ import {
  * flagged as "special" are ignored.
  */
 export class Thread {
+
+    /**
+     * @param threadTemplate
+     * @param threadFetchParams parameters to override threadTemplate with for queries and streaming.
+     * Note that parentId set here is used as default parentId for posting data if not explicitly set in the post parameters.
+     */
     constructor(protected threadTemplate: ThreadTemplate,
-        protected defaults: ThreadDefaults,
+        protected threadFetchParams: ThreadFetchParams,
         protected storageClient: P2PClient,
         protected nodeUtil: NodeUtil,
         protected publicKey: Buffer,
@@ -84,10 +89,24 @@ export class Thread {
         protected signerSecretKey?: Buffer) {
     }
 
+    /**
+     * Generate a FetchRequest based on a thread template and thread fetch params,
+     * streaming or not streaming.
+     *
+     * If streaming then triggerNodeId will be copied from query.parentId in the case both
+     * triggerNodeId and triggerInterval are not set. If anyone of them are alread set then
+     * triggerNodeId will not be automatically set.
+     *
+     * triggerInterval will always be set to 60 if not already set.
+     *
+     * @param threadTemplate the template to use
+     * @param threadFetchParams the params to override the template with
+     * @param stream set to true to make a streaming fetch request.
+     */
     public static GetFetchRequest(threadTemplate: ThreadTemplate,
-        threadFetchParams: ThreadFetchParams, defaults: ThreadDefaults, stream: boolean = false): FetchRequest {
+        threadFetchParams: ThreadFetchParams = {}, stream: boolean = false): FetchRequest {
 
-        const query = Thread.ParseQuery(threadTemplate, threadFetchParams.query ?? {}, defaults);
+        const query = Thread.ParseQuery(threadTemplate, threadFetchParams.query ?? {});
         const crdt = Thread.ParseCRDT(threadTemplate, threadFetchParams.crdt ?? {});
 
         if (stream) {
@@ -99,9 +118,8 @@ export class Thread {
                 query.triggerInterval = 60;
             }
 
-            if (query.triggerNodeId.length === 0 && query.triggerInterval === 0) {
-                throw new Error("Missing triggerNodeId/triggerInterval for Thread streaming and parentId cannot be copied from template");
-            }
+            // At this point we are quaranteed that at least triggerInterval is set.
+            //
 
             // This is not allowed when initiating a stream,
             // but is allowed when performing single queries.
@@ -120,16 +138,25 @@ export class Thread {
         };
     }
 
-    public getFetchRequest(threadFetchParams: ThreadFetchParams = {}, stream: boolean = false): FetchRequest {
-        return Thread.GetFetchRequest(this.threadTemplate, threadFetchParams, this.defaults, stream);
+    /**
+     * Generate the FetchRequest for this thread based on the template and threadFetchParams
+     * provided in the constructor.
+     * @see GetFetchRequest() for details.
+     *
+     * @param stream set to true to create a FetchRequest for streaming
+     * @returns FetchRequest
+     */
+    public getFetchRequest(stream: boolean = false): FetchRequest {
+        return Thread.GetFetchRequest(this.threadTemplate, this.threadFetchParams, stream);
     }
 
-    public setDefault(name: keyof ThreadDefaults, value: any) {
-        this.defaults[name] = value;
-    }
-
-    public query(threadFetchParams: ThreadFetchParams = {}): ThreadQueryResponseAPI {
-        const fetchRequest = this.getFetchRequest(threadFetchParams);
+    /**
+     * Execute a query
+     *
+     * @returns ThreadQueryResponseAPI to interact with the query
+     */
+    public query(): ThreadQueryResponseAPI {
+        const fetchRequest = this.getFetchRequest();
 
         const {getResponse} = this.storageClient.fetch(fetchRequest);
 
@@ -141,20 +168,16 @@ export class Thread {
     }
 
     /**
-     * triggerNodeId is by default set to the parentId of the query and
-     *
-     * triggerInterval is by default set to 60.
-     *
-     * If triggerInterval is set but not triggerNodeId then triggerNodeId will not be automatically set.
+     * @see GetFetchRequest() for details on defaults.
      */
-    public stream(threadFetchParams: ThreadFetchParams = {}): ThreadStreamResponseAPI {
+    public stream(): ThreadStreamResponseAPI {
         let crdtView;
 
         if (this.threadTemplate.crdt?.algo ?? 0 > 0) {
             crdtView = new CRDTView();
         }
 
-        const fetchRequest = this.getFetchRequest(threadFetchParams, true);
+        const fetchRequest = this.getFetchRequest(true);
 
         const {getResponse} = this.storageClient.fetch(fetchRequest, /*timeout=*/0);
 
@@ -362,6 +385,10 @@ export class Thread {
             getResponse: (): GetResponse<FetchResponse> => {
                 return getResponse;
             },
+
+            getFetchRequest(): FetchRequest {
+                return DeepCopy(fetchRequest);
+            },
         };
 
         return threadResponse;
@@ -517,8 +544,8 @@ export class Thread {
      * @returns Promise containing an array with all successfully stored licenses.
      *
      * Order of precedence for properties:
-     * targets property has precendce in threadLicenseParams, then defaults, then template.
-     * threadLicenseParams, defaults, template.
+     * targets property has precendce in threadLicenseParams then template.
+     * threadLicenseParams, template.
      * Where expireTime has precedence over validSeconds,
      * expireTime defaults to 30 days, if not set,
      * further more it will be set to same as node.getExpireTime() if that is set and smaller.
@@ -529,9 +556,8 @@ export class Thread {
     public async postLicense(name: string, node: DataInterface, threadLicenseParams: ThreadLicenseParams = {}): Promise<LicenseInterface[]> {
         const template = this.threadTemplate.postLicense[name] ?? {};
 
-        const targets: Buffer[] | undefined =
-            Thread.PickFirstProperty([threadLicenseParams, this.defaults,
-                template], "targets") as (Buffer[] | undefined);
+        const targets: Buffer[] | undefined = threadLicenseParams.targets ?? template.targets;
+
 
         if (!node.isLicensed() || node.getLicenseMinDistance() !== 0 || !targets) {
             return [];
@@ -583,7 +609,7 @@ export class Thread {
      * @returns LicenseParams
      *
      * Order of precedence for properties:
-     * threadLicenseParams, defaults, template.
+     * threadLicenseParams, template.
      * Where expireTime has precedence over validSeconds,
      * expireTime defaults to 30 days, if not set,
      * further more it will be set to same as node.getExpireTime() if that is set and smaller.
@@ -600,22 +626,16 @@ export class Thread {
 
         const template = this.threadTemplate.postLicense[name] ?? {};
 
-        let creationTime: number | undefined =
-            Thread.PickFirstProperty([threadLicenseParams, template],
-                "creationTime") as (number | undefined);
+        let creationTime: number | undefined = threadLicenseParams.creationTime ?? template.creationTime;
 
         if (creationTime === undefined) {
             creationTime = node.getCreationTime();
         }
 
-        let expireTime: number | undefined =
-            Thread.PickFirstProperty([threadLicenseParams, this.defaults, template],
-                "expireTime") as (number | undefined);
+        let expireTime: number | undefined = threadLicenseParams.expireTime ?? template.expireTime;
 
         if (expireTime === undefined) {
-            const validSeconds: number | undefined =
-                Thread.PickFirstProperty([threadLicenseParams, this.defaults, template],
-                    "validSeconds") as (number | undefined);
+            const validSeconds: number | undefined = threadLicenseParams.validSeconds ?? template.validSeconds;
 
             if (validSeconds !== undefined) {
                 expireTime = (creationTime ?? Date.now()) + validSeconds * 1000;
@@ -644,28 +664,23 @@ export class Thread {
      * @param threadDataParams
      * @returns DataParams
      *
-     * Order of precedence for properties:
-     * threadDataParams, defaults, template.
+     * Order of precedence for properties: threadDataParams, template.
      * Where expireTime has precedence over validSeconds.
      * Note that expireTime has no default value for nodes and if not set
      * will be able to exist indefinitely.
      * owner is always set to current publicKey.
+     * parentId is by default taken from threadFetchParams if not set in threadDataParams argument,
+     * and last option is to take parentId from the template.
      */
     protected parsePost(name: string, threadDataParams: ThreadDataParams): DataParams {
         const template = this.threadTemplate.post[name] ?? {};
 
-        const creationTime: number | undefined =
-            Thread.PickFirstProperty([threadDataParams, template],
-                "creationTime") as (number | undefined);
+        const creationTime: number | undefined = threadDataParams.creationTime ?? template.creationTime;
 
-        let expireTime: number | undefined =
-            Thread.PickFirstProperty([threadDataParams, this.defaults, template],
-                "expireTime") as (number | undefined);
+        let expireTime: number | undefined = threadDataParams.expireTime ?? template.expireTime;
 
         if (expireTime === undefined) {
-            const validSeconds: number | undefined =
-                Thread.PickFirstProperty([threadDataParams, this.defaults, template],
-                    "validSeconds") as (number | undefined);
+            const validSeconds: number | undefined = threadDataParams.validSeconds ?? template.validSeconds;
 
             if (validSeconds !== undefined) {
                 expireTime = (creationTime ?? Date.now()) + validSeconds * 1000;
@@ -674,8 +689,10 @@ export class Thread {
 
         const owner = this.publicKey;
 
+        const parentId = this.threadFetchParams.query?.parentId;
+
         const dataParams: DataParams = Thread.MergeProperties([{creationTime, expireTime, owner},
-            threadDataParams, {parentId: this.defaults.parentId}, template]) as DataParams;
+            threadDataParams, {parentId}, template]) as DataParams;
 
         if (!dataParams.parentId) {
             throw new Error("missing parentId in thread post");
@@ -685,38 +702,38 @@ export class Thread {
     }
 
     /**
-     * @param threadTemplate default properties coming from template.
-     *  default value parentId have precedence over threadTemplate.
-     * @param threadQueryParams have precedence over threadTemplate properties and default parentId.
-     * @returns FetchQuery
+     * Parse query by merging template and params, where params have precendence
+     * over template fields.
      *
+     * rootNodeId1 will have precedence over parentId in the merged query.
+     *
+     * @param threadTemplate default properties coming from template.
+     * @param threadQueryParams have precedence over threadTemplate properties.
+     * @returns FetchQuery
      */
     protected static ParseQuery(threadTemplate: ThreadTemplate,
-        threadQueryParams: ThreadQueryParams, defaults: ThreadDefaults): FetchQuery {
-
+        threadQueryParams: ThreadQueryParams): FetchQuery
+    {
         if (!threadTemplate.query) {
             throw new Error("Missing query template in Thread");
         }
 
-        const queryParams = Thread.MergeProperties([threadQueryParams,
-            {parentId: defaults.parentId}, threadTemplate.query]);
-
+        const queryParams = Thread.MergeProperties([threadQueryParams, threadTemplate.query]);
 
         if (queryParams.rootNodeId1?.length) {
             delete queryParams.parentId;
         }
 
         if (!queryParams.parentId && !queryParams.rootNodeId1) {
-            if (!defaults.parentId) {
-                throw new Error("parentId is missing in thread query");
-            }
+            throw new Error("parentId/rootNodeId1 is missing in thread query");
         }
 
         return ParseUtil.ParseQuery(queryParams);
     }
 
     /**
-     * @params threadTemplate parameters have precedence over the crdt template properties.
+     * @params threadTemplate
+     * @params threadCRDTParams have precedence over the template CRDT properties
      * @returns FetchCRDT
      */
     protected static ParseCRDT(threadTemplate: ThreadTemplate,
@@ -758,9 +775,12 @@ export class Thread {
 
     /**
      * Merge a given list of property objects into a new object.
-     * Keep the first value encountered in the list of objects (in order given).
-     * undefined values are ignored.
-     * Empty buffers are allowed to be overwritten by a non empty buffer.
+     *
+     * Keep the first value encountered in the list of objects (in order given), but undefined or
+     * non-set values are skipped over.
+     *
+     * Empty buffers are allowed to be reset by a non empty buffer (length > 0) if encountered in a
+     * later object in the objects list.
      */
     protected static MergeProperties(objects: any[]): any {
         const merged: any = {};
@@ -800,15 +820,4 @@ export class Thread {
         return merged;
     }
 
-    protected static PickFirstProperty(objects: any[], propertyName: string): any {
-        const objectsLength = objects.length;
-        for (let i=0; i<objectsLength; i++) {
-            const object = objects[i];
-            if (object[propertyName] !== undefined) {
-                return object[propertyName];
-            }
-        }
-
-        return undefined;
-    }
 }
