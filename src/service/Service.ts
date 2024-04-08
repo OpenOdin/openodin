@@ -104,6 +104,7 @@ import {
 import {
     DeepCopy,
     DeepEquals,
+    DeepHash,
     sleep,
     PromiseCallback,
     CopyBuffer,
@@ -180,7 +181,7 @@ type ServiceConfig = {
     peerConnectionConfigs: ConnectionConfig[],
 
     /** AutoFetch objects to initiate on autoFetcher clients. */
-    autoFetch: AutoFetch[],
+    autoFetch: {[hash: string]: {autoFetch: AutoFetch, count: number}},
 };
 
 type ServiceState = {
@@ -277,7 +278,7 @@ export class Service {
             nodeCerts: [],
             peerConnectionConfigs: [],
             storageConnectionConfigs: [],
-            autoFetch: [],
+            autoFetch: {},
         };
 
         this.state = {
@@ -846,14 +847,19 @@ export class Service {
      * @param autoFetch to add to autoFetchers.
      */
     public addAutoFetch(autoFetch: AutoFetch) {
-        if (this.config.autoFetch.some( (autoFetch2: any) => DeepEquals(autoFetch, autoFetch2) )) {
-            // Already exists.
-            return;
+        const hashStr = DeepHash(autoFetch).toString("hex");
+
+        const item = this.config.autoFetch[hashStr] ?? {autoFetch, count: 0};
+
+        this.config.autoFetch[hashStr] = item;
+
+        item.count++;
+
+        if (item.count === 1) {
+            this.state.autoFetchers.forEach( (autoFetcher: P2PClientAutoFetcher) => {
+                autoFetcher.addFetch([autoFetch]);
+            });
         }
-        this.config.autoFetch.push(autoFetch);
-        this.state.autoFetchers.forEach( (autoFetcher: P2PClientAutoFetcher) => {
-            autoFetcher.addFetch([autoFetch]);
-        });
     }
 
     /**
@@ -862,14 +868,19 @@ export class Service {
      * @param autoFetch to remove from autoFetchers.
      */
     public removeAutoFetch(autoFetch: AutoFetch) {
-        for (let i=0; i<this.config.autoFetch.length; i++) {
-            const autoFetch2 = this.config.autoFetch[i];
-            if (DeepEquals(autoFetch, autoFetch2)) {
-                this.config.autoFetch.splice(i, 1);
+        const hashStr = DeepHash(autoFetch).toString("hex");
+
+        const item = this.config.autoFetch[hashStr];
+
+        if (item) {
+            item.count--;
+
+            if (item.count === 0) {
+                delete this.config.autoFetch[hashStr];
+
                 this.state.autoFetchers.forEach( (autoFetcher: P2PClientAutoFetcher) => {
                     autoFetcher.removeFetch(autoFetch);
                 });
-                break;
             }
         }
     }
@@ -878,7 +889,9 @@ export class Service {
      * @returns copy of list of all auto fetch objects.
      */
     public getAutoFetch(): AutoFetch[] {
-        return this.config.autoFetch.slice();  // copy to avoid direct mutations.
+        return Object.values(this.config.autoFetch).map( item => {
+            return DeepCopy(item.autoFetch) as AutoFetch;
+        });
     }
 
     /**
@@ -1558,10 +1571,12 @@ export class Service {
         autoFetcherReverse.onBlob( (blobEvent: BlobEvent) =>
             this.triggerEvent(EVENT_SERVICE_BLOB, blobEvent) )
 
-        autoFetcher.addFetch(this.config.autoFetch);
-        autoFetcherReverse.addFetch(this.config.autoFetch);
-        this.state.autoFetchers.push(autoFetcher, autoFetcherReverse);
+        const allAutoFetch = this.getAutoFetch();
 
+        autoFetcher.addFetch(allAutoFetch);
+        autoFetcherReverse.addFetch(allAutoFetch);
+
+        this.state.autoFetchers.push(autoFetcher, autoFetcherReverse);
 
         const permissions = p2pClient.getPermissions();
 
