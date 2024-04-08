@@ -19,8 +19,8 @@ import {
 export class SignatureOffloaderRPCServer extends SignatureOffloader {
     protected rpc: RPC;
 
-    constructor(rpc: RPC, workers?: number) {
-        super(workers);
+    constructor(rpc: RPC, nrOfWorkers?: number, singleThreaded: boolean = false) {
+        super(nrOfWorkers, singleThreaded);
 
         this.rpc = rpc;
 
@@ -73,5 +73,11 @@ export class SignatureOffloaderRPCServer extends SignatureOffloader {
         this.rpc.onCall("verifier", (signaturesCollections: SignaturesCollection[]) => {
             return this.verifier(signaturesCollections);
         });
+    }
+
+    public async close() {
+        this.rpc.close();
+
+        return super.close();
     }
 }

@@ -20,20 +20,17 @@ import {
 } from "./types";
 
 export class OpenOdinRPCServer {
-    protected rpc: RPC;
     protected triggerOnAuth?: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>;
     protected signatureOffloaderRPCServer?: SignatureOffloaderRPCServer;
     protected authFactoryRPCCserver?: AuthFactoryRPCServer;
 
-    constructor(rpc: RPC) {
-        this.rpc = rpc;
-
+    constructor(protected rpc: RPC, protected nrOfWorkers: number = 1,
+        protected singleThreaded: boolean = false)
+    {
         this.rpc.onCall("auth", this.auth);
 
-        this.rpc.onCall("close", this.close);
-
-        this.rpc.onCall("client-hello", async () => {
-            return "server-hello";
+        this.rpc.onCall("noop", async () => {
+            return "noop";
         });
     }
 
@@ -42,7 +39,8 @@ export class OpenOdinRPCServer {
     }
 
     /**
-     * Close resources created when authed.
+     * Free resources created when authed.
+     * The RPC is not automatically closed.
      */
     public close = () => {
         this.signatureOffloaderRPCServer?.close();
@@ -82,7 +80,9 @@ export class OpenOdinRPCServer {
             };
         }
 
-        this.signatureOffloaderRPCServer = new SignatureOffloaderRPCServer(rpc1, 1);  // Only use one separate worker thread in RPC (browser) scenarios.
+        this.signatureOffloaderRPCServer = new SignatureOffloaderRPCServer(rpc1, this.nrOfWorkers,
+            this.singleThreaded);
+
         await this.signatureOffloaderRPCServer.init();
 
         const keyPairs2: KeyPair[] = [];

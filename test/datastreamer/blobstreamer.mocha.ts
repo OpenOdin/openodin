@@ -122,7 +122,7 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
 
         storage = new Storage(serverP2pClient, signatureOffloader, driver, blobDriver);
 
-        storage.init();
+        await storage.init();
 
         clientP2pClient = new P2PClient(messaging2, clientProps, serverProps);
 

@@ -180,7 +180,7 @@ export class Storage {
      * Always call this after instantiating the Storage.
      * It will hook the p2p events.
      */
-    public init() {
+    public async init() {
         this.driver.onClose( () => this.close());
         this.blobDriver?.onClose( () => this.close());
         this.p2pClient.onStore( this.handleStore );
@@ -189,6 +189,8 @@ export class Storage {
         this.p2pClient.onReadBlob( this.handleReadBlob );
         this.p2pClient.onWriteBlob( this.handleWriteBlob );
         this.p2pClient.onClose( this.handleClose );
+
+        await this.crdtManager.init();
     }
 
     /**
@@ -637,14 +639,6 @@ export class Storage {
         try {
             const now = this.timeFreeze.read();
 
-            const mutex1 = this.lock.acquire("driver");
-
-            locks.push(mutex1);
-
-            if (mutex1.p) {
-                await mutex1.p;
-            }
-
             const usesCrdt = fetchRequest.crdt.algo > 0;
 
             if (usesCrdt) {
@@ -664,10 +658,19 @@ export class Storage {
                 this.lock.release(mutex2);
             }
             else {
+                const mutex1 = this.lock.acquire("driver");
+
+                locks.push(mutex1);
+
+                if (mutex1.p) {
+                    await mutex1.p;
+                }
+
                 await this.driver.fetch(fetchRequest.query, now, handleFetchReplyData);
+
+                this.lock.release(mutex1);
             }
 
-            this.lock.release(mutex1);
 
             if (trigger?.closed) {
                 this.dropTrigger(trigger.msgId, trigger.fetchRequest.query.targetPublicKey);
@@ -1429,114 +1432,107 @@ export class Storage {
 
         let rowCount: number = 0
 
-        // The fetch drives through here.
-        const fn = async (fetchReplyData: FetchReplyData) => {
-            const mutex1 = this.lock.acquire(`fetch_${key}`);
+        const allNodesToAdd: DataInterface[] = [];
 
-            if (mutex1.p) {
-                await mutex1.p;
+        // The fetch drives through here.
+        //
+        const aggregateFn = (fetchReplyData: FetchReplyData) => {
+            const status = fetchReplyData.status ?? Status.RESULT;
+
+            if (status !== Status.RESULT) {
+                handleFetchReplyData(fetchReplyData);
+                return;
             }
 
-            try {
-                const status = fetchReplyData.status ?? Status.RESULT;
+            // For CRDT models we only include data nodes,
+            // which are not flagged as special nodes.
+            //
+            const nodesToAdd = (fetchReplyData.nodes ?? []).
+                filter( node => node.getType().equals(DATA_NODE_TYPE) &&
+                    !(node as DataInterface).isSpecial() ) as DataInterface[];
 
-                if (status !== Status.RESULT) {
-                    handleFetchReplyData(fetchReplyData);
-                    return;
+            const embed = fetchReplyData.embed ?? [];
+
+            rowCount += fetchReplyData.rowCount ?? 0;
+
+            allNodesToAdd.push(...nodesToAdd);
+
+            if (embed.length > 0) {
+                const fetchReplyData: FetchReplyData = {
+                    nodes: [],
+                    embed,
+                    rowCount,
+                    isLast: false,
+                };
+
+                handleFetchReplyData(fetchReplyData);
+            }
+        };
+
+        const diffFn = async () => {
+            const currentCRDTView = trigger?.crdtView ??
+                {list: [], transientHashes: {}, annotations: {}};
+
+            const result = await this.crdtManager.diff(currentCRDTView, key,
+                fetchRequest.crdt.cursorId1,
+                fetchRequest.crdt.cursorIndex,
+                fetchRequest.crdt.head,
+                fetchRequest.crdt.tail,
+                fetchRequest.crdt.reverse);
+
+
+            if (!result) {
+                const fetchReplyData: FetchReplyData = {
+                    status: Status.MISSING_CURSOR,
+                    rowCount,
+                    isLast: true,
+                };
+
+                handleFetchReplyData(fetchReplyData);
+            }
+            else {
+                const [missingNodesId1s, delta, crdtView, cursorIndex, length] = result;
+
+                if (trigger) {
+                    trigger.crdtView = crdtView;
                 }
 
-                // For CRDT models we only include data nodes,
-                // which are not flagged as special nodes.
-                const nodesToAdd = (fetchReplyData.nodes ?? []).
-                    filter( node => node.getType().equals(DATA_NODE_TYPE) && !(node as DataInterface).isSpecial() ) as DataInterface[];
+                let isLast = false;
 
-                const embed = fetchReplyData.embed ?? [];
+                while (!isLast) {
+                    const id1s = missingNodesId1s.splice(0, MAX_BATCH_SIZE);
 
-                rowCount += fetchReplyData.rowCount ?? 0;
+                    const nodes = await this.driver.getNodesById1(id1s, now);
 
-                await this.crdtManager.updateModel(fetchRequest, nodesToAdd);
+                    nodes.forEach( node => {
+                        const id1Str = node.getId1()!.toString("hex");
 
-                if (embed.length > 0) {
+                        const annotations = crdtView.annotations[id1Str];
+
+                        if (annotations) {
+                            try {
+                                (node as DataInterface).setAnnotations(annotations);
+                            }
+                            catch(e) {
+                                // Ignore error, could be a too large annotation.
+                                console.error("Could not set annotations on node", e);
+                            }
+                        }
+                    });
+
+                    isLast = missingNodesId1s.length === 0;
+
                     const fetchReplyData: FetchReplyData = {
-                        nodes: [],
-                        embed,
+                        nodes,
+                        delta: isLast ? delta : undefined,
                         rowCount,
-                        isLast: false,
+                        cursorIndex,
+                        length,
+                        isLast,
                     };
 
                     handleFetchReplyData(fetchReplyData);
                 }
-
-                if (fetchReplyData.isLast) {
-                    const currentCRDTView = trigger?.crdtView ??
-                        {list: [], transientHashes: {}, annotations: {}};
-
-                    const result = await this.crdtManager.diff(currentCRDTView, key,
-                        fetchRequest.crdt.cursorId1,
-                        fetchRequest.crdt.cursorIndex,
-                        fetchRequest.crdt.head,
-                        fetchRequest.crdt.tail,
-                        fetchRequest.crdt.reverse);
-
-                    if (!result) {
-                        const fetchReplyData: FetchReplyData = {
-                            status: Status.MISSING_CURSOR,
-                            rowCount,
-                            isLast: true,
-                        };
-
-                        handleFetchReplyData(fetchReplyData);
-                    }
-                    else {
-                        const [missingNodesId1s, delta, crdtView, cursorIndex, length] = result;
-
-                        if (trigger) {
-                            trigger.crdtView = crdtView;
-                        }
-
-                        while (true) {
-                            const id1s = missingNodesId1s.splice(0, MAX_BATCH_SIZE);
-
-                            const nodes = await this.driver.getNodesById1(id1s, now);
-
-                            nodes.forEach( node => {
-                                const id1Str = node.getId1()!.toString("hex");
-
-                                const annotations = crdtView.annotations[id1Str];
-
-                                if (annotations) {
-                                    try {
-                                        (node as DataInterface).setAnnotations(annotations);
-                                    }
-                                    catch(e) {
-                                        // Ignore error, could be a too large annotation.
-                                        console.error("Could not set annotations on node", e);
-                                    }
-                                }
-                            });
-
-                            const isLast = missingNodesId1s.length === 0;
-
-                            const fetchReplyData: FetchReplyData = {
-                                nodes,
-                                delta: isLast ? delta : undefined,
-                                rowCount,
-                                cursorIndex,
-                                length,
-                                isLast,
-                            };
-
-                            handleFetchReplyData(fetchReplyData);
-
-                            if (missingNodesId1s.length === 0) {
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            finally {
-                this.lock.release(mutex1);
             }
         };
 
@@ -1546,11 +1542,32 @@ export class Storage {
             await this.crdtManager.beginDeletionTracking(key);
         }
 
-        // Drive the fetch through the CRDT model.
-        await this.driver.fetch(fetchRequest.query, now, fn);
+        const mutex1 = this.lock.acquire("driver");
 
-        if (detectDeletions) {
-            await this.crdtManager.commitDeletionTracking(key);
+        if (mutex1.p) {
+            await mutex1.p;
+        }
+
+        const t1 = Date.now();
+
+        // Drive the fetch through the CRDT model.
+        //
+        try {
+            await this.driver.fetch(fetchRequest.query, now, aggregateFn);
+        }
+        finally {
+            this.lock.release(mutex1);
+        }
+
+        try {
+            this.crdtManager.updateModel(fetchRequest, allNodesToAdd);
+
+            await diffFn();
+        }
+        finally {
+            if (detectDeletions) {
+                await this.crdtManager.commitDeletionTracking(key);
+            }
         }
     }
 }

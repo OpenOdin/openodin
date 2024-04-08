@@ -7,6 +7,10 @@ import {
 } from "./P2PClient";
 
 import {
+    MAX_BATCH_SIZE,
+} from "../storage/types";
+
+import {
     FetchResponse,
     StoreRequest,
     UnsubscribeRequest,
@@ -430,7 +434,7 @@ export class P2PClientAutoFetcher {
         while (images.length > 0) {
             let total = 0;
             const chunk: Buffer[] = [];
-            while (images.length > 0 && total < MESSAGE_SPLIT_BYTES) {
+            while (images.length > 0 && total < MESSAGE_SPLIT_BYTES && chunk.length < MAX_BATCH_SIZE) {
                 const image = images[0];
                 if (total + image.length > MESSAGE_SPLIT_BYTES) {
                     break;

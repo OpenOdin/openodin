@@ -67,7 +67,6 @@ import {
     ApplicationConf,
     SyncConf,
     WalletConf,
-    ThreadSyncConf,
     ServiceStartCallback,
     ServiceStopCallback,
     ServicePeerCloseCallback,
@@ -104,6 +103,7 @@ import {
 import {
     DeepCopy,
     DeepEquals,
+    DeepHash,
     sleep,
     PromiseCallback,
     CopyBuffer,
@@ -129,8 +129,6 @@ import {
     Thread,
     ThreadTemplate,
     ThreadTemplates,
-    ThreadDefaults,
-    ThreadFetchParams,
 } from "../storage/thread";
 
 import {
@@ -138,13 +136,16 @@ import {
 } from "../auth/AuthFactory";
 
 declare const window: any;
+declare const process: any;
+declare const browser: any;
+declare const chrome: any;
 
 const isNode = (typeof process !== "undefined" && process?.versions?.node);
 let isBrowser = false;
 if (!isNode) {
-    isBrowser = (typeof (window as any) !== "undefined");
+    isBrowser = typeof window !== "undefined" || typeof browser !== "undefined" || typeof chrome !== "undefined";
     if(!isBrowser) {
-        assert(false, "Unexpected error: current environment is neither Node.js or Browser");
+        assert(false, "Unexpected error: current environment is neither Node.js, browser or browser extension");
     }
 }
 
@@ -177,7 +178,7 @@ type ServiceConfig = {
     peerConnectionConfigs: ConnectionConfig[],
 
     /** AutoFetch objects to initiate on autoFetcher clients. */
-    autoFetch: AutoFetch[],
+    autoFetch: {[hash: string]: {autoFetch: AutoFetch, count: number}},
 };
 
 type ServiceState = {
@@ -217,6 +218,7 @@ type ServiceState = {
  */
 export class Service {
     protected _isRunning: boolean = false;
+    protected _isClosed: boolean = false;
     protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
 
     /** The configuration of the whole Service, which is partly allowed to change during runtime. */
@@ -273,7 +275,7 @@ export class Service {
             nodeCerts: [],
             peerConnectionConfigs: [],
             storageConnectionConfigs: [],
-            autoFetch: [],
+            autoFetch: {},
         };
 
         this.state = {
@@ -339,6 +341,10 @@ export class Service {
      * @throws
      */
     public async start() {
+        if (this._isClosed) {
+            throw new Error("Attempting to (re-)start a Service which has been closed.");
+        }
+
         if (this._isRunning) {
             return;
         }
@@ -381,10 +387,31 @@ export class Service {
     }
 
     /**
+     * Stop the Service and make it unstartable again.
+     *
+     */
+    public close() {
+        if (this._isClosed) {
+            return;
+        }
+
+        this._isClosed = true;
+
+        this.stop();
+    }
+
+    /**
      * @returns true if the Service is running.
      */
     public isRunning(): boolean {
         return this._isRunning;
+    }
+
+    /**
+     * @returns true if Service has been explicitly closed by calling close().
+     */
+    public isClosed(): boolean {
+        return this._isClosed;
     }
 
     /**
@@ -399,6 +426,10 @@ export class Service {
      */
     public getStorageClient(): P2PClient | undefined {
         return this.state.externalStorageClient;
+    }
+
+    public getNodeUtil(): NodeUtil {
+        return this.nodeUtil;
     }
 
     protected closeEverythingStorage() {
@@ -587,23 +618,6 @@ export class Service {
         this.state.localDatabaseReconnectDelay = this.config.databaseConfig?.driver.reconnectDelay;
     }
 
-    public makeThread(name: string, defaults: ThreadDefaults = {}): Thread {
-        const storageClient = this.getStorageClient();
-
-        if (!storageClient) {
-            throw new Error("Storage not connected or not exposed to app");
-        }
-
-        const threadTemplate = this.threadTemplates[name];
-
-        if (!threadTemplate) {
-            throw new Error(`Thread ${name} not existing`);
-        }
-
-        return new Thread(threadTemplate, defaults, storageClient, this.nodeUtil,
-            this.getPublicKey(), this.getSignerPublicKey());
-    }
-
     /**
      * Add connection configuration.
      *
@@ -699,7 +713,7 @@ export class Service {
                 threadFetchParams.query = threadFetchParams.query ?? {};
 
                 const fetchRequest = Thread.GetFetchRequest(threadTemplate, threadFetchParams,
-                    {}, syncThread.stream);
+                    syncThread.stream);
 
                 // CRDTs are not allowed to be used when auto syncing.
                 fetchRequest.crdt.algo = 0;
@@ -728,7 +742,7 @@ export class Service {
     }
 
     /**
-     * This is a suger function over addAutoFetch which uses a Thread template.
+     * This is a sugar function over addAutoFetch which uses a Thread template.
      */
     public addSync(sync: SyncConf) {
         this.syncConfToAutoFetch(sync).forEach( autoFetch => this.addAutoFetch(autoFetch) );
@@ -742,89 +756,25 @@ export class Service {
     }
 
     /**
-     * This is a suger function over addAutoFetch which uses an instantiated Thread.
-     * @param threadFetchParams same as when calling query() or stream() directly on the thread instance.
-     */
-    public addThreadSync(thread: Thread, threadFetchParams: ThreadFetchParams = {},
-        threadSyncConf: ThreadSyncConf = {}) {
-
-        this.threadToAutoFetch(thread, threadFetchParams, threadSyncConf)
-            .forEach( autoFetch => this.addAutoFetch(autoFetch) );
-    }
-
-    /**
-     * Remove sync added with addThreadSync.
-     */
-    public removeThreadSync(thread: Thread, threadFetchParams: ThreadFetchParams = {},
-        threadSyncConf: ThreadSyncConf = {}) {
-
-        this.threadToAutoFetch(thread, threadFetchParams, threadSyncConf)
-            .forEach( autoFetch => this.removeAutoFetch(autoFetch) );
-    }
-
-    protected threadToAutoFetch(thread: Thread, threadFetchParams: ThreadFetchParams = {},
-        threadSyncConf: ThreadSyncConf = {}) {
-
-        const stream = threadSyncConf.stream ?? true;
-
-        const direction = threadSyncConf.direction ?? "both";
-
-        const blobSizeMaxLimit = threadSyncConf.blobSizeMaxLimit ?? -1;
-
-        // Default is to match every remote public key.
-        const peerPublicKeys = threadSyncConf.peerPublicKeys ?? [Buffer.alloc(0)];
-
-        const autoFetchers: AutoFetch[] = [];
-
-        threadFetchParams = DeepCopy(threadFetchParams);
-
-        threadFetchParams.query = threadFetchParams.query ?? {};
-
-        const fetchRequest = thread.getFetchRequest(threadFetchParams, stream);
-
-        // CRDTs are not allowed to be used when auto syncing.
-        // Also not transient values.
-        fetchRequest.crdt.algo = 0;
-        fetchRequest.query.preserveTransient = false;
-
-        peerPublicKeys.forEach( (remotePublicKey: Buffer) => {
-            if (direction === "pull" || direction === "both") {
-                autoFetchers.push({
-                    remotePublicKey,
-                    fetchRequest,
-                    blobSizeMaxLimit,
-                    reverse: false,
-                });
-            }
-
-            if (direction === "push" || direction === "both") {
-                autoFetchers.push({
-                    remotePublicKey,
-                    fetchRequest,
-                    blobSizeMaxLimit,
-                    reverse: true,
-                });
-            }
-        });
-
-        return autoFetchers;
-    }
-
-    /**
      * Add AutoFetch to the autoFetchers.
      * A AutoFetch is an automated way of fetching from peers according to some rules.
      * This is useful so you don't have to write code for straight forward syncing.
      * @param autoFetch to add to autoFetchers.
      */
     public addAutoFetch(autoFetch: AutoFetch) {
-        if (this.config.autoFetch.some( (autoFetch2: any) => DeepEquals(autoFetch, autoFetch2) )) {
-            // Already exists.
-            return;
+        const hashStr = DeepHash(autoFetch).toString("hex");
+
+        const item = this.config.autoFetch[hashStr] ?? {autoFetch, count: 0};
+
+        this.config.autoFetch[hashStr] = item;
+
+        item.count++;
+
+        if (item.count === 1) {
+            this.state.autoFetchers.forEach( (autoFetcher: P2PClientAutoFetcher) => {
+                autoFetcher.addFetch([autoFetch]);
+            });
         }
-        this.config.autoFetch.push(autoFetch);
-        this.state.autoFetchers.forEach( (autoFetcher: P2PClientAutoFetcher) => {
-            autoFetcher.addFetch([autoFetch]);
-        });
     }
 
     /**
@@ -833,14 +783,19 @@ export class Service {
      * @param autoFetch to remove from autoFetchers.
      */
     public removeAutoFetch(autoFetch: AutoFetch) {
-        for (let i=0; i<this.config.autoFetch.length; i++) {
-            const autoFetch2 = this.config.autoFetch[i];
-            if (DeepEquals(autoFetch, autoFetch2)) {
-                this.config.autoFetch.splice(i, 1);
+        const hashStr = DeepHash(autoFetch).toString("hex");
+
+        const item = this.config.autoFetch[hashStr];
+
+        if (item) {
+            item.count--;
+
+            if (item.count === 0) {
+                delete this.config.autoFetch[hashStr];
+
                 this.state.autoFetchers.forEach( (autoFetcher: P2PClientAutoFetcher) => {
                     autoFetcher.removeFetch(autoFetch);
                 });
-                break;
             }
         }
     }
@@ -849,7 +804,9 @@ export class Service {
      * @returns copy of list of all auto fetch objects.
      */
     public getAutoFetch(): AutoFetch[] {
-        return this.config.autoFetch.slice();  // copy to avoid direct mutations.
+        return Object.values(this.config.autoFetch).map( item => {
+            return DeepCopy(item.autoFetch) as AutoFetch;
+        });
     }
 
     /**
@@ -1044,7 +1001,7 @@ export class Service {
                 const p2pStorage = new P2PClient(messaging1, remotePeerData, localPeerData,
                     databaseConfig.permissions);
 
-                const storage = new Storage(p2pStorage, this.signatureOffloader, driver, blobDriver);
+                const storage = new Storage(p2pStorage, this.signatureOffloader, driver, blobDriver/*,false, databaseConfig.blindlyTrustedPeers*/);
 
                 storage.onClose( () => {
                     // We need to explicitly close the Driver instance.
@@ -1052,7 +1009,7 @@ export class Service {
                     blobDriver?.close();
                 });
 
-                storage.init();
+                await storage.init();
 
                 // This client only initiates requests and does not need any permissions to it.
                 const internalStorageClient = new P2PClient(messaging2, localPeerData,
@@ -1529,10 +1486,12 @@ export class Service {
         autoFetcherReverse.onBlob( (blobEvent: BlobEvent) =>
             this.triggerEvent(EVENT_SERVICE_BLOB, blobEvent) )
 
-        autoFetcher.addFetch(this.config.autoFetch);
-        autoFetcherReverse.addFetch(this.config.autoFetch);
-        this.state.autoFetchers.push(autoFetcher, autoFetcherReverse);
+        const allAutoFetch = this.getAutoFetch();
 
+        autoFetcher.addFetch(allAutoFetch);
+        autoFetcherReverse.addFetch(allAutoFetch);
+
+        this.state.autoFetchers.push(autoFetcher, autoFetcherReverse);
 
         const permissions = p2pClient.getPermissions();
 

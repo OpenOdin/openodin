@@ -88,6 +88,9 @@ export type StorageConf = {
     database?:  DatabaseConfig,
 };
 
+/**
+ * Configuration for automatically instantiating Threads for synchronization.
+ */
 export type SyncConf = {
     peerPublicKeys:    Buffer[],
 
@@ -115,34 +118,6 @@ export type SyncConf = {
 
         threadFetchParams: ThreadFetchParams,
     }[],
-};
-
-/**
- * This is an alternative approach of adding auto sync
- * using an instantiated thread as template.
- */
-export type ThreadSyncConf = {
-    /**
-     * @default true
-     */
-    stream?: boolean,
-
-    /**
-     * @default "both"
-     */
-    direction?: "pull" | "push" | "both",  // defaults to "both"
-
-    /**
-     * @default -1
-     */
-    blobSizeMaxLimit?:  number,
-
-    /**
-     * @default
-     * [Buffer.alloc(0)]
-     * which means match every remote public key.
-     */
-    peerPublicKeys?:    Buffer[],
 };
 
 export type ApplicationConf = {

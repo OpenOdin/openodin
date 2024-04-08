@@ -83,7 +83,9 @@ export function ExtractNodeValuesRefId(node: DataInterface): NodeValuesRefId {
 export type CRDTViewExternalData = {[key: string]: any};
 
 export type CRDTViewItem = {
+    /** The index of the node in the model. */
     index: number,
+
     id1: Buffer,
     node: DataInterface,
     data: CRDTViewExternalData,
@@ -104,13 +106,4 @@ export type CRDTViewModel = {
     datas: {[id1: string]: CRDTViewExternalData},
 };
 
-export type CRDTVIEW_EVENT = {
-    /** List of node ID1s which have been added to the model. */
-    added: Buffer[],
-
-    /** List of node ID1s of existing nodes who's transient values have been updated. */
-    updated: Buffer[],
-
-    /** List of node ID1s of nodes who have deen deleted from the model. */
-    deleted: Buffer[],
-};
+export type CRDTOnChangeCallback = (addedId1s: Buffer[], updatedId1s: Buffer[], deletedId1s: Buffer[]) => void;

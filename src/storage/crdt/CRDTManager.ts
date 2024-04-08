@@ -24,17 +24,21 @@ import * as fossilDelta from "fossil-delta";
 
 import Worker from "web-worker";
 
-// Check current environment: Node.js or Browser ?
+// Check current environment: Node.js, browser or browser plugin.
+//
 declare const window: any;
+declare const process: any;
+declare const browser: any;
+declare const chrome: any;
 
 import { strict as assert } from "assert";
 
 const isNode = (typeof process !== "undefined" && process?.versions?.node);
 let isBrowser = false;
 if (!isNode) {
-    isBrowser = (typeof window !== "undefined");
+    isBrowser = typeof window !== "undefined" || typeof browser !== "undefined" || typeof chrome !== "undefined";
     if(!isBrowser) {
-        assert(false, "Unexpected error: current environment is neither Node.js or Browser");
+        assert(false, "Unexpected error: current environment is neither Node.js, browser or browser extension");
     }
 }
 
@@ -97,7 +101,7 @@ export class CRDTManager {
 
             const listenMessage = (listener: any) => {
                 this.workerThread?.addEventListener("message", (event: any) => {
-                    listener(event.data.message);
+                    listener(event.data?.message);
                 });
             };
 
@@ -155,7 +159,7 @@ export class CRDTManager {
 
         const images: Buffer[] = nodes.map( node => node.export(true) );
 
-        await this.rpc?.call("updateModel", [key, algoId, conf, fetchRequest.query.orderByStorageTime,
+        return this.rpc?.call("updateModel", [key, algoId, conf, fetchRequest.query.orderByStorageTime,
             images, fetchRequest.query.targetPublicKey]);
     }
 

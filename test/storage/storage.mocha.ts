@@ -49,7 +49,6 @@ import {
     Hash,
     DeepCopy,
     ThreadTemplate,
-    ThreadDefaults,
     Thread,
     PERMISSIVE_PERMISSIONS,
     PromiseCallback,
@@ -140,7 +139,7 @@ describe("Storage: triggers", function() {
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver);
 
-        storage.init();
+        await storage.init();
     });
 
     afterEach("Close Storage instance", function() {
@@ -510,7 +509,7 @@ describe("Storage: SQLite WAL-mode", function() {
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
-        storage.init();
+        await storage.init();
 
         config.db = db;
         config.blobDb = blobDb;
@@ -594,7 +593,7 @@ describe.skip("Storage: SQLiteJS WAL-mode", function() {
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
-        storage.init();
+        await storage.init();
 
         config.db = db;
         config.blobDb = blobDb;
@@ -686,7 +685,7 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
 
         storage = new StorageWrapper(p2pClient, signatureOffloader, driver, blobDriver);
 
-        storage.init();
+        await storage.init();
 
         config.db = db;
         config.blobDb = blobDb;
@@ -1869,10 +1868,7 @@ function setupTests(config: any) {
             }
         };
 
-        const defaults: ThreadDefaults = {};
-
-
-        const thread = new Thread(threadTemplate, defaults, storageClient, nodeUtil,
+        const thread = new Thread(threadTemplate, {}, storageClient, nodeUtil,
             publicKey, publicKey, secretKey);
 
         let node = await thread.post("hello");
@@ -1987,10 +1983,7 @@ function setupTests(config: any) {
             }
         };
 
-        const defaults: ThreadDefaults = {};
-
-
-        const thread = new Thread(threadTemplate, defaults, storageClient, nodeUtil,
+        const thread = new Thread(threadTemplate, {}, storageClient, nodeUtil,
             publicKey, publicKey, secretKey);
 
         let node = await thread.post("hello");

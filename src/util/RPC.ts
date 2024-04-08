@@ -1,9 +1,3 @@
-import {
-    PocketConsole,
-} from "pocket-console";
-
-const console = PocketConsole({module: "RPC"});
-
 export type RPCMessage = {
     /**
      * Set to the function name we are calling.
@@ -49,6 +43,7 @@ export class RPC {
     protected promises: {[messageId: string]: [(response: any) => void, (error: string) => void]} = {};
     protected messageCounter = 0;
     protected forkCounter = 0;
+    protected _isClosed: boolean = false;
 
     /**
      * @param postMessage to send to the RPC server.
@@ -95,7 +90,7 @@ export class RPC {
 
         const message: RPCMessage = {
             name,
-            parameters,
+            parameters: this.serialize(parameters),
             rpcId: this.rpcId,
             messageId,
         };
@@ -104,10 +99,10 @@ export class RPC {
             this.promises[messageId] = [resolve, reject];
 
             try {
-                this.postMessage(message);
+                !this._isClosed && this.postMessage(message);
             }
             catch(e) {
-                console.error("Could not invoke postMessage, error object in the message?", message, e);
+                console.debug(e);
             }
         });
     }
@@ -134,7 +129,7 @@ export class RPC {
                 reject(message.error);
             }
             else {
-                resolve(message.response);
+                resolve(this.deserialize(message.response));
             }
         }
         else {
@@ -148,24 +143,25 @@ export class RPC {
             }
 
             if (!fn) {
-                throw new Error(`Function: ${message.name} is not registered.`);
+                throw new Error(`RPC function: ${message.name} is not registered.`);
             }
 
             try {
-                const response = await (useCatchAll ? fn(message.name, ...(message.parameters ?? [])) : fn(...(message.parameters ?? [])));
+                const parameters = this.deserialize(message.parameters ?? []);
+
+                const response = await (useCatchAll ? fn(message.name, ...parameters) : fn(...parameters));
 
                 const returnResponse: RPCMessage = {
-                    response,
+                    response: this.serialize(response),
                     messageId: message.messageId,
                     rpcId: this.rpcId,
                 };
 
                 try {
-                    this.postMessage(returnResponse);
+                    !this._isClosed && this.postMessage(returnResponse);
                 }
                 catch(e) {
-                    console.error("Could not invoke postMessage, error object in the message?", returnResponse, e);
-                    throw e;
+                    console.debug(e);
                 }
             }
             catch(error) {
@@ -177,7 +173,12 @@ export class RPC {
                     rpcId: this.rpcId,
                 };
 
-                this.postMessage(errorResponse);
+                try {
+                    !this._isClosed && this.postMessage(errorResponse);
+                }
+                catch(e) {
+                    console.debug(e);
+                }
             }
         }
     }
@@ -191,6 +192,12 @@ export class RPC {
     }
 
     public close() {
+        if (this._isClosed) {
+            return;
+        }
+
+        this._isClosed = true;
+
         this.eventHandlers = {};
 
         const messageIds = Object.keys(this.promises);
@@ -201,5 +208,60 @@ export class RPC {
             delete this.promises[messageId];
             reject("RPC endpoint closed");
         });
+    }
+
+    protected serialize(obj: any): any {
+        if (Buffer.isBuffer(obj)) {
+            return obj.toJSON();
+        }
+        else if (Array.isArray(obj)) {
+            return obj.map( (elm: any) => {
+                return this.serialize(elm);
+            });
+        }
+        else if (obj && typeof obj === "object" && obj.constructor === Object) {
+            const keys = Object.keys(obj);
+
+            const obj2: any = {};
+
+            keys.forEach( (key: string) => {
+                obj2[key] = this.serialize(obj[key]);
+            });
+
+            return obj2;
+        }
+        else if (obj && typeof obj === "object" && obj.constructor !== Object) {
+            return undefined;
+        }
+        else if (obj && typeof obj === "function") {
+            return undefined;
+        }
+
+        return obj;
+    }
+
+    protected deserialize(obj: any): any {
+        if (Array.isArray(obj)) {
+            return obj.map( (elm: any) => {
+                return this.deserialize(elm);
+            });
+        }
+        else if (obj && typeof obj === "object" && obj.constructor === Object) {
+            if (obj.type === "Buffer" && Array.isArray(obj.data)) {
+                return Buffer.from(obj);
+            }
+
+            const keys = Object.keys(obj);
+
+            const obj2: any = {};
+
+            keys.forEach( (key: string) => {
+                obj2[key] = this.deserialize(obj[key]);
+            });
+
+            return obj2;
+        }
+
+        return obj;
     }
 }

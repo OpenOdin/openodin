@@ -39,136 +39,335 @@ import {
 
 declare const window: any;
 
+/**
+ * OpenOdin is used in a browser application to authenticate with the Datawallet browser extension.
+ *
+ * It's job is to facilitate the authentication and finally pass an initiated
+ * Service instance on the onAuth() event handler.
+ *
+ * The Service instance passed on the onAuth handler is inititated but not started, the app will need
+ * to call service.start() itself when it desires to do so.
+ *
+ * However if waiting for too long to do so the Datawallet extension might get unloaded by the
+ * browser because it is idle.
+ * If that happens the OpenOdin instance's onClose handler will be called and the Service instance
+ * will not be startable anymore. In such case the application will need to created a new OpenOdin
+ * instance to start over with the authorization.
+ *
+ * After an OpenOdin instance is closed or failed authorization (which closes it) it cannot be reused.
+ */
 export class OpenOdin {
     protected rpc: RPC;
-    protected _isActive: boolean = false;
-    protected _onActive?: () => void;
-    protected signatureOffloader?: SignatureOffloaderInterface;
-    protected authFactory?: AuthFactoryInterface;
-    protected walletConf?: WalletConf;
+    protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
+
+    protected _isClosed: boolean = false;
+    protected _isOpen: boolean = false;
     protected pendingAuth: boolean = false;
 
-    constructor(rpc?: RPC) {
-        if (!rpc) {
-            const postMessage = (message: any) => {
-                window.postMessage({message, direction: "from-page-script"}, "*");
-            };
+    protected signatureOffloader?: SignatureOffloaderInterface;
+    protected authFactory?: AuthFactoryInterface;
+    protected service?: Service;
+    protected walletConf?: WalletConf;
 
-            const listenMessage = (listener: any) => {
-                window.addEventListener("message", (event: any) => {
-                    if (event.source === window && event?.data?.direction === "from-content-script") {
-                        listener(event.data.message);
-                    }
-                    else if (event.source === window && event?.data?.direction === "from-content-script-init") {
-                        this.sendHello();
-                    }
-                });
-            };
+    /**
+     * @param appConf the application configuration to init the Service instance with.
+     * The conf will be sent to the Datawallet when authing for verbosity and potential
+     * reconfiguration by the user.
+     *
+     * @param autoAuth if set then automatically called auth() when extension allows authentication.
+     * Default is true.
+     */
+    constructor(protected appConf: ApplicationConf, protected autoAuth: boolean = true) {
+        const rpcId = Buffer.from(crypto.randomBytes(8)).toString("hex");
 
-            const rpcId = Buffer.from(crypto.randomBytes(8)).toString("hex");
+        const postMessage2 = (message: any) => {
+            postMessage({message, direction: "openodin-page-script-message"}, "*");
+        };
 
-            this.rpc = new RPC(postMessage, listenMessage, rpcId);
-        }
-        else {
-            this.rpc = rpc;
-        }
+        addEventListener("message", (event: any) => {
+            // Make sure the event comes from this window, as the content-script has the same)
+            // window object.
+            //
+            if (event.source !== window) {
+                // NOTE: see if we can use CustomEvent to narrow it down even more.
+                //
+                return;
+            }
 
-        // In case the from-content-script-init has already been sent we send hello to activate.
-        this.sendHello();
+            if (event?.data?.direction === "openodin-content-script-open") {
+                // Extension has been opened.
+                //
+                this.handleOpen();
+            }
+            else if (event?.data?.direction === "openodin-content-script-port-closed") {
+                // Port to background script closed.
+                //
+                const rpcId2 = event?.data?.message?.rpcId;
+
+                rpcId2 === rpcId && this.handleClose();
+            }
+        });
+
+        const listenMessage = (listener: any) => {
+            addEventListener("message", (event: any) => {
+                // Make sure the event comes from this window, as the content-script has the same)
+                // window object.
+                //
+                if (event.source !== window) {
+                    // NOTE: see if we can use CustomEvent to narrow it down even more.
+                    //
+                    return;
+                }
+
+                if (event?.data?.direction === "openodin-content-script-message") {
+                    // Incoming data from background-script to be passed to the RPC instance.
+                    //
+                    listener(event.data.message);
+                }
+            });
+        };
+
+        this.rpc = new RPC(postMessage2, listenMessage, rpcId);
     }
 
-    protected async sendHello() {
-        if (this._isActive) {
+    /**
+     * Helper function to fetch() and parse an ApplicationConf JSON file.
+     *
+     * @throws on error
+     */
+    public static async LoadAppConf(location: string): Promise<ApplicationConf> {
+        const appJSON = await (await fetch(location)).json();
+
+        const appConf = ParseUtil.ParseApplicationConf(appJSON);
+
+        return appConf;
+    }
+
+    /**
+     * Return the unique RPC id used for this OpenOdin instance.
+     */
+    public getId(): string {
+        return this.rpc.getId();
+    }
+
+    /**
+     * Handler called everytime the Datawallet is opened for the tab,
+     * technically each time the content-script is injected.
+     * If the instance is closed the event is not triggered.
+     * If autoAuth is set an auth process is initiated.
+     */
+    protected async handleOpen() {
+        if (this._isClosed) {
             return;
         }
 
-        const ret = await this.rpc.call("client-hello");
+        if (!this._isOpen) {
+            // If first time open the port to the background by sending a noop.
+            //
+            const ret = await this.rpc.call("noop");
 
-        if (ret === "server-hello") {
-            this._isActive = true;
-            this._onActive && this._onActive();
+            if (ret !== "noop") {
+                this.close();
+
+                throw new Error("Could not open port");
+            }
         }
-    }
 
-    public isActive(): boolean {
-        return this._isActive;
-    }
+        this._isOpen = true;
 
-    public isAuthed(): boolean {
-        return this.signatureOffloader !== undefined;
+        this.triggerEvent("open");
+
+        if (this.autoAuth && !this.pendingAuth && !this.isAuthed()) {
+            this.auth();
+        }
     }
 
     /**
-     * @throws on error
+     * Triggers onAuth(Service) on successful auth, or onAuthFail(error) on failed auth.
+     * In case of failed auth check isClosed() before attempting to reuse the OpenOdin instance.
+     *
+     * @throws if cannot be reused for auth, if port is closed, already authed or pending auth.
      */
-    public async auth(): Promise<void> {
-        this.pendingAuth = true;
-
-        const authResponse = await this.rpc.call("auth") as AuthResponse;
-
-        this.pendingAuth = false;
-
-        if (authResponse.error || !authResponse.signatureOffloaderRPCId || !authResponse.handshakeRPCId) {
-            throw new Error(authResponse.error ?? "Unknown error");
+    public auth = async () => {
+        if (this._isClosed || this.pendingAuth || this.isAuthed()) {
+            throw new Error("Cannot reuse OpenOdin instance");
         }
 
-        const rpc1 = this.rpc.clone(authResponse.signatureOffloaderRPCId);
-        this.signatureOffloader = new SignatureOffloaderRPCClient(rpc1);
+        try {
+            this.pendingAuth = true;
 
-        const rpc2 = this.rpc.clone(authResponse.handshakeRPCId);
-        this.authFactory = new AuthFactoryRPCClient(rpc2);
+            this.triggerEvent("preAuth");
 
-        // TODO
-        this.walletConf = ParseUtil.ParseWalletConf({});
+            // TODO: pass along this.appConf and take back changes.
+            //
+            const authResponse = await this.rpc.call("auth") as AuthResponse;
+
+            this.pendingAuth = false;
+
+            if (authResponse.error || !authResponse.signatureOffloaderRPCId || !authResponse.handshakeRPCId) {
+                this.triggerEvent("authFail", authResponse.error ?? "Unknown error");
+
+                this.close();
+
+                return;
+            }
+
+            const rpc1 = this.rpc.clone(authResponse.signatureOffloaderRPCId);
+            this.signatureOffloader = new SignatureOffloaderRPCClient(rpc1);
+
+            const rpc2 = this.rpc.clone(authResponse.handshakeRPCId);
+            this.authFactory = new AuthFactoryRPCClient(rpc2);
+
+            // TODO
+            this.walletConf = ParseUtil.ParseWalletConf({});
+        }
+        catch(e) {
+            this.triggerEvent("authFail", `Error in auth process: ${e}`);
+
+            this.close();
+
+            return;
+        }
+
+        try {
+            this.service = new Service(this.appConf, this.walletConf, this.signatureOffloader,
+                this.authFactory);
+
+            await this.service.init();
+        }
+        catch(e) {
+            this.triggerEvent("authFail",`Could not init Service: ${e}`);
+
+            this.close();
+
+            return;
+        }
+
+        this.triggerEvent("auth", this.service);
     }
 
-    public isPendingAuth(): boolean {
+    public isAuthed = (): boolean => {
+        return this.service !== undefined;
+    }
+
+    public isPendingAuth = (): boolean => {
         return this.pendingAuth;
     }
 
-    public getSignatureOffloader(): SignatureOffloaderInterface | undefined {
+    public getSignatureOffloader = (): SignatureOffloaderInterface | undefined => {
         return this.signatureOffloader;
     }
 
-    public getHandshakeFactoryFactory(): AuthFactoryInterface | undefined {
+    public getHandshakeFactoryFactory = (): AuthFactoryInterface | undefined => {
         return this.authFactory;
     }
 
-    public getWalletConf(): WalletConf | undefined {
+    public getWalletConf = (): WalletConf | undefined => {
         return this.walletConf;
     }
 
-    /**
-     * @throws on error
-     */
-    public async initService(applicationConf: ApplicationConf): Promise<Service> {
-        if (!this.walletConf) {
-            throw new Error("Missing walletConf");
-        }
-
-        if (!this.signatureOffloader) {
-            throw new Error("Missing signatureOffloader");
-        }
-
-        if (!this.authFactory) {
-            throw new Error("Missing authFactory");
-        }
-
-        const service = new Service(applicationConf, this.walletConf, this.signatureOffloader, this.authFactory);
-
-        await service.init()
-
-        return service;
+    public getService = (): Service | undefined => {
+        return this.service;
     }
 
-    public close(): Promise<void> {
+    /**
+     * Close the connection to the datawallet resulting in logout.
+     * The OpenOdin instance cannot be used any further after close.
+     */
+    public close = () => {
+        if (this._isClosed) {
+            return;
+        }
+
+        const rpcId = this.rpc.getId();
+
+        postMessage({message: {rpcId}, direction: "openodin-page-script-close-port"}, "*");
+    }
+
+    public isClosed = () => {
+        return this._isClosed;
+    }
+
+    public isOpen = () => {
+        return this._isOpen;
+    }
+
+    /**
+     * Handle when port is closed or cannot be opened.
+     */
+    protected handleClose() {
+        if (this._isClosed) {
+            return;
+        }
+
+        this._isClosed = true;
+        this.pendingAuth = false;
         delete this.signatureOffloader;
         delete this.authFactory;
 
-        return this.rpc.call("close");
+        this.service?.close();
+
+        delete this.service;
+
+        this.triggerEvent("close");
     }
 
-    public onActive( cb: () => void ) {
-        this._onActive = cb;
+    /**
+     * Event triggered when the Datawallet is opened and activated for the tab.
+     * After this event one can all auth(), if autoAuth is set auth() is called automatically.
+     */
+    public onOpen = ( cb: () => void ) => {
+        this.hookEvent("open", cb);
+    }
+
+    public onPreAuth = ( cb: () => void ) => {
+        this.hookEvent("preAuth", cb);
+    }
+
+    /**
+     * Event triggered on successful authorization.
+     * A newly created and init'd Service instance is passed as argument to the event handler.
+     *
+     * From this point the OpinOdin instance is only useful for calling close() on and/or listening
+     * for the close event, as everything else is now provided in the Service instance.
+     * For handling close events either hook the OpenOdin instance onClose() or the Service onClose().
+     */
+    public onAuth = ( cb: (service: Service) => void ) => {
+        this.hookEvent("auth", cb);
+    }
+
+    /**
+     * Event triggered on failed authorization or if port closed during pending authorization.
+     * The OpenOdin instance cannot be reused.
+     */
+    public onAuthFail = ( cb: (error: string) => void ) => {
+        this.hookEvent("authFail", cb);
+    }
+
+    /**
+     * Event triggered when port to background is disconnected or when calling close().
+     *
+     * The OpenOdin instance cannot be used any further after close.
+     */
+    public onClose = ( cb: () => void ) => {
+        this.hookEvent("close", cb);
+    }
+
+    protected hookEvent(name: string, callback: (...args: any[]) => void) {
+        const cbs = this.handlers[name] || [];
+        this.handlers[name] = cbs;
+        cbs.push(callback);
+    }
+
+    protected unhookEvent(name: string, callback: (...args: any[]) => void) {
+        const cbs = (this.handlers[name] || []).filter( (cb: ( (...args: any) => void)) => callback !== cb );
+        this.handlers[name] = cbs;
+    }
+
+    protected triggerEvent(name: string, ...args: any[]) {
+        const cbs = this.handlers[name] || [];
+        cbs.forEach( (callback: ( (...args: any[]) => void)) => {
+            setImmediate( () => callback(...args) );
+        });
     }
 }

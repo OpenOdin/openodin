@@ -80,6 +80,12 @@ export class SocketRPCServer {
         });
     }
 
+    public close() {
+        this.rpc.close();
+
+        this.client.close();
+    }
+
     protected socketData = (data: Buffer | string) => {
         this.rpc.call(this.rpcPrefix + "onData", [data]);
     }
