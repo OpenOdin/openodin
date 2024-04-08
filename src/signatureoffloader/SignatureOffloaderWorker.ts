@@ -33,16 +33,16 @@ export class SignatureOffloaderWorker {
     public verify(signaturesCollections: SignaturesCollection[]): number[]  {
         const result: number[] = [];
 
-        const l = signaturesCollections.length;
-        for (let i=0; i<l; i++) {
+        const len = signaturesCollections.length;
+        for (let i=0; i<len; i++) {
 
             const {index, signatures} = signaturesCollections[i];
 
             let validCount = 0;
 
-            const l2 = signatures.length;
+            const len2 = signatures.length;
 
-            for (let j=0; j<l2; j++) {
+            for (let j=0; j<len2; j++) {
 
                 const {message, signature, publicKey} = signatures[j];
 
@@ -98,7 +98,7 @@ export class SignatureOffloaderWorker {
                 }
             }
 
-            if (validCount === l2) {
+            if (validCount === len2) {
                 // All signatures in the collection verified.
                 //
                 result.push(index);
