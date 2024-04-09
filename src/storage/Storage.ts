@@ -1548,8 +1548,6 @@ export class Storage {
             await mutex1.p;
         }
 
-        const t1 = Date.now();
-
         // Drive the fetch through the CRDT model.
         //
         try {

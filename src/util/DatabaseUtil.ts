@@ -31,9 +31,13 @@ export class DatabaseUtil {
 
                 if (dirname) {
                     try {
-                        const stats = fs.statSync(dirname);
+                        // Check if dir exists.
+                        //
+                        fs.statSync(dirname);
                     }
                     catch(e) {
+                        // Attempt to create dir if not existing.
+                        //
                         fs.mkdirSync(dirname);
                     }
                 }

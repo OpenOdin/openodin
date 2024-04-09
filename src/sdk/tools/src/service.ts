@@ -74,7 +74,7 @@ async function main(applicationConf: ApplicationConf, walletConf: WalletConf) {
             console.error("Error in peer", message);
         });
 
-        p2pClient.onMessagingPong( (roundTripTime: number) => {
+        p2pClient.onMessagingPong( (roundTripTime: number) => {  //eslint-disable-line @typescript-eslint/no-unused-vars
             //console.debug("Ping/pong round trip time [ms]", roundTripTime);
         });
     });

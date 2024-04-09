@@ -15,22 +15,35 @@ import {
     SignaturesCollection,
 } from "./types";
 
-export class NonThreadedWorker {
-    protected cb?: Function;
+type Event = {
+    type: "message",
+    timeStamp: number,
+    data: {
+        message: any,
+    },
+    currentTarget?: any,
+    target?: any,
+};
 
-    protected listener?: Function;
+type AddEventListener = (topic: "message", listener: (data: any) => void) => void;
+
+export class NonThreadedWorker {
+    protected cb?: (event: any) => void;
+
+    protected listener?: (message: any) => void;
 
     // Faking the Worker interface
     //
     public onerror: any;
 
-    constructor(_?: string) {
+    constructor(_?: string) {  //eslint-disable-line @typescript-eslint/no-unused-vars
         const postMessage = (event: any) => {
             this.cb?.(event);
         };
 
-        const addEventListener = (_: "message", listener: Function) => {
-            this.listener = listener;
+        const addEventListener: AddEventListener =
+            (_: "message", listener: (message: any) => void) => {
+                this.listener = listener;
         };
 
         main(postMessage, addEventListener);
@@ -40,7 +53,7 @@ export class NonThreadedWorker {
         this.listener?.(message);
     }
 
-    public addEventListener(topic: "message", cb: Function) {
+    public addEventListener(topic: "message", cb: (event: any) => void) {
         this.cb = cb;
     }
 
@@ -48,9 +61,9 @@ export class NonThreadedWorker {
     }
 }
 
-function main(postMessage: Function, addEventListener: Function) {
+function main(postMessage: (event: Event) => void, addEventListener: AddEventListener) {
     const postMessageWrapped = (message: any) => {
-        const event = {
+        const event: Event = {
             type: "message",
             timeStamp: Date.now(),
             data: {

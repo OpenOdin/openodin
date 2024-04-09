@@ -65,7 +65,7 @@ export class ThreadController {
 
     protected purgeInterval: number;
 
-    protected purgeTimer?: ReturnType<typeof setInterval>;
+    protected purgeTimer?: ReturnType<typeof setTimeout>;
 
     /**
      * @param service the Service object needed to communicate with storage and to sync from peers
@@ -189,7 +189,7 @@ export class ThreadController {
         }
     }
 
-    protected purgeData(data: any) {
+    protected purgeData(data: any) {  //eslint-disable-line @typescript-eslint/no-unused-vars
         // Do nothing. Override to use to free allocated resources.
     }
 
@@ -262,7 +262,7 @@ export class ThreadController {
      * The function is also called for updated nodes allowing the associated data to be
      * properly updated alongside node transition or annotations updates.
      */
-    protected makeData(node: DataInterface, data: CRDTViewExternalData, isUpdate: boolean) {
+    protected makeData(node: DataInterface, data: CRDTViewExternalData, isUpdate: boolean) {  //eslint-disable-line @typescript-eslint/no-unused-vars
         // Do nothing.
         // Override to format new data.
     }
