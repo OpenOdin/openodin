@@ -126,6 +126,8 @@ export class P2PClient {
     /** Event handlers who support multiple hooks. */
     protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
 
+    protected sessionExpireTimeout?: ReturnType<typeof setTimeout>;
+
     /**
      * @param messaging is the handshaked Messaging instance.
      * @param localPeerData the PeerData representing this side.
@@ -173,6 +175,15 @@ export class P2PClient {
         this.remotePeerData = new PeerData();
         this.remotePeerData.load(remotePeerData.export(true), true);
 
+        const expireTime = localPeerData.getExpireTime() ?? 0;
+        if (expireTime > 0) {
+            console.debug(`Setting up session expiration in ${expireTime} seconds`);
+            this.sessionExpireTimeout = setTimeout(() => {
+                console.debug("Closing P2PClient session on expireTime");
+                this.close();
+            }, expireTime * 1000);
+        }
+
         // Default permissions are locked down.
         this.permissions = DeepCopy(permissions ?? LOCKED_PERMISSIONS);
 
@@ -195,6 +206,11 @@ export class P2PClient {
         if (this._isClosed) {
             return;
         }
+
+        if (this.sessionExpireTimeout) {
+            clearTimeout(this.sessionExpireTimeout);
+        }
+
         this._isClosed = true;
         this.onCloseHandlers.forEach( cb => cb(this) );
         this.messaging.close();

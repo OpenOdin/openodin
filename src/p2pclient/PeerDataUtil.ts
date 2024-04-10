@@ -19,11 +19,15 @@ import {
     Decoder,
 } from "../decoder";
 
+import {
+    PeerDataParams,
+} from "./types";
+
 /**
  * A class of static functions to pack and unpack PeerData.
  */
 export class PeerDataUtil {
-    public static create(params: {[key: string]: any}): PeerData {
+    public static create(params: PeerDataParams): PeerData {
         const peerData = new PeerData();
 
         peerData.setVersion(params.version);
@@ -46,6 +50,7 @@ export class PeerDataUtil {
         peerData.setRegion(params.region);
         peerData.setJurisdiction(params.jurisdiction);
         peerData.setAppVersion(params.appVersion);
+        peerData.setExpireTime(params.expireTime);
 
         return peerData;
     }

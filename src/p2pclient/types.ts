@@ -214,3 +214,16 @@ export const LOCKED_PERMISSIONS: P2PClientPermissions = {
         allowWriteBlob: false,
     }
 };
+
+export type PeerDataParams = {
+    version?: Buffer,
+    serializeFormat: number,
+    handshakePublicKey?: Buffer,
+    authCert?: Buffer,
+    authCertPublicKey?: Buffer,
+    clockDiff?: number,
+    region?: string,
+    jurisdiction?: string,
+    appVersion?: Buffer,
+    expireTime?: number,
+};

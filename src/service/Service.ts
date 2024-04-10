@@ -1582,6 +1582,7 @@ export class Service {
             region,
             jurisdiction,
             appVersion,
+            expireTime: 0,
         });
     }
 

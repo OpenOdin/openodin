@@ -59,6 +59,11 @@ const FIELDS: Fields = {
         index: 108,
         transient: true,
     },
+    expireTime: {
+        name: "expireTime",
+        type: FieldType.INT32BE,
+        index: 109,
+    },
 };
 
 /**
@@ -185,6 +190,21 @@ export class PeerData {
 
     public getClockDiff(): number {
         return this.model.getNumber("clockDiff") ?? 0;
+    }
+
+    /**
+     * The maximum expire time in seconds for the session from when it started.
+     * Each peer is responsible to shutdown the socket when it reaches
+     * its own expireTime.
+     * This property is announced as information to the other peer.
+     * A value of 0 means no expiration.
+     */
+    public setExpireTime(expireTime: number | undefined) {
+        this.model.setNumber("expireTime", expireTime);
+    }
+
+    public getExpireTime(): number {
+        return this.model.getNumber("expireTime") ?? 0;
     }
 
     public setHandshakePublicKey(publicKey: Buffer) {
