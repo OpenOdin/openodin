@@ -27,6 +27,10 @@ import {
 } from "./AlgoRefId";
 
 import {
+    AlgoSortedRefId,
+} from "./AlgoSortedRefId";
+
+import {
     DataInterface,
 } from "../../datamodel/node/secondary/interface";
 
@@ -51,6 +55,9 @@ export class CRDTManagerWorker {
             }
             else if (algoId === AlgoRefId.GetId()) {
                 algo = new AlgoRefId(orderByStorageTime, conf, targetPublicKey.toString("hex"));
+            }
+            else if (algoId === AlgoSortedRefId.GetId()) {
+                algo = new AlgoSortedRefId(orderByStorageTime, conf, targetPublicKey.toString("hex"));
             }
             else {
                 throw new Error(`CRDT algo function with ID ${algoId} not available.`);

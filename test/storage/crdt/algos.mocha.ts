@@ -15,6 +15,7 @@ import {
 
 import {
     AlgoSorted,
+    AlgoSortedRefId,
     AlgoRefId,
     AlgoInterface,
 } from "../../../src/storage/crdt";
@@ -276,6 +277,165 @@ describe("CRDT AlgoSorted", function() {
         assert(nodes[1].id1.equals(node2.getId1()!));
         assert(nodes[2].id1.equals(node4.getId1()!));
         assert(nodes[3].id1.equals(node3.getId1()!));
+    });
+});
+
+describe("CRDT AlgoSortedRefId", function() {
+    it("should sort nodes as expected", async function() {
+        await testSorted(new AlgoSortedRefId());
+    });
+
+    it("should sort on refId as expected", async function() {
+        const nodeUtil = new NodeUtil();
+
+        const algo = new AlgoSortedRefId();
+
+        const keyPair = Crypto.GenKeyPair();
+
+        const node1 = await nodeUtil.createDataNode({data: Buffer.from("node1"), creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+
+        const node1_1 = await nodeUtil.createDataNode({data: Buffer.from("node1_1"), creationTime: 9, refId: node1.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+
+        const node1_1_1 = await nodeUtil.createDataNode({data: Buffer.from("node1_1_1"), creationTime: 0, refId: node1_1.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+
+        let [addedNodes, transientNodes] = algo.add([node1, node1_1, node1_1_1]);
+        assert(addedNodes.length === 3);
+        assert(transientNodes.length === 0);
+
+        let indexes = algo.getIndexes([node1, node1_1, node1_1_1].map(ExtractNodeValuesRefId));
+        assert(indexes.length === 3);
+        assert(indexes[0] === 0);
+        assert(indexes[1] === 1);
+        assert(indexes[2] === 2);
+
+
+        const node0 = await nodeUtil.createDataNode({data: Buffer.from("node0"), creationTime: 9, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+
+        const node0_1 = await nodeUtil.createDataNode({data: Buffer.from("node0_1"), creationTime: 120, refId: node0.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+
+
+        // Insert orphan
+        [addedNodes, transientNodes] = algo.add([node0_1]);
+        assert(addedNodes.length === 1);
+        assert(transientNodes.length === 0);
+
+        indexes = algo.getIndexes([node1, node1_1, node1_1_1, node0_1].map(ExtractNodeValuesRefId));
+        assert(indexes.length === 4);
+        assert(indexes[0] === 0);
+        assert(indexes[1] === 1);
+        assert(indexes[2] === 2);
+        assert(indexes[3] === 3);  // Orphan has highest creationTime
+
+
+        // Insert orphan missing parent.
+        [addedNodes, transientNodes] = algo.add([node0]);
+        assert(addedNodes.length === 1);
+        assert(transientNodes.length === 0);
+
+        indexes = algo.getIndexes([node0, node0_1, node1, node1_1, node1_1_1].map(ExtractNodeValuesRefId));
+        assert(indexes.length === 5);
+        assert(indexes[0] === 0);
+        assert(indexes[1] === 4);
+        assert(indexes[2] === 1);
+        assert(indexes[3] === 2);
+        assert(indexes[4] === 3);
+
+        let nodes;
+
+        /// head
+        let ret = algo.get(undefined, -1, 1, 0, false);
+        assert(ret);
+        [nodes, indexes] = ret;
+        assert(indexes.length === 1);
+        assert(nodes[0].id1.equals(node0.getId1()!));
+
+        ret = algo.get(undefined, -1, -1, 0, false);
+        assert(ret);
+        [nodes, indexes] = ret;
+
+        assert(indexes.length === 5);
+        assert(nodes[0].id1.equals(node0.getId1()!));
+        assert(nodes[1].id1.equals(node1.getId1()!));
+        assert(nodes[2].id1.equals(node1_1.getId1()!));
+        assert(nodes[3].id1.equals(node1_1_1.getId1()!));
+        assert(nodes[4].id1.equals(node0_1.getId1()!));
+
+        ret = algo.get(undefined, -1, 4, 0, true);
+        assert(ret);
+        [nodes, indexes] = ret;
+
+        assert(indexes.length === 4);
+        assert(nodes[0].id1.equals(node0_1.getId1()!));
+        assert(nodes[1].id1.equals(node1_1_1.getId1()!));
+        assert(nodes[2].id1.equals(node1_1.getId1()!));
+        assert(nodes[3].id1.equals(node1.getId1()!));
+
+        ret = algo.get(node1_1_1.getId1(), -1, -1, 0, true);
+        assert(ret);
+        [nodes, indexes] = ret;
+
+        assert(indexes.length === 3);
+        assert(nodes[0].id1.equals(node1_1.getId1()!));
+        assert(nodes[1].id1.equals(node1.getId1()!));
+        assert(nodes[2].id1.equals(node0.getId1()!));
+
+        /// tail
+        ret = algo.get(undefined, -1, 0, 1, false);
+        assert(ret);
+        [nodes, indexes] = ret;
+
+        assert(indexes.length === 1);
+        assert(nodes[0].id1.equals(node0_1.getId1()!));
+
+        ret = algo.get(undefined, -1, 0, -1, false);
+        assert(ret);
+        [nodes, indexes] = ret;
+
+        assert(indexes.length === 5);
+        assert(nodes[0].id1.equals(node0.getId1()!));
+        assert(nodes[1].id1.equals(node1.getId1()!));
+        assert(nodes[2].id1.equals(node1_1.getId1()!));
+        assert(nodes[3].id1.equals(node1_1_1.getId1()!));
+        assert(nodes[4].id1.equals(node0_1.getId1()!));
+
+        ret = algo.get(node0_1.getId1(), -1, 0, -1, false);
+        assert(ret);
+        [nodes, indexes] = ret;
+
+        assert(indexes.length === 4);
+        assert(nodes[0].id1.equals(node0.getId1()!));
+        assert(nodes[1].id1.equals(node1.getId1()!));
+        assert(nodes[2].id1.equals(node1_1.getId1()!));
+        assert(nodes[3].id1.equals(node1_1_1.getId1()!));
+
+        ret = algo.get(undefined, -1, 0, 4, true);
+        assert(ret);
+        [nodes, indexes] = ret;
+
+        assert(indexes.length === 4);
+        assert(nodes[3].id1.equals(node0.getId1()!));
+        assert(nodes[2].id1.equals(node1.getId1()!));
+        assert(nodes[1].id1.equals(node1_1.getId1()!));
+        assert(nodes[0].id1.equals(node1_1_1.getId1()!));
+
+        ret = algo.get(undefined, -1, 0, -1, true);
+        assert(ret);
+        [nodes, indexes] = ret;
+
+        assert(indexes.length === 5);
+        assert(nodes[4].id1.equals(node0.getId1()!));
+        assert(nodes[3].id1.equals(node1.getId1()!));
+        assert(nodes[2].id1.equals(node1_1.getId1()!));
+        assert(nodes[1].id1.equals(node1_1_1.getId1()!));
+        assert(nodes[0].id1.equals(node0_1.getId1()!));
+
+        ret = algo.get(node1_1.getId1(), -1, 0, -1, true);
+        assert(ret);
+        [nodes, indexes] = ret;
+
+        assert(indexes.length === 2);
+        assert(nodes[1].id1.equals(node1_1_1.getId1()!));
+        assert(nodes[0].id1.equals(node0_1.getId1()!));
     });
 });
 

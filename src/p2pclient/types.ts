@@ -3,6 +3,12 @@ import {
     AllowEmbed,
 } from "../types";
 
+import {
+    AlgoSorted,
+    AlgoRefId,
+    AlgoSortedRefId,
+} from "../storage/crdt";
+
 export enum RouteAction {
     STORE       = "store",
     FETCH       = "fetch",
@@ -148,7 +154,11 @@ export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
         allowIncludeLicenses: 3,
         allowTrigger: true,
         allowNodeTypes: [Buffer.from("0004", "hex")],
-        allowAlgos: [1, 2],
+        allowAlgos: [
+            AlgoSorted.GetId(),
+            AlgoRefId.GetId(),
+            AlgoSortedRefId.GetId(),
+        ],
         allowReadBlob: true,
     },
     storePermissions: {
@@ -190,7 +200,11 @@ export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
         allowIncludeLicenses: 3,
         allowTrigger: true,
         allowNodeTypes: [Buffer.from("0004", "hex")],
-        allowAlgos: [1, 2],
+        allowAlgos: [
+            AlgoSorted.GetId(),
+            AlgoRefId.GetId(),
+            AlgoSortedRefId.GetId(),
+        ],
         allowReadBlob: true,
     },
     storePermissions: {
