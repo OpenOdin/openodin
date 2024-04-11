@@ -675,9 +675,9 @@ export class Model {
     }
 
     /**
-     * @returns an array containing the field, the value and the updated position (pointer).
+     * @returns an array containing the field, the value and the updated position (pointer),
+     * or array of undefined values if field index not found.
      *
-     * @throws an error message when there is no field matching the pointed index (pointer).
      * @throws an error message when the field string data is bigger than the expected maxSize.
      * @throws an error message when the field bytes data is bigger than the expected maxSize.
      * @throws an error message when the field data is of unknown type.
@@ -698,7 +698,7 @@ export class Model {
         }
 
         if (!field) {
-            throw new Error("Unknown field index");
+            return [undefined, undefined, 0];
         }
 
         if (fieldType === FieldType.INT8) {
