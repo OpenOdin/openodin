@@ -97,6 +97,8 @@ describe("Storage: disallow storing persistent values", function() {
             preserveTransient: true,
             nodes: [node1.export()],
             muteMsgIds: [],
+            batchId: 0,
+            hasMore: false,
         };
 
         let response: any;
@@ -196,6 +198,8 @@ describe("Storage: update transient values on nodes", function() {
             preserveTransient: false,
             nodes: [node1A.export(true), node1B.export(), node2.export()],
             muteMsgIds: [],
+            batchId: 0,
+            hasMore: false,
         };
 
         let response: any;
@@ -393,6 +397,8 @@ describe("Concensus: test streaming updates", async function() {
             nodes: [node1A.export(true), node1B.export(true), node1C.export(true),
                 node2A.export(true), node2C.export(true)],
             muteMsgIds: [],
+            batchId: 0,
+            hasMore: false,
         };
 
         let response: any;

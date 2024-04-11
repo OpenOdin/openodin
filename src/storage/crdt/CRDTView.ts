@@ -25,6 +25,10 @@ export class CRDTView {
         datas: {},
     };
 
+    protected itemIndex: {[id: string]: number} = {};
+
+    protected cachedGetItems?: CRDTViewItem[];
+
     public handleResponse(nodes: DataInterface[], delta?: Buffer) {
         const addedNodesId1s: Buffer[] = [];
 
@@ -86,16 +90,18 @@ export class CRDTView {
 
             this.model.list = list;
 
-            const listNodeId1s: {[id: string]: boolean} = {};
+            delete this.cachedGetItems;
 
-            this.model.list.forEach( id1 => {
+            this.itemIndex = {};
+
+            this.model.list.forEach( (id1, index) => {
                 const id1Str = id1.toString("hex");
-                listNodeId1s[id1Str] = true;
+                this.itemIndex[id1Str] = index;
             });
 
             Object.keys(this.model.nodes).forEach( nodeId1Str => {
 
-                if (listNodeId1s[nodeId1Str] === undefined) {
+                if (this.itemIndex[nodeId1Str] === undefined) {
                     delete this.model.nodes[nodeId1Str];
 
                     deletedNodesId1s.push(Buffer.from(nodeId1Str, "hex"));
@@ -140,6 +146,10 @@ export class CRDTView {
      * @returns the internal items object to be used with the application as read-only.
      */
     public getItems(): CRDTViewItem[] {
+        if (this.cachedGetItems) {
+            return this.cachedGetItems;
+        }
+
         const items: CRDTViewItem[] = [];
 
         const listLength = this.model.list.length;
@@ -152,6 +162,8 @@ export class CRDTView {
             }
 
         }
+
+        this.cachedGetItems = items;
 
         return items;
     }
@@ -179,20 +191,18 @@ export class CRDTView {
         };
     }
 
+    public getItemIndex(id1: Buffer): number | undefined {
+        return this.itemIndex[id1.toString("hex")];
+    }
+
     /**
      * Find item in view of items.
      */
     public findItem(id1: Buffer): CRDTViewItem | undefined {
-        const items = this.getItems();
+        const index = this.getItemIndex(id1);
 
-        const itemsLength = items.length;
-
-        for (let i=0; i<itemsLength; i++) {
-            const item = items[i];
-
-            if (item.id1.equals(id1)) {
-                return item;
-            }
+        if (index !== undefined) {
+            return this.getItem(index);
         }
 
         return undefined;

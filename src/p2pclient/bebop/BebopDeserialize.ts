@@ -180,7 +180,8 @@ export class BebopDeserialize {
 
         if (obj.nodes === undefined || obj.sourcePublicKey === undefined ||
             obj.targetPublicKey === undefined || obj.muteMsgIds === undefined ||
-            obj.preserveTransient === undefined)
+            obj.preserveTransient === undefined || obj.batchId === undefined ||
+            obj.hasMore === undefined)
         {
             throw new Error("Could not deserialize StoreRequest");
         }

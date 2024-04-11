@@ -120,6 +120,8 @@ message BopStoreRequest {
     3 -> byte[] targetPublicKey;
     4 -> byte[][] muteMsgIds;
     5 -> bool preserveTransient;
+    6 -> uint32 batchId;
+    7 -> bool hasMore;
 }
 
 [opcode(0x00000004)]

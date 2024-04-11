@@ -662,6 +662,23 @@ export type StoreRequest = {
      * The Storage must be configured to allow the preservation of transient values for them to be stored.
      */
     preserveTransient: boolean,
+
+    /**
+     * The peer sending the storage request can signal that it will send more data as part of a batch.
+     * This can help the receiving peer postpone costly operations such as updating CRDT models.
+     * This is an optional field which defaults to 0 meaning no batch in use.
+     * batchId should be a unique uint32 number which is not to be reused by the client.
+     * muteMsgIds is preserved only for the first request of the batch, then it is ignored.
+     */
+    batchId: number,
+
+    /**
+     * When using batchId this field should be set when more data will be sent in a subsequent request.
+     * When the last request of the batch is sent this should be false.
+     * If batchId is not > 0 then this field is ignored.
+     * Default is false.
+     */
+    hasMore: boolean,
 };
 
 /** Struct used for responding to store requests. */

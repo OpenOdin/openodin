@@ -173,11 +173,17 @@ export class P2PClientExtender extends P2PClientForwarder {
 
         const imagesChunks = this.splitImages(embeddedImages);
 
+        // Does not have to be secure random number.
+        //
+        const batchId = Math.floor(Math.random() * 100_000_000);
+
         while (imagesChunks.length > 0) {
             const images = imagesChunks.shift();
             if (!images) {
                 continue;
             }
+
+            const hasMore = imagesChunks.length > 0;
 
             const storeRequest: StoreRequest = {
                 nodes: images,
@@ -185,6 +191,8 @@ export class P2PClientExtender extends P2PClientForwarder {
                 sourcePublicKey,
                 muteMsgIds: [],
                 preserveTransient: false,  // No point trying preserving transient values since none have been set on these new nodes.
+                batchId,
+                hasMore,
             };
 
             const {getResponse} = this.targetClient.store(storeRequest);

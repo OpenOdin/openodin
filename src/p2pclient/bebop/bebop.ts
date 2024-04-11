@@ -818,6 +818,8 @@ export interface IBopStoreRequest {
   targetPublicKey?: Uint8Array;
   muteMsgIds?: Array<Uint8Array>;
   preserveTransient?: boolean;
+  batchId?: number;
+  hasMore?: boolean;
 }
 
 export const BopStoreRequest = {
@@ -864,6 +866,14 @@ export const BopStoreRequest = {
       if (message.preserveTransient != null) {
         view.writeByte(5);
         view.writeByte(Number(message.preserveTransient));
+      }
+      if (message.batchId != null) {
+        view.writeByte(6);
+        view.writeUint32(message.batchId);
+      }
+      if (message.hasMore != null) {
+        view.writeByte(7);
+        view.writeByte(Number(message.hasMore));
       }
       view.writeByte(0);
       const end = view.length;
@@ -921,6 +931,14 @@ export const BopStoreRequest = {
 
         case 5:
           message.preserveTransient = !!view.readByte();
+          break;
+
+        case 6:
+          message.batchId = view.readUint32();
+          break;
+
+        case 7:
+          message.hasMore = !!view.readByte();
           break;
 
         default:

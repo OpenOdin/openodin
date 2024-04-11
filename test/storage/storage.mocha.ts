@@ -768,6 +768,8 @@ function setupTests(config: any) {
             preserveTransient,
             nodes,
             muteMsgIds,
+            batchId: 0,
+            hasMore: false,
         };
 
         let response: any;
@@ -883,6 +885,8 @@ function setupTests(config: any) {
             preserveTransient,
             nodes,
             muteMsgIds,
+            batchId: 0,
+            hasMore: false,
         };
 
         await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
@@ -907,6 +911,8 @@ function setupTests(config: any) {
             preserveTransient,
             nodes,
             muteMsgIds,
+            batchId: 0,
+            hasMore: false,
         };
 
         fetchedNodes.length = 0;
@@ -935,6 +941,8 @@ function setupTests(config: any) {
             preserveTransient,
             nodes,
             muteMsgIds,
+            batchId: 0,
+            hasMore: false,
         };
 
         fetchedNodes.length = 0;
@@ -962,6 +970,8 @@ function setupTests(config: any) {
             preserveTransient,
             nodes,
             muteMsgIds: [],
+            batchId: 0,
+            hasMore: false,
         };
 
         fetchedNodes.length = 0;
@@ -992,6 +1002,8 @@ function setupTests(config: any) {
             preserveTransient,
             nodes,
             muteMsgIds: [fromMsgId],
+            batchId: 0,
+            hasMore: false,
         };
 
         counter = 0;
@@ -1029,6 +1041,8 @@ function setupTests(config: any) {
             preserveTransient,
             nodes,
             muteMsgIds: [],
+            batchId: 0,
+            hasMore: false,
         };
 
         counter = 0;
@@ -1157,6 +1171,8 @@ function setupTests(config: any) {
             preserveTransient: false,
             nodes: [node1.export(), node2.export(), node3.export(), node4.export(), node5.export()],
             muteMsgIds: [],
+            batchId: 0,
+            hasMore: false,
         };
 
         await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
@@ -1441,6 +1457,8 @@ function setupTests(config: any) {
             preserveTransient: false,
             nodes: [node1.export(), node2.export()],
             muteMsgIds: [],
+            batchId: 0,
+            hasMore: false,
         };
 
         await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
@@ -1521,6 +1539,8 @@ function setupTests(config: any) {
             preserveTransient: false,
             nodes: [license1.export()],
             muteMsgIds: [],
+            batchId: 0,
+            hasMore: false,
         };
 
         await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
@@ -1559,6 +1579,8 @@ function setupTests(config: any) {
             preserveTransient: false,
             nodes: [license2.export()],
             muteMsgIds: [],
+            batchId: 0,
+            hasMore: false,
         };
 
         await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
@@ -1648,6 +1670,8 @@ function setupTests(config: any) {
             preserveTransient,
             nodes,
             muteMsgIds,
+            batchId: 0,
+            hasMore: false,
         };
 
         await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
@@ -1672,6 +1696,8 @@ function setupTests(config: any) {
             preserveTransient,
             nodes,
             muteMsgIds,
+            batchId: 0,
+            hasMore: false,
         };
 
         fetchedNodes.length = 0;
@@ -1700,6 +1726,8 @@ function setupTests(config: any) {
             preserveTransient,
             nodes,
             muteMsgIds,
+            batchId: 0,
+            hasMore: false,
         };
 
         fetchedNodes.length = 0;
@@ -1727,6 +1755,8 @@ function setupTests(config: any) {
             preserveTransient,
             nodes,
             muteMsgIds: [],
+            batchId: 0,
+            hasMore: false,
         };
 
         fetchedNodes.length = 0;
@@ -1757,6 +1787,8 @@ function setupTests(config: any) {
             preserveTransient,
             nodes,
             muteMsgIds: [fromMsgId],
+            batchId: 0,
+            hasMore: false,
         };
 
         counter = 0;
@@ -1794,6 +1826,8 @@ function setupTests(config: any) {
             preserveTransient,
             nodes,
             muteMsgIds: [],
+            batchId: 0,
+            hasMore: false,
         };
 
         counter = 0;

@@ -80,10 +80,6 @@ export class P2PClientAutoFetcher {
      */
     protected reverse: boolean;
 
-    protected queuedImageChunks: (Buffer[])[];
-
-    protected busyProcessing: boolean;
-
     /**
      * @param serverClient the client to fetch on (or store to if reverse).
      * @param storageClient the client to store to (or fetch from if reverse).
@@ -96,8 +92,6 @@ export class P2PClientAutoFetcher {
         this.reverse = reverse;
         this.autoFetchSubscriptions = [];
         this.syncingBlobs = {};
-        this.queuedImageChunks = [];
-        this.busyProcessing = false;
         this.blobHandlers = [];
 
         this.serverClient.onClose( () => this.close() );
@@ -147,13 +141,29 @@ export class P2PClientAutoFetcher {
             this.removeFetch(autoFetch);
         });
 
-        getResponse.onReply( async (fetchResponse: FetchResponse) => {
+        // Does not have to be secure random number.
+        //
+        let batchId = Math.floor(Math.random() * 100_000_000);
+
+        getResponse.onReply( (fetchResponse: FetchResponse) => {
             // Data is incoming from server peer, put it to storage.
             if (fetchResponse.status === Status.RESULT) {
                 // If we requested transient values to be kept on the nodes when fetching from peer,
-                // we try to preserve them into the Storage (this requires that the Storage is OK with that).
+                // we try to preserve them into the Storage
+                // (this requires that the Storage is OK with that).
+                const preserveTransient = fetchRequest.query.preserveTransient;
+
+                const isLast = fetchResponse.seq === fetchResponse.endSeq;
+
                 this.processFetch(fetchResponse.result.nodes, autoFetch.blobSizeMaxLimit,
-                    fetchRequest.query.preserveTransient);
+                    fetchRequest.query.preserveTransient, batchId, isLast);
+
+                if (isLast) {
+                    // Genereate a new batchId.
+                    // Does not have to be secure random number.
+                    //
+                    batchId = Math.floor(Math.random() * 100_000_000);
+                }
             }
             else if (fetchResponse.error) {
                 console.debug("AutoFetcher got error on response:", fetchResponse.error);
@@ -184,33 +194,47 @@ export class P2PClientAutoFetcher {
         return msgId;
     }
 
-    protected async processFetch(images: Buffer[], blobSizeMaxLimit: number, preserveTransient: boolean) {
-        // For all subscriptions the serverClient P2PClient has to the storage we mute those subscriptions
-        // when storing data because the data comes from the serverClient and there is no point echoing it back.
+    protected processFetch(images: Buffer[], blobSizeMaxLimit: number,
+        preserveTransient: boolean, batchId: number, isLast: boolean)
+    {
+        // For all subscriptions the serverClient P2PClient has to the storage we mute those
+        // subscriptions when storing data because the data comes from the serverClient and
+        // there is no point echoing it back.
+        //
         const imagesChunks = this.splitImages(images);
-        this.queuedImageChunks.push(...imagesChunks);
 
-        if (this.busyProcessing) {
+        const muteMsgIds = this.reverse ?
+            // When fetching in reverse we do not want to trigger the reverseMuteMsgIds.
+            this.reverseMuteMsgIds :
+            // When fetching in normal we do not want to trigger the muteMsgIds.
+            this.muteMsgIds;
+
+        if (isLast && imagesChunks.length === 0) {
+            // We need to send a final empty store request to finalize the batch.
+            //
+            const storeRequest: StoreRequest = {
+                nodes: [],
+                targetPublicKey: this.storageClient.getLocalPublicKey(),
+                sourcePublicKey: this.serverClient.getRemotePublicKey(),
+                muteMsgIds,
+                preserveTransient,
+                batchId,
+                hasMore: false,
+            };
+
+            this.storageClient.store(storeRequest);
+
             return;
         }
 
-        this.busyProcessing = true;
-
-        const storedId1s: Buffer[] = [];  // id1 of all nodes which just got stored.
-        const missingBlobId1s: {[id1: string]: Buffer} = {};
-
-        while (this.queuedImageChunks.length > 0) {
-            const images = this.queuedImageChunks.shift();
+        while (imagesChunks.length > 0) {
+            const images = imagesChunks.shift();
 
             if (!images) {
                 continue;
             }
 
-            const muteMsgIds = this.reverse ?
-                // When fetching in reverse we do not want to trigger the reverseMuteMsgIds.
-                this.reverseMuteMsgIds :
-                // When fetching in normal we do not want to trigger the muteMsgIds.
-                this.muteMsgIds;
+            const hasMore = !isLast || imagesChunks.length > 0;
 
             const storeRequest: StoreRequest = {
                 nodes: images,
@@ -218,6 +242,8 @@ export class P2PClientAutoFetcher {
                 sourcePublicKey: this.serverClient.getRemotePublicKey(),
                 muteMsgIds,
                 preserveTransient,
+                batchId,
+                hasMore,
             };
 
             const {getResponse} = this.storageClient.store(storeRequest);
@@ -227,45 +253,38 @@ export class P2PClientAutoFetcher {
                 break;
             }
 
-            const anyData = await getResponse.onceAny();
+            getResponse.onceAny().then( anyData => {
+                if (anyData.type !== EventType.REPLY || anyData.response?.status !== Status.RESULT) {
+                    const reverse = this.reverse ? " (reverse store) " : "";
 
-            if (anyData.type !== EventType.REPLY || anyData.response?.status !== Status.RESULT) {
-                const reverse = this.reverse ? " (reverse store) " : "";
+                    console.error(`Could not store the incoming fetched data to Storage${reverse}. Store response type: ${anyData.type}. Response status: ${anyData.response?.status}. Error: ${anyData.response?.error}`);
+                    return;
+                }
 
-                console.error(`Could not store the incoming fetched data to Storage${reverse}. Store response type: ${anyData.type}. Response status: ${anyData.response?.status}. Error: ${anyData.response?.error}`);
-                // Abort the storage operation.
-                break;
-            }
+                // The IDs of stored nodes we can trust have now been cryptographically verified by the Storage.
+                if (!anyData.response) {
+                    return;
+                }
 
-            // The IDs of stored nodes we can trust have now been cryptographically verified by the Storage.
-            storedId1s.push(...anyData.response.storedId1s);
+                const len = anyData.response.missingBlobId1s.length;
 
-            const l = anyData.response.missingBlobId1s.length;
+                for (let i=0; i<len; i++) {
+                    const id1: Buffer = anyData.response.missingBlobId1s[i];
 
-            for (let i=0; i<l; i++) {
-                const id1: Buffer = anyData.response.missingBlobId1s[i];
-                const id1Str = id1.toString("hex");
+                    const id1Str = id1.toString("hex");
 
-                const blobSize = anyData.response.missingBlobSizes[i];
+                    const blobSize = anyData.response.missingBlobSizes[i];
 
-                if (!this.syncingBlobs[id1Str] && blobSize !== undefined) {
+                    if (!this.syncingBlobs[id1Str] && blobSize !== undefined) {
+                        if (blobSizeMaxLimit < 0 ||
+                            (blobSizeMaxLimit > 0 && blobSizeMaxLimit >= blobSize)) {
 
-                    if (blobSizeMaxLimit < 0 ||
-                        (blobSizeMaxLimit > 0 && blobSizeMaxLimit >= blobSize)) {
-
-                        missingBlobId1s[id1Str] = id1;
+                            this.syncBlob(id1);
+                        }
                     }
                 }
-            }
+            });
         }
-
-        // We reset this in the case the iteration was breaked.
-        this.queuedImageChunks.length = 0;
-        this.busyProcessing = false;
-
-        // When getting nodes from the peer we can also sync blob data, if any.
-        //
-        Object.values(missingBlobId1s).forEach( nodeId1 => this.syncBlob(nodeId1) );
     }
 
     /**
