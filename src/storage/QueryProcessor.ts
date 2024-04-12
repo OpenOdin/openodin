@@ -1114,7 +1114,6 @@ export class QueryProcessor {
                         const counter = (group[hashedValue] ?? 0) + 1;
 
                         if (counter > match.limitField.limit) {
-                            state.done = true;
                             continue;
                         }
 
