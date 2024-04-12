@@ -44,9 +44,11 @@ if (!isNode) {
 
 export class CRDTManager {
     protected _isInited: boolean = false;
-    protected rpc?: RPC;
-    protected workerThread?: Worker;
+    protected rpcs: RPC[] = [];
+    protected workerThreads: Worker[] = [];
     protected initPromise?: Promise<void>;
+    protected rpcCounter: number = 0;
+    protected rpcMap: {[key: string]: RPC} = {};
 
     public async init() {
         if (this._isInited) {
@@ -58,65 +60,12 @@ export class CRDTManager {
         }
 
         this.initPromise = new Promise<void>( (resolve) => {
-            try {
-                const workerURIs = [
-                    "./crdt-worker.js",
-                    "./node_modules/openodin/build/src/storage/crdt/crdt-worker.js",
-                    "./build/src/storage/crdt/crdt-worker.js",
-                    "crdt-worker-browser.js",
-                ];
+            const p1 = this.spawnThread();
+            const p2 = this.spawnThread();
 
-                let workerURI = workerURIs.pop();
+            Promise.all([p1, p2]).then( (rpcs: RPC[]) => {
+                this.rpcs = rpcs;
 
-                if (!isBrowser) {
-                    while (workerURI) {
-                        if (fs.existsSync(workerURI)) {
-                            break;
-                        }
-                        workerURI = workerURIs.pop();
-                    }
-
-                    if (!workerURI) {
-                        throw new Error("Could not find crdt-worker.js");
-                    }
-                }
-
-                this.workerThread = new Worker(workerURI);
-
-                this.workerThread.onerror = (error: ErrorEvent) => {
-                    console.error(`Error loading ${workerURI}`, error);
-                };
-            }
-            catch(e) {
-                console.error("Could not initiate crdt worker", e);
-
-                this.initPromise = undefined;
-
-                return;
-            }
-
-            const postMessageWrapped = (message: any) => {
-                this.workerThread?.postMessage({message});
-            };
-
-            const listenMessage = (listener: any) => {
-                this.workerThread?.addEventListener("message", (event: any) => {
-                    listener(event.data?.message);
-                });
-            };
-
-            this.rpc = new RPC(postMessageWrapped, listenMessage);
-
-            const promise = new Promise<void>( resolve => {
-                this.rpc?.onCall("hello", () => {
-
-                    this.rpc?.offCall("hello");
-
-                    resolve();
-                });
-            });
-
-            promise.then( () => {
                 this._isInited = true;
 
                 this.initPromise = undefined;
@@ -128,13 +77,81 @@ export class CRDTManager {
         return this.initPromise;
     }
 
+    protected spawnThread(): Promise<RPC> {
+        return new Promise<RPC>( resolve => {
+            const workerURIs = [
+                "./crdt-worker.js",
+                "./node_modules/openodin/build/src/storage/crdt/crdt-worker.js",
+                "./build/src/storage/crdt/crdt-worker.js",
+                "crdt-worker-browser.js",
+            ];
+
+            let workerURI = workerURIs.pop();
+
+            if (!isBrowser) {
+                while (workerURI) {
+                    if (fs.existsSync(workerURI)) {
+                        break;
+                    }
+                    workerURI = workerURIs.pop();
+                }
+
+                if (!workerURI) {
+                    throw new Error("Could not find crdt-worker.js");
+                }
+            }
+
+            const workerThread = new Worker(workerURI);
+
+            workerThread.onerror = (error: ErrorEvent) => {
+                console.error(`Error loading ${workerURI}`, error);
+            };
+
+            const postMessageWrapped = (message: any) => {
+                workerThread.postMessage({message});
+            };
+
+            const listenMessage = (listener: any) => {
+                workerThread.addEventListener("message", (event: any) => {
+                    listener(event.data?.message);
+                });
+            };
+
+            this.workerThreads.push(workerThread);
+
+            const rpc = new RPC(postMessageWrapped, listenMessage);
+
+            rpc.onCall("hello", () => {
+                rpc.offCall("hello");
+
+                resolve(rpc);
+            });
+        });
+    }
+
+    protected getRPC(key: string): RPC {
+        let rpc = this.rpcMap[key];
+
+        if (!rpc) {
+            rpc = this.rpcs[this.rpcCounter++ % this.rpcs.length];
+
+            if (!rpc) {
+                throw new Error("Missing RPC");
+            }
+
+            this.rpcMap[key] = rpc;
+        }
+
+        return rpc;
+    }
+
     public close() {
         if (!this._isInited) {
             return;
         }
 
-        this.rpc?.close();
-        this.workerThread?.terminate();
+        this.rpcs.map( rpc => rpc.close() );
+        this.workerThreads.map( thread => thread.terminate() );
 
         this._isInited = false;
     }
@@ -159,7 +176,9 @@ export class CRDTManager {
 
         const images: Buffer[] = nodes.map( node => node.export(true) );
 
-        return this.rpc?.call("updateModel", [key, algoId, conf, fetchRequest.query.orderByStorageTime,
+        const rpc = this.getRPC(key);
+
+        return rpc.call("updateModel", [key, algoId, conf, fetchRequest.query.orderByStorageTime,
             images, fetchRequest.query.targetPublicKey]);
     }
 
@@ -168,7 +187,9 @@ export class CRDTManager {
             await this.init();
         }
 
-        await this.rpc?.call("beginDeletionTracking", [key]);
+        const rpc = this.getRPC(key);
+
+        await rpc.call("beginDeletionTracking", [key]);
     }
 
     public async commitDeletionTracking(key: string) {
@@ -176,7 +197,9 @@ export class CRDTManager {
             await this.init();
         }
 
-        await this.rpc?.call("commitDeletionTracking", [key]);
+        const rpc = this.getRPC(key);
+
+        await rpc.call("commitDeletionTracking", [key]);
     }
 
     /**
@@ -193,7 +216,9 @@ export class CRDTManager {
             await this.init();
         }
 
-        const result = await this.rpc?.call("getView", [key, cursorId1, cursorIndex, head, tail, reverse]);
+        const rpc = this.getRPC(key);
+
+        const result = await rpc.call("getView", [key, cursorId1, cursorIndex, head, tail, reverse]);
 
         if (!result) {
             return undefined;
