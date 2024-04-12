@@ -1125,12 +1125,22 @@ export class ParseUtil {
             "storeResponse preserveTransient must be boolean, if set",
             obj.preserveTransient, "boolean", true) ?? false;
 
+        const batchId = ParseUtil.ParseVariable(
+            "storeResponse batchId must be number, if set",
+            obj.batchId, "number", true) ?? 0;
+
+        const hasMore = ParseUtil.ParseVariable(
+            "storeResponse hasMore must be boolean, if set",
+            obj.hasMore, "boolean", true) ?? false;
+
         return {
             nodes,
             sourcePublicKey,
             targetPublicKey,
             muteMsgIds,
             preserveTransient,
+            batchId,
+            hasMore,
         };
     }
 

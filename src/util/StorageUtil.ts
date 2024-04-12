@@ -240,6 +240,8 @@ export class StorageUtil {
             sourcePublicKey: storeRequestParams.sourcePublicKey ?? Buffer.alloc(0),
             muteMsgIds: storeRequestParams.muteMsgIds ?? [],
             preserveTransient: Boolean(storeRequestParams.preserveTransient),
+            batchId: 0,
+            hasMore: false,
         }
 
         return storeRequest;

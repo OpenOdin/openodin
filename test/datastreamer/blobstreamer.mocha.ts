@@ -183,6 +183,8 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
             preserveTransient: false,
             nodes: [node1.export()],
             muteMsgIds: [],
+            batchId: 0,
+            hasMore: false,
         };
 
         let {getResponse} = clientP2pClient.store(storeRequest);
@@ -232,6 +234,8 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
             preserveTransient: false,
             nodes: [license1.export()],
             muteMsgIds: [],
+            batchId: 0,
+            hasMore: false,
         };
 
         getResponse = clientP2pClient.store(storeRequest).getResponse;

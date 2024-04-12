@@ -145,6 +145,8 @@ export class Storage {
 
     protected lock: Lock;
 
+    protected queuedInsertEvents: {[hash: string]: [Set<Buffer>, Buffer[], ReturnType<typeof setTimeout> | undefined]} = {};
+
     /**
      * @param p2pClient the connection to the client.
      * @param signatureOffloader
@@ -217,6 +219,12 @@ export class Storage {
             this.triggerTimeout = undefined;
         }
 
+        Object.values(this.queuedInsertEvents).forEach( item => {
+            if (item?.[2] !== undefined) {
+                clearTimeout(item[2]);
+            }
+        });
+
         this.crdtManager.close();
     };
 
@@ -224,11 +232,20 @@ export class Storage {
         async (storeRequest: StoreRequest, peer: P2PClient, fromMsgId: Buffer,
             expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) =>
     {
-
         let ts: number | undefined;
 
         // Collect all locks here in case finally needs to release all locks.
         const locks: Mutex[] = [];
+
+        const hashStr = Hash([storeRequest.targetPublicKey,
+            storeRequest.sourcePublicKey,
+            storeRequest.batchId]).toString("hex");
+
+        // Grab lock here, but wait for our turn later on
+        //
+        const mutex3 = this.lock.acquire(`store-${hashStr}`);
+
+        locks.push(mutex3);
 
         try {
             if (storeRequest.targetPublicKey.length === 0) {
@@ -293,6 +310,12 @@ export class Storage {
             // Cryptographically verify all nodes.
             const verifiedNodes =
                 await this.signatureOffloader.verify(decodedNodes) as NodeInterface[];
+
+            // Now wait for our turn to proceed.
+            //
+            if (mutex3.p) {
+                await mutex3.p;
+            }
 
             ts = this.timeFreeze.freeze();
 
@@ -373,7 +396,11 @@ export class Storage {
                 }
 
                 if (parentIds.length > 0) {
-                    setImmediate( () => this.triggerInsertEvent(parentIds, storeRequest.muteMsgIds) );
+                    this.queueInsertEvents(hashStr, parentIds, storeRequest.muteMsgIds, storeRequest.hasMore);
+                }
+
+                if (storeRequest.batchId === 0 || !storeRequest.hasMore) {
+                    setImmediate(() => this.executeInsertEvents(hashStr));
                 }
 
                 storeResponse = {
@@ -394,6 +421,8 @@ export class Storage {
                     error: "Failed storing nodes, database busy.",
                 };
             }
+
+            this.lock.release(mutex3);
 
             if (sendResponse) {
                 sendResponse(storeResponse);
@@ -424,6 +453,48 @@ export class Storage {
             });
         }
     };
+
+    protected queueInsertEvents(hashStr: string, parentIds: Buffer[], muteMsgIds: Buffer[], hasMore: boolean) {
+        let item = this.queuedInsertEvents[hashStr];
+
+        if (!item) {
+
+            let timeoutId = undefined;
+
+            if (hasMore) {
+                // Give a 100 second window for the batch to finish, else auto execute it.
+                // Note: we should swap this for something cheaper eventually.
+                //
+                timeoutId = setTimeout(() => this.executeInsertEvents(hashStr), 100_000);
+            }
+
+            item = [new Set<Buffer>(), muteMsgIds, timeoutId];
+        }
+
+        this.queuedInsertEvents[hashStr] = item;
+
+        parentIds.forEach( parentId => item[0].add(parentId) );
+    }
+
+    protected async executeInsertEvents(hashStr: string) {
+        if (this.p2pClient.isClosed()) {
+            return;
+        }
+
+        const item = this.queuedInsertEvents[hashStr];
+
+        if (item) {
+            delete this.queuedInsertEvents[hashStr];
+
+            const [parentIds, muteMsgIds, timeoutId] = item;
+
+            if (timeoutId !== undefined) {
+                clearTimeout(timeoutId);
+            }
+
+            this.triggerInsertEvent(Array.from(parentIds), muteMsgIds);
+        }
+    }
 
     /**
      * @returns list of promises used for testing purposes.

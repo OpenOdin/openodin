@@ -561,6 +561,8 @@ function setupDriverTests(config: any) {
  * 2. We want to see that concurrent writes are possible (race conditions apply).
  * 3. However, we also want to be able to block writes using a write transaction,
  *    but reads should not be blocked.
+ *
+ * UPDATE: FIXME: SQLITE_BUSY exceptions are expected sometimes as two concurrent writes are performed
  */
 describe("Concurrency: SQLite journalling mode for concurrent BlobDriver access", function() {
     const dbName = "/tmp/sqlite-blob";
@@ -688,8 +690,14 @@ function setupBlobDriverTests(config: any) {
         p1 = driver1.writeBlobFragment(dataId, fragment1, fragmentIndex, now);
         p2 = driver2.writeBlobFragment(dataId, fragment2, fragmentIndex, now);
 
-        await p1;
-        await p2;
+        try {
+            await p1;
+            await p2;
+        }
+        catch(e) {
+            console.error("Error: Concurrency exception in setupBlobDriverTests");
+            throw e;
+        }
 
         const ph = db1.generatePlaceholders(1);
 
@@ -704,9 +712,16 @@ function setupBlobDriverTests(config: any) {
         await sleep(1);
         const p3 = db2.all(`SELECT fragment FROM openodin_blob_data WHERE dataid=${ph};`, [dataId]);
 
-        rows = await p2;
-        let rows2 = await p3;
-        await p1;
+        let rows2;
+        try {
+            rows = await p2;
+            rows2 = await p3;
+            await p1;
+        }
+        catch(e) {
+            console.error("Error: Unexpected exception in setupBlobDriverTests");
+            throw e;
+        }
 
         assert(rows.length === 1);
         // Both can happen.
