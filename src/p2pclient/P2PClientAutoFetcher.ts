@@ -159,7 +159,7 @@ export class P2PClientAutoFetcher {
                     fetchRequest.query.preserveTransient, batchId, isLast);
 
                 if (isLast) {
-                    // Genereate a new batchId.
+                    // Generate a new batchId for the next processFetch.
                     // Does not have to be secure random number.
                     //
                     batchId = Math.floor(Math.random() * 100_000_000);
