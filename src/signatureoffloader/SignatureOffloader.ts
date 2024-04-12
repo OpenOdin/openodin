@@ -239,13 +239,9 @@ export class SignatureOffloader implements SignatureOffloaderInterface {
 
                 const worker = this.cryptoWorkers[this.cryptoWorkerIndex];
 
-                if (!worker && this.cryptoWorkerIndex === 0) {
+                if (!worker) {
                     reject("No cryptoWorkers available for signature verification.");
                     return;
-                }
-                else if (!worker) {
-                    this.cryptoWorkerIndex = 0;
-                    continue;
                 }
 
                 this.cryptoWorkerIndex++;
