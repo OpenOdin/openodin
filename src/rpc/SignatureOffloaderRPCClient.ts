@@ -14,17 +14,29 @@ import {
 } from "../signatureoffloader/types";
 
 import {
+    SignatureOffloader,
+} from "../signatureoffloader/SignatureOffloader";
+
+import {
     RPC,
 } from "../util/RPC";
 
 export class SignatureOffloaderRPCClient implements SignatureOffloaderInterface {
     protected rpc: RPC;
+    protected dedicatedVerifier?: SignatureOffloader;
 
-    constructor(rpc: RPC) {
+    constructor(rpc: RPC, nrOfSignatureVerifiers: number = 0) {
         this.rpc = rpc;
+        if (nrOfSignatureVerifiers > 0) {
+            this.dedicatedVerifier = new SignatureOffloader(nrOfSignatureVerifiers);
+        }
     }
 
     public async init(): Promise<void> {
+        if (this.dedicatedVerifier) {
+            await this.dedicatedVerifier.init();
+        }
+
         return await this.rpc.call("init");
     }
 
@@ -78,6 +90,10 @@ export class SignatureOffloaderRPCClient implements SignatureOffloaderInterface 
     }
 
     public async verify(datamodels: DataModelInterface[]): Promise<DataModelInterface[]> {
+        if (this.dedicatedVerifier) {
+            return this.dedicatedVerifier.verify(datamodels);
+        }
+
         const verifiedNodes: DataModelInterface[] = [];
         // Extract all signatures from the node, also including from embedded nodes and certs.
         const signaturesList: SignaturesCollection[] = [];

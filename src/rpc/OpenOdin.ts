@@ -76,8 +76,16 @@ export class OpenOdin {
      *
      * @param autoAuth if set then automatically called auth() when extension allows authentication.
      * Default is true.
+     *
+     * @param nrOfSignatureVerifiers is set > 0 (default 2) then instantiate local threaded
+     * SignatureOffloader to only do signature verification. This offloads the SignatureOffloader
+     * in the browser extension and can especially benefit Chrome because in Chrome the extension
+     * runs single threaded (Service Worker cannot spawn threads).
+     * Signing is still done in the extension, as no secret keys are present in the local
+     * SignatureOffloader as it is only for verifying signatures.
      */
-    constructor(protected appConf: ApplicationConf, protected autoAuth: boolean = true) {
+    constructor(protected appConf: ApplicationConf, protected autoAuth: boolean = true,
+        protected nrOfSignatureVerifiers: number = 2) {
         const rpcId = Buffer.from(crypto.randomBytes(8)).toString("hex");
 
         const postMessage2 = (message: any) => {
@@ -213,7 +221,8 @@ export class OpenOdin {
             }
 
             const rpc1 = this.rpc.clone(authResponse.signatureOffloaderRPCId);
-            this.signatureOffloader = new SignatureOffloaderRPCClient(rpc1);
+            this.signatureOffloader = new SignatureOffloaderRPCClient(rpc1,
+                this.nrOfSignatureVerifiers);
 
             const rpc2 = this.rpc.clone(authResponse.handshakeRPCId);
             this.authFactory = new AuthFactoryRPCClient(rpc2);
@@ -232,6 +241,8 @@ export class OpenOdin {
         try {
             this.service = new Service(this.appConf, this.walletConf, this.signatureOffloader,
                 this.authFactory);
+
+            await this.signatureOffloader.init();
 
             await this.service.init();
         }
