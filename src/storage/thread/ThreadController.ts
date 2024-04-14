@@ -27,6 +27,7 @@ import {
 
 import {
     DataInterface,
+    NodeInterface,
 } from "../../datamodel";
 
 import {
@@ -102,11 +103,20 @@ export class ThreadController {
 
         this.threadStreamResponseAPI = this.thread.stream();
 
-        this.threadStreamResponseAPI.onChange((...args) => this.handleCRDTViewOnChange(...args))
-            .onCancel(() => this.close());
+        // For CRDT streaming we immediately hook the onChange event handler to start updating the model.
+        //
+        if (this.threadStreamResponseAPI.usesCRDT()) {
+            this.threadStreamResponseAPI.onChange((...args) => this.handleCRDTViewOnChange(...args))
+                .onCancel(() => this.close());
 
-        if (purgeInterval) {
-            this.purgeTimer = setTimeout( () => this.purge(), purgeInterval);
+            if (purgeInterval) {
+                this.purgeTimer = setTimeout( () => this.purge(), purgeInterval);
+            }
+        }
+        else {
+            // For fetch request without CRDT we do not automatically hook,
+            // the deriving controller will hook onData to process incoming results.
+            // Do nothing.
         }
     }
 
@@ -174,18 +184,22 @@ export class ThreadController {
     }
 
     /**
+     * Purge outdated CRDT items.
+     *
      * @param age call with 0 to purge all items
      *
      */
     protected purge(age: number = 600_000) {
         delete this.purgeTimer;
 
-        this.threadStreamResponseAPI.getCRDTView().purge(age).forEach( (data: any) => {
-            this.purgeData(data);
-        });
+        if (this.threadStreamResponseAPI.usesCRDT()) {
+            this.threadStreamResponseAPI.getCRDTView().purge(age).forEach( (data: any) => {
+                this.purgeData(data);
+            });
 
-        if (!this.isClosed) {
-            this.purgeTimer = setTimeout( () => this.purge(), this.purgeInterval);
+            if (!this.isClosed) {
+                this.purgeTimer = setTimeout( () => this.purge(), this.purgeInterval);
+            }
         }
     }
 
@@ -239,15 +253,33 @@ export class ThreadController {
     }
 
     /**
-     * onChange is called whenever an added, updated or delete event happened in the model.
-     * added and updated items provided are ordered on their index in the model always
+     * onChange is called whenever an added, updated or delete event happened in the CRDT model.
+     * Added and updated items provided are ordered on their index in the model always
      * in ascending order.
      * Deleted is a list of deleted nodes id1s.
      */
     public onChange(cb: (added: CRDTViewItem[], updated: CRDTViewItem[], deleted: Buffer[]) => void):
         ThreadController
     {
+        if (!this.threadStreamResponseAPI.usesCRDT()) {
+            throw new Error("Thread fetch request is not configured for CRDT, so onChange cannot be used. use onData to get fetch response data from the Thread");
+        }
+
         this.hookEvent("change", cb);
+
+        return this;
+    }
+
+    /**
+     * Sugar over this.threadStreamResponseAPI.onData().
+     *
+     * Hook event for incoming nodes on fetch response.
+     * This event is triggered for both when using CRDT and not using CRDT.
+     * For onData all matched node types are returned as they are, while onChange
+     * does filter nodes through the CRDTView.
+     */
+    public onData(cb: (nodes: NodeInterface[]) => void): ThreadController {
+        this.threadStreamResponseAPI.onData(cb);
 
         return this;
     }
