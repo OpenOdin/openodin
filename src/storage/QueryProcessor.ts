@@ -64,7 +64,7 @@ export type MatchState = {
 type PermissionsResult = {
     nodes: NodeInterface[],
     embed: {originalNode: NodeInterface, embeddedNode: NodeInterface}[],
-    includedLicenses: LicenseInterface[],
+    includedLicenses: {[nodeId1: string]: {[licenseId1: string]: Buffer}},
     includedLicensesEmbedded: LicenseInterface[],
 };
 
@@ -192,7 +192,9 @@ export class QueryProcessor {
     protected _error: Error | undefined;
 
     protected includedLicensesEmbedded: {[originalId1: string]: boolean} = {};
-    protected includedLicenses: {[id1: string]: boolean} = {};
+
+    // Keep track of nodes flushed and if to add includedLicenses.
+    protected nodesMap: {[id1: string]: true} = {};
 
     /**
      * @now now timestamp used to compare against expireTime of nodes.
@@ -572,12 +574,16 @@ export class QueryProcessor {
 
             const nodes: NodeInterface[] = [];
 
+            let includedLicenses: {[nodeId1: string]: {[licenseId1: string]: Buffer}} | undefined;
+
             // Note: we do not check any permissions at all when fetching upwards.
             //
             if (this.level > 0 && this.reverseFetch === ReverseFetch.OFF) {
                 const currentRows2 = await this.filterRestrictiveMode(currentRows);
 
                 const permissionsResult = await this.filterPermissions(currentRows2);
+
+                includedLicenses = permissionsResult.includedLicenses;
 
                 // These are nodes we are willing to flush out,
                 // if they pass the stateful part of the matching.
@@ -670,35 +676,6 @@ export class QueryProcessor {
                         }
                     }
                 }
-
-
-                // We handle the extra includedLicenses seperately here do not clutter
-                // the overall fetch process.
-                //
-                const includedLicensesLength = permissionsResult.includedLicenses.length;
-                for (let i=0; i<includedLicensesLength; i++) {
-                    if (maxNodesLeft <= 0) {
-                        break;
-                    }
-
-                    const license = permissionsResult.includedLicenses[i];
-
-                    const id1Str = (license.getId1() as Buffer).toString("hex");
-
-                    if (!this.includedLicenses[id1Str]) {
-                        const idStr = (license.getId() as Buffer).toString("hex");
-
-                        const obj = this.alreadyProcessedNodes[idStr] ?? {matched: [], id1s: {}};
-
-                        const obj1 = obj.id1s[id1Str];
-
-                        if (!obj1 || !obj1.passed) {
-                            nodes.push(license);
-                            this.includedLicenses[id1Str] = true;
-                            maxNodesLeft--;
-                        }
-                    }
-                }
             }
             else {
                 nodesToFlush = currentRows;
@@ -715,16 +692,13 @@ export class QueryProcessor {
                 const idStr = (node.getId() as Buffer).toString("hex");
                 const id1Str = (node.getId1() as Buffer).toString("hex");
 
-                if (this.includedLicenses[id1Str]) {
-                    continue;
-                }
-
                 const obj = this.alreadyProcessedNodes[idStr] ?? {matched: [], id1s: {}};
                 const obj1 = obj.id1s[id1Str];
 
                 if (!obj1) {
                     nodes.push(node);
                     maxNodesLeft--;
+                    this.nodesMap[id1Str] = true;
                     continue;
                 }
 
@@ -735,6 +709,7 @@ export class QueryProcessor {
                         nodes.push(node);
                         maxNodesLeft--;
                         obj1.flushed = true;
+                        this.nodesMap[id1Str] = true;
                     }
                 }
 
@@ -773,6 +748,52 @@ export class QueryProcessor {
                 }
             }
 
+            if (includedLicenses) {
+                const licenseNodeId1s: Buffer[] = [];
+
+                const nodesLength2 = nodes.length;
+                for (let i=0; i<nodesLength2; i++) {
+                    if (maxNodesLeft <= 0) {
+                        break;
+                    }
+
+                    const node = nodes[i];
+
+                    if (node.isLicensed()) {
+                        const nodeId1Str = node.getId1()!.toString("hex");
+
+                        const il = includedLicenses[nodeId1Str] ?? {};
+
+                        const keys = Object.keys(il);
+
+                        const keysLength = keys.length;
+                        for (let i=0; i<keysLength; i++) {
+                            const licenseId1Str = keys[i];
+
+                            if (!this.nodesMap[licenseId1Str]) {
+                                licenseNodeId1s.push(il[licenseId1Str]);
+                                maxNodesLeft--;
+                                this.nodesMap[licenseId1Str] = true;
+                            }
+
+                            if (maxNodesLeft <= 0) {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                const licenseNodes: LicenseInterface[] = [];
+
+                while (licenseNodeId1s.length > 0) {
+                    licenseNodes.push(
+                        ...await this.getNodesById1(
+                            licenseNodeId1s.splice(0, MAX_BATCH_SIZE)) as LicenseInterface[]);
+                }
+
+                nodes.push(...licenseNodes);
+            }
+
             const isFirst = this.flushCount === 0;
 
             this.nodeLevelCount = this.nodeLevelCount + nodes.length + embed.length;
@@ -782,6 +803,7 @@ export class QueryProcessor {
             if (isFirst || nodes.length > 0 || embed.length > 0) {
                 this.flushCount++;
 
+                console.debug("flush sending out", nodes.length);
                 this.handleFetchReplyData({
                     status: Status.RESULT, nodes, embed, rowCount: this.rowCount, now: this.now, isFirst});
             }
@@ -1165,15 +1187,12 @@ export class QueryProcessor {
     public async filterPermissions(allNodes: NodeInterface[],
         allowRightsByAssociation: boolean = true): Promise<PermissionsResult>
     {
-        const includedLicenses: LicenseInterface[] = [];
         const includedLicensesEmbedded: LicenseInterface[] = [];
 
         const includeLicenses = (this.fetchQuery.includeLicenses & 1) > 0;
 
-        const [allowedNodes, addedLicenses] = await this.filterLicensedNodes(allNodes,
+        const [allowedNodes, includedLicenses] = await this.filterLicensedNodes(allNodes,
             this.fetchQuery.targetPublicKey, includeLicenses);
-
-        includedLicenses.push(...addedLicenses);
 
         const includeEmbeddableLicenses = (this.fetchQuery.includeLicenses & 2) > 0;
 
@@ -1184,7 +1203,21 @@ export class QueryProcessor {
             const [_, addedEmbeddableLicenses] = await this.filterLicensedNodes(allNodes,
                 this.fetchQuery.sourcePublicKey, true);
 
-            const embeddable = addedEmbeddableLicenses.filter( license => {
+            const licenseNodeId1s: Buffer[] = [];
+
+            for (const nodeId1Str in addedEmbeddableLicenses) {
+                licenseNodeId1s.push(...Object.values(addedEmbeddableLicenses[nodeId1Str]));
+            }
+
+            const embeddableLicenses: LicenseInterface[] = [];
+
+            while (licenseNodeId1s.length > 0) {
+                embeddableLicenses.push(
+                    ...await this.getNodesById1(licenseNodeId1s.splice(0,
+                        MAX_BATCH_SIZE)) as LicenseInterface[]);
+            }
+
+            const embeddable = embeddableLicenses.filter( license => {
                 if (license.isPrivate() && license.isUnique() && !license.canSendPrivately(
                     this.fetchQuery.sourcePublicKey, this.fetchQuery.targetPublicKey) &&
                     license.canSendEmbedded(this.fetchQuery.sourcePublicKey,
@@ -1622,7 +1655,8 @@ export class QueryProcessor {
      */
     protected async filterLicensedNodes(nodes: NodeInterface[], targetPublicKey: Buffer,
         includeLicenses: boolean = false):
-        Promise<[nodes: NodeInterface[], licenses: LicenseInterface[]]>
+        Promise<[nodes: NodeInterface[],
+        includedLicenses: {[nodeId1: string]: {[licenseId1: string]: Buffer}}]>
     {
         const nodeTrees: {[id1: string]: LicenseNodeEntry[]} = {};
 
@@ -1630,7 +1664,7 @@ export class QueryProcessor {
 
         const allowedNodes: NodeInterface[] = [];
 
-        let addedLicenses: {[licenseId1: string]: Buffer} = {};
+        const includedLicenses: {[nodeId1: string]: {[licenseId1: string]: Buffer}} = {};
 
         if (this.allowLicensed) {
             for (const node of nodes) {
@@ -1731,16 +1765,17 @@ export class QueryProcessor {
             //
             for (const node of nodes) {
                 const parentId = node.getParentId();
+                const nodeId1 = node.getId1();
 
-                if (!parentId) {
+                if (!parentId || !nodeId1) {
                     continue;
                 }
+
+                const nodeId1Str = nodeId1.toString("hex");
 
                 const id1List: Buffer[] = [];
 
                 let eyesOnNode: NodeInterface | undefined = node;
-
-                const nodeLicenses: {[licenseId1: string]: Buffer} = {};
 
                 let found = true;
 
@@ -1808,8 +1843,11 @@ export class QueryProcessor {
 
                                     if (includeLicenses) {
                                         // Collect all active licenses, read and write.
+                                        //
                                         const id1Str = license.id1.toString("hex");
-                                        nodeLicenses[id1Str] = license.id1;
+                                        const o = includedLicenses[nodeId1Str] ?? {};
+                                        o[id1Str] = license.id1;
+                                        includedLicenses[nodeId1Str] = o;
                                     }
 
                                     // Check so it is a read license.
@@ -1874,23 +1912,13 @@ export class QueryProcessor {
 
                 // Node and all embedded nodes have now been checked.
 
-                addedLicenses = {...addedLicenses, ...nodeLicenses};
-
                 if (found) {
                     allowedNodes.push(node);
                 }
             }
         }
 
-        const licenseNodeId1s = Object.values(addedLicenses);
-
-        const licenseNodes: LicenseInterface[] = [];
-
-        while (licenseNodeId1s.length > 0) {
-            licenseNodes.push(...await this.getNodesById1(licenseNodeId1s.splice(0, MAX_BATCH_SIZE)) as LicenseInterface[]);
-        }
-
-        return [allowedNodes, licenseNodes];
+        return [allowedNodes, includedLicenses];
     }
 
     /**

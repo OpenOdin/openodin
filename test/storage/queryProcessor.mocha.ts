@@ -82,7 +82,7 @@ class QueryProcessorWrapper extends QueryProcessor {
     }
 
     public async filterLicensedNodes(nodes: NodeInterface[], targetPublicKey: Buffer, includeLicenses: boolean = false):
-        Promise<[nodes: NodeInterface[], licenses: LicenseInterface[]]> {
+        Promise<[nodes: NodeInterface[], licenses: {[nodeId1: string]: {[licenseId1: string]: Buffer}}]> {
         return super.filterLicensedNodes(nodes, targetPublicKey, includeLicenses);
     }
 
@@ -3101,7 +3101,7 @@ function setupTests(config: any) {
 
         assert(ret.embed.length === 0);
 
-        same = diffNodes([licenseA, licenseAw, nodeA], ret.nodes);
+        same = diffNodes([nodeA, licenseA, licenseAw], ret.nodes);
         assert(same);
 
 
@@ -3146,9 +3146,9 @@ function setupTests(config: any) {
 
         assert(ret.embed.length === 0);
 
-        same = diffNodes([licenseA, licenseAw, nodeA,
-            licenseB2, licenseB2w, nodeB1, nodeB2,
-            licenseB1w, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], ret.nodes);
+        same = diffNodes([nodeA, licenseA, licenseAw,
+            nodeB1, nodeB2, licenseB2, licenseB2w,
+            nodeC1, nodeC2, licenseB1w, nodeD, nodeE1, nodeE2], ret.nodes);
 
         assert(same);
     });
