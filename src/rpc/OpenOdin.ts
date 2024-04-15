@@ -249,8 +249,6 @@ export class OpenOdin {
             const rpc2 = this.rpc.clone(authResponse.handshakeRPCId);
             this.authFactory = new AuthFactoryRPCClient(rpc2);
 
-            console.log("authresponse", authResponse);
-
             try {
                 this.service = new Service(authResponse.applicationConf, authResponse.walletConf,
                     this.signatureOffloader, this.authFactory);
