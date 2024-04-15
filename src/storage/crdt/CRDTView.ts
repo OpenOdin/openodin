@@ -1,10 +1,14 @@
 /**
  * The view of a CRDT model,
  * used to keep a subset of the CRDT model up to date.
+ * The model only uses data nodes which are not flagged as special,
+ * all other nodes are ignored.
  */
 
 import {
     DataInterface,
+    NodeInterface,
+    Data,
 } from "../../datamodel";
 
 import {
@@ -29,7 +33,10 @@ export class CRDTView {
 
     protected cachedGetItems?: CRDTViewItem[];
 
-    public handleResponse(nodes: DataInterface[], delta?: Buffer) {
+    /**
+     * Will only use data nodes which are not flagged as special, other nodes are ignored.
+     */
+    public handleResponse(nodes: NodeInterface[], delta?: Buffer) {
         const addedNodesId1s: Buffer[] = [];
 
         const updatedNodesId1s: Buffer[] = [];
@@ -38,6 +45,14 @@ export class CRDTView {
 
         // Apply nodes to model.
         nodes.forEach( node => {
+            if (!node.getType(4).equals(Data.GetType(4))) {
+                return;
+            }
+
+            if ((node as DataInterface).isSpecial()) {
+                return;
+            }
+
             const id1 = node.getId1() as Buffer;
 
             const id1Str = id1.toString("hex");
@@ -50,7 +65,7 @@ export class CRDTView {
             }
 
             // Always replace the node in case it has updated transient values.
-            this.model.nodes[id1Str] = node;
+            this.model.nodes[id1Str] = node as DataInterface;
 
             // If no lingering or preset data create it.
             //

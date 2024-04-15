@@ -147,6 +147,8 @@ export type ThreadStreamResponseAPI = {
     /** onChange events from the CRDTView model. */
     onChange: (...parameters: Parameters<CRDTView["onChange"]>) => ThreadStreamResponseAPI,
 
+    usesCRDT: () => boolean,
+
     /** Nodes incoming in getResponse.onReply. */
     onData: (cb: (nodes: NodeInterface[]) => void) => ThreadStreamResponseAPI,
 

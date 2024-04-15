@@ -400,7 +400,7 @@ export class Thread {
     {
         fetchRequest = DeepCopy(fetchRequest);
 
-        const onDataCBs: Array<(nodes: DataInterface[]) => void> = [];
+        const onDataCBs: Array<(nodes: NodeInterface[]) => void> = [];
 
         // These variables are used to collect the response.
         //
@@ -420,8 +420,8 @@ export class Thread {
                 console.debug(`Error code (${fetchResponse.status}) returned on fetch, error message: ${fetchResponse.error}`);
             }
             else {
-                const nodes = (StorageUtil.ExtractFetchResponseNodes(fetchResponse, fetchRequest.query.preserveTransient,
-                    Data.GetType(4)) as DataInterface[]).filter( node => !node.isSpecial() ) as DataInterface[];
+                const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse,
+                    fetchRequest.query.preserveTransient);
 
                 if (nodes.length > 0) {
                     onDataCBs.forEach( cb => cb(nodes) );
@@ -466,7 +466,15 @@ export class Thread {
                 return threadResponse;
             },
 
-            onData: (cb: (nodes: DataInterface[]) => void): ThreadStreamResponseAPI => {
+            usesCRDT(): boolean {
+                return crdtView !== undefined;
+            },
+
+            /**
+             * Hook event for incoming nodes on fetch response.
+             * This event is triggered for both when using CRDT and not using CRDT.
+             */
+            onData: (cb: (nodes: NodeInterface[]) => void): ThreadStreamResponseAPI => {
                 onDataCBs.push(cb)
 
                 return threadResponse;
@@ -485,6 +493,12 @@ export class Thread {
                 });
             },
 
+            /**
+             * Update the fetch request used for streaming.
+             * For non CRDT requests only query.triggerInterval is relevant to be changed,
+             * for CRDT requests also the other parameters of UpdateStreamParams are applicable
+             * to be changed.
+             */
             updateStream: (updateStreamParams: UpdateStreamParams) => {
                 // Replace with our new
 
