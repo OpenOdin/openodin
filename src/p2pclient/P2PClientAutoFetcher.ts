@@ -151,8 +151,6 @@ export class P2PClientAutoFetcher {
                 // If we requested transient values to be kept on the nodes when fetching from peer,
                 // we try to preserve them into the Storage
                 // (this requires that the Storage is OK with that).
-                const preserveTransient = fetchRequest.query.preserveTransient;
-
                 const isLast = fetchResponse.seq === fetchResponse.endSeq;
 
                 this.processFetch(fetchResponse.result.nodes, autoFetch.blobSizeMaxLimit,

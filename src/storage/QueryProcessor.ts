@@ -803,7 +803,6 @@ export class QueryProcessor {
             if (isFirst || nodes.length > 0 || embed.length > 0) {
                 this.flushCount++;
 
-                console.debug("flush sending out", nodes.length);
                 this.handleFetchReplyData({
                     status: Status.RESULT, nodes, embed, rowCount: this.rowCount, now: this.now, isFirst});
             }

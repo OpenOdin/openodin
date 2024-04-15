@@ -61,7 +61,6 @@ import {
 } from "../types";
 
 import {
-    AutoFetch,
     P2PClientPermissions,
     P2PClientFetchPermissions,
     P2PClientStorePermissions,
