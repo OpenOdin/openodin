@@ -1,3 +1,8 @@
+import {
+    ApplicationConf,
+    WalletConf,
+} from "../service/types";
+
 export type ClientConfig = {
     clientId: string,
     localAddress?: string,
@@ -8,10 +13,16 @@ export type ClientConfig = {
     isTextMode: boolean,
 };
 
+export type AuthRequest = {
+    applicationConf: ApplicationConf,
+};
+
 export type AuthResponse = {
     error?: string,
     signatureOffloaderRPCId?: string,
     handshakeRPCId?: string,
+    applicationConf?: ApplicationConf,
+    walletConf?: WalletConf,
 };
 
 export type WalletKeyPair = {

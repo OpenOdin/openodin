@@ -517,6 +517,14 @@ export class Service {
         return DeepCopy(this.applicationConf.custom);
     }
 
+    public getWalletConf(): WalletConf {
+        return DeepCopy(this.walletConf);
+    }
+
+    public getApplicationConf(): ApplicationConf {
+        return DeepCopy(this.applicationConf);
+    }
+
     /**
      * Set or remove auth cert.
      * Auth cert will be cryptographically verified, but

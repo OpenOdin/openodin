@@ -61,7 +61,7 @@ export class OpenOdin {
     protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
 
     protected _isClosed: boolean = false;
-    protected _isOpen: boolean = false;
+    protected _isOpened: boolean = false;
     protected pendingAuth: boolean = false;
 
     protected signatureOffloader?: SignatureOffloaderInterface;
@@ -70,7 +70,7 @@ export class OpenOdin {
     protected walletConf?: WalletConf;
 
     /**
-     * @param appConf the application configuration to init the Service instance with.
+     * @param applicationConf the application configuration to init the Service instance with.
      * The conf will be sent to the Datawallet when authing for verbosity and potential
      * reconfiguration by the user.
      *
@@ -84,7 +84,7 @@ export class OpenOdin {
      * Signing is still done in the extension, as no secret keys are present in the local
      * SignatureOffloader as it is only for verifying signatures.
      */
-    constructor(protected appConf: ApplicationConf, protected autoAuth: boolean = true,
+    constructor(protected applicationConf: ApplicationConf, protected autoAuth: boolean = true,
         protected nrOfSignatureVerifiers: number = 2) {
         const rpcId = Buffer.from(crypto.randomBytes(8)).toString("hex");
 
@@ -146,9 +146,9 @@ export class OpenOdin {
     public static async LoadAppConf(location: string): Promise<ApplicationConf> {
         const appJSON = await (await fetch(location)).json();
 
-        const appConf = ParseUtil.ParseApplicationConf(appJSON);
+        const applicationConf = ParseUtil.ParseApplicationConf(appJSON);
 
-        return appConf;
+        return applicationConf;
     }
 
     /**
@@ -169,7 +169,7 @@ export class OpenOdin {
             return;
         }
 
-        if (!this._isOpen) {
+        if (!this._isOpened) {
             // If first time open the port to the background by sending a noop.
             //
             const ret = await this.rpc.call("noop");
@@ -179,15 +179,35 @@ export class OpenOdin {
 
                 throw new Error("Could not open port");
             }
+
+            // Chrome specific Page Lifecycle API event.
+            //
+            window.addEventListener("freeze", () => {
+                console.error("freeze event received, closing application.");
+
+                this.close();
+            });
+
+            setTimeout( () => this.noopInterval(), 1000);
         }
 
-        this._isOpen = true;
+        this._isOpened = true;
 
         this.triggerEvent("open");
 
         if (this.autoAuth && !this.pendingAuth && !this.isAuthed()) {
             this.auth();
         }
+    }
+
+    protected noopInterval() {
+        if (this._isClosed || !this._isOpened) {
+            return;
+        }
+
+        this.rpc.call("noop", [Math.random()]);
+
+        setTimeout( () => this.noopInterval(), 1000);
     }
 
     /**
@@ -206,13 +226,15 @@ export class OpenOdin {
 
             this.triggerEvent("preAuth");
 
-            // TODO: pass along this.appConf and take back changes.
-            //
-            const authResponse = await this.rpc.call("auth") as AuthResponse;
+            const authResponse = await this.rpc.call("auth",
+                [{applicationConf: this.applicationConf}]) as AuthResponse;
 
             this.pendingAuth = false;
 
-            if (authResponse.error || !authResponse.signatureOffloaderRPCId || !authResponse.handshakeRPCId) {
+            if (authResponse.error || !authResponse.signatureOffloaderRPCId ||
+                !authResponse.handshakeRPCId || !authResponse.applicationConf ||
+                !authResponse.walletConf)
+            {
                 this.triggerEvent("authFail", authResponse.error ?? "Unknown error");
 
                 this.close();
@@ -227,27 +249,26 @@ export class OpenOdin {
             const rpc2 = this.rpc.clone(authResponse.handshakeRPCId);
             this.authFactory = new AuthFactoryRPCClient(rpc2);
 
-            // TODO
-            this.walletConf = ParseUtil.ParseWalletConf({});
+            console.log("authresponse", authResponse);
+
+            try {
+                this.service = new Service(authResponse.applicationConf, authResponse.walletConf,
+                    this.signatureOffloader, this.authFactory);
+
+                await this.signatureOffloader.init();
+
+                await this.service.init();
+            }
+            catch(e) {
+                this.triggerEvent("authFail",`Could not init Service: ${e}`);
+
+                this.close();
+
+                return;
+            }
         }
         catch(e) {
             this.triggerEvent("authFail", `Error in auth process: ${e}`);
-
-            this.close();
-
-            return;
-        }
-
-        try {
-            this.service = new Service(this.appConf, this.walletConf, this.signatureOffloader,
-                this.authFactory);
-
-            await this.signatureOffloader.init();
-
-            await this.service.init();
-        }
-        catch(e) {
-            this.triggerEvent("authFail",`Could not init Service: ${e}`);
 
             this.close();
 
@@ -273,10 +294,6 @@ export class OpenOdin {
         return this.authFactory;
     }
 
-    public getWalletConf = (): WalletConf | undefined => {
-        return this.walletConf;
-    }
-
     public getService = (): Service | undefined => {
         return this.service;
     }
@@ -299,8 +316,8 @@ export class OpenOdin {
         return this._isClosed;
     }
 
-    public isOpen = () => {
-        return this._isOpen;
+    public isOpened = () => {
+        return this._isOpened;
     }
 
     /**

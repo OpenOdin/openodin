@@ -15,8 +15,13 @@ import {
 } from "../util/RPC";
 
 import {
+    ParseUtil,
+} from "../util/ParseUtil";
+
+import {
     AuthResponse,
     AuthResponse2,
+    AuthRequest,
 } from "./types";
 
 export class OpenOdinRPCServer {
@@ -51,7 +56,7 @@ export class OpenOdinRPCServer {
      * The application is requesting to be authorized.
      * @returns AuthResponse.
      */
-    protected auth = async (): Promise<AuthResponse> => {
+    protected auth = async (authRequest: AuthRequest): Promise<AuthResponse> => {
         if (this.signatureOffloaderRPCServer || this.authFactoryRPCCserver) {
             return {
                 error: "OpenOdinRPCServer already authenticated",
@@ -103,9 +108,15 @@ export class OpenOdinRPCServer {
 
         this.authFactoryRPCCserver = new AuthFactoryRPCServer(rpc2, keyPairs2);
 
+        const applicationConf = authRequest.applicationConf;
+
+        const walletConf = ParseUtil.ParseWalletConf({});
+
         return {
             signatureOffloaderRPCId,
             handshakeRPCId,
+            applicationConf,
+            walletConf,
         };
     }
 }
