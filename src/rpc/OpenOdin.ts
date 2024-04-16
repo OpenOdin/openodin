@@ -17,6 +17,10 @@ import {
 } from "./SignatureOffloaderRPCClient";
 
 import {
+    SettingsManagerRPCClient,
+} from "./SettingsManagerRPCClient";
+
+import {
     Service,
 } from "../service";
 
@@ -66,6 +70,7 @@ export class OpenOdin {
 
     protected signatureOffloader?: SignatureOffloaderInterface;
     protected authFactory?: AuthFactoryInterface;
+    protected settingsManager?: SettingsManagerRPCClient;
     protected service?: Service;
     protected walletConf?: WalletConf;
 
@@ -135,6 +140,14 @@ export class OpenOdin {
             });
         };
 
+        window.addEventListener("beforeunload", () => {
+            if (!this._isClosed) {
+                console.error("Window unloading, closing connection to DataWallet.");
+
+                this.close();
+            }
+        });
+
         this.rpc = new RPC(postMessage2, listenMessage, rpcId);
     }
 
@@ -179,14 +192,6 @@ export class OpenOdin {
 
                 throw new Error("Could not open port");
             }
-
-            // Chrome specific Page Lifecycle API event.
-            //
-            window.addEventListener("freeze", () => {
-                console.error("freeze event received, closing application.");
-
-                this.close();
-            });
 
             setTimeout( () => this.noopInterval(), 1000);
         }
@@ -233,7 +238,7 @@ export class OpenOdin {
 
             if (authResponse.error || !authResponse.signatureOffloaderRPCId ||
                 !authResponse.handshakeRPCId || !authResponse.applicationConf ||
-                !authResponse.walletConf)
+                !authResponse.walletConf || !authResponse.settingsManagerRPCId)
             {
                 this.triggerEvent("authFail", authResponse.error ?? "Unknown error");
 
@@ -249,6 +254,9 @@ export class OpenOdin {
             const rpc2 = this.rpc.clone(authResponse.handshakeRPCId);
             this.authFactory = new AuthFactoryRPCClient(rpc2);
 
+            const rpc3 = this.rpc.clone(authResponse.settingsManagerRPCId);
+            this.settingsManager = new SettingsManagerRPCClient(rpc3);
+
             try {
                 this.service = new Service(authResponse.applicationConf, authResponse.walletConf,
                     this.signatureOffloader, this.authFactory);
@@ -258,12 +266,23 @@ export class OpenOdin {
                 await this.service.init();
             }
             catch(e) {
+                console.error(e);
+
                 this.triggerEvent("authFail",`Could not init Service: ${e}`);
 
                 this.close();
 
                 return;
             }
+
+            // Chrome specific Page Lifecycle API event.
+            //
+            window.addEventListener("freeze", () => {
+                console.error("freeze event received, closing application.");
+
+                this.close();
+            });
+
         }
         catch(e) {
             this.triggerEvent("authFail", `Error in auth process: ${e}`);
@@ -377,6 +396,14 @@ export class OpenOdin {
      */
     public onClose = ( cb: () => void ) => {
         this.hookEvent("close", cb);
+    }
+
+    public getSettingsManager(): SettingsManagerRPCClient {
+        if (!this.settingsManager) {
+            throw new Error("SettingsManager not initiated");
+        }
+
+        return this.settingsManager;
     }
 
     protected hookEvent(name: string, callback: (...args: any[]) => void) {

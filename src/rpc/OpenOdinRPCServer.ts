@@ -7,6 +7,10 @@ import {
 } from "./AuthFactoryRPCServer";
 
 import {
+    SettingsManagerRPCServer,
+} from "./SettingsManagerRPCServer";
+
+import {
     KeyPair,
 } from "../datamodel";
 
@@ -28,6 +32,7 @@ export class OpenOdinRPCServer {
     protected triggerOnAuth?: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>;
     protected signatureOffloaderRPCServer?: SignatureOffloaderRPCServer;
     protected authFactoryRPCCserver?: AuthFactoryRPCServer;
+    protected settingsManagerRPCServer?: SettingsManagerRPCServer;
 
     constructor(protected rpc: RPC, protected nrOfWorkers: number = 1,
         protected singleThreaded: boolean = false)
@@ -71,15 +76,23 @@ export class OpenOdinRPCServer {
 
         const rpc1 = this.rpc.fork();
         const rpc2 = this.rpc.fork();
+        const rpc3 = this.rpc.fork();
 
         const signatureOffloaderRPCId   = rpc1.getId();
         const handshakeRPCId            = rpc2.getId();
+        const settingsManagerRPCId      = rpc3.getId();
 
         const authResponse2 = await this.triggerOnAuth(signatureOffloaderRPCId, handshakeRPCId);
 
         const keyPairs = authResponse2.keyPairs ?? [];
 
-        if (authResponse2.error || keyPairs.length === 0) {
+        if (authResponse2.error || keyPairs.length === 0 || !authResponse2.url) {
+            rpc1.close();
+
+            rpc2.close();
+
+            rpc3.close();
+
             return {
                 error: authResponse2.error ?? "No keys provided",
             };
@@ -108,11 +121,14 @@ export class OpenOdinRPCServer {
 
         this.authFactoryRPCCserver = new AuthFactoryRPCServer(rpc2, keyPairs2);
 
+        this.settingsManagerRPCServer = new SettingsManagerRPCServer(rpc3, authResponse2.url);
+
         const applicationConf = authRequest.applicationConf;
 
         const walletConf = ParseUtil.ParseWalletConf({});
 
         return {
+            settingsManagerRPCId,
             signatureOffloaderRPCId,
             handshakeRPCId,
             applicationConf,
