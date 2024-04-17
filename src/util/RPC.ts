@@ -214,6 +214,9 @@ export class RPC {
         if (Buffer.isBuffer(obj)) {
             return obj.toJSON();
         }
+        else if (obj instanceof Uint8Array) {
+            return Buffer.from(obj).toJSON();
+        }
         else if (Array.isArray(obj)) {
             return obj.map( (elm: any) => {
                 return this.serialize(elm);
@@ -222,22 +225,40 @@ export class RPC {
         else if (obj && typeof obj === "object" && obj.constructor === Object) {
             const keys = Object.keys(obj);
 
-            const obj2: any = {};
+            const data: Record<string, any> = {};
 
             keys.forEach( (key: string) => {
-                obj2[key] = this.serialize(obj[key]);
+                data[key] = this.serialize(obj[key]);
             });
 
-            return obj2;
+            return {
+                type: "object",
+                data,
+            };
         }
-        else if (obj && typeof obj === "object" && obj.constructor !== Object) {
-            return undefined;
+        else if (typeof obj === "bigint") {
+            return {
+                type: "bigint",
+                data: obj.toString(),
+            };
         }
         else if (obj && typeof obj === "function") {
             return undefined;
         }
+        else if (typeof obj === "number") {
+            return obj;
+        }
+        else if (typeof obj === "string") {
+            return obj;
+        }
+        else if (typeof obj === "boolean") {
+            return obj;
+        }
+        else if (typeof obj === "undefined") {
+            return obj;
+        }
 
-        return obj;
+        throw new Error("Could not serialize object");
     }
 
     protected deserialize(obj: any): any {
@@ -248,18 +269,22 @@ export class RPC {
         }
         else if (obj && typeof obj === "object" && obj.constructor === Object) {
             if (obj.type === "Buffer" && Array.isArray(obj.data)) {
-                return Buffer.from(obj);
+                return Buffer.from(obj.data);
             }
+            else if (obj.type === "bigint") {
+                return BigInt(obj.data);
+            }
+            else if (obj.type === "object") {
+                const keys = Object.keys(obj.data);
 
-            const keys = Object.keys(obj);
+                const obj2: Record<string, any> = {};
 
-            const obj2: any = {};
+                keys.forEach( (key: string) => {
+                    obj2[key] = this.deserialize(obj.data[key]);
+                });
 
-            keys.forEach( (key: string) => {
-                obj2[key] = this.deserialize(obj[key]);
-            });
-
-            return obj2;
+                return obj2;
+            }
         }
 
         return obj;
