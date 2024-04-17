@@ -216,7 +216,7 @@ export class ThreadController {
         const appended: CRDTViewItem[] = [];
         const updated: CRDTViewItem[] = [];
 
-        // We get the updated index of the previously knows last item in the model to preoprly
+        // We get the updated index of the previously knows last item in the model to properly
         // filter out the appended items.
         //
         const lastItemIndex = this.previousLastItemId1 ?
