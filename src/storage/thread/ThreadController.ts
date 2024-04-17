@@ -68,6 +68,8 @@ export class ThreadController {
 
     protected purgeTimer?: ReturnType<typeof setTimeout>;
 
+    protected previousLastItemId1?: Buffer;
+
     /**
      * @param service the Service object needed to communicate with storage and to sync from peers
      * @param threadTemplate the ThreadTemplate of the Thred the controller will instantiate
@@ -211,7 +213,15 @@ export class ThreadController {
         deletedId1s: Buffer[])
     {
         const added: CRDTViewItem[] = [];
+        const appended: CRDTViewItem[] = [];
         const updated: CRDTViewItem[] = [];
+
+        // We get the updated index of the previously knows last item in the model to preoprly
+        // filter out the appended items.
+        //
+        const lastItemIndex = this.previousLastItemId1 ?
+            this.findItem(this.previousLastItemId1)?.index ?? - 1: -1;
+        this.previousLastItemId1 = this.getLastItem()?.id1;
 
         addedId1s.forEach( id1 => {
             const node = this.threadStreamResponseAPI.getCRDTView().getNode(id1);
@@ -224,6 +234,10 @@ export class ThreadController {
 
                 if (item) {
                     added.push(item);
+
+                    if (item.index > lastItemIndex) {
+                        appended.push(item);
+                    }
                 }
             }
         });
@@ -245,10 +259,12 @@ export class ThreadController {
 
         added.sort( (a, b) => a.index - b.index );
 
+        appended.sort( (a, b) => a.index - b.index );
+
         updated.sort( (a, b) => a.index - b.index );
 
         if (added.length > 0 || updated.length > 0 || deletedId1s.length > 0) {
-            this.triggerEvent("change", added, updated, deletedId1s);
+            this.triggerEvent("change", added, updated, deletedId1s, appended);
         }
     }
 
@@ -257,8 +273,12 @@ export class ThreadController {
      * Added and updated items provided are ordered on their index in the model always
      * in ascending order.
      * Deleted is a list of deleted nodes id1s.
+     *
+     * appended are those item present in added but who also have their index in the model greater than the
+     * previos last items updated index, appended items are ordered ascending on their model index, note that
+     * if the CRDT model is in reverse then appended items are in a sense actually prepended items.
      */
-    public onChange(cb: (added: CRDTViewItem[], updated: CRDTViewItem[], deleted: Buffer[]) => void):
+    public onChange(cb: (added: CRDTViewItem[], updated: CRDTViewItem[], deleted: Buffer[], appended: CRDTViewItem[]) => void):
         ThreadController
     {
         if (!this.threadStreamResponseAPI.usesCRDT()) {
