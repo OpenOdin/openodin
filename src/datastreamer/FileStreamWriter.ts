@@ -11,10 +11,18 @@ import {
     StreamReaderInterface,
 } from "./types";
 
-const write = util.promisify(fs.write);
-const stat = util.promisify(fs.stat);
-const close = util.promisify(fs.close);
-const open = util.promisify(fs.open);
+let write: Function;
+let stat: Function;
+let close: Function;
+let open: Function;
+
+const isBrowser = typeof window !== "undefined";
+if (!isBrowser) {
+    write = util.promisify(fs.write);
+    stat = util.promisify(fs.stat);
+    close = util.promisify(fs.close);
+    open = util.promisify(fs.open);
+}
 
 /**
  * Opens a file for streamed writing.
