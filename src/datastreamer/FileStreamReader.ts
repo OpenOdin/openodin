@@ -9,10 +9,18 @@ import {
     StreamStatus,
 } from "./types";
 
-const stat = util.promisify(fs.stat);
-const read = util.promisify(fs.read);
-const close = util.promisify(fs.close);
-const open = util.promisify(fs.open);
+let stat: Function;
+let read: Function;
+let close: Function;
+let open: Function;
+
+const isBrowser = typeof window !== "undefined";
+if (!isBrowser) {
+    stat = util.promisify(fs.stat);
+    read = util.promisify(fs.read);
+    close = util.promisify(fs.close);
+    open = util.promisify(fs.open);
+}
 
 /**
  * Opens a file and stream from it.
