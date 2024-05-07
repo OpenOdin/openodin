@@ -24,7 +24,7 @@
     "main": "./build/index.js",
     "types": "./build/index.d.ts",
     "scripts": {
-        "build": "npx bebopc && npx tsc && npx browserify -i ./build/src/datastreamer/FileStreamWriter.js -i ./build/src/datastreamer/FileStreamReader.js ./build/src/signatureoffloader/signatureOffloader-worker.js -o ./build/src/signatureoffloader/signatureOffloader-worker-browser.js && npx browserify -i ./build/src/datastreamer/FileStreamWriter.js -i ./build/src/datastreamer/FileStreamReader.js ./build/src/storage/crdt/crdt-worker.js -o ./build/src/storage/crdt/crdt-worker-browser.js",
+        "build": "npx bebopc && npx tsc && npx webpack -c webpack.signatureOffloader-config.js && npx webpack -c webpack.crdt-config.js",
         "tsc": "npx tsc",
         "clean": "rm -rf ./build",
         "prepublishOnly": "[ -z \"$(git status --porcelain)\" ] && npm run build",
@@ -46,7 +46,7 @@
         "@typescript-eslint/eslint-plugin": "^5.48.1",
         "@typescript-eslint/parser": "^5.48.1",
         "bebop-tools": "2.4.10",
-        "browserify": "^17.0.0",
+        "buffer": "^6.0.3",
         "chai": "^4.3.10",
         "eslint": "^8.31.0",
         "mocha": "^10.0.0",
@@ -55,7 +55,8 @@
         "ts-node": "^10.9.1",
         "typedoc": "~0.22.15",
         "typedoc-plugin-markdown": "~3.11.0",
-        "typescript": "4.4.3"
+        "typescript": "4.4.3",
+        "vm-browserify": "^1.1.2"
     },
     "bin": {
         "service": "build/src/sdk/tools/src/service.js",
