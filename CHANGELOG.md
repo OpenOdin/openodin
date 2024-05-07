@@ -2,6 +2,16 @@
 
 Note: any version below 1.0.0 can have breaking changes.  
 
+## [0.8.7] - 20240507
+Replace browserify with webpack.  
+
+## [0.8.6] - 20240417
+Improve performance.  
+Improve ThreadController.  
+Add expireTime to PeerData for automatic session expiration and close.  
+Add SettingsManager to RPC module.  
+Bug fixes.  
+
 ## [0.8.5] - 20240408
 Improve Threads and ThreadController.  
 Improve RPC.  
