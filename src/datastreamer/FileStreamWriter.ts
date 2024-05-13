@@ -16,7 +16,10 @@ let stat: Function;
 let close: Function;
 let open: Function;
 
-const isBrowser = typeof window !== "undefined";
+declare const window: any;
+declare const browser: any;
+declare const chrome: any;
+const isBrowser = typeof window !== "undefined" || typeof browser !== "undefined" || typeof chrome !== "undefined";
 if (!isBrowser) {
     write = util.promisify(fs.write);
     stat = util.promisify(fs.stat);
