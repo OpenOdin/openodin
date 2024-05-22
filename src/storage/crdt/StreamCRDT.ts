@@ -28,7 +28,7 @@ import {
  *
  * This also works for FetchRequests without CRDT in which case the use of the model is append only
  * and also that there are no duplicates (this is useful as streaming directly from
- * P2PClient/GetResponse can yield duplicates due to he at-least-once nature of the system).
+ * P2PClient/GetResponse can yield duplicates due to the at-least-once nature of the system).
  */
 export class StreamCRDT {
     protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
