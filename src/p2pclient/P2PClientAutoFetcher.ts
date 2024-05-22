@@ -106,6 +106,9 @@ export class P2PClientAutoFetcher {
      * @return Buffer msgId or undefined on error or undefined when the autoFetch has already been added.
      */
     protected fetch(autoFetch: AutoFetch): Buffer | undefined {
+        // Copy autoFetch because we will set
+        // query.sourcePublicKey and query.targetPublicKey
+        //
         autoFetch = DeepCopy(autoFetch);
 
         const fetchRequest = autoFetch.fetchRequest;
@@ -170,7 +173,7 @@ export class P2PClientAutoFetcher {
         });
 
         if (msgId) {
-            const targetPublicKey = autoFetch.fetchRequest.query.targetPublicKey;
+            const targetPublicKey = fetchRequest.query.targetPublicKey;
 
             this.autoFetchSubscriptions.push({autoFetch, msgId, targetPublicKey});
 
@@ -378,6 +381,26 @@ export class P2PClientAutoFetcher {
     }
 
     public removeFetch(autoFetch: AutoFetch) {
+        // Copy autoFetch because we will set
+        // query.sourcePublicKey and query.targetPublicKey
+        //
+        autoFetch = DeepCopy(autoFetch);
+
+        const targetPublicKey = this.reverse ?
+            // If reverse then this is the publicKey of where we are storing to.
+            this.storageClient.getRemotePublicKey() :
+            // If not reverse we are the target of the fetch.
+            this.serverClient.getLocalPublicKey();
+
+        const sourcePublicKey = this.reverse ?
+            // If reverse the source is our side.
+            this.serverClient.getLocalPublicKey() :
+            // If not reverse the source is the remote side.
+            this.serverClient.getRemotePublicKey();
+
+        autoFetch.fetchRequest.query.sourcePublicKey = sourcePublicKey;
+        autoFetch.fetchRequest.query.targetPublicKey = targetPublicKey;
+
         for (let i=0; i<this.autoFetchSubscriptions.length; i++) {
             const item = this.autoFetchSubscriptions[i];
             if (DeepEquals(item.autoFetch, autoFetch)) {

@@ -15,11 +15,8 @@ import {
 import {
     P2PClient,
     GetResponse,
+    AutoFetch,
 } from "../../p2pclient";
-
-import {
-    CRDTView,
-} from "../crdt";
 
 import {
     StorageUtil,
@@ -38,7 +35,6 @@ import {
     DataInterface,
     SPECIAL_NODES,
     Hash,
-    Data,
     DataConfig,
 } from "../../datamodel";
 
@@ -57,9 +53,6 @@ import {
     ThreadFetchParams,
     ThreadDataParams,
     ThreadLicenseParams,
-    ThreadStreamResponseAPI,
-    ThreadQueryResponseAPI,
-    UpdateStreamParams,
 } from "./types";
 
 import {
@@ -69,16 +62,107 @@ import {
     BlobStreamReader,
 } from "../../datastreamer";
 
+import {
+    SetDataFn,
+    UnsetDataFn,
+    CRDTOnChangeCallback,
+} from "../crdt/types";
+
+import {
+    StreamCRDT,
+} from "../crdt/StreamCRDT";
+
+import {
+    Service,
+} from "../../service/Service";
+
 /**
- * Threads only work with Data nodes, furthermore nodes returned from the database
- * flagged as "special" are ignored.
+ * The Thread is a convenient way of working with data in applications.
+ *
+ * The model of a Thread can in many cases be mapped directly to the application's UI.
+ *
+ * The Thread works in the intersection of the Service, CRDT and streaming queries.
+ *
+ * A Thread's definition include both query and post actions.
+ *
+ * Only Data nodes are kept in the model and nodes flagged as isSpecial are ignored.
+ * This is because the underlying fetch request might need to includes License nodes and special
+ * nodes (which are used for deleting nodes), but those nodes are not interesting for making up
+ * the model.
+ *
+ * A Thread's FetchRequest is not required to use CRDT in which case the model will be append only
+ * and is a cheap way of building a model without the CRDT heavy lifting, but the then
+ * the order is not guaranteed.
+ *
+ * The model is managed by the StreamCRDT class.
  */
 export class Thread {
+    protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
+
+    protected autoFetchers: AutoFetch[] = [];
+
+    protected _isClosed: boolean = false;
+
+    /* Keep track of all streaming requests so we can close them properly */
+    protected streamCRDT?: StreamCRDT;
 
     /**
+     * Factory to create a Thread using a Service object.
+     *
      * @param threadTemplate
      * @param threadFetchParams parameters to override threadTemplate with for queries and streaming.
      * Note that parentId set here is used as default parentId for posting data if not explicitly set in the post parameters.
+     * @param service the Service object to be used for storage and peer communication and to extract public key, etc.
+     * @param autoStart if true then calls start() to start the streaming immediately. Default is true.
+     * @param autoSync if true then calls addAutoSync() to start syncing with peer(s). Default is false.
+     * Note that auto sync for Threads can also be inited from the app.json configuration, but in case creating
+     * Thread configurations in runtime autoSync should generally be enabled when instatiating the Thread.
+     * @param setDataFn passed to CRDTView
+     * @param unsetDataFn passed to CRDTView
+     * @param purgeInterval passed to StreamCRDT
+     *
+     * @returns new Thread object.
+     */
+    public static fromService(threadTemplate: ThreadTemplate,
+        threadFetchParams: ThreadFetchParams,
+        service: Service,
+        autoStart: boolean = true,
+        autoSync: boolean = false,
+        setDataFn?: SetDataFn,
+        unsetDataFn?: UnsetDataFn,
+        purgeInterval: number = 60_000)
+    {
+        const storageClient = service.getStorageClient();
+        assert(storageClient);
+
+        const nodeUtil = service.getNodeUtil();
+
+        const publicKey = service.getPublicKey();
+
+        const signerPublicKey = service.getSignerPublicKey();
+
+        return new Thread(threadTemplate, threadFetchParams, storageClient, nodeUtil, publicKey,
+            signerPublicKey, undefined, setDataFn, unsetDataFn, autoStart, autoSync, purgeInterval,
+            service);
+    }
+
+    /**
+     *
+     * @param threadTemplate
+     * @param threadFetchParams parameters to override threadTemplate with for queries and streaming
+     * Note that parentId set here is used as default parentId for posting data if not explicitly set in the post parameters
+     * @param nodeUtil instantiated NodeUtil, if no SignatureOffloader inited then secretKey must also be passed as parameter
+     * @param publicKey the public key to use as owner for new nodes
+     * @param signerPublicKey the signing public key, could be same as public key
+     * @param secretKey set to sign without SignatureOffloader
+     * @param setDataFn passed to CRDTView
+     * @param unsetDataFn passed to CRDTView
+     * @param autoStart if true then calls start() to start the streaming immediately. Default is true.
+     * @param autoSync if true then calls addAutoSync() to start syncing with peer(s). Default is false.
+     * Note that auto sync for Threads can also be inited from the app.json configuration, but in case creating
+     * Thread configurations in runtime autoSync should generally be enabled when instatiating the Thread.
+     * @param purgeInterval passed to StreamCRDT
+     * @param service the Service object to be used for syncing with peers, must be set if autoSync is set
      */
     constructor(protected threadTemplate: ThreadTemplate,
         protected threadFetchParams: ThreadFetchParams,
@@ -86,15 +170,232 @@ export class Thread {
         protected nodeUtil: NodeUtil,
         protected publicKey: Buffer,
         protected signerPublicKey: Buffer,
-        protected signerSecretKey?: Buffer) {
+        protected secretKey?: Buffer,
+        protected setDataFn?: SetDataFn,
+        protected unsetDataFn?: UnsetDataFn,
+        autoStart: boolean = true,
+        autoSync: boolean = false,
+        protected purgeInterval: number = 60_000,
+        protected service?: Service)
+    {
+        storageClient.onClose(this.close);
+
+        if (autoSync) {
+            if (!service) {
+                throw new Error("autoSync cannot be set in Thread if no Service object provided");
+            }
+
+            this.addAutoSync();
+        }
+
+        if (autoStart) {
+            this.start();
+        }
+    }
+
+    /**
+     * Close down the Thread.
+     *
+     * This empties the model and makes the thread non functional.
+     *
+     * If wanting to only stop the streaming but keep the model call getStream().stopStream() instead.
+     */
+    public close = () => {
+        if (this._isClosed) {
+            return;
+        }
+
+        this.storageClient.offClose(this.close);
+
+        this._isClosed = true;
+
+        this.removeAutoSync();
+
+        this.streamCRDT?.close();
+
+        delete this.streamCRDT;
+
+        this.triggerEvent("close");
+    }
+
+    public isClosed(): boolean {
+        return this._isClosed;
+    }
+
+    public getStream(): StreamCRDT {
+        if (!this.streamCRDT) {
+            throw new Error("Not streaming");
+        }
+
+        return this.streamCRDT;
+    }
+
+    public isStreaming(): boolean {
+        return this.streamCRDT !== undefined;
+    }
+
+    /**
+     * Create auto sync configurations and pass them to the Service object.
+     * The FetchRequest will be modified to fit the purposes of the Thread which is to auto include
+     * licenses and remove any CRDT configuration.
+     *
+     * @param fetchRequest optionally set this to override the thread template fetch request,
+     *  this can be useful in cases wanting to change the underlying sync request to broaden
+     *  the data uptake for the model, for example by extending limit.
+     * @param fetchRequestReverse optionally set this to override the thread
+     * template fetch request for the reverse-fetch, that is the data pushed to remote peer(s),
+     * this should in general be set the same as fetchRequest.
+     */
+    public addAutoSync(fetchRequest?: FetchRequest, fetchRequestReverse?: FetchRequest) {
+        if (this._isClosed || !this.service) {
+            return;
+        }
+
+        this.removeAutoSync();
+
+        fetchRequest = fetchRequest ? DeepCopy(fetchRequest) as FetchRequest :
+            this.getFetchRequest(true);
+
+        // Note that when we set includeLicenses=3 the Storage will automatically
+        // add relevent licenses to the response and also automatically request licenses
+        // to be extended for data matched.
+        // This is a more fine grained approach in requesting licenses than using
+        // query.embed and query.match on licenses.
+        //
+        fetchRequest.query.includeLicenses = 3;
+
+        // Not relevant/allowed for auto fetch.
+        //
+        fetchRequest.query.preserveTransient = false;
+        fetchRequest.crdt.algo = 0;
+
+        const autoFetch: AutoFetch = {
+            fetchRequest,
+            remotePublicKey: Buffer.alloc(0),
+            blobSizeMaxLimit: -1,
+            reverse: false,
+        };
+
+        this.service.addAutoFetch(autoFetch);
+
+        this.autoFetchers.push(autoFetch);
+
+
+        fetchRequestReverse = fetchRequestReverse ? DeepCopy(fetchRequestReverse) as FetchRequest :
+            this.getFetchRequest(true);
+
+        fetchRequestReverse.query.includeLicenses = 3;
+        fetchRequestReverse.query.preserveTransient = false;
+        fetchRequestReverse.crdt.algo = 0;
+
+        const autoFetchReverse: AutoFetch = {
+            fetchRequest: fetchRequestReverse,
+            remotePublicKey: Buffer.alloc(0),
+            blobSizeMaxLimit: -1,
+            reverse: true,
+        };
+
+        this.service.addAutoFetch(autoFetchReverse);
+
+        this.autoFetchers.push(autoFetchReverse);
+    }
+
+    /**
+     * @returns true if there is a sync requested.
+     */
+    public isAutoSyncing(): boolean {
+        return this.autoFetchers.length > 0;
+    }
+
+    /**
+     * Remove any sync added.
+     */
+    public removeAutoSync() {
+        if (!this.service) {
+            return;
+        }
+
+        this.autoFetchers.forEach( autoFetch => this.service!.removeAutoFetch(autoFetch) );
+        this.autoFetchers = [];
+    }
+
+    /**
+     * Issue the streaming query. Returned data is available in the CRDTView
+     * and changes are notified on the onChange handler.
+     *
+     * @see GetFetchRequest() for details on defaults.
+     */
+    public start() {
+        if (this.streamCRDT || this._isClosed) {
+            return;
+        }
+
+        this.streamCRDT = new StreamCRDT(this.getFetchRequest(true), this.storageClient,
+            this.setDataFn, this.unsetDataFn, this.purgeInterval);
+
+        this.streamCRDT.getView().onChange( event => {
+            this.triggerEvent("change", event);
+        });
+
+        this.streamCRDT.onStop( () => {
+            this.triggerEvent("stop");
+        });
+    }
+
+    /**
+     * Cancel the streaming and updating but keep the model available.
+     * Suger over getStream().stop().
+     */
+    public stop() {
+        if (!this.streamCRDT || this._isClosed) {
+            return;
+        }
+
+        this.streamCRDT.stop();
+    }
+
+    /**
+     * Event triggered when a change in the CRDT model happens.
+     * Suger over getStream().getView().onChange().
+     */
+    public onChange(cb: CRDTOnChangeCallback) {
+        this.hookEvent("change", cb);
+    }
+
+    public offChange(cb: CRDTOnChangeCallback) {
+        this.unhookEvent("change", cb);
+    }
+
+    /**
+     * Event triggered when calling close() or when the storage client closes.
+     */
+    public onClose(cb: () => void) {
+        this.hookEvent("close", cb);
+    }
+
+    public offClose(cb: () => void) {
+        this.unhookEvent("close", cb);
+    }
+
+    /**
+     * Event triggerd when the streaming stops, either by calling stop(), by some error,
+     * by calling close() or when the storage client closes.
+     * Suger over getStream().onStop().
+     */
+    public onStop(cb: () => void) {
+        this.hookEvent("stop", cb);
+    }
+
+    public offStop(cb: () => void) {
+        this.unhookEvent("stop", cb);
     }
 
     /**
      * Generate a FetchRequest based on a thread template and thread fetch params,
      * streaming or not streaming.
      *
-     * If streaming then triggerNodeId will be copied from query.parentId in the case both
-     * triggerNodeId and triggerInterval are not set. If anyone of them are alread set then
+     * For streaming triggerNodeId will be copied from query.parentId in the case both
+     * triggerNodeId and triggerInterval are not set. If anyone of them are already set then
      * triggerNodeId will not be automatically set.
      *
      * triggerInterval will always be set to 60 if not already set.
@@ -138,6 +439,7 @@ export class Thread {
         };
     }
 
+
     /**
      * Generate the FetchRequest for this thread based on the template and threadFetchParams
      * provided in the constructor.
@@ -151,54 +453,18 @@ export class Thread {
     }
 
     /**
-     * Execute a query
-     *
-     * @returns ThreadQueryResponseAPI to interact with the query
-     */
-    public query(): ThreadQueryResponseAPI {
-        const fetchRequest = this.getFetchRequest();
-
-        const {getResponse} = this.storageClient.fetch(fetchRequest);
-
-        if (!getResponse) {
-            throw new Error("unexpectedly missing getResponse");
-        }
-
-        return this.threadQueryResponseAPI(getResponse, fetchRequest);
-    }
-
-    /**
-     * @see GetFetchRequest() for details on defaults.
-     */
-    public stream(): ThreadStreamResponseAPI {
-        let crdtView;
-
-        if (this.threadTemplate.crdt?.algo ?? 0 > 0) {
-            crdtView = new CRDTView();
-        }
-
-        const fetchRequest = this.getFetchRequest(true);
-
-        const {getResponse} = this.storageClient.fetch(fetchRequest, /*timeout=*/0);
-
-        if (!getResponse) {
-            throw new Error("unexpectedly missing getResponse");
-        }
-
-        return this.threadStreamResponseAPI(getResponse, crdtView, fetchRequest);
-    }
-
-    /**
      * Post a new node.
      *
      * @param name of the post template to use.
      * @param threadDataParams fields on the Data node.
+     * @returns the node created
      * @throws if data node could not be created or stored.
      */
     public async post(name: string, threadDataParams: ThreadDataParams = {}): Promise<DataInterface> {
         const dataParams = this.parsePost(name, threadDataParams);
 
-        const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey, this.signerSecretKey);
+        const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
+            this.secretKey);
 
         const storedId1s = await this.storeNodes([dataNode]);
 
@@ -227,7 +493,8 @@ export class Thread {
         dataParams.expireTime = nodeToEdit.getExpireTime();
         dataParams.dataConfig = (dataParams.dataConfig ?? 0) | (1 << DataConfig.ANNOTATION_EDIT);
 
-        const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey, this.signerSecretKey);
+        const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
+            this.secretKey);
 
         const storedId1s = await this.storeNodes([dataNode]);
 
@@ -253,7 +520,8 @@ export class Thread {
         dataParams.expireTime = node.getExpireTime();
         dataParams.dataConfig = (dataParams.dataConfig ?? 0) | (1 << DataConfig.ANNOTATION_REACTION);
 
-        const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey, this.signerSecretKey);
+        const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
+            this.secretKey);
 
         const storedId1s = await this.storeNodes([dataNode]);
 
@@ -314,7 +582,7 @@ export class Thread {
             };
 
             const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
-                this.signerSecretKey);
+                this.secretKey);
 
             destroyNodes.push(dataNode);
         }
@@ -340,7 +608,7 @@ export class Thread {
             };
 
             const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
-                this.signerSecretKey);
+                this.secretKey);
 
             destroyNodes.push(dataNode);
         }
@@ -355,205 +623,9 @@ export class Thread {
             storedId1s.findIndex( id1 => node.getId1()?.equals(id1) ) > -1 );
     }
 
-    protected threadQueryResponseAPI(getResponse: GetResponse<FetchResponse>,
-        fetchRequest: FetchRequest): ThreadQueryResponseAPI
-    {
-        const onDataCBs: Array<(nodes: DataInterface[]) => void> = [];
-
-        getResponse.onReply( (fetchResponse: FetchResponse) => {
-            if (fetchResponse.status === Status.RESULT) {
-                const nodes = (StorageUtil.ExtractFetchResponseNodes(fetchResponse, fetchRequest.query.preserveTransient,
-                    Data.GetType(4)) as DataInterface[]).filter( node => !node.isSpecial() );
-
-                onDataCBs.forEach( cb => cb(nodes) );
-            }
-        });
-
-        const threadResponse: ThreadQueryResponseAPI = {
-            onData: (cb: (nodes: DataInterface[]) => void): ThreadQueryResponseAPI => {
-                onDataCBs.push(cb)
-
-                return threadResponse;
-            },
-
-            onCancel: (cb: () => void): ThreadQueryResponseAPI => {
-                getResponse.onCancel(cb);
-
-                return threadResponse;
-            },
-
-            getResponse: (): GetResponse<FetchResponse> => {
-                return getResponse;
-            },
-
-            getFetchRequest(): FetchRequest {
-                return DeepCopy(fetchRequest);
-            },
-        };
-
-        return threadResponse;
-    }
-
-    protected threadStreamResponseAPI(getResponse: GetResponse<FetchResponse>,
-        crdtView: CRDTView | undefined,
-        fetchRequest: FetchRequest): ThreadStreamResponseAPI
-    {
-        fetchRequest = DeepCopy(fetchRequest);
-
-        const onDataCBs: Array<(nodes: NodeInterface[]) => void> = [];
-
-        // These variables are used to collect the response.
-        //
-        let delta: Buffer = Buffer.alloc(0);
-        let addedNodesId1s: Buffer[]   = [];
-        let updatedNodesId1s: Buffer[] = [];
-        let deletedNodesId1s: Buffer[] = [];
-
-        getResponse.onReply( (fetchResponse: FetchResponse) => {
-            if (fetchResponse.status === Status.MISSING_CURSOR) {
-                // cursordId1 is missing for crdtView.
-                // Clear out cache, but keep alive and wait for more data.
-
-                crdtView?.empty();
-            }
-            else if (fetchResponse.status !== Status.RESULT) {
-                console.debug(`Error code (${fetchResponse.status}) returned on fetch, error message: ${fetchResponse.error}`);
-            }
-            else {
-                const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse,
-                    fetchRequest.query.preserveTransient);
-
-                if (nodes.length > 0) {
-                    onDataCBs.forEach( cb => cb(nodes) );
-                }
-
-                if (crdtView) {
-                    delta = Buffer.concat([delta, fetchResponse.crdtResult.delta]);
-
-                    const isLast = fetchResponse.seq === fetchResponse.endSeq;
-
-                    const [a, b, c] = crdtView.handleResponse(nodes, isLast ? delta : undefined);
-
-                    addedNodesId1s.push(...a);
-                    updatedNodesId1s.push(...b);
-                    deletedNodesId1s.push(...c);
-
-                    if (isLast) {
-                        delta = Buffer.alloc(0);
-
-                        if (addedNodesId1s.length > 0 || updatedNodesId1s.length > 0 ||
-                            deletedNodesId1s.length > 0)
-                        {
-                            crdtView.triggerOnChange(addedNodesId1s, updatedNodesId1s, deletedNodesId1s);
-                        }
-
-                        addedNodesId1s = [];
-                        updatedNodesId1s = [];
-                        deletedNodesId1s = [];
-                    }
-                }
-            }
-        });
-
-        const threadResponse: ThreadStreamResponseAPI = {
-            onChange: (...parameters: Parameters<CRDTView["onChange"]>): ThreadStreamResponseAPI => {
-                if (!crdtView) {
-                    throw new Error("Thread not using CRDT, cannot call onChange()");
-                }
-
-                crdtView.onChange(...parameters);
-
-                return threadResponse;
-            },
-
-            usesCRDT(): boolean {
-                return crdtView !== undefined;
-            },
-
-            /**
-             * Hook event for incoming nodes on fetch response.
-             * This event is triggered for both when using CRDT and not using CRDT.
-             */
-            onData: (cb: (nodes: NodeInterface[]) => void): ThreadStreamResponseAPI => {
-                onDataCBs.push(cb)
-
-                return threadResponse;
-            },
-
-            onCancel: (cb: () => void): ThreadStreamResponseAPI => {
-                getResponse.onCancel(cb);
-
-                return threadResponse;
-            },
-
-            stopStream: () => {
-                this.storageClient.unsubscribe({
-                    originalMsgId: getResponse.getMsgId(),
-                    targetPublicKey: Buffer.alloc(0),
-                });
-            },
-
-            /**
-             * Update the fetch request used for streaming.
-             * For non CRDT requests only query.triggerInterval is relevant to be changed,
-             * for CRDT requests also the other parameters of UpdateStreamParams are applicable
-             * to be changed.
-             */
-            updateStream: (updateStreamParams: UpdateStreamParams) => {
-                // Replace with our new
-
-                fetchRequest.crdt.msgId = getResponse.getMsgId();
-
-                if (updateStreamParams.triggerInterval !== undefined) {
-                    fetchRequest.query.triggerInterval = updateStreamParams.triggerInterval;
-                }
-
-                if (updateStreamParams.head !== undefined) {
-                    fetchRequest.crdt.head         = updateStreamParams.head;
-                }
-
-                if (updateStreamParams.tail !== undefined) {
-                    fetchRequest.crdt.tail         = updateStreamParams.tail;
-                }
-
-                if (updateStreamParams.cursorId1 !== undefined) {
-                    fetchRequest.crdt.cursorId1    = updateStreamParams.cursorId1;
-                }
-
-                if (updateStreamParams.cursorIndex !== undefined) {
-                    fetchRequest.crdt.cursorIndex  = updateStreamParams.cursorIndex;
-                }
-
-                if (updateStreamParams.reverse !== undefined) {
-                    fetchRequest.crdt.reverse      = updateStreamParams.reverse;
-                }
-
-                this.storageClient.fetch(fetchRequest);
-            },
-
-            getResponse: (): GetResponse<FetchResponse> => {
-                return getResponse;
-            },
-
-            getCRDTView: (): CRDTView => {
-                if (!crdtView) {
-                    throw new Error("Thread not using CRDT");
-                }
-
-                return crdtView;
-            },
-
-            getFetchRequest(): FetchRequest {
-                return DeepCopy(fetchRequest);
-            },
-        };
-
-        return threadResponse;
-    }
-
     /**
      * @param name of the post template to use.
-     * @param node to create licenses for.
+     * @param nodes to create licenses for. Either single node or array of nodes.
      * @param threadLicenseParams params to overwrite template values with.
      * @returns Promise containing an array with all successfully stored licenses.
      *
@@ -567,31 +639,39 @@ export class Thread {
      * nodeId1 and parentId are taken from the node.
      * owner is always set to current publicKey.
      */
-    public async postLicense(name: string, node: DataInterface, threadLicenseParams: ThreadLicenseParams = {}): Promise<LicenseInterface[]> {
+    public async postLicense(name: string, nodes: DataInterface | DataInterface[], threadLicenseParams: ThreadLicenseParams = {}): Promise<LicenseInterface[]> {
         const template = this.threadTemplate.postLicense[name] ?? {};
+
+        if (!Array.isArray(nodes)) {
+            nodes = [nodes];
+        }
 
         const targets: Buffer[] | undefined = threadLicenseParams.targets ?? template.targets;
 
-
-        if (!node.isLicensed() || node.getLicenseMinDistance() !== 0 || !targets) {
-            return [];
-        }
-
         const licenseNodes: LicenseInterface[] = [];
 
-        const targetsLength = targets.length;
-        for (let i=0; i<targetsLength; i++) {
-            const targetPublicKey = targets[i];
+        const nodesLength = nodes.length;
+        for (let i=0; i<nodesLength; i++) {
+            const node = nodes[i];
 
-            const licenseParams = this.parsePostLicense(name, node, {
-                ...threadLicenseParams,
-                targetPublicKey,
-            });
+            if (!node.isLicensed() || node.getLicenseMinDistance() !== 0 || !targets) {
+                continue;
+            }
 
-            const licenseNode = await this.nodeUtil.createLicenseNode(licenseParams,
-                this.signerPublicKey, this.signerSecretKey);
+            const targetsLength = targets.length;
+            for (let i=0; i<targetsLength; i++) {
+                const targetPublicKey = targets[i];
 
-            licenseNodes.push(licenseNode);
+                const licenseParams = this.parsePostLicense(name, node, {
+                    ...threadLicenseParams,
+                    targetPublicKey,
+                });
+
+                const licenseNode = await this.nodeUtil.createLicenseNode(licenseParams,
+                    this.signerPublicKey, this.secretKey);
+
+                licenseNodes.push(licenseNode);
+            }
         }
 
         const storedId1s = await this.storeNodes(licenseNodes);
@@ -834,4 +914,21 @@ export class Thread {
         return merged;
     }
 
+    protected hookEvent(name: string, callback: ( (...args: any) => void)) {
+        const cbs = this.handlers[name] || [];
+        this.handlers[name] = cbs;
+        cbs.push(callback);
+    }
+
+    protected unhookEvent(name: string, callback: ( (...args: any) => void)) {
+        const cbs = (this.handlers[name] || []).filter( (cb: ( (...args: any) => void)) => callback !== cb );
+        this.handlers[name] = cbs;
+    }
+
+    protected triggerEvent(name: string, ...args: any) {
+        const cbs = this.handlers[name] || [];
+        cbs.forEach( (callback: ( (...args: any) => void)) => {
+            setImmediate( () => callback(...args) );
+        });
+    }
 }

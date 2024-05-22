@@ -224,6 +224,14 @@ export class P2PClient {
         this.onCloseHandlers.push(cb);
     }
 
+    public offClose(cb: (peer: P2PClient) => void) {
+        const index = this.onCloseHandlers.findIndex(cb2 => cb2 === cb);
+
+        if (index > -1) {
+            this.onCloseHandlers.splice(index, 1);
+        }
+    }
+
     /**
      * Get the PeerData describing this peer.
      */
@@ -840,10 +848,8 @@ export class P2PClient {
     public unsubscribe(unsubscribeRequest: UnsubscribeRequest, timeout: number = -1): {getResponse: GetResponse<UnsubscribeResponse> | undefined, msgId: Buffer | undefined} {
         try {
             const data = this.serialize.UnsubscribeRequest(unsubscribeRequest);
+
             const sendReturn = this.messaging.send(RouteAction.UNSUBSCRIBE, data, timeout);
-            // originalMsgId maps to the msgId we created on this side and we are now
-            // releasing it from the Messaging since we are not wanting any further replies on it.
-            this.messaging.cancelPendingMessage(unsubscribeRequest.originalMsgId);
 
             if (!sendReturn) {
                 return {getResponse: undefined, msgId: undefined};

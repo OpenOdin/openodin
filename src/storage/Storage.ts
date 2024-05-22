@@ -308,6 +308,8 @@ export class Storage {
             }
 
             // Cryptographically verify all nodes.
+            // TODO: first filter out existing nodes to not do heavy verify unnecessarily.
+            //
             const verifiedNodes =
                 await this.signatureOffloader.verify(decodedNodes) as NodeInterface[];
 
@@ -805,7 +807,7 @@ export class Storage {
             isRunning: false,
             isPending: false,
             isCorked: true,
-            lastIntervalRun: 0,
+            lastIntervalRun: Date.now(),
             closed: false,
             crdtView: {list: [], transientHashes: {}, annotations: {}},
         };

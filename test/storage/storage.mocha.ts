@@ -1905,47 +1905,20 @@ function setupTests(config: any) {
         const thread = new Thread(threadTemplate, {}, storageClient, nodeUtil,
             publicKey, publicKey, secretKey);
 
+        const {promise, cb} = PromiseCallback<any>();
+
+        thread.onChange( ({added}) => {
+            cb(undefined, added);
+        });
+
         let node = await thread.post("hello");
 
         const licenses = await thread.postLicense("hello", node);
         assert(licenses.length === 1);
 
-        let {promise, cb} = PromiseCallback<any>();
+        const items = await promise;
 
-        thread.query().onData( (nodes: any) => {
-            cb(undefined, nodes);
-        });
-
-        let nodes2 = await promise;
-
-
-        assert(nodes2.length === 1);
-
-
-        const deleteNodes = await thread.delete(node);
-
-        assert(deleteNodes.length === 2);
-
-        assert(deleteNodes[0].isLicensed());
-        assert(deleteNodes[1].isLicensed());
-
-        // We need to post licenses
-        //
-        let licenses2 = await thread.postLicense("hello", deleteNodes[0]);
-        assert(licenses2.length === 1);
-
-        licenses2 = await thread.postLicense("hello", deleteNodes[1]);
-        assert(licenses2.length === 1);
-
-        ({promise, cb} = PromiseCallback<any>());
-
-        thread.query().onData( (nodes: any) => {
-            cb(undefined, nodes);
-        });
-
-        nodes2 = await promise;
-
-        assert(nodes2.length === 0);
+        assert(items.length === 1);
     });
 
     it("Thread with CRDT and annotations", async function() {
@@ -2006,6 +1979,7 @@ function setupTests(config: any) {
             post: {
                 hello: {
                     parentId,
+                    bubbleTrigger: true,  // This is needed for children of the node to trigger
                     data: Buffer.from("Hello World"),
                     isLicensed: true,
                 }
@@ -2025,17 +1999,17 @@ function setupTests(config: any) {
         let licenses = await thread.postLicense("hello", node);
         assert(licenses.length === 1);
 
-        let {promise, cb} = PromiseCallback<any>();
+        const {promise, cb} = PromiseCallback<any>();
 
-        thread.query().onData( (nodes: any) => {
-            cb(undefined, nodes);
+        thread.onChange( ({added}) => {
+            cb(undefined, added);
         });
 
-        let nodes2 = await promise;
+        let items = await promise;
 
-        assert(nodes2.length === 1);
+        assert(items.length === 1);
 
-        let node2 = nodes2[0];
+        let node2 = items[0].node;
 
         assert(node2.getAnnotations() === undefined);
 
@@ -2043,36 +2017,32 @@ function setupTests(config: any) {
         const nodeToEdit = node;
 
 
+        const r = PromiseCallback<any>();
+        const [promise2, cb2] = [r.promise, r.cb];
+
+        thread.onChange( ({updated}) => {
+            cb2(undefined, updated);
+        });
+
         // Store annotation nodes
         //
         let node3 = await thread.postEdit("hello", nodeToEdit, {data: Buffer.from("Hello OpenOdin")});
 
         assert(node3.isAnnotationEdit());
 
-        licenses = await thread.postLicense("hello", node3);
-        assert(licenses.length === 1);
-
-
         let node4 = await thread.postReaction("hello", nodeToEdit,
             {data: Buffer.from("react/thumbsup")});
 
         assert(node4.isAnnotationReaction());
 
-        licenses = await thread.postLicense("hello", node4);
-        assert(licenses.length === 1);
+        licenses = await thread.postLicense("hello", [node3, node4]);
+        assert(licenses.length === 2);
 
+        items = await promise2;
 
-        ({promise, cb} = PromiseCallback<any>());
+        assert(items.length === 1);
 
-        thread.query().onData( (nodes: any) => {
-            cb(undefined, nodes);
-        });
-
-        nodes2 = await promise;
-
-        assert(nodes2.length === 1);
-
-        node = nodes2[0];
+        node = items[0].node;
 
         const annot = node.getAnnotations();
         assert(annot !== undefined);

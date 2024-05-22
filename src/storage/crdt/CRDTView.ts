@@ -1,8 +1,7 @@
 /**
- * The view of a CRDT model,
- * used to keep a subset of the CRDT model up to date.
- * The model only uses data nodes which are not flagged as special,
- * all other nodes are ignored.
+ * This class is to keep a local view of the CRDT model.
+ *
+ * The model only uses Data nodes who are not flagged as isSpecial, all other nodes are ignored.
  */
 
 import {
@@ -12,16 +11,30 @@ import {
 } from "../../datamodel";
 
 import {
+    FetchResponse,
+} from "../../types";
+
+import {
     CRDTViewModel,
     CRDTViewItem,
     CRDTViewExternalData,
     CRDTOnChangeCallback,
+    SetDataFn,
+    UnsetDataFn,
+    CRDTCustomData,
+    CRDTEvent,
 } from "./types";
+
+import {
+    StorageUtil,
+} from "../../util/StorageUtil";
 
 import * as fossilDelta from "fossil-delta";
 
 export class CRDTView {
     protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
+
+    protected isClosed: boolean = false;
 
     protected model: CRDTViewModel = {
         list: [],
@@ -33,24 +46,33 @@ export class CRDTView {
 
     protected cachedGetItems?: CRDTViewItem[];
 
+    protected addedNodesId1s: Buffer[] = [];
+
+    protected updatedNodesId1s: Buffer[] = [];
+
+    protected deletedNodesId1s: Buffer[] = [];
+
+    protected delta = Buffer.alloc(0);
+
+    constructor(protected preserveTransient: boolean = false,
+        protected setDataFn?: SetDataFn,
+        protected unsetDataFn?: UnsetDataFn) {}
+
     /**
      * Will only use data nodes which are not flagged as special, other nodes are ignored.
      */
-    public handleResponse(nodes: NodeInterface[], delta?: Buffer) {
-        const addedNodesId1s: Buffer[] = [];
-
-        const updatedNodesId1s: Buffer[] = [];
-
-        const deletedNodesId1s: Buffer[] = [];
+    public handleResponse(fetchResponse: FetchResponse) {
+        const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse,
+            this.preserveTransient, Data.GetType(4));
 
         // Apply nodes to model.
-        nodes.forEach( node => {
-            if (!node.getType(4).equals(Data.GetType(4))) {
-                return;
-            }
+        //
+        const nodesLength = nodes.length;
+        for (let i=0; i<nodesLength; i++) {
+            const node = nodes[i];
 
             if ((node as DataInterface).isSpecial()) {
-                return;
+                continue;
             }
 
             const id1 = node.getId1() as Buffer;
@@ -58,103 +80,223 @@ export class CRDTView {
             const id1Str = id1.toString("hex");
 
             if (this.model.nodes[id1Str] === undefined) {
-                addedNodesId1s.push(id1);
+                this.addedNodesId1s.push(id1);
             }
             else {
-                updatedNodesId1s.push(id1);
+                this.updatedNodesId1s.push(id1);
             }
 
             // Always replace the node in case it has updated transient values.
             this.model.nodes[id1Str] = node as DataInterface;
 
-            // If no lingering or preset data create it.
+            // If none already existing lingering or preset data exists, we create the data object.
             //
             if (!this.model.datas[id1Str]) {
-                this.model.datas[id1Str] = {};
+                const custom = {};
+                this.setDataFn?.(node as DataInterface, custom);
+
+                this.model.datas[id1Str] = {_deleted: undefined, custom};
             }
             else {
                 // In case existing data was tagged for deletion we untag it from deletion.
                 //
-                delete this.model.datas[id1Str]._deleted;
+                this.model.datas[id1Str]._deleted = undefined
+
+                this.setDataFn?.(node as DataInterface, this.model.datas[id1Str].custom);
             }
-        });
-
-        if (delta && delta.length > 0) {
-            // Apply patch.
-            const deltaType = delta[0];
-            if (deltaType !== 0) {
-                throw new Error("Delta type not supported");
-            }
-
-            const list: Buffer[] = [];
-
-            try {
-                const newMerged = Buffer.from(fossilDelta.apply(Buffer.concat(this.model.list),
-                    JSON.parse(delta.slice(1).toString()).patch));
-
-                // Split into seperate buffers.
-                // NOTE: Assuming IDs are 32 bytes long.
-                for (let i=0; i<newMerged.length; i+=32) {
-                    list.push(newMerged.slice(i, i + 32));
-                }
-            }
-            catch(e) {
-                console.error("Error in applying patch. State might have gotten inconsistent. Please reload");
-                console.error(e);
-            }
-
-            this.model.list = list;
-
-            delete this.cachedGetItems;
-
-            this.itemIndex = {};
-
-            this.model.list.forEach( (id1, index) => {
-                const id1Str = id1.toString("hex");
-                this.itemIndex[id1Str] = index;
-            });
-
-            Object.keys(this.model.nodes).forEach( nodeId1Str => {
-
-                if (this.itemIndex[nodeId1Str] === undefined) {
-                    delete this.model.nodes[nodeId1Str];
-
-                    deletedNodesId1s.push(Buffer.from(nodeId1Str, "hex"));
-
-                    const data = this.model.datas[nodeId1Str];
-
-                    if (data) {
-                        // Set timestamp so purge can remove it.
-                        data._deleted = Date.now();
-                    }
-                }
-            });
         }
 
-        return [addedNodesId1s, updatedNodesId1s, deletedNodesId1s];
+        // concat delta
+        //
+        this.delta = Buffer.concat([this.delta, fetchResponse.crdtResult.delta]);
+
+        const isLast = fetchResponse.seq === fetchResponse.endSeq;
+
+        if (isLast) {
+            delete this.cachedGetItems;
+            const appendedNodesId1s: Buffer[] = [];
+
+            if (this.delta.length > 0) {
+                // Apply patch.
+                const deltaType = this.delta[0];
+                if (deltaType !== 0) {
+                    throw new Error("Delta type not supported");
+                }
+
+                const list: Buffer[] = [];
+
+                try {
+                    const newMerged = Buffer.from(fossilDelta.apply(Buffer.concat(this.model.list),
+                        JSON.parse(this.delta.slice(1).toString()).patch));
+
+                    // Split into seperate buffers.
+                    // NOTE: Assuming IDs are 32 bytes long.
+                    for (let i=0; i<newMerged.length; i+=32) {
+                        list.push(newMerged.slice(i, i + 32));
+                    }
+                }
+                catch(e) {
+                    console.error("Error in applying patch. State might have gotten inconsistent. Please reload");
+                    console.error(e);
+                }
+
+                this.model.list = list;
+
+                this.itemIndex = {};
+
+                this.model.list.forEach( (id1, index) => {
+                    const id1Str = id1.toString("hex");
+                    this.itemIndex[id1Str] = index;
+                });
+
+                Object.keys(this.model.nodes).forEach( nodeId1Str => {
+
+                    if (this.itemIndex[nodeId1Str] === undefined) {
+                        delete this.model.nodes[nodeId1Str];
+
+                        this.deletedNodesId1s.push(Buffer.from(nodeId1Str, "hex"));
+
+                        const data = this.model.datas[nodeId1Str];
+
+                        if (data) {
+                            // Set timestamp for GC to know.
+                            //
+                            data._deleted = Date.now();
+                        }
+                    }
+                });
+
+                // Check for all added nodes which nodes are considered appended
+                // to the end of the list.
+                //
+                const addedNodesId1sMap: {[id1: string]: true} = {};
+                const addedNodesId1sLength = this.addedNodesId1s.length;
+                for (let i=0; i<addedNodesId1sLength; i++) {
+                    const id1 = this.addedNodesId1s[i];
+                    const id1Str = id1.toString("hex");
+                    addedNodesId1sMap[id1Str] = true;
+                }
+
+                const listLength = this.model.list.length;
+                for (let i=listLength-1; i>=0; i--) {
+                    const id1 = this.model.list[i];
+                    const id1Str = id1.toString("hex");
+                    if (addedNodesId1sMap[id1Str]) {
+                        appendedNodesId1s.unshift(id1);
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+            else {
+                // No delta, meaning this is not CRDT,
+                // So just use an append only model.
+                //
+                this.model.list.push(...this.addedNodesId1s);
+
+                this.itemIndex = {};
+
+                this.model.list.forEach( (id1, index) => {
+                    const id1Str = id1.toString("hex");
+                    this.itemIndex[id1Str] = index;
+                });
+
+                appendedNodesId1s.push(...this.addedNodesId1s);
+            }
+
+            if (this.addedNodesId1s.length > 0 || this.updatedNodesId1s.length > 0 ||
+                this.deletedNodesId1s.length > 0)
+            {
+                const added: CRDTViewItem[] = [];
+                const updated: CRDTViewItem[] = [];
+                const appended: CRDTViewItem[] = [];
+
+                const addedNodesId1sLength = this.addedNodesId1s.length;
+                for (let i=0; i<addedNodesId1sLength; i++) {
+                    const id1 = this.addedNodesId1s[i];
+                    const item = this.findItem(id1);
+
+                    if (item) {
+                        added.push(item);
+                    }
+                }
+
+                const updatedNodesId1sLength = this.updatedNodesId1s.length;
+                for (let i=0; i<updatedNodesId1sLength; i++) {
+                    const id1 = this.updatedNodesId1s[i];
+                    const item = this.findItem(id1);
+
+                    if (item) {
+                        updated.push(item);
+                    }
+                }
+
+                const appendedNodesId1sLength = appendedNodesId1s.length;
+                for (let i=0; i<appendedNodesId1sLength; i++) {
+                    const id1 = appendedNodesId1s[i];
+                    const item = this.findItem(id1);
+
+                    if (item) {
+                        appended.push(item);
+                    }
+                }
+
+                const crdtEvent: CRDTEvent = {
+                    added,
+                    updated,
+                    deleted: this.deletedNodesId1s,
+                    appended,
+                };
+
+                this.triggerEvent("change", crdtEvent);
+            }
+
+            this.delta = Buffer.alloc(0);
+            this.addedNodesId1s = [];
+            this.updatedNodesId1s = [];
+            this.deletedNodesId1s = [];
+        }
+    }
+
+    /**
+     * Close and empty the model.
+     */
+    public close() {
+        if (this.isClosed) {
+            return;
+        }
+
+        this.model.list = [];
+        this.model.nodes = {};
+        this.model.datas = {};
+        this.itemIndex = {};
+        delete this.cachedGetItems;
+        this.addedNodesId1s = [];
+        this.updatedNodesId1s = [];
+        this.deletedNodesId1s = [];
+        this.delta = Buffer.alloc(0);
+
+        this.isClosed = true;
     }
 
     /**
      * Purge deleted data items and return them to let the caller clear up any resources associated.
+     * @param age milliseconds we give it until purging after marked as deleted. This is in the
+     * scenario where the data reappears into existance for example due to a renewed license.
      */
-    public purge(age: number = 0): any[] {
-        const datas: any[] = [];
-
+    public purge(age: number = 300_000) {
         for (const id1Str in this.model.datas) {
             const data = this.model.datas[id1Str];
 
             if (data._deleted !== undefined && Date.now() - data._deleted >= age) {
+                const data = this.model.datas[id1Str];
+
                 delete this.model.datas[id1Str];
 
-                datas.push(data);
+                this.unsetDataFn?.(Buffer.from(id1Str, "hex"), data.custom);
             }
         }
-
-        return datas;
-    }
-
-    public triggerOnChange(addedId1s: Buffer[], updatedId1s: Buffer[], deletedId1s: Buffer[]) {
-        this.triggerEvent("change", addedId1s, updatedId1s, deletedId1s);
     }
 
     /**
@@ -229,29 +371,28 @@ export class CRDTView {
         return this.model.nodes[id1Str];
     }
 
-    public getData(id1: Buffer): CRDTViewExternalData | undefined {
+    public getData(id1: Buffer): CRDTCustomData | undefined {
         const id1Str = id1.toString("hex");
 
-        return this.model.datas[id1Str];
+        return this.model.datas[id1Str]?.custom;
     }
 
     /**
-     * Update or create data object.
+     * Update or create data object associated with node.
+     * 
+     * @param data all values are shallow copied to data object.
+     *
      * This can be used to pre-create the object with pre-populated data.
-     * If data object not set then set to given data param object.
      */
-    public setData(id1: Buffer, data: CRDTViewExternalData) {
+    public setData(id1: Buffer, data: CRDTCustomData) {
         const id1Str = id1.toString("hex");
 
-        const data2 = this.model.datas[id1Str] ?? data;
-
-        // In case it was set we remove it.
-        delete data2._deleted;
+        const data2 = this.model.datas[id1Str] ?? {_deleted: undefined, custom:{}};
 
         this.model.datas[id1Str] = data2;
 
         for (const key in data) {
-            data2[key] = data[key];
+            data2.custom[key] = data[key];
         }
     }
 
@@ -259,17 +400,12 @@ export class CRDTView {
         return this.getItem(this.model.list.length - 1);
     }
 
-    /**
-     * Empty the model.
-     */
-    public empty() {
-        this.handleResponse([], Buffer.alloc(0));
+    public onChange(cb: CRDTOnChangeCallback) {
+        this.hookEvent("change", cb);
     }
 
-    public onChange(cb: CRDTOnChangeCallback): CRDTView {
-        this.hookEvent("change", cb);
-
-        return this;
+    public offChange(cb: CRDTOnChangeCallback) {
+        this.unhookEvent("change", cb);
     }
 
     protected hookEvent(name: string, callback: ( (...args: any) => void)) {
