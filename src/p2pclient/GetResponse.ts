@@ -24,6 +24,11 @@ import {
     PocketConsole,
 } from "pocket-console";
 
+import {
+    Status,
+    FetchResponse,
+} from "../types";
+
 const console = PocketConsole({module: "GetResponse"});
 
 export type AnyData<ResponseDataType> = {
@@ -124,21 +129,22 @@ export class GetResponse<ResponseDataType> {
                 if (this.isStream) {
                     // The message in reply is expecting streaming responses.
 
-                    // NOTE: Here we break out of the generics to do a dirty check on the response object.
+                    // NOTE: Here we break out of the generics to do some dirty checks on the response object.
                     // We know in this code path that the response is with FetchResponse or ReadBlobResponse.
-                    // Both those have seq and endSeq attributes to them, which we want to read.
 
                     // We do a dirty check on the response object to look if it has the
                     // "seq" and "endSeq" attributes.
                     // seq must be set, must be > 0 and must be equal to endSeq.
                     const isEndOfStream = (response as any)?.seq &&
-                        (response as any).seq === (response as any).endSeq;
+                        (response as any).seq === (response as unknown as FetchResponse).endSeq;
 
                     // Dirty check
-                    // seq==0 indicates an error or unsubscription, so we remove the message.
-                    const cancelSeq = (response as any)?.seq === 0;
+                    // seq==0 indicates an error and we want to remove the message.
+                    const cancelSeq = (response as unknown as FetchResponse)?.seq === 0;
 
-                    if (cancelSeq) {
+                    // Dirty check
+                    //
+                    if (cancelSeq || (response as unknown as FetchResponse).status === Status.DROPPED_TRIGGER) {
                         this.cancel();
                     }
                     else if (isEndOfStream && this.isMultipleStream) {

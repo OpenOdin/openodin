@@ -840,10 +840,8 @@ export class P2PClient {
     public unsubscribe(unsubscribeRequest: UnsubscribeRequest, timeout: number = -1): {getResponse: GetResponse<UnsubscribeResponse> | undefined, msgId: Buffer | undefined} {
         try {
             const data = this.serialize.UnsubscribeRequest(unsubscribeRequest);
+
             const sendReturn = this.messaging.send(RouteAction.UNSUBSCRIBE, data, timeout);
-            // originalMsgId maps to the msgId we created on this side and we are now
-            // releasing it from the Messaging since we are not wanting any further replies on it.
-            this.messaging.cancelPendingMessage(unsubscribeRequest.originalMsgId);
 
             if (!sendReturn) {
                 return {getResponse: undefined, msgId: undefined};
