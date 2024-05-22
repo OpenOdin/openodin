@@ -122,12 +122,11 @@ async function main() {
 
         const threadFetchParams = {query: {parentId: Buffer.alloc(32)}};
 
-        const serverThread = new Thread(threadTemplate, threadFetchParams,
-            chatServer.getStorageClient()!, chatServer.getNodeUtil(), chatServer.getPublicKey(),
-            chatServer.getSignerPublicKey());
+        const serverThread = Thread.fromService(threadTemplate, threadFetchParams, chatServer);
 
-        const responseAPI = serverThread.stream();
-        responseAPI.onChange( async (added) => {
+        const crdtView = serverThread.getStream().getView();
+
+        serverThread.onChange( async ({added}) => {
             if (added.length === 0) {
                 return;
             }
@@ -136,9 +135,9 @@ async function main() {
 
             assert(added.length === 1);
 
-            const id1 = added[0];
+            const id1 = added[0].id1;
 
-            const dataNode = responseAPI.getCRDTView().getNode(id1);
+            const dataNode = crdtView.getNode(id1);
 
             assert(dataNode);
 
@@ -199,21 +198,19 @@ async function main() {
 
         const threadFetchParams = {query: {parentId: Buffer.alloc(32)}};
 
-        clientThread = new Thread(threadTemplate, threadFetchParams,
-            chatClient.getStorageClient()!, chatClient.getNodeUtil(), chatClient.getPublicKey(),
-            chatClient.getSignerPublicKey());
+        clientThread = Thread.fromService(threadTemplate, threadFetchParams, chatClient);
 
-        const responseAPI = clientThread.stream();
+        const crdtView = clientThread.getStream().getView();
 
-        responseAPI.onChange( (added) => {
+        clientThread.onChange( ({added}) => {
             if (added.length === 0) {
                 return;
             }
 
-            added.forEach( id1 => {
+            added.forEach( item => {
                 messageCounter++;
 
-                const dataNode = responseAPI.getCRDTView().getNode(id1);
+                const dataNode = crdtView.getNode(item.id1);
 
                 assert(dataNode);
 

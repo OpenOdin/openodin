@@ -224,6 +224,14 @@ export class P2PClient {
         this.onCloseHandlers.push(cb);
     }
 
+    public offClose(cb: (peer: P2PClient) => void) {
+        const index = this.onCloseHandlers.findIndex(cb2 => cb2 === cb);
+
+        if (index > -1) {
+            this.onCloseHandlers.splice(index, 1);
+        }
+    }
+
     /**
      * Get the PeerData describing this peer.
      */

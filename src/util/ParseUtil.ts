@@ -155,35 +155,7 @@ export class ParseUtil {
         const threads: {[name: string]: ThreadTemplate} = {};
         const threadTemplates = ParseUtil.ParseVariable("applicationConf.threads must be object, if set", conf.threads, "object", true) ?? {};
         for (const name in threadTemplates) {
-            const threadTemplate = threadTemplates[name];
-
-            const query     = ParseUtil.ParseQuery(threadTemplate.query ?? {});
-            const crdt      = ParseUtil.ParseCRDT(threadTemplate.crdt ?? {});
-
-            const post: {[name: string]: ThreadDataParams} = {};
-
-            Object.keys(threadTemplate.post).forEach( name => {
-                const params = threadTemplate.post[name];
-                if (params) {
-                    post[name] = ParseUtil.ParseThreadDataParams(params) ?? {};
-                }
-            });
-
-            const postLicense: {[name: string]: ThreadLicenseParams} = {};
-
-            Object.keys(threadTemplate.postLicense ?? {}).forEach( name => {
-                const params = threadTemplate.postLicense[name];
-                if (params) {
-                    postLicense[name] = ParseUtil.ParseThreadLicenseParams(params) ?? {};
-                }
-            });
-
-            threads[name] = {
-                query,
-                crdt,
-                post,
-                postLicense,
-            };
+            threads[name] = ParseUtil.ParseThread(threadTemplates[name]);
         }
 
         const peers: ConnectionConfig[] = [];
@@ -249,6 +221,39 @@ export class ParseUtil {
             threads,
             peers,
             sync,
+        };
+    }
+
+    /**
+     * @throws on error
+     */
+    public static ParseThread(threadTemplate: any): ThreadTemplate {
+        const query     = ParseUtil.ParseQuery(threadTemplate.query ?? {});
+        const crdt      = ParseUtil.ParseCRDT(threadTemplate.crdt ?? {});
+
+        const post: {[name: string]: ThreadDataParams} = {};
+
+        Object.keys(threadTemplate.post ?? {}).forEach( name => {
+            const params = threadTemplate.post[name];
+            if (params) {
+                post[name] = ParseUtil.ParseThreadDataParams(params) ?? {};
+            }
+        });
+
+        const postLicense: {[name: string]: ThreadLicenseParams} = {};
+
+        Object.keys(threadTemplate.postLicense ?? {}).forEach( name => {
+            const params = threadTemplate.postLicense[name];
+            if (params) {
+                postLicense[name] = ParseUtil.ParseThreadLicenseParams(params) ?? {};
+            }
+        });
+
+        return {
+            query,
+            crdt,
+            post,
+            postLicense,
         };
     }
 
@@ -1372,6 +1377,12 @@ export class ParseUtil {
     }
 
     /**
+     * Parse Query.
+     *
+     * Note that parentId and rootNodeId1 are mutually exclusive and one is required to be present for
+     * a query to run, this is not however enforced in parsing since other parameters might be
+     * added later onto query objects and the data is enforced at a later point.
+     *
      * @param query as:
      * {
      *  onlyTrigger?: boolean,

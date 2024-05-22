@@ -74,13 +74,16 @@ export function ExtractNodeValuesRefId(node: DataInterface): NodeValuesRefId {
     };
 }
 
+export type CRDTCustomData = Record<string, any>;
+
 /**
  * Optional storage are for the consumer to use.
  *
  * Property _deleted?: number as timestamp, used for GC.
+ * Property custom is for node associated data set by setData() and setDataFn callback.
  *  _deleted?: number
  */
-export type CRDTViewExternalData = {[key: string]: any};
+export type CRDTViewExternalData = {_deleted?: number, custom: CRDTCustomData};
 
 export type CRDTViewItem = {
     /** The index of the node in the model. */
@@ -88,7 +91,7 @@ export type CRDTViewItem = {
 
     id1: Buffer,
     node: DataInterface,
-    data: CRDTViewExternalData,
+    data: CRDTCustomData,
 };
 
 export type CRDTViewModel = {
@@ -106,4 +109,30 @@ export type CRDTViewModel = {
     datas: {[id1: string]: CRDTViewExternalData},
 };
 
-export type CRDTOnChangeCallback = (addedId1s: Buffer[], updatedId1s: Buffer[], deletedId1s: Buffer[]) => void;
+export type CRDTEvent = {
+    /** Nodes added/inserted to the model, at any index */
+    added: CRDTViewItem[],
+
+    /** Updated nodes */
+    updated: CRDTViewItem[],
+
+    /** id1 of deleted node */
+    deleted: Buffer[],
+
+    /** subset (or all) of the added nodes who are at the end of the model list */
+    appended: CRDTViewItem[],
+};
+
+export type CRDTOnChangeCallback = (crdtEvent: CRDTEvent) => void;
+
+export type UpdateStreamParams = {
+    head?: number,
+    tail?: number,
+    cursorId1?: Buffer,
+    cursorIndex?: number,
+    reverse?: boolean,
+    triggerInterval?: number,
+};
+
+export type SetDataFn = (node: DataInterface, data: CRDTCustomData) => void;
+export type UnsetDataFn = (id1: Buffer, data: CRDTCustomData) => void;

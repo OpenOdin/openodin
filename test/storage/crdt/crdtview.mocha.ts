@@ -38,7 +38,18 @@ describe("CRDTView", function() {
         let patch = fossilDelta.create(currentList, newList);
         let delta = Buffer.concat([Buffer.from([0]), Buffer.from(JSON.stringify({patch}))]);
 
-        crdtView.handleResponse([node1], delta);
+        crdtView.handleResponse({
+            //@ts-ignore
+            result: {
+                nodes: [node1.export()],
+            },
+            //@ts-ignore
+            crdtResult: {
+                delta,
+            },
+            seq: 1,
+            endSeq: 1,
+        });
 
         //@ts-ignore
         assert(crdtView.model.list.length === 1);
@@ -50,7 +61,18 @@ describe("CRDTView", function() {
         patch = fossilDelta.create(currentList, newList);
         delta = Buffer.concat([Buffer.from([0]), Buffer.from(JSON.stringify({patch}))]);
 
-        crdtView.handleResponse([node2], delta);
+        crdtView.handleResponse({
+            //@ts-ignore
+            result: {
+                nodes: [node2.export()],
+            },
+            //@ts-ignore
+            crdtResult: {
+                delta,
+            },
+            seq: 1,
+            endSeq: 1,
+        });
 
         //@ts-ignore
         assert(crdtView.model.list.length === 2);
@@ -66,7 +88,18 @@ describe("CRDTView", function() {
         patch = fossilDelta.create(currentList, newList);
         delta = Buffer.concat([Buffer.from([0]), Buffer.from(JSON.stringify({patch}))]);
 
-        crdtView.handleResponse([], delta);
+        crdtView.handleResponse({
+            //@ts-ignore
+            result: {
+                nodes: [node2.export()],
+            },
+            //@ts-ignore
+            crdtResult: {
+                delta,
+            },
+            seq: 1,
+            endSeq: 1,
+        });
 
         //@ts-ignore
         assert(crdtView.model.list.length === 1);

@@ -286,7 +286,7 @@ export class CRDTManager {
                 (!annotations.equals(newAnnotations)))
             {
                 // This node's transient hash has changed,
-                // or the transient annotaions have changed,
+                // or the transient annotations have changed,
                 // either way we want to refetch the node
                 // to have it sent out to the client again.
                 //
