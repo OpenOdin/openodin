@@ -8,7 +8,7 @@ OpenOdin is a database built for modern interoperable applications.
 
 OpenOdin is a permissioned graph database layered on top of PostgreSQL and SQLite.
 
-A graph data structure allows for many types of different applicatons and use cases since content most often has some parent relationship to other content. 
+A graph data structure allows for many types of different applications and use cases since content most often has some parent relationship to other content.
 
 For example chat messages (child nodes) inside a chat room (the parent node) is a typical graph data structure.
 
@@ -23,7 +23,7 @@ OpenOdin is written in TypeScript to work seamlessly both on server-side and in 
 
 By building your applications on an interoperable base layer you signal a modern approach of user respecting mentality.
 
-Simultanously you can automatically adhere to regulations such as GDPR, HIPAA and the Digital Markets Act by allowing users to own their interoperable data for them to regulate and move asthey wish.
+Simultaneously you can automatically adhere to regulations such as GDPR, HIPAA and the Digital Markets Act by allowing users to own their interoperable data for them to regulate and move as they wish.
 
 Overall by stepping into this new era of data interoperability we will see ecosystems of data enrichment grow where every application can serve as a building block for another application.
 
@@ -45,7 +45,7 @@ Higher overview of how the graph database works for licensing, data policies, pe
 
 ## Core Documentation
 
-Auto generated documention from the source code. Relevant for when reviewing the code and making changes to it.
+Auto generated documentation from the source code. Relevant for when reviewing the code and making changes to it.
 
 ## Licensing
 
