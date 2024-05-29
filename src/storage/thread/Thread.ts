@@ -14,7 +14,6 @@ import {
 
 import {
     P2PClient,
-    GetResponse,
     AutoFetch,
 } from "../../p2pclient";
 
@@ -40,7 +39,6 @@ import {
 
 import {
     Status,
-    FetchResponse,
     FetchRequest,
     FetchQuery,
     FetchCRDT,

@@ -9,10 +9,11 @@ import {
     StreamStatus,
 } from "./types";
 
-let stat: Function;
-let read: Function;
-let close: Function;
-let open: Function;
+let stat: (filepath: string, options: any) => Promise<fs.BigIntStats>;
+let read: (fd: number, data: Buffer, offset: number, length: number, position: number) =>
+    Promise<{bytesRead: number}>;
+let close: (fd: number) => void;
+let open: (filepath: string, mode: string) => Promise<number>;
 
 declare const window: any;
 declare const browser: any;
