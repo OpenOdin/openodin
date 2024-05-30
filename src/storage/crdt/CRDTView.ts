@@ -6,7 +6,6 @@
 
 import {
     DataInterface,
-    NodeInterface,
     Data,
 } from "../../datamodel";
 
@@ -17,7 +16,6 @@ import {
 import {
     CRDTViewModel,
     CRDTViewItem,
-    CRDTViewExternalData,
     CRDTOnChangeCallback,
     SetDataFn,
     UnsetDataFn,

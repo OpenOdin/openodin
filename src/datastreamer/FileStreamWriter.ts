@@ -11,10 +11,11 @@ import {
     StreamReaderInterface,
 } from "./types";
 
-let write: Function;
-let stat: Function;
-let close: Function;
-let open: Function;
+let write: (fd: number, data: Buffer, offset: number, length: number, position: number) =>
+    Promise<{bytesWritten: number}>;
+let stat: (filepath: string, options: any) => Promise<fs.BigIntStats>;
+let close: (fd: number) => void;
+let open: (filepath: string, mode: string) => Promise<number>;
 
 declare const window: any;
 declare const browser: any;

@@ -1,20 +1,9 @@
 import {
-    GetResponse,
-} from "../../p2pclient";
-
-import {
-    CRDTView,
-} from "../crdt";
-
-import {
     DataParams,
     LicenseParams,
-    NodeInterface,
 } from "../../datamodel";
 
 import {
-    FetchRequest,
-    FetchResponse,
     FetchQuery,
     FetchCRDT,
 } from "../../types";
