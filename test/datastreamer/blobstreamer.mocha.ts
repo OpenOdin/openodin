@@ -40,6 +40,7 @@ import {
     BLOB_TABLES,
     Status,
     StreamStatus,
+    Version,
 } from "../../src";
 
 
@@ -290,8 +291,8 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
 
 function makePeerData(publicKey: Buffer): PeerData {
     return PeerDataUtil.create({
-        version: P2PClient.Version,
-        serializeFormat: P2PClient.Formats[0],
+        version: Version,
+        serializeFormat: 0,
         handshakePublicKey: publicKey,
         authCert: undefined,
         authCertPublicKey: undefined,

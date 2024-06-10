@@ -120,6 +120,7 @@ export class ParseUtil {
      *      permissions:    P2PClientPermissions,
      *      region?:        string,
      *      jurisdiction?:  string,
+     *      serializeFormat?: number,
      *  }[],
      *  sync?: {
      *      peerPublicKeys:    Buffer[],
@@ -144,7 +145,16 @@ export class ParseUtil {
         }
 
         const name = ParseUtil.ParseVariable("applicationConf.name must be string", conf.name, "string");
-        const version = ParseUtil.ParseVariable("applicationConf.version must be string", conf.version, "string");
+
+        const version = ParseUtil.ParseVariable("applicationConf.version must be string on semver format (x.y.z)", conf.version, "string");
+        const [major, minor, patch] = version.split(".").map( (n: any) => parseInt(n));
+        if (major >=0 && major <= 65535 && minor >= 0 && minor <= 65535 && patch >= 0 && patch <= 65535 && `${major}.${minor}.${patch}` === conf.version) {
+            // Do nothing
+        }
+        else {
+            throw new Error(`applicationConf.version must be string on semver format (x.y.z). Given: ${conf.version}`);
+        }
+
         const title = ParseUtil.ParseVariable("applicationConf.title must be string, if set", conf.title, "string", true) ?? "";
         const description = ParseUtil.ParseVariable("applicationConf.description must be string, if set", conf.description, "string", true) ?? "";
         const homepage = ParseUtil.ParseVariable("applicationConf.homepage must be string, if set", conf.homepage, "string", true) ?? "";
@@ -335,6 +345,7 @@ export class ParseUtil {
      *          region?:        string,
      *          jurisdiction?:  string,
      *          permissions:    P2PClientPermissions,
+     *          serializeFormat?: number,
      *      },
      *      database?: {
      *          permissions?: P2PClientPermissions,
@@ -518,6 +529,7 @@ export class ParseUtil {
      *  region?: string,
      *  jurisdiction?: string,
      *  permissions: P2PClientPermissions,
+     *  serializeFormat?: number,
      * }
      * @returns ConnectionConfig
      * @throws if malconfigured
@@ -537,14 +549,20 @@ export class ParseUtil {
 
         let region: string | undefined;
         let jurisdiction: string | undefined;
+        let serializeFormat: number = 0;
 
         if (connectionConfig !== undefined) {
             region = ParseUtil.ParseVariable("connectionConfig.region must be string, if set", connectionConfig.region, "string", true);
             jurisdiction = ParseUtil.ParseVariable("connectionConfig.jurisdiction must be string, if set", connectionConfig.jurisdiction, "string", true);
+            serializeFormat = ParseUtil.ParseVariable("connectionConfig.serializeFormat must be number between 0 and 255, if set", connectionConfig.serializeFormat, "number", true) ?? 0;
         }
 
         if (connectionConfig.permissions === undefined) {
             throw new Error("permissions need to be set on connection config");
+        }
+
+        if (connectionConfig.serializeFormat < 0 || connectionConfig.serializeFormat > 255) {
+            throw new Error("serializeFormat must be number between 0 and 255, if set");
         }
 
         const permissions = ParseUtil.ParseP2PClientPermissions(connectionConfig.permissions);
@@ -554,6 +572,7 @@ export class ParseUtil {
             region,
             jurisdiction,
             permissions,
+            serializeFormat,
         };
     }
 

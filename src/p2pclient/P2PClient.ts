@@ -45,6 +45,7 @@ import {
     P2PClientPermissions,
     LOCKED_PERMISSIONS,
     RouteAction,
+    Formats,
 } from "./types";
 
 import {
@@ -114,15 +115,6 @@ export class P2PClient {
     protected serialize: BebopSerialize;      // Note this should become an interface if we have more than one type of serializer.
     protected deserialize: BebopDeserialize;  // Note this should become an interface if we have more than one type of deserializer.
 
-    /**
-     * Semver version of the P2PClient.
-     * Each field is 16 bit BE encoded uint.
-     */
-    public static readonly Version: Buffer = Buffer.from([0,0, 0,1, 0,0]);  // 0.1.0.
-
-    /** Supported serializer formats. */
-    public static readonly Formats: number[] = [0];  // 0 means Bebop serializer
-
     /** Event handlers who support multiple hooks. */
     protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
 
@@ -140,28 +132,75 @@ export class P2PClient {
         this._isClosed = false;
         this.onCloseHandlers = [];
 
-        if (remotePeerData.getSerializeFormat() === 0) {
+        const remoteSerializeFormat = remotePeerData.getSerializeFormat();
+        const localSerializeFormat = localPeerData.getSerializeFormat();
+
+        if (remoteSerializeFormat === undefined || localSerializeFormat === undefined) {
+            throw new Error("Missing serializeFormat in PeerData");
+        }
+
+        let serializeFormat: number | undefined;
+
+        if (remoteSerializeFormat > localSerializeFormat) {
+            // Check if we can adapt to remote's serializeFormat?
+            //
+            const format = Formats[remoteSerializeFormat];
+
+            if (!format) {
+                console.debug(`Remote peer suggesting a higher serialization format (${remoteSerializeFormat}) which we do not support. Expecting remote to adapt to our format (${localSerializeFormat}).`);
+
+                // The remote at this point should have detected that with our version
+                // we do not support its preferred format and it should adapt to our's.
+                //
+                serializeFormat = localSerializeFormat;
+            }
+            else {
+                console.debug(`Switching to remote peer's suggested higher serialization format (${remoteSerializeFormat}).`);
+
+                serializeFormat = remoteSerializeFormat;
+            }
+        }
+        else if (remoteSerializeFormat < localSerializeFormat) {
+            // Make sure that remote can adapt to our serializeFormat,
+            // otherwise we need to adapt to remote's.
+            //
+            const format = Formats[localSerializeFormat];
+
+            if (remotePeerData.cmpVersion(format.fromVersion) < 0) {
+                console.debug(`Remote peer is suggesting lower serialization format (${remoteSerializeFormat}) which we downgrade to.`);
+
+                // Remote does not know local format so we adapt to remote's format instead.
+                //
+                serializeFormat = remoteSerializeFormat;
+            }
+            else {
+                console.debug(`Remote peer suggesting a serialization format (${remoteSerializeFormat}) but expecting remote to adapt to our higher format (${localSerializeFormat}).`);
+
+                serializeFormat = localSerializeFormat;
+            }
+        }
+        else {
+            serializeFormat = localSerializeFormat;
+        }
+
+        const format = Formats[serializeFormat];
+
+        if (!format) {
+            throw new Error(`Unknown serialization format: ${serializeFormat}`);
+        }
+
+        if (format.expires !== undefined && format.expires * 1000 <= Date.now()) {
+            // The format has expired.
+            //
+            throw new Error(`Peer is using an expired serialization format: ${serializeFormat}`);
+        }
+
+        if (serializeFormat === 0) {
             this.serialize = new BebopSerialize();
             this.deserialize = new BebopDeserialize();
         }
         else {
-            throw new Error(`Given serialize format ${remotePeerData.getSerializeFormat()} is not supported by this P2PClient. Only these formats supported: ${P2PClient.Formats}`);
-        }
-
-        const remoteMajor = remotePeerData.getMajorVersion();
-        const remoteMinor = remotePeerData.getMinorVersion();
-        const localMajor = P2PClient.Version.readUInt16BE(0);
-        const localMinor = P2PClient.Version.readUInt16BE(2);
-
-        if (remoteMajor > localMajor || (remoteMajor === localMajor && remoteMinor >= localMinor)) {
-            // Peer is either greater or same as us, we continue and let peer
-            // decide if to abort connection in case it is greater and can't backadjust to our version.
-            // Fall through
-        }
-        else {
-            // Peer is lesser version than us, we decide if we can back adjust
-            // and in such case instantiate that version of P2PClient.
-            throw new Error(`Peer versions do not match, remote peer has a lesser version: ${remotePeerData.getVersion()} < ${P2PClient.Version}`);
+            throw new Error(`Given serialize format ${serializeFormat} is not supported by this P2PClient. Only these formats supported: ${Formats}`);
         }
 
         if (maxClockSkew !== undefined && Math.abs(localPeerData.getClockDiff()) > maxClockSkew) {

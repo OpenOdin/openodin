@@ -30,6 +30,18 @@ export type ConnectionConfig = {
     permissions: P2PClientPermissions,
     region?: string,
     jurisdiction?: string,
+
+    /**
+     * If set then dictate the type of serialization used between peers.
+     *
+     * The peer running the oldest OpenOdin version has precedence over
+     * which format to use (defaults to 0 if not set).
+     *
+     * When running the same OpenOdin version the format with the highest number is chosen.
+     *
+     * Must be between 0 and 255 (default is 0).
+     */
+    serializeFormat: number,
 };
 
 export type ExposeStorageToApp = {

@@ -30,7 +30,8 @@ export class PeerDataUtil {
     public static create(params: PeerDataParams): PeerData {
         const peerData = new PeerData();
 
-        peerData.setVersion(params.version);
+        peerData.setVersionFromString(params.version);
+
         peerData.setSerializeFormat(params.serializeFormat);
         if (params.handshakePublicKey) {
             peerData.setHandshakePublicKey(params.handshakePublicKey);
@@ -49,7 +50,7 @@ export class PeerDataUtil {
 
         peerData.setRegion(params.region);
         peerData.setJurisdiction(params.jurisdiction);
-        peerData.setAppVersion(params.appVersion);
+        peerData.setAppVersionFromString(params.appVersion);
         peerData.setExpireTime(params.expireTime);
 
         return peerData;

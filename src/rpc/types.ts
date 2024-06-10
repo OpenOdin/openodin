@@ -13,6 +13,12 @@ export type ClientConfig = {
     isTextMode: boolean,
 };
 
+export type RemoteInfo = {
+    version: string,
+    appVersion: string,
+    name: string,
+};
+
 export type AuthRequest = {
     applicationConf: ApplicationConf,
 };

@@ -31,6 +31,7 @@ import {
     P2PClientExtender,
     P2PClientAutoFetcher,
     BlobEvent,
+    Formats,
 } from "../p2pclient";
 
 import {
@@ -55,6 +56,7 @@ import {
 
 import {
     Status,
+    Version,
 } from "../types";
 
 import {
@@ -870,7 +872,7 @@ export class Service {
         const authFactoryConfig = DeepCopy(config.authFactoryConfig) as AuthFactoryConfig;
 
         (authFactoryConfig as unknown as HandshakeFactoryConfig).peerData =
-            this.makePeerData(config.region, config.jurisdiction).export(true);
+            this.makePeerData(config).export(true);
 
         let remotePeerData: PeerData | undefined;
 
@@ -902,7 +904,7 @@ export class Service {
                 // We need a dedicated instance of PeerData to pass on to P2PClient.
                 // We negate the clockDiff to get it for our side.
                 //
-                const localPeerData = this.makePeerData(config.region, config.jurisdiction);
+                const localPeerData = this.makePeerData(config);
                 localPeerData.setClockDiff(-remotePeerData.getClockDiff());
 
                 await wrappedClient.init();
@@ -1181,7 +1183,7 @@ export class Service {
         const authFactoryConfig = DeepCopy(config.authFactoryConfig) as AuthFactoryConfig;
 
         (authFactoryConfig as unknown as HandshakeFactoryConfig).peerData =
-            this.makePeerData(config.region, config.jurisdiction).export(true);
+            this.makePeerData(config).export(true);
 
         let remotePeerData: PeerData | undefined;
 
@@ -1223,7 +1225,7 @@ export class Service {
                 // We need a dedicated instance of PeerData to pass on to P2PClient.
                 // We negate the clockDiff to get it for our side.
                 //
-                const localPeerData = this.makePeerData(config.region, config.jurisdiction);
+                const localPeerData = this.makePeerData(config);
                 localPeerData.setClockDiff(-remotePeerData.getClockDiff());
 
                 await wrappedClient.init();
@@ -1573,25 +1575,43 @@ export class Service {
     /**
      * Create a PeerData object for this peer.
      *
-     * @param region set if applicable
-     * @param jurisdiction set if applicable
-     * @param appVersion set if applicable
+     * @param connectionConfig set if applicable
      *
      * @returns localPeerData
      */
-    protected makePeerData(region?: string, jurisdiction?: string, appVersion?: Buffer): PeerData {
+    protected makePeerData(connectionConfig?: ConnectionConfig): PeerData {
+        const serializeFormat = connectionConfig?.serializeFormat ?? 0;
+
+        if (!Formats[serializeFormat]) {
+            throw new Error(`serializeFormat ${serializeFormat} is not supported`);
+        }
+
         return PeerDataUtil.create({
-            version: P2PClient.Version,
-            serializeFormat: P2PClient.Formats[0],
+            version: Version,
+            serializeFormat,
             handshakePublicKey: this.publicKey,
             authCert: this.config.authCert?.export(),
             authCertPublicKey: this.config.authCert ? this.config.authCert.getIssuerPublicKey() : undefined,
             clockDiff: 0,
-            region,
-            jurisdiction,
-            appVersion,
+            region: connectionConfig?.region,
+            jurisdiction: connectionConfig?.jurisdiction,
+            appVersion: this.applicationConf.version,
             expireTime: 0,
         });
+    }
+
+    /**
+     * @returns the OpenOdin version
+     */
+    public getVersion(): string {
+        return Version;
+    }
+
+    /**
+     * @returns the application version as given in ApplicationConf.
+     */
+    public getAppVersion(): string {
+        return this.applicationConf.version;
     }
 
     public getStorageConnectionFactories(): HandshakeFactoryInterface[] | undefined {

@@ -26,7 +26,12 @@ import {
     AuthResponse,
     AuthResponse2,
     AuthRequest,
+    RemoteInfo,
 } from "./types";
+
+import {
+    Version,
+} from "../types";
 
 export class OpenOdinRPCServer {
     protected triggerOnAuth?: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>;
@@ -35,9 +40,21 @@ export class OpenOdinRPCServer {
     protected settingsManagerRPCServer?: SettingsManagerRPCServer;
 
     constructor(protected rpc: RPC, protected nrOfWorkers: number = 1,
-        protected singleThreaded: boolean = false)
+        protected singleThreaded: boolean = false,
+        protected appName: string,
+        protected appVersion: string)
     {
         this.rpc.onCall("auth", this.auth);
+
+        this.rpc.onCall("getInfo", async () => {
+            const info: RemoteInfo = {
+                version: Version,
+                appVersion: this.appVersion,
+                name: this.appName,
+            };
+
+            return info;
+        });
 
         this.rpc.onCall("noop", async () => {
             return "noop";
