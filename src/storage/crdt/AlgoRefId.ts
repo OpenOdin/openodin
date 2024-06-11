@@ -347,7 +347,7 @@ export class AlgoRefId implements AlgoInterface {
 
     public delete(indexes: number[]) {
         indexes = indexes.slice();  // copy it
-        indexes.sort();
+        indexes.sort( (a, b) => a - b );
 
         while (indexes.length > 0) {
             const index = indexes.pop();
