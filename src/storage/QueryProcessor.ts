@@ -164,7 +164,7 @@ export class QueryProcessor {
     protected currentIds: Buffer[] = [];
 
     /**
-     * We keep track of the total amout of rows fetched from the database
+     * We keep track of the total amount of rows fetched from the database
      * to be able to limit resources spent on each query.
      * This is regardless of how many nodes are sent as a result to the client.
      */

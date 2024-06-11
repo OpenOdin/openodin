@@ -116,7 +116,20 @@ export type FetchQuery = {
     /** max depth of request. Default is -1 meaning max limit. Max allowed depth is 100000 nodes deep. */
     depth: number,
 
-    /** max nr of nodes in total returned. Default is -1 meaning max limit. Max allowed is 100000 nodes. */
+    /**
+     * Maximum nr of nodes in total returned. Default is -1 meaning max limit.
+     * Max allowed is 1_000_000 nodes (defined by MAX_QUERY_ROWS_LIMIT).
+     *
+     * Note that this limit includes all data and license nodes, all automatically included
+     * license nodes and also all nodes to be embedded.
+     *
+     * This limit should be used as a maximum upper bound of nodes tolerated in the resultset and not
+     * to be used for any dataset limit purposess as the mix of data and licenses nodes will vary
+     * depending on how many licenses there are available which will effect how many data nodes fit
+     * into the limit of the resultset which can yield confusing results.
+     *
+     * To use fine tuned limits use Match limit and/or CRDT.
+     */
     limit: number,
 
     /**
