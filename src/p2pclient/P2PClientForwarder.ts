@@ -290,7 +290,7 @@ export class P2PClientForwarder {
 
         this.subscriptionMaps.length = 0;
 
-        muteMsgIdsIndex.sort().reverse();
+        muteMsgIdsIndex.sort( (a, b) => b - a );  // reversed
 
         muteMsgIdsIndex.forEach( index => this.muteMsgIds.splice(index, 1) );
     }
