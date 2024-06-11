@@ -11,7 +11,7 @@ export {EventType};
  * Semver version of OpenOdin.
  * "major, minor, patch".
  */
-export const Version = "0.9.0";
+export const Version = "0.8.9";
 
 /**
  * Define size of when messages are split into multiple messages.

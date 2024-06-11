@@ -51,7 +51,7 @@ export const Formats: {[id: string]: Format} = {
         id: 0,
         name: "bebop",
         description: "Standard Bebop binary serialization",
-        fromVersion: "0.9.0",
+        fromVersion: "0.8.9",
     },
 };
 
