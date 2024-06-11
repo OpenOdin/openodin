@@ -24,7 +24,7 @@ export type MinorVersion = number;          // not encoded into data structure
 export type PatchVersion = number;          // not encoded into data structure
 
 /** major, minor, patch */
-export type Version = [MajorVersion, MinorVersion, PatchVersion];
+export type NodeVersion = [MajorVersion, MinorVersion, PatchVersion];
 
 export type NodeParams = {
     modelType?: Buffer,

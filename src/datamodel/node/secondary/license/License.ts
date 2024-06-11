@@ -1,6 +1,6 @@
 import {
     Node,
-    Version,
+    NodeVersion,
 } from "../../primary/node";
 
 import {
@@ -252,7 +252,7 @@ export class License extends Node implements LicenseInterface {
      * Return this node's version.
      * @returns semver version of this node.
      */
-    public getVersion(): Version {
+    public getVersion(): NodeVersion {
         return [CLASS_MAJOR_VERSION, CLASS_MINOR_VERSION, CLASS_PATCH_VERSION];
     }
 
@@ -260,7 +260,7 @@ export class License extends Node implements LicenseInterface {
      * Return this node's version.
      * @returns semver version of this node.
      */
-    public static GetVersion(): Version {
+    public static GetVersion(): NodeVersion {
         return [CLASS_MAJOR_VERSION, CLASS_MINOR_VERSION, CLASS_PATCH_VERSION];
     }
 

@@ -3,7 +3,7 @@ import {
 } from "../../../model";
 
 import {
-    Version,
+    NodeVersion,
     NodeParams,
 } from "../node/types";
 
@@ -27,8 +27,8 @@ export interface NodeInterface extends DataModelInterface {
     isOnlineEmbeddingOnline(): boolean;
     setOnlineIdValidated(isValidated?: boolean): void;
     isOnlineIdValidated(): boolean;
-    getBaseVersion(): Version;
-    getVersion(): Version;
+    getBaseVersion(): NodeVersion;
+    getVersion(): NodeVersion;
     hashShared(): Buffer;
     getHashedValue(field: string): string | undefined;
     hash0(): Buffer;

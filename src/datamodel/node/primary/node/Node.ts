@@ -20,7 +20,7 @@ import {
 import {
     NodeConfig,
     TransientConfig,
-    Version,
+    NodeVersion,
     NodeParams,
 } from "./types";
 
@@ -527,7 +527,7 @@ export abstract class Node implements NodeInterface {
      * Return this abstract node's version.
      * @returns semver base version of this node.
      */
-    public getBaseVersion(): Version {
+    public getBaseVersion(): NodeVersion {
         return [CLASS_MAJOR_VERSION, CLASS_MINOR_VERSION, CLASS_PATCH_VERSION];
     }
 
@@ -535,7 +535,7 @@ export abstract class Node implements NodeInterface {
      * Return this abstract node's version.
      * @returns semver base version of this node.
      */
-    public static GetBaseVersion(): Version {
+    public static GetBaseVersion(): NodeVersion {
         return [CLASS_MAJOR_VERSION, CLASS_MINOR_VERSION, CLASS_PATCH_VERSION];
     }
 
@@ -543,13 +543,13 @@ export abstract class Node implements NodeInterface {
      * The deriving node must return its version.
      * @returns semver version of this node.
      */
-    public abstract getVersion(): Version;
+    public abstract getVersion(): NodeVersion;
 
     /**
      * The deriving node must return its version.
      * @returns semver version of this node.
      */
-    public static GetVersion(): Version {
+    public static GetVersion(): NodeVersion {
         throw new Error("Not implemented");
     }
 

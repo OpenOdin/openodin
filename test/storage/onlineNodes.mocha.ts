@@ -39,6 +39,7 @@ import {
     NodeInterface,
     Decoder,
     sleep,
+    Version,
 } from "../../src";
 
 type StorageInstance = {
@@ -562,8 +563,8 @@ function closeStorageInstance(s: StorageInstance) {
 
 function makePeerData(): PeerData {
     return PeerDataUtil.create({
-        version: P2PClient.Version,
-        serializeFormat: P2PClient.Formats[0],
+        version: Version,
+        serializeFormat: 0,
         authCert: undefined,
         authCertPublicKey: undefined,
         clockDiff: 0,

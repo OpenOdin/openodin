@@ -41,6 +41,10 @@ import {
     ParseUtil,
 } from "../util";
 
+import {
+    Version,
+} from "../types";
+
 declare const window: any;
 
 /**
@@ -268,7 +272,7 @@ export class OpenOdin {
             catch(e) {
                 console.error(e);
 
-                this.triggerEvent("authFail",`Could not init Service: ${e}`);
+                this.triggerEvent("authFail", `Could not init Service: ${e}`);
 
                 this.close();
 
@@ -313,6 +317,37 @@ export class OpenOdin {
 
     public getService = (): Service | undefined => {
         return this.service;
+    }
+
+    /**
+     * @returns the OpenOdin version
+     */
+    public getVersion(): string {
+        return Version;
+    }
+
+    /**
+     * @returns the application version as given in the ApplicationConf
+     */
+    public getAppVersion(): string {
+        return this.applicationConf.version;
+    }
+
+    /**
+     * Returns information about the remote DataWallet.
+     *
+     * @returns {
+     *  version: <OpenOdin version of DataWallet>,
+     *  appVersion: <version of the DataWallet>,
+     *  name: "OpenOdin DataWallet (official)",
+     * }
+     */
+    public getRemoteInfo = async (): Promise<string | undefined> => {
+        if (this._isClosed || !this._isOpened) {
+            return undefined;
+        }
+
+        return this.rpc.call("getInfo");
     }
 
     /**

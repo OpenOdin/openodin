@@ -27,7 +27,7 @@ import {
 } from "../../primary/node/Node";
 
 import {
-    Version,
+    NodeVersion,
 } from "../../primary/node/types";
 
 import {
@@ -179,7 +179,7 @@ export class Data extends Node implements DataInterface {
      * Return this node's version.
      * @returns semver version of this node.
      */
-    public getVersion(): Version {
+    public getVersion(): NodeVersion {
         return [CLASS_MAJOR_VERSION, CLASS_MINOR_VERSION, CLASS_PATCH_VERSION];
     }
 
@@ -187,7 +187,7 @@ export class Data extends Node implements DataInterface {
      * The deriving node must return its version.
      * @returns semver version of this node.
      */
-    public static GetVersion(): Version {
+    public static GetVersion(): NodeVersion {
         return [CLASS_MAJOR_VERSION, CLASS_MINOR_VERSION, CLASS_PATCH_VERSION];
     }
 

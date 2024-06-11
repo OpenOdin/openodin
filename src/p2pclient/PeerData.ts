@@ -112,8 +112,57 @@ export class PeerData {
         this.model.setBuffer("version", version);
     }
 
+    public setVersionFromString(version: string | undefined) {
+        if (version === undefined) {
+            this.model.setBuffer("version", version);
+        }
+        else {
+            const [major, minor, patch] = version.split(".").map(n => parseInt(n));
+
+            const versionBuf = Buffer.alloc(6);
+            versionBuf.writeUInt16BE(major, 0);
+            versionBuf.writeUInt16BE(minor, 2);
+            versionBuf.writeUInt16BE(patch, 4);
+
+            this.model.setBuffer("version", versionBuf);
+        }
+    }
+
     public getVersion(): Buffer | undefined {
         return this.model.getBuffer("version");
+    }
+
+    /**
+     * Compare stored version with given.
+     * @param version to compare with, semver format as "x.y.z"
+     * @returns -1 if stored version is lesser, 0 if same, 1 if stored version is greater.
+     */
+    public cmpVersion(version: string): number {
+        const [major, minor, patch] = version.split(".").map(n => parseInt(n));
+
+        if (this.getMajorVersion() < major) {
+            return -1;
+        }
+        else if (this.getMajorVersion() > major) {
+            return 1;
+        }
+
+        if (this.getMinorVersion() < minor) {
+            return -1;
+        }
+        else if (this.getMinorVersion() > minor) {
+            return 1;
+        }
+
+
+        if (this.getPatchVersion() < patch) {
+            return -1;
+        }
+        else if (this.getPatchVersion() > patch) {
+            return 1;
+        }
+
+        return 0;
     }
 
     public getMajorVersion(): number {
@@ -136,6 +185,16 @@ export class PeerData {
         return version.readUInt16BE(2);
     }
 
+    public getPatchVersion(): number {
+        const version = this.getVersion();
+
+        if (!version) {
+            return 0;
+        }
+
+        return version.readUInt16BE(4);
+    }
+
     public setSerializeFormat(format: number | undefined) {
         this.model.setNumber("serializeFormat", format);
     }
@@ -146,6 +205,22 @@ export class PeerData {
 
     public setAppVersion(appVersion: Buffer | undefined) {
         this.model.setBuffer("appVersion", appVersion);
+    }
+
+    public setAppVersionFromString(appVersion: string | undefined) {
+        if (appVersion === undefined) {
+            this.model.setBuffer("appVersion", appVersion);
+        }
+        else {
+            const [major, minor, patch] = appVersion.split(".").map(n => parseInt(n));
+
+            const versionBuf = Buffer.alloc(6);
+            versionBuf.writeUInt16BE(major, 0);
+            versionBuf.writeUInt16BE(minor, 2);
+            versionBuf.writeUInt16BE(patch, 4);
+
+            this.model.setBuffer("appVersion", versionBuf);
+        }
     }
 
     public getAppVersion(): Buffer | undefined {

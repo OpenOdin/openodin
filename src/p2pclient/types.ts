@@ -21,6 +21,40 @@ export enum RouteAction {
 export type SerializeInterface<DataType> = (data: DataType) => Buffer;
 export type DeserializeInterface<DataType> = (serialized: Buffer) => DataType;
 
+/**
+ * Type of a serialization format supported by OpenOdin.
+ * Both peers must use the same serialization format.
+ */
+export type Format = {
+    /** ID, 0-255 */
+    id: number,
+
+    /** Name of Format */
+    name: string,
+
+    /** Short description */
+    description: string,
+
+    /** In which OpenOdin version was this format added */
+    fromVersion: string,
+
+    /** UNIX time (in seconds) for when this format expires and no longer can be used, if ever */
+    expires?: number,
+};
+
+/**
+ * The list of formats is an append-only list.
+ * Formats which are no longer supported can be removed but their ID must not be reused.
+ */
+export const Formats: {[id: string]: Format} = {
+    0: {
+        id: 0,
+        name: "bebop",
+        description: "Standard Bebop binary serialization",
+        fromVersion: "0.8.9",
+    },
+};
+
 /** Internally used struct for keeping track of subscriptions. */
 export type SubscriptionMap = {
     /** fromMsgId is the ID of the message received from a peer. */
@@ -230,7 +264,7 @@ export const LOCKED_PERMISSIONS: P2PClientPermissions = {
 };
 
 export type PeerDataParams = {
-    version?: Buffer,
+    version: string,
     serializeFormat: number,
     handshakePublicKey?: Buffer,
     authCert?: Buffer,
@@ -238,6 +272,6 @@ export type PeerDataParams = {
     clockDiff?: number,
     region?: string,
     jurisdiction?: string,
-    appVersion?: Buffer,
+    appVersion?: string,
     expireTime?: number,
 };

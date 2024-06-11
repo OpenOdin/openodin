@@ -8,6 +8,12 @@ import {
 export {EventType};
 
 /**
+ * Semver version of OpenOdin.
+ * "major, minor, patch".
+ */
+export const Version = "0.8.9";
+
+/**
  * Define size of when messages are split into multiple messages.
  * MESSAGE_MAX_BYTES bytes is the max message size allowed in pocket-messaging,
  * the subtraction is to take our own serialization overhead into account.
