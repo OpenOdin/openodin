@@ -84,7 +84,7 @@
         "pocket-messaging": "6.0.1",
         "pocket-sockets": "4.0.0",
         "postgresql-client": "^2.10.5",
-        "sql.js": "=1.8.0",
+        "sql.js": "^1.10.0",
         "sqlite3": "^5.1.5",
         "tweetnacl": "^1.0.3",
         "web-worker": "^1.2.0",
