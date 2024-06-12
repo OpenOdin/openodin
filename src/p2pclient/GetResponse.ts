@@ -109,7 +109,7 @@ export class GetResponse<ResponseDataType> {
     /**
      *
      * @param limit optional limit which makes sense for certain ResponseDataTypes.
-     *  For FetchResponse limit detects errornous overflows in resultsets.
+     *  For FetchResponse limit detects erroneous overflows in resultsets.
      */
     constructor(eventEmitter: EventEmitter, msgId: Buffer, serializeResponse: SerializeInterface<ResponseDataType> | undefined, deserializeResponse: DeserializeInterface<ResponseDataType>, p2pClient: P2PClient, isStream: boolean = false, isMultipleStream: boolean = false, limit: number = -1) {
         this.eventEmitter = eventEmitter;
