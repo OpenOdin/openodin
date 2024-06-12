@@ -1629,7 +1629,7 @@ export class Service {
      *
      * @returns Generator witch return type {promise: Promise<boolean>, streamWriter: StreamWriterInterface}.
      */
-    public *syncBlob(nodeId1: Buffer) {
+    public *syncBlob(nodeId1: Buffer, expectedLength: bigint = -1n) {
 
         // First check if any AutoFetcher is already syncing.
         for (let i=0; i<this.state.autoFetchers.length; i++) {
@@ -1657,7 +1657,7 @@ export class Service {
                 continue;
             }
 
-            yield autoFetcher.syncBlob(nodeId1, false);
+            yield autoFetcher.syncBlob(nodeId1, expectedLength, false);
         }
     }
 

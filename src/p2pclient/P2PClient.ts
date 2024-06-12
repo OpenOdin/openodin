@@ -49,6 +49,10 @@ import {
 } from "./types";
 
 import {
+    MAX_QUERY_ROWS_LIMIT,
+} from "../storage/types";
+
+import {
     PeerData,
 } from "./PeerData";
 
@@ -959,8 +963,14 @@ export class P2PClient {
             }
 
             // If subscription then we are expecting multiple responses.
+            //
             const isMultipleStream = fetchRequest.query.triggerNodeId.length > 0 || fetchRequest.query.triggerInterval > 0;
-            const getResponse = new GetResponse<FetchResponse>(sendReturn.eventEmitter, sendReturn.msgId, this.serialize.FetchResponse, this.deserialize.FetchResponse, this, isStream, isMultipleStream);
+
+            const limit = fetchRequest.query.limit > -1 ? fetchRequest.query.limit : MAX_QUERY_ROWS_LIMIT;
+
+            const getResponse = new GetResponse<FetchResponse>(sendReturn.eventEmitter, sendReturn.msgId, this.serialize.FetchResponse, this.deserialize.FetchResponse, this, isStream, isMultipleStream,
+                limit);
+
             return {getResponse, msgId: sendReturn.msgId};
         }
         catch(e) {

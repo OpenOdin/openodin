@@ -170,12 +170,13 @@ export class StorageUtil {
      * Helper function to get a StreamReader to stream a blob from storage.
      *
      * @param nodeId1
-     * @returns streamReader
+     * @param expectedLength optionally set this to the lenght of the blob to protected
+     * against overflow.
+     * @returns StreamReaderInterface for reading blob data.
      * @throws on error
      */
-    public getBlobStreamReader(nodeId1: Buffer): StreamReaderInterface {
-        const streamReader = new BlobStreamReader(nodeId1, [this.storageClient]);
-        return streamReader;
+    public getBlobStreamReader(nodeId1: Buffer, expectedLength: bigint = -1n): StreamReaderInterface {
+        return new BlobStreamReader(nodeId1, [this.storageClient], expectedLength);
     }
 
     /**

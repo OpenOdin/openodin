@@ -280,7 +280,7 @@ export class P2PClientAutoFetcher {
                         if (blobSizeMaxLimit < 0 ||
                             (blobSizeMaxLimit > 0 && blobSizeMaxLimit >= blobSize)) {
 
-                            this.syncBlob(id1);
+                            this.syncBlob(id1, blobSize);
                         }
                     }
                 }
@@ -300,10 +300,11 @@ export class P2PClientAutoFetcher {
      * Attempt to sync a blob from the peer.
      *
      * @param nodeId1 the ID1 of the node who's blob we want to sync and save to the storage.
+     * @param expectedLength set to blob size to protect against overflow.
      * @param retry if true then retry forever
      * @returns Promise which resolves with boolean true when blob is stored to storage.
      */
-    public syncBlob(nodeId1: Buffer, retry: boolean = true):
+    public syncBlob(nodeId1: Buffer, expectedLength: bigint = -1n, retry: boolean = true):
         {promise: Promise<boolean>, streamWriter: StreamWriterInterface} {
 
         const nodeId1Str = nodeId1.toString("hex");
@@ -322,7 +323,7 @@ export class P2PClientAutoFetcher {
             // When fetching in normal we do not want to trigger the muteMsgIds.
             this.muteMsgIds;
 
-        const blobReader = new BlobStreamReader(nodeId1, [this.serverClient]);
+        const blobReader = new BlobStreamReader(nodeId1, [this.serverClient], expectedLength);
 
         const streamWriter = new BlobStreamWriter(nodeId1, blobReader,
             this.storageClient, /*allowResume=*/true, muteMsgIds);
