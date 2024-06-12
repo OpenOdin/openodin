@@ -878,7 +878,7 @@ export class ParseUtil {
 
         if (allowEmbed0) {
             allowEmbed = allowEmbed0.map( (allowEmbedObj: AllowEmbed) => {
-                const nodeType = ParseUtil.ParseNodeType("permissions allowEmbed[index] nodeType must be alias | hex-string or Buffer", allowEmbedObj.nodeType);
+                const nodeType = ParseUtil.ParseNodeType("permissions allowEmbed[index] nodeType must be alias, hex-string or Buffer", allowEmbedObj.nodeType);
 
                 let filters: Filter[] = [];
                 const filters0 = ParseUtil.ParseVariable("permissions allowEmbed[index] filters must be Filter[], if set", allowEmbedObj.filters, "object[]", true);
@@ -1692,7 +1692,7 @@ export class ParseUtil {
      */
     public static ParseMatch(matches: any[]): Match[] {
         return matches.map( (match: Match) => {
-            const nodeType = ParseUtil.ParseNodeType("match nodeType must be alias | hex-string or Buffer, if set", match.nodeType ?? DATA0_NODE_TYPE);
+            const nodeType = ParseUtil.ParseNodeType("match nodeType must be alias, hex-string or Buffer, if set", match.nodeType ?? DATA0_NODE_TYPE);
 
             let filters: Filter[] = [];
             const filters0 = ParseUtil.ParseVariable("match filters must be Filter[], if set", match.filters, "object[]", true);
