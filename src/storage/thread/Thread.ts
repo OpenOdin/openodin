@@ -688,12 +688,6 @@ export class Thread {
     }
 
     /**
-     * @param expectedLength optionally set this to the lenght of the blob to protected
-     * against overflow.
-     * @returns StreamReaderInterface for reading blob data.
-     */
-
-    /**
      * Helper function to get a StreamReader to stream a blob from storage.
      *
      * @param nodeId1
