@@ -2,21 +2,27 @@
 
 Note: any version below 1.0.0 can have breaking changes.  
 
+## [0.8.9] - 20240612
+Fix so different OpenOdin version can agree on serialization format.  
+Bug fix usage of Array.sort().  
+Protect againts overflow attacks on fetch result and read blob.  
+Support node aliases instead of only hexadecimal in nodeType.  
+
 ## [0.8.8] - 20240527
-Improve FileStreamer isBrowser check to support browser extensions.
-Refactor thread.
-Add offClose to P2P client.
-Add StreamCRDT.ts.
-Fix removing auto fetch.
-Properly cancel streaming query on Status.DROPPED\_TRIGGER.
-Fix Storage lastIntervalRun initial state.
-Various comment updates.
-Change CRDTView to keep response data.
-Change inner CRDT data type for view item.
-Merge ThreadController into Thread.
-Make queries without crdt configs work seamlessly with Thread.
-Extract thread parsing code into ParseThread.
-Update tests.
+Improve FileStreamer isBrowser check to support browser extensions.  
+Refactor thread.  
+Add offClose to P2P client.  
+Add StreamCRDT.ts.  
+Fix removing auto fetch.  
+Properly cancel streaming query on Status.DROPPED\_TRIGGER.  
+Fix Storage lastIntervalRun initial state.  
+Various comment updates.  
+Change CRDTView to keep response data.  
+Change inner CRDT data type for view item.  
+Merge ThreadController into Thread.  
+Make queries without crdt configs work seamlessly with Thread.  
+Extract thread parsing code into ParseThread.  
+Update tests.  
 
 ## [0.8.7] - 20240507
 Replace browserify with webpack.  
