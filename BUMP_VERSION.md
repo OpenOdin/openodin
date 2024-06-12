@@ -9,7 +9,7 @@
     9. Tag commit with new version
     10. Push to remote
     11. Publish to the npm registry
-    12. Bump ./types.ts `Version` field to next upcoming version
+    12. Bump ./src/types.ts `Version` field to next upcoming version
     13. Update package.json to next upcoming version
     14. Commit
     15. Done
