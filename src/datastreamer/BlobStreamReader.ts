@@ -35,7 +35,9 @@ export class BlobStreamReader extends AbstractStreamReader {
 
     protected peers: P2PClient[];
 
-    constructor(nodeId1: Buffer, peers: P2PClient[], pos: bigint = 0n, chunkSize: number = 1024 * 1024) {
+    protected expectedLength: bigint;
+
+    constructor(nodeId1: Buffer, peers: P2PClient[], expectedLength: bigint = -1n, pos: bigint = 0n, chunkSize: number = 1024 * 1024) {
         if (peers.length < 1) {
             throw new Error("At least one peer must be provided in constructor");
         }
@@ -43,6 +45,7 @@ export class BlobStreamReader extends AbstractStreamReader {
         super(pos, chunkSize);
 
         this.nodeId1 = nodeId1;
+        this.expectedLength = expectedLength;
 
         this.peers = peers.slice();
     }
@@ -152,6 +155,16 @@ export class BlobStreamReader extends AbstractStreamReader {
                     const data = readBlobResponse.data;
                     const blobLength = readBlobResponse.blobLength;
 
+                    if (this.expectedLength > -1) {
+                        if (this.expectedLength !== blobLength) {
+                            // Unrecoverable error
+                            //
+                            console.debug("Mismatch in blob length expected", readBlobResponse);
+                            resolve([StreamStatus.UNRECOVERABLE, "Mismatch in blob length expected"]);
+                            return;
+                        }
+                    }
+
                     this.buffered.push({
                         status: StreamStatus.RESULT,
                         data,
@@ -161,6 +174,14 @@ export class BlobStreamReader extends AbstractStreamReader {
                     });
 
                     this.pos = this.pos + BigInt(data.length);
+
+                    if (this.pos > blobLength) {
+                        // Unrecoverable error
+                        //
+                        console.debug("Overflow of blob length", readBlobResponse);
+                        resolve([StreamStatus.UNRECOVERABLE, "Overflow of blob length"]);
+                        return;
+                    }
 
                     if (readBlobResponse.seq === readBlobResponse.endSeq) {
                         // Sequence done

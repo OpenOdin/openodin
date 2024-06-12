@@ -101,7 +101,17 @@ export class GetResponse<ResponseDataType> {
     /** Count the number of batches by remembering all endSeq numbers. */
     protected endSeqs: {[endSeq: string]: boolean} = {};
 
-    constructor(eventEmitter: EventEmitter, msgId: Buffer, serializeResponse: SerializeInterface<ResponseDataType> | undefined, deserializeResponse: DeserializeInterface<ResponseDataType>, p2pClient: P2PClient, isStream: boolean = false, isMultipleStream: boolean = false) {
+    /** Count fetch results to protect from overwhelm attacks. */
+    protected fetchCount: number = 0;
+
+    protected limit: number;
+
+    /**
+     *
+     * @param limit optional limit which makes sense for certain ResponseDataTypes.
+     *  For FetchResponse limit detects errornous overflows in resultsets.
+     */
+    constructor(eventEmitter: EventEmitter, msgId: Buffer, serializeResponse: SerializeInterface<ResponseDataType> | undefined, deserializeResponse: DeserializeInterface<ResponseDataType>, p2pClient: P2PClient, isStream: boolean = false, isMultipleStream: boolean = false, limit: number = -1) {
         this.eventEmitter = eventEmitter;
         this.msgId = msgId;
         this.deserializeResponse = deserializeResponse;
@@ -109,6 +119,7 @@ export class GetResponse<ResponseDataType> {
         this.p2pClient = p2pClient;
         this.isStream = isStream;
         this.isMultipleStream = isMultipleStream;
+        this.limit = limit;
         this.triggers = { reply: [], error: [], timeout: [], close: [], any: [], cancel: [] };
         this.hookEvents();
     }
@@ -119,8 +130,30 @@ export class GetResponse<ResponseDataType> {
             try {
                 const response = this.decodeReplyEvent(replyEvent);
 
-                if (typeof((response as any).endSeq) === "number") {
-                    const endSeq = (response as any).endSeq as number;
+                // Dirty check to see if FetchResponse
+                //
+                if (typeof((response as unknown as FetchResponse).result) === "object" &&
+                    Array.isArray((response as unknown as FetchResponse).result.nodes) &&
+                    Array.isArray((response as unknown as FetchResponse).result.embed))
+                {
+                    this.fetchCount += (response as unknown as FetchResponse).result.nodes.length
+                        + (response as unknown as FetchResponse).result.nodes.length;
+
+                    if (this.limit > -1 && this.fetchCount > this.limit) {
+                        // Overflow detected.
+                        //
+                        console.error("Overflow detected in GetResponse, too many nodes/embed returned on query. Cancelling.");
+
+                        this.cancel();
+
+                        return;
+                    }
+                }
+
+                // Dirty check
+                //
+                if (typeof((response as unknown as FetchResponse).endSeq) === "number") {
+                    const endSeq = (response as unknown as FetchResponse).endSeq;
                     if (endSeq > 0) {
                         this.endSeqs[endSeq] = true;
                     }
@@ -135,8 +168,8 @@ export class GetResponse<ResponseDataType> {
                     // We do a dirty check on the response object to look if it has the
                     // "seq" and "endSeq" attributes.
                     // seq must be set, must be > 0 and must be equal to endSeq.
-                    const isEndOfStream = (response as any)?.seq &&
-                        (response as any).seq === (response as unknown as FetchResponse).endSeq;
+                    const isEndOfStream = (response as unknown as FetchResponse)?.seq &&
+                        (response as unknown as FetchResponse).seq === (response as unknown as FetchResponse).endSeq;
 
                     // Dirty check
                     // seq==0 indicates an error and we want to remove the message.
@@ -152,6 +185,10 @@ export class GetResponse<ResponseDataType> {
                         // the stream timeout so the message does not timeout unexpectedly,
                         // since we don't know when the next stream will start.
                         this.clearTimeout();
+
+                        // Clear the nodes and embed count.
+                        //
+                        this.fetchCount = 0;
                     }
                     else if (isEndOfStream) {
                         // End of stream and no further streams expected, so remove message.
