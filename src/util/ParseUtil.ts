@@ -31,7 +31,10 @@ import {
     DataCertConstraintValues,
     LicenseCertParams,
     LicenseCertConstraintValues,
-    DATA_NODE_TYPE,
+    DATA0_NODE_TYPE,
+    DATA0_NODE_TYPE_ALIAS,
+    LICENSE0_NODE_TYPE,
+    LICENSE0_NODE_TYPE_ALIAS,
 } from "../datamodel";
 
 import {
@@ -97,6 +100,11 @@ import {
     APIAuthFactoryConfig,
     NativeAuthFactoryConfig,
 } from "../auth/types";
+
+const NodeTypes: {[alias: string]: Buffer} = {
+    [DATA0_NODE_TYPE_ALIAS.toLowerCase()]: DATA0_NODE_TYPE,
+    [LICENSE0_NODE_TYPE_ALIAS.toLowerCase()]: LICENSE0_NODE_TYPE,
+};
 
 /**
  * Parse config object fragments.
@@ -854,7 +862,7 @@ export class ParseUtil {
     /**
      * @param permissions object of type:
      * {
-     *  allowEmbed: {nodeType: hexstring | Buffer, filters: Filter[]}[],
+     *  allowEmbed: {nodeType: alias | hexstring | Buffer, filters: Filter[]}[],
      *  allowIncludeLicenses?: number,
      *  allowTrigger: boolean,
      *  allowNodeTypes: hexstring[] | Buffer[],
@@ -870,7 +878,8 @@ export class ParseUtil {
 
         if (allowEmbed0) {
             allowEmbed = allowEmbed0.map( (allowEmbedObj: AllowEmbed) => {
-                const nodeType = ParseUtil.ParseVariable("permissions allowEmbed[index] nodeType must be hex-string or Buffer", allowEmbedObj.nodeType, "hex");
+                const nodeType = ParseUtil.ParseNodeType("permissions allowEmbed[index] nodeType must be alias, hex-string or Buffer", allowEmbedObj.nodeType);
+
                 let filters: Filter[] = [];
                 const filters0 = ParseUtil.ParseVariable("permissions allowEmbed[index] filters must be Filter[], if set", allowEmbedObj.filters, "object[]", true);
                 if (filters0) {
@@ -1421,7 +1430,7 @@ export class ParseUtil {
      *  ignoreInactive?: boolean,
      *  targetPublicKey?: hexstring | Buffer,
      *  sourcePublicKey?: hexstring | Buffer,
-     *  embed: {nodeType: hexstring | Buffer, filters: Filter[]}[],
+     *  embed: {nodeType: alias | hexstring | Buffer, filters: Filter[]}[],
      *  region?: string,
      *  jurisdiction?: string,
      *  includeLicenses?: number,
@@ -1461,7 +1470,8 @@ export class ParseUtil {
 
         if (allowEmbed0) {
             embed = allowEmbed0.map( (allowEmbedObj: AllowEmbed) => {
-                const nodeType = ParseUtil.ParseVariable("query embed[index] nodeType must be hex-string or Buffer", allowEmbedObj.nodeType, "hex");
+                const nodeType = ParseUtil.ParseNodeType("query embed[index] nodeType must be alias, hex-string or Buffer", allowEmbedObj.nodeType);
+
                 let filters: Filter[] = [];
                 const filters0 = ParseUtil.ParseVariable("query embed[index] filters must be Filter[], if set", allowEmbedObj.filters, "object[]", true);
                 if (filters0) {
@@ -1665,7 +1675,7 @@ export class ParseUtil {
      * @param supposed Match[] as:
      * [
      *  {
-     *   nodeType: hexstring | Buffer,
+     *   nodeType: alias | hexstring | Buffer,
      *   filters?: Filter[],
      *   limit?: number,
      *   limitField?: LimitField,
@@ -1682,7 +1692,8 @@ export class ParseUtil {
      */
     public static ParseMatch(matches: any[]): Match[] {
         return matches.map( (match: Match) => {
-            const nodeType = ParseUtil.ParseVariable("match nodeType must be hex-string or Buffer, if set", match.nodeType, "hex", true) ?? DATA_NODE_TYPE;
+            const nodeType = ParseUtil.ParseNodeType("match nodeType must be alias, hex-string or Buffer, if set", match.nodeType ?? DATA0_NODE_TYPE);
+
             let filters: Filter[] = [];
             const filters0 = ParseUtil.ParseVariable("match filters must be Filter[], if set", match.filters, "object[]", true);
             if (filters0) {
@@ -2424,6 +2435,17 @@ export class ParseUtil {
             isLockedOnContentType,
             isLockedOnUserBits,
         };
+    }
+
+    public static ParseNodeType(error: string, nodeType: string | Buffer): Buffer {
+        if (typeof(nodeType) === "string") {
+            const nt = NodeTypes[nodeType.toLowerCase()];
+            if (nt) {
+                return nt;
+            }
+        }
+
+        return ParseUtil.ParseVariable(error, nodeType, "hex");
     }
 
     /**
