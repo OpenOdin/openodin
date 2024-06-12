@@ -49,7 +49,7 @@ import {
     DataInterface,
     CMP,
     Hash,
-    DATA_NODE_TYPE,
+    DATA0_NODE_TYPE,
     KeyPair,
     Data,
 } from "../datamodel";
@@ -1378,7 +1378,7 @@ export class Service {
             targetPublicKey: this.publicKey,
             match: [
                 {
-                    nodeType: DATA_NODE_TYPE,
+                    nodeType: DATA0_NODE_TYPE,
                     filters: [
                         {
                             field: "owner",

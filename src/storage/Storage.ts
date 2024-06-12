@@ -28,7 +28,7 @@ import {
     NodeInterface,
     DataInterface,
     Hash,
-    DATA_NODE_TYPE,
+    DATA0_NODE_TYPE,
 } from "../datamodel";
 
 import {
@@ -1521,7 +1521,7 @@ export class Storage {
             // which are not flagged as special nodes.
             //
             const nodesToAdd = (fetchReplyData.nodes ?? []).
-                filter( node => node.getType().equals(DATA_NODE_TYPE) &&
+                filter( node => node.getType().equals(DATA0_NODE_TYPE) &&
                     !(node as DataInterface).isSpecial() ) as DataInterface[];
 
             const embed = fetchReplyData.embed ?? [];

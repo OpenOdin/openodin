@@ -21,7 +21,9 @@ import {
  * 8 bit node class id.
  * 8 bit node class major version.
  */
-export const LICENSE_NODE_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_ID, 0, SECONDARY_INTERFACE_ID, NODE_CLASS, CLASS_MAJOR_VERSION]);
+export const LICENSE0_NODE_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_ID, 0, SECONDARY_INTERFACE_ID, NODE_CLASS, CLASS_MAJOR_VERSION]);
+
+export const LICENSE0_NODE_TYPE_ALIAS = "License0";
 
 export type LicenseParams = NodeParams & {
     licenseConfig?: number,

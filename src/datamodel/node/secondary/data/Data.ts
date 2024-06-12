@@ -41,7 +41,7 @@ import {
 } from "../../../../util/common";
 
 import {
-    DATA_NODE_TYPE,
+    DATA0_NODE_TYPE,
     DataConfig,
     DataParams,
     SPECIAL_NODES,
@@ -54,7 +54,7 @@ import {
 } from "./versionTypes";
 
 import {
-    LICENSE_NODE_TYPE,
+    LICENSE0_NODE_TYPE,
 } from "../license/types";
 
 import {
@@ -143,7 +143,7 @@ export class Data extends Node implements DataInterface {
      * @param nodeType set this from a deriving node, otherwise leave as default.
      * @param nodeFields set this from a derviing node, otherwise leave as default.
      */
-    constructor(nodeType: ModelType = DATA_NODE_TYPE, nodeFields: Fields = {}) {
+    constructor(nodeType: ModelType = DATA0_NODE_TYPE, nodeFields: Fields = {}) {
         const fields = {...FIELDS, ...nodeFields};
         super(nodeType, fields);
     }
@@ -153,8 +153,8 @@ export class Data extends Node implements DataInterface {
      * @returns the Data node's model type.
      */
     public static GetType(length?: number): Buffer {
-        length = length ?? DATA_NODE_TYPE.length;
-        return DATA_NODE_TYPE.slice(0, length);
+        length = length ?? DATA0_NODE_TYPE.length;
+        return DATA0_NODE_TYPE.slice(0, length);
     }
 
     /**
@@ -162,8 +162,8 @@ export class Data extends Node implements DataInterface {
      * @returns the Data node's model type.
      */
     public getType(length?: number): Buffer {
-        length = length ?? DATA_NODE_TYPE.length;
-        return DATA_NODE_TYPE.slice(0, length);
+        length = length ?? DATA0_NODE_TYPE.length;
+        return DATA0_NODE_TYPE.slice(0, length);
     }
 
     /**
@@ -495,7 +495,7 @@ export class Data extends Node implements DataInterface {
      * @returns an array of license types of primary + secondary interfaces (first four bytes).
      */
     public getLicenseTypes(): Buffer[] {
-        return [LICENSE_NODE_TYPE.slice(0, 4)];
+        return [LICENSE0_NODE_TYPE.slice(0, 4)];
     }
 
     /**

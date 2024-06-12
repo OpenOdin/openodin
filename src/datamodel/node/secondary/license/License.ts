@@ -31,7 +31,7 @@ import {
 } from "../../../../util/common";
 
 import {
-    LICENSE_NODE_TYPE,
+    LICENSE0_NODE_TYPE,
     LicenseConfig,
     LicenseTransientConfig,
     LicenseParams,
@@ -223,7 +223,7 @@ export class License extends Node implements LicenseInterface {
      * @param nodeType set this from a deriving node, otherwise leave as default.
      * @param nodeFields set this from a derviing node, otherwise leave as default.
      */
-    constructor(nodeType: ModelType = LICENSE_NODE_TYPE, nodeFields: Fields = {}) {
+    constructor(nodeType: ModelType = LICENSE0_NODE_TYPE, nodeFields: Fields = {}) {
         const fields = {...FIELDS, ...nodeFields};
         super(nodeType, fields);
         this.setLeaf();
@@ -235,8 +235,8 @@ export class License extends Node implements LicenseInterface {
      * @returns the License node's model type.
      */
     public static GetType(length?: number): Buffer {
-        length = length ?? LICENSE_NODE_TYPE.length;
-        return LICENSE_NODE_TYPE.slice(0, length);
+        length = length ?? LICENSE0_NODE_TYPE.length;
+        return LICENSE0_NODE_TYPE.slice(0, length);
     }
 
     /**
@@ -244,8 +244,8 @@ export class License extends Node implements LicenseInterface {
      * @returns the Licene node's model type.
      */
     public getType(length?: number): Buffer {
-        length = length ?? LICENSE_NODE_TYPE.length;
-        return LICENSE_NODE_TYPE.slice(0, length);
+        length = length ?? LICENSE0_NODE_TYPE.length;
+        return LICENSE0_NODE_TYPE.slice(0, length);
     }
 
     /**
@@ -266,11 +266,11 @@ export class License extends Node implements LicenseInterface {
 
     /**
      * @param modelType the model type of the node to embed. First four bytes of the cert model are matched for and has to match the License type.
-     * @returns true if model type is of primary+secondary bytes of LICENSE_NODE_TYPE.
+     * @returns true if model type is of primary+secondary bytes of LICENSE0_NODE_TYPE.
      */
     public isEmbeddedTypeAccepted(embeddedType: Buffer): boolean {
         // Compare primary + secondary interfaces.
-        return embeddedType.slice(0, 4).equals(LICENSE_NODE_TYPE.slice(0, 4));
+        return embeddedType.slice(0, 4).equals(LICENSE0_NODE_TYPE.slice(0, 4));
     }
 
     /**
@@ -1193,7 +1193,7 @@ export class License extends Node implements LicenseInterface {
         }
         const embedded = this.getEmbeddedObject();
 
-        const interfaceType = LICENSE_NODE_TYPE.slice(0, 4);  // Primary and secondary interfaces
+        const interfaceType = LICENSE0_NODE_TYPE.slice(0, 4);  // Primary and secondary interfaces
         if (!embedded.getType(4).equals(interfaceType)) {
             return [false, "License can only embed another License of the same interface"];
         }
