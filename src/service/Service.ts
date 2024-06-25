@@ -74,11 +74,13 @@ import {
     ServicePeerCloseCallback,
     ServicePeerConnectCallback,
     ServicePeerFactoryCreateCallback,
+    ServicePeerFactoryCreateErrorCallback,
     ServicePeerParseErrorCallback,
     ServicePeerAuthCertErrorCallback,
     ServiceStorageCloseCallback,
     ServiceStorageConnectCallback,
     ServiceStorageFactoryCreateCallback,
+    ServiceStorageFactoryCreateErrorCallback,
     ServiceStorageParseErrorCallback,
     ServiceStorageAuthCertErrorCallback,
     EVENT_SERVICE_START,
@@ -87,9 +89,11 @@ import {
     EVENT_SERVICE_STORAGE_CLOSE,
     EVENT_SERVICE_STORAGE_CONNECT,
     EVENT_SERVICE_STORAGE_FACTORY_CREATE,
+    EVENT_SERVICE_STORAGE_FACTORY_CREATE_ERROR,
     EVENT_SERVICE_STORAGE_AUTHCERT_ERROR,
     EVENT_SERVICE_STORAGE_PARSE_ERROR,
     EVENT_SERVICE_PEER_FACTORY_CREATE,
+    EVENT_SERVICE_PEER_FACTORY_CREATE_ERROR,
     EVENT_SERVICE_PEER_CONNECT,
     EVENT_SERVICE_PEER_CLOSE,
     EVENT_SERVICE_PEER_AUTHCERT_ERROR,
@@ -657,19 +661,22 @@ export class Service {
         this.config.peerConnectionConfigs.push(connectionConfig);
 
         if (this._isRunning && this.state.storageClient) {
-            this.initPeerConnectionFactories();
+            this.initPeerFactory(connectionConfig);
         }
     }
 
     /**
-     * Remove connection config and close factory (including its connections) if instantiated.
+     * Remove connection config.
      *
      * @param index of the connection config to remove
      */
-    public removePeerConnectionConfig(index: number) {
-        this.config.peerConnectionConfigs.splice(index, 1);
-        const connectionFactory = this.state.peerConnectionFactories.splice(index, 1)[0];
-        connectionFactory?.close();
+    public removePeerConnectionConfig(connectionConfig: ConnectionConfig) {
+        const index = this.config.peerConnectionConfigs.findIndex( config =>
+            DeepEquals(config, connectionConfig) );
+
+        if (index >= 0) {
+            this.config.peerConnectionConfigs.splice(index, 1);
+        }
     }
 
     /**
@@ -690,19 +697,22 @@ export class Service {
         this.config.storageConnectionConfigs.push(connectionConfig);
 
         if (this._isRunning && !this.config.databaseConfig) {
-            this.initStorageFactories();
+            this.initStorageFactory(connectionConfig);
         }
     }
 
     /**
-     * Remove remote storage connection config and close factory (including its connections) if instantiated.
+     * Remove remote storage connection config.
      *
      * @param index of the connection config to remove
      */
-    public removeStorageConnectionConfig(index: number) {
-        this.config.storageConnectionConfigs.splice(index, 1);
-        const connectionFactory = this.state.storageConnectionFactories.splice(index, 1)[0];
-        connectionFactory?.close();
+    public removeStorageConnectionConfig(connectionConfig: ConnectionConfig) {
+        const index = this.config.storageConnectionConfigs.findIndex( config =>
+            DeepEquals(config, connectionConfig) );
+
+        if (index >= 0) {
+            this.config.storageConnectionConfigs.splice(index, 1);
+        }
     }
 
     protected syncConfToAutoFetch(sync: SyncConf): AutoFetch[] {
@@ -835,36 +845,50 @@ export class Service {
     }
 
     /**
-     * Create and start any peer connection factory yet not started.
-     * Idempotent function, can be run again after a new peer config has been added to connect to that peer.
+     * Create and start all peer connection factories.
      */
-    public async initPeerConnectionFactories() {
+    protected async initPeerFactories() {
         if (!this.state.storageClient) {
             throw new Error("Cannot init peer connection factories unless connected to storage.");
         }
 
-        const configsToInit = this.config.peerConnectionConfigs.slice(this.state.peerConnectionFactories.length);
+        assert(this.state.peerConnectionFactories.length === 0);
 
-        const configsToInitLength = configsToInit.length;
-        for (let i=0; i<configsToInitLength; i++) {
-            const configToInit = configsToInit[i];
-            const handshakeFactory = await this.initPeerConnectionFactory(configToInit);
-            this.state.peerConnectionFactories.push(handshakeFactory);
+        this.config.peerConnectionConfigs.forEach( config =>
+            this.initPeerFactory(config) );
+    }
 
-            try {
-                handshakeFactory.init();
-            }
-            catch(error) {
-                const peerParseErrorEvent: Parameters<ServicePeerParseErrorCallback> =
-                    [error as Error];
+    protected async initPeerFactory(connectionConfig: ConnectionConfig) {
+        let handshakeFactory;
 
-                this.triggerEvent(EVENT_SERVICE_PEER_PARSE_ERROR, ...peerParseErrorEvent);
-            }
+        try {
+            handshakeFactory = await this.initPeerConnectionFactory(connectionConfig);
         }
+        catch(error) {
+            const peerCreateErrorEvent: Parameters<ServicePeerFactoryCreateErrorCallback> =
+                [error as Error];
+
+            this.triggerEvent(EVENT_SERVICE_PEER_FACTORY_CREATE_ERROR, ...peerCreateErrorEvent);
+
+            return
+        }
+
+        try {
+            handshakeFactory.init();
+        }
+        catch(error) {
+            const peerParseErrorEvent: Parameters<ServicePeerParseErrorCallback> =
+                [error as Error];
+
+            this.triggerEvent(EVENT_SERVICE_PEER_PARSE_ERROR, ...peerParseErrorEvent);
+        }
+
+        this.state.peerConnectionFactories.push(handshakeFactory);
     }
 
     /**
      * Setup and initiate a peer connection factory.
+     * @throws if factory cannot be created
      */
     protected async initPeerConnectionFactory(config: ConnectionConfig):
         Promise<HandshakeFactoryInterface>
@@ -876,6 +900,8 @@ export class Service {
 
         let remotePeerData: PeerData | undefined;
 
+        // Throws if refused
+        //
         const handshakeFactory = await this.authFactory.create(authFactoryConfig);
 
         const peerFactoryCreateEvent: Parameters<ServicePeerFactoryCreateCallback> =
@@ -1150,28 +1176,41 @@ export class Service {
     }
 
     /**
-     * Setup and initiate a factory connection factory.
-     * @throws
+     * Setup and initiate all storage factories.
      */
     protected async initStorageFactories() {
-        const configsToInit = this.config.storageConnectionConfigs.slice(this.state.storageConnectionFactories.length);
-        const configsToInitLength = configsToInit.length;
+        assert(this.state.storageConnectionFactories.length === 0);
 
-        for (let i=0; i<configsToInitLength; i++) {
-            const configToInit = configsToInit[i];
-            const handshakeFactory = await this.initStorageConnectionFactory(configToInit);
-            this.state.storageConnectionFactories.push(handshakeFactory);
+        this.config.storageConnectionConfigs.forEach( config =>
+            this.initStorageFactory(config) );
+    }
 
-            try {
-                handshakeFactory.init();
-            }
-            catch(error) {
-                const storageParseErrorEvent: Parameters<ServiceStorageParseErrorCallback> =
-                    [error as Error];
+    protected async initStorageFactory(connectionConfig: ConnectionConfig) {
+        let handshakeFactory;
 
-                this.triggerEvent(EVENT_SERVICE_STORAGE_PARSE_ERROR, ...storageParseErrorEvent);
-            }
+        try {
+            handshakeFactory = await this.initStorageConnectionFactory(connectionConfig);
         }
+        catch(error) {
+            const storageCreateErrorEvent: Parameters<ServiceStorageFactoryCreateErrorCallback> =
+                [error as Error];
+
+            this.triggerEvent(EVENT_SERVICE_STORAGE_FACTORY_CREATE_ERROR, ...storageCreateErrorEvent);
+
+            return;
+        }
+
+        try {
+            handshakeFactory.init();
+        }
+        catch(error) {
+            const storageParseErrorEvent: Parameters<ServiceStorageParseErrorCallback> =
+                [error as Error];
+
+            this.triggerEvent(EVENT_SERVICE_STORAGE_PARSE_ERROR, ...storageParseErrorEvent);
+        }
+
+        this.state.storageConnectionFactories.push(handshakeFactory);
     }
 
     /**
@@ -1565,7 +1604,7 @@ export class Service {
             // Note: we do not delete storageFactory here, because it might spawn a new connection for us.
         });
 
-        await this.initPeerConnectionFactories();
+        await this.initPeerFactories();
 
         const storageConnectEvent: Parameters<ServiceStorageConnectCallback> =
             [externalStorageClient];
@@ -1614,12 +1653,12 @@ export class Service {
         return this.applicationConf.version;
     }
 
-    public getStorageConnectionFactories(): HandshakeFactoryInterface[] | undefined {
-        return this.state.storageConnectionFactories;
+    public getStorageConnectionFactories(): HandshakeFactoryInterface[] {
+        return this.state.storageConnectionFactories.slice();
     }
 
     public getPeerConnectionFactories(): HandshakeFactoryInterface[] {
-        return this.state.peerConnectionFactories;
+        return this.state.peerConnectionFactories.slice();
     }
 
     /**
@@ -1711,6 +1750,13 @@ export class Service {
         this.hookEvent(EVENT_SERVICE_PEER_FACTORY_CREATE, callback);
     }
 
+    /**
+     * Event typically emitted when user refuses the application to connect via DataWallet.
+     */
+    public onStorageFactoryCreateError(callback: ServiceStorageFactoryCreateErrorCallback) {
+        this.hookEvent(EVENT_SERVICE_STORAGE_FACTORY_CREATE_ERROR, callback);
+    }
+
     public onPeerParseError(callback: ServicePeerParseErrorCallback) {
         this.hookEvent(EVENT_SERVICE_PEER_PARSE_ERROR, callback);
     }
@@ -1743,6 +1789,13 @@ export class Service {
      */
     public onPeerFactoryCreate(callback: ServicePeerFactoryCreateCallback) {
         this.hookEvent(EVENT_SERVICE_PEER_FACTORY_CREATE, callback);
+    }
+
+    /**
+     * Event typically emitted when user refuses the application to connect via DataWallet.
+     */
+    public onPeerFactoryCreateError(callback: ServicePeerFactoryCreateErrorCallback) {
+        this.hookEvent(EVENT_SERVICE_PEER_FACTORY_CREATE_ERROR, callback);
     }
 
     /**

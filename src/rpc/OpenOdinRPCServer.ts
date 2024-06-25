@@ -12,6 +12,7 @@ import {
 
 import {
     KeyPair,
+    DataModelInterface,
 } from "../datamodel";
 
 import {
@@ -30,11 +31,17 @@ import {
 } from "./types";
 
 import {
+    AuthFactoryConfig,
+} from "../auth/types";
+
+import {
     Version,
 } from "../types";
 
 export class OpenOdinRPCServer {
     protected triggerOnAuth?: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>;
+    protected triggerOnCreate?: (authFactoryConfig: AuthFactoryConfig) => Promise<boolean>;
+    protected triggerOnSign?: (dataModels: DataModelInterface[]) => Promise<boolean>;
     protected signatureOffloaderRPCServer?: SignatureOffloaderRPCServer;
     protected authFactoryRPCCserver?: AuthFactoryRPCServer;
     protected settingsManagerRPCServer?: SettingsManagerRPCServer;
@@ -63,6 +70,21 @@ export class OpenOdinRPCServer {
 
     public onAuth(fn: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>) {
         this.triggerOnAuth = fn;
+    }
+
+    /**
+     * The function to trigger to confirm connections parameters on the event of
+     * creating the handshake factory.
+     */
+    public onAuthFactoryCreate(fn: (authFactoryConfig: AuthFactoryConfig) => Promise<boolean>) {
+        this.triggerOnCreate = fn;
+    }
+
+    /**
+     * The function to trigger to confirm signing data.
+     */
+    public onSign(fn: (dataModels: DataModelInterface[]) => Promise<boolean>) {
+        this.triggerOnSign = fn;
     }
 
     /**
@@ -116,7 +138,7 @@ export class OpenOdinRPCServer {
         }
 
         this.signatureOffloaderRPCServer = new SignatureOffloaderRPCServer(rpc1, this.nrOfWorkers,
-            this.singleThreaded);
+            this.singleThreaded, this.triggerOnSign);
 
         await this.signatureOffloaderRPCServer.init();
 
@@ -136,7 +158,7 @@ export class OpenOdinRPCServer {
             await this.signatureOffloaderRPCServer.addKeyPair(keyPair2);
         }
 
-        this.authFactoryRPCCserver = new AuthFactoryRPCServer(rpc2, keyPairs2);
+        this.authFactoryRPCCserver = new AuthFactoryRPCServer(rpc2, keyPairs2, this.triggerOnCreate);
 
         this.settingsManagerRPCServer = new SettingsManagerRPCServer(rpc3, authResponse2.url);
 

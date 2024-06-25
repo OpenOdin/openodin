@@ -153,6 +153,8 @@ export class OpenOdin {
         });
 
         this.rpc = new RPC(postMessage2, listenMessage, rpcId);
+
+        this.rpc.onCall("attentionNeeded", (count: number) => this.triggerEvent("attentionNeeded", count) );
     }
 
     /**
@@ -422,6 +424,14 @@ export class OpenOdin {
      */
     public onAuthFail = ( cb: (error: string) => void ) => {
         this.hookEvent("authFail", cb);
+    }
+
+    /**
+     * Event triggered by DataWallet when the user's attention is needed
+     * by the DataWallet.
+     */
+    public onAttentionNeeded = ( cb: (count: number) => void ) => {
+        this.hookEvent("attentionNeeded", cb);
     }
 
     /**

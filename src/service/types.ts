@@ -178,6 +178,8 @@ export type ServicePeerConnectCallback = (p2pClient: P2PClient) => void;
 export type ServicePeerFactoryCreateCallback =
     (handshakeFactory: HandshakeFactoryInterface) => void;
 
+export type ServicePeerFactoryCreateErrorCallback = (error: Error) => void;
+
 export type ServicePeerParseErrorCallback = (error: Error) => void;
 
 export type ServicePeerAuthCertErrorCallback = (error: Error, authCert: Buffer) => void;
@@ -196,6 +198,8 @@ export type ServiceStorageConnectCallback = (p2pClient: P2PClient) => void;
  */
 export type ServiceStorageFactoryCreateCallback = (handshakeFactory: HandshakeFactoryInterface) => void;
 
+export type ServiceStorageFactoryCreateErrorCallback = (error: Error) => void;
+
 export type ServiceStorageParseErrorCallback = (error: Error) => void;
 
 export type ServiceStorageAuthCertErrorCallback = (error: Error, authCert: Buffer) => void;
@@ -208,9 +212,10 @@ export const EVENT_SERVICE_STORAGE_CONNECT = "SERVICE_STORAGE_CONNECT";
 export const EVENT_SERVICE_STORAGE_FACTORY_CREATE = "SERVICE_STORAGE_FACTORY_CREATE";
 export const EVENT_SERVICE_STORAGE_AUTHCERT_ERROR = "SERVICE_STORAGE_AUTHCERT_ERROR";
 export const EVENT_SERVICE_STORAGE_PARSE_ERROR = "SERVICE_STORAGE_PARSE_ERROR";
+export const EVENT_SERVICE_STORAGE_FACTORY_CREATE_ERROR = "SERVICE_STORAGE_FACTORY_CREATE_ERROR";
 export const EVENT_SERVICE_PEER_FACTORY_CREATE = "SERVICE_PEER_FACTORY_CREATE";
 export const EVENT_SERVICE_PEER_CONNECT = "SERVICE_PEER_CONNECT";
 export const EVENT_SERVICE_PEER_CLOSE = "SERVICE_PEER_CLOSE";
 export const EVENT_SERVICE_PEER_AUTHCERT_ERROR = "SERVICE_PEER_AUTHCERT_ERROR";
 export const EVENT_SERVICE_PEER_PARSE_ERROR = "SERVICE_PEER_PARSE_ERROR";
-export const EVENT_SERVICE_PEER_ERROR = "SERVICE_PEER_ERROR";
+export const EVENT_SERVICE_PEER_FACTORY_CREATE_ERROR = "SERVICE_PEER_FACTORY_CREATE_ERROR";
