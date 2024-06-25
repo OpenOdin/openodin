@@ -3,6 +3,10 @@ import {
 } from "../datamodel/types";
 
 import {
+    DataModelInterface,
+} from "../datamodel/interface/DataModelInterface";
+
+import {
     Decoder,
 } from "../decoder";
 
@@ -18,9 +22,12 @@ import {
 
 export class SignatureOffloaderRPCServer extends SignatureOffloader {
     protected rpc: RPC;
+    protected triggerOnSign?: (dataModels: DataModelInterface[]) => Promise<boolean>;
 
-    constructor(rpc: RPC, nrOfWorkers?: number, singleThreaded: boolean = false) {
+    constructor(rpc: RPC, nrOfWorkers?: number, singleThreaded: boolean = false, triggerOnSign?: (dataModels: DataModelInterface[]) => Promise<boolean>) {
         super(nrOfWorkers, singleThreaded);
+
+        this.triggerOnSign = triggerOnSign;
 
         this.rpc = rpc;
 
@@ -47,12 +54,18 @@ export class SignatureOffloaderRPCServer extends SignatureOffloader {
             return this.close();
         });
 
-        this.rpc.onCall("signer", (toBeSigned: ToBeSigned[]) => {
-            const toBeSigned2: ToBeSigned[] = toBeSigned.map( toBeSigned => {
+        this.rpc.onCall("signer", async (toBeSigned: ToBeSigned[]) => {
+            const signRequests: DataModelInterface[] = [];
+            const toBeSigned2: ToBeSigned[] = [];
+
+            const toBeSignedLength = toBeSigned.length;
+            for (let i=0; i<toBeSignedLength; i++) {
+                const toSign = toBeSigned[i];
+
                 // Convert to Buffer as browser makes it into Uint8Array.
                 //
-                const message   = Buffer.isBuffer(toBeSigned.message) ? toBeSigned.message : Buffer.from(toBeSigned.message);
-                const publicKey = Buffer.isBuffer(toBeSigned.publicKey) ? toBeSigned.publicKey : Buffer.from(toBeSigned.publicKey);
+                const message   = Buffer.isBuffer(toSign.message) ? toSign.message : Buffer.from(toSign.message);
+                const publicKey = Buffer.isBuffer(toSign.publicKey) ? toSign.publicKey : Buffer.from(toSign.publicKey);
 
                 const dataModel = Decoder.Decode(message);
 
@@ -64,8 +77,18 @@ export class SignatureOffloaderRPCServer extends SignatureOffloader {
                     throw new Error(`A datamodel did not validate prior to signing: ${val[1]}`);
                 }
 
-                return {index: toBeSigned.index, message: dataModel.hash(), publicKey};
-            });
+                signRequests.push(dataModel);
+
+                toBeSigned2.push({index: toSign.index, message: dataModel.hash(), publicKey});
+            }
+
+            if (this.triggerOnSign) {
+                const allow = await this.triggerOnSign(signRequests);
+
+                if (!allow) {
+                    throw new Error("Not allowed to sign");
+                }
+            }
 
             return this.signer(toBeSigned2);
         });

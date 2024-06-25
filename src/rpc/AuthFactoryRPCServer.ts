@@ -34,17 +34,19 @@ export class AuthFactoryRPCServer {
     protected rpc: RPC;
     protected keyPairs: KeyPair[];
     protected handshakeFactories: HandshakeFactoryInterface[] = [];
+    protected triggerOnCreate?: (authFactoryConfig: AuthFactoryConfig) => Promise<boolean>;
 
-    constructor(rpc: RPC, keyPairs: KeyPair[]) {
+    constructor(rpc: RPC, keyPairs: KeyPair[], triggerOnCreate?: (authFactoryConfig: AuthFactoryConfig) => Promise<boolean>) {
         this.rpc = rpc;
         this.keyPairs = keyPairs;
+        this.triggerOnCreate = triggerOnCreate;
 
         this.rpc.onCall("create", async (authFactoryConfig: AuthFactoryConfig) => {
+            // User must confirm connection parameters of authFactoryConfig.
             //
-            // Note:
-            // At this point we can pop a modal dialog to confirm the parameters of authFactoryConfig,
-            // or to complement or override the parameters.
-            //
+            if (this.triggerOnCreate && ! (await this.triggerOnCreate(authFactoryConfig))) {
+                return undefined;
+            }
 
             if (this.isNativeHandshake(authFactoryConfig)) {
                 return this.createNativeHandshakeFactory(authFactoryConfig as unknown as
