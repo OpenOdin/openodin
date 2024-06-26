@@ -2,6 +2,9 @@
 
 Note: any version below 1.0.0 can have breaking changes.  
 
+## [0.9.0] - 20240626
+Add permission controls to RPC calls.  
+
 ## [0.8.9] - 20240612
 Fix so different OpenOdin version can agree on serialization format.  
 Bug fix usage of Array.sort().  
