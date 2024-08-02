@@ -1,4 +1,3 @@
-export * from "./APIHandshakeFactory";
 export * from "./AuthClientProcessHandshake";
 export * from "./AuthServerProcessHandshake";
 export * from "./AuthServerProcessLogin";

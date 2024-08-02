@@ -3,7 +3,6 @@ export * from "./OpenOdin";
 export * from "./AuthFactoryRPCClient";
 export * from "./AuthFactoryRPCServer";
 export * from "./HandshakeFactoryRPCServer";
-export * from "./APIHandshakeFactoryRPCServer";
 export * from "./CommonHandshakeFactoryRPCClient";
 export * from "./SignatureOffloaderRPCClient";
 export * from "./SignatureOffloaderRPCServer";
