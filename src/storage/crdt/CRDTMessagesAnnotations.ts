@@ -46,7 +46,7 @@ const CLASS_MAJOR_VERSION    = 0;
 //eslint-disable-next-line @typescript-eslint/no-unused-vars
 const CLASS_MINOR_VERSION    = 0;
 
-export const CRDT_MESSAGES_ANNOTATIONS_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_ID, 0,
+const CRDT_MESSAGES_ANNOTATIONS_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_ID, 0,
     SECONDARY_INTERFACE_ID, NODE_CLASS, CLASS_MAJOR_VERSION]);
 
 /**

@@ -55,7 +55,7 @@ export enum BaseCertConfig {
     IS_INDESTRUCTIBLE       = 2,
 }
 
-export enum BaseCertLockedConfig {}
+enum BaseCertLockedConfig {}
 
 /**
  * Transient bits set by the outside on base cert level.
