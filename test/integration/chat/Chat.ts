@@ -8,7 +8,6 @@ import {
     Hash,
     BlobEvent,
     ParseUtil,
-    AbstractStreamReader,
     Service,
     Thread,
     StorageUtil,

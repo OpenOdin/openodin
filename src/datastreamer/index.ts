@@ -1,5 +1,3 @@
-export * from "./AbstractStreamReader";
-export * from "./AbstractStreamWriter";
 export * from "./BlobStreamReader";
 export * from "./BlobStreamWriter";
 export * from "./BufferStreamReader";
