@@ -72,6 +72,13 @@ export class OpenOdin {
     protected _isOpened: boolean = false;
     protected pendingAuth: boolean = false;
 
+    /** Set if auth fails. */
+    protected authFailed: boolean = false;
+
+    /** Set on event attentionNeeded and reset and the next onOpen event. */
+    protected attentionNeeded: boolean = false;
+
+
     protected signatureOffloader?: SignatureOffloaderInterface;
     protected authFactory?: AuthFactoryInterface;
     protected settingsManager?: SettingsManagerRPCClient;
@@ -79,13 +86,6 @@ export class OpenOdin {
     protected walletConf?: WalletConf;
 
     /**
-     * @param applicationConf the application configuration to init the Service instance with.
-     * The conf will be sent to the Datawallet when authing for verbosity and potential
-     * reconfiguration by the user.
-     *
-     * @param autoAuth if set then automatically called auth() when extension allows authentication.
-     * Default is true.
-     *
      * @param nrOfSignatureVerifiers is set > 0 (default 2) then instantiate local threaded
      * SignatureOffloader to only do signature verification. This offloads the SignatureOffloader
      * in the browser extension and can especially benefit Chrome because in Chrome the extension
@@ -93,8 +93,8 @@ export class OpenOdin {
      * Signing is still done in the extension, as no secret keys are present in the local
      * SignatureOffloader as it is only for verifying signatures.
      */
-    constructor(protected applicationConf: ApplicationConf, protected autoAuth: boolean = true,
-        protected nrOfSignatureVerifiers: number = 2) {
+    constructor(protected nrOfSignatureVerifiers: number = 2) {
+
         const rpcId = Buffer.from(crypto.randomBytes(8)).toString("hex");
 
         const postMessage2 = (message: any) => {
@@ -154,20 +154,23 @@ export class OpenOdin {
 
         this.rpc = new RPC(postMessage2, listenMessage, rpcId);
 
-        this.rpc.onCall("attentionNeeded", (count: number) => this.triggerEvent("attentionNeeded", count) );
+        this.rpc.onCall("attentionNeeded", (count: number) => {
+            this.attentionNeeded = true;
+            this.triggerEvent("attentionNeeded", count);
+        });
     }
 
     /**
-     * Helper function to fetch() and parse an ApplicationConf JSON file.
+     * Helper function to parse an ApplicationConf JSON file.
+     *
+     * This is a wrapper function over ParseUtil.ParseApplicationConf().
+     *
+     * @returns ApplicationConf
      *
      * @throws on error
      */
-    public static async LoadAppConf(location: string): Promise<ApplicationConf> {
-        const appJSON = await (await fetch(location)).json();
-
-        const applicationConf = ParseUtil.ParseApplicationConf(appJSON);
-
-        return applicationConf;
+    public static ParseAppConf(appJSON: Record<string, any>): ApplicationConf {
+        return ParseUtil.ParseApplicationConf(appJSON);
     }
 
     /**
@@ -181,12 +184,14 @@ export class OpenOdin {
      * Handler called everytime the Datawallet is opened for the tab,
      * technically each time the content-script is injected.
      * If the instance is closed the event is not triggered.
-     * If autoAuth is set an auth process is initiated.
      */
     protected async handleOpen() {
         if (this._isClosed) {
             return;
         }
+
+        // Reset flag.
+        this.attentionNeeded = false;
 
         if (!this._isOpened) {
             // If first time open the port to the background by sending a noop.
@@ -205,10 +210,6 @@ export class OpenOdin {
         this._isOpened = true;
 
         this.triggerEvent("open");
-
-        if (this.autoAuth && !this.pendingAuth && !this.isAuthed()) {
-            this.auth();
-        }
     }
 
     protected noopInterval() {
@@ -225,9 +226,14 @@ export class OpenOdin {
      * Triggers onAuth(Service) on successful auth, or onAuthFail(error) on failed auth.
      * In case of failed auth check isClosed() before attempting to reuse the OpenOdin instance.
      *
+     * @param applicationConf the application configuration to init the Service instance with.
+     * The conf will be sent to the Datawallet when authing for verbosity and potential
+     * reconfiguration by the user. The Datawallet will respond with the same or an altered
+     * version of the applicationConf which is then used.
+     *
      * @throws if cannot be reused for auth, if port is closed, already authed or pending auth.
      */
-    public auth = async () => {
+    public auth = async (applicationConf: ApplicationConf) => {
         if (this._isClosed || this.pendingAuth || this.isAuthed()) {
             throw new Error("Cannot reuse OpenOdin instance");
         }
@@ -238,7 +244,7 @@ export class OpenOdin {
             this.triggerEvent("preAuth");
 
             const authResponse = await this.rpc.call("auth",
-                [{applicationConf: this.applicationConf}]) as AuthResponse;
+                [{applicationConf: applicationConf}]) as AuthResponse;
 
             this.pendingAuth = false;
 
@@ -246,6 +252,8 @@ export class OpenOdin {
                 !authResponse.handshakeRPCId || !authResponse.applicationConf ||
                 !authResponse.walletConf || !authResponse.settingsManagerRPCId)
             {
+                this.authFailed = true;
+
                 this.triggerEvent("authFail", authResponse.error ?? "Unknown error");
 
                 this.close();
@@ -274,6 +282,8 @@ export class OpenOdin {
             catch(e) {
                 console.error(e);
 
+                this.authFailed = true;
+
                 this.triggerEvent("authFail", `Could not init Service: ${e}`);
 
                 this.close();
@@ -291,6 +301,8 @@ export class OpenOdin {
 
         }
         catch(e) {
+            this.authFailed = true;
+
             this.triggerEvent("authFail", `Error in auth process: ${e}`);
 
             this.close();
@@ -307,6 +319,14 @@ export class OpenOdin {
 
     public isPendingAuth = (): boolean => {
         return this.pendingAuth;
+    }
+
+    public isAuthFailed = (): boolean => {
+        return this.authFailed;
+    }
+
+    public isAttentionNeeded = (): boolean => {
+        return this.attentionNeeded;
     }
 
     public getSignatureOffloader = (): SignatureOffloaderInterface | undefined => {
@@ -326,13 +346,6 @@ export class OpenOdin {
      */
     public getVersion(): string {
         return Version;
-    }
-
-    /**
-     * @returns the application version as given in the ApplicationConf
-     */
-    public getAppVersion(): string {
-        return this.applicationConf.version;
     }
 
     /**
@@ -396,14 +409,22 @@ export class OpenOdin {
 
     /**
      * Event triggered when the Datawallet is opened and activated for the tab.
-     * After this event one can all auth(), if autoAuth is set auth() is called automatically.
+     * After this event one can all auth().
      */
     public onOpen = ( cb: () => void ) => {
         this.hookEvent("open", cb);
     }
 
+    public offOpen = ( cb: () => void ) => {
+        this.unhookEvent("open", cb);
+    }
+
     public onPreAuth = ( cb: () => void ) => {
         this.hookEvent("preAuth", cb);
+    }
+
+    public offPreAuth = ( cb: () => void ) => {
+        this.unhookEvent("preAuth", cb);
     }
 
     /**
@@ -418,12 +439,20 @@ export class OpenOdin {
         this.hookEvent("auth", cb);
     }
 
+    public offAuth = ( cb: (service: Service) => void ) => {
+        this.unhookEvent("auth", cb);
+    }
+
     /**
      * Event triggered on failed authorization or if port closed during pending authorization.
      * The OpenOdin instance cannot be reused.
      */
     public onAuthFail = ( cb: (error: string) => void ) => {
         this.hookEvent("authFail", cb);
+    }
+
+    public offAuthFail = ( cb: (error: string) => void ) => {
+        this.unhookEvent("authFail", cb);
     }
 
     /**
@@ -434,6 +463,10 @@ export class OpenOdin {
         this.hookEvent("attentionNeeded", cb);
     }
 
+    public offAttentionNeeded = ( cb: (count: number) => void ) => {
+        this.unhookEvent("attentionNeeded", cb);
+    }
+
     /**
      * Event triggered when port to background is disconnected or when calling close().
      *
@@ -441,6 +474,10 @@ export class OpenOdin {
      */
     public onClose = ( cb: () => void ) => {
         this.hookEvent("close", cb);
+    }
+
+    public offClose = ( cb: () => void ) => {
+        this.unhookEvent("close", cb);
     }
 
     public getSettingsManager(): SettingsManagerRPCClient {
