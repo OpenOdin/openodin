@@ -2,6 +2,10 @@
 
 Note: any version below 1.0.0 can have breaking changes.  
 
+## [0.9.1] - 20240819
+Improve (breaking) OpenOdin.ts API.  
+Remove unused exports.  
+
 ## [0.9.0] - 20240626
 Add permission controls to RPC calls.  
 
