@@ -137,7 +137,7 @@ export class ParseUtil {
      *          name:               string,
      *          stream?:            boolean,
      *          threadFetchParams?: ThreadFetchParams,
-     *          direction?:         "push" | "pull" " "both",
+     *          direction?:         "push" | "pull" | "both",
      *      }[],
      *  }[]
      * }
