@@ -1852,7 +1852,7 @@ export class ParseUtil {
      *  signature?: hexstring | Buffer,
      *  copiedSignature?: hexstring | Buffer,
      *  creationTime?: number,
-     *  expireTime?: number,
+     *  expireTime?: number (set negative for Date.now() + abs(expireTime)),
      *  difficulty?: number,
      *  nonce?: hexstring | Buffer,
      *  refId?: hexstring | Buffer,
@@ -1904,7 +1904,12 @@ export class ParseUtil {
         const signature = ParseUtil.ParseVariable("signature must be hex-string or Buffer, if set", params.signature, "hex",true);
         const copiedSignature = ParseUtil.ParseVariable("copiedSignature must be hex-string or Buffer, if set", params.copiedSignature, "hex",true);
         const creationTime = ParseUtil.ParseVariable("creationTime must be number, if set", params.creationTime, "number", true);
-        const expireTime = ParseUtil.ParseVariable("expireTime must be number, if set", params.expireTime, "number", true);
+        let expireTime = ParseUtil.ParseVariable("expireTime must be number, if set", params.expireTime, "number", true);
+
+        if (typeof expireTime === "number" && expireTime < 0) {
+            expireTime = Date.now() -expireTime;
+        }
+
         const difficulty = ParseUtil.ParseVariable("difficulty must be number, if set", params.difficulty, "number", true);
         const nonce = ParseUtil.ParseVariable("nonce must be hex-string or Buffer, if set", params.nonce, "hex",true);
         const refId = ParseUtil.ParseVariable("refId must be hex-string or Buffer, if set", params.refId, "hex",true);
@@ -2231,7 +2236,7 @@ export class ParseUtil {
      * @param FriendCertConstraintValues object of type:
      * {
      *  creationTime: number,
-     *  expireTime?: number,
+     *  expireTime?: number (set negative for Date.now() + abs(expireTime)),
      *  modelType?: hexstring | Buffer,
      *  otherConstraints: hexstring | Buffer,
      *  publicKey: hexstring | Buffer,
@@ -2250,7 +2255,12 @@ export class ParseUtil {
         }
 
         const creationTime = ParseUtil.ParseVariable("creationTime must be number", params.creationTime, "number");
-        const expireTime = ParseUtil.ParseVariable("expireTime must be number, if set", params.expireTime, "number", true);
+        let expireTime = ParseUtil.ParseVariable("expireTime must be number, if set", params.expireTime, "number", true);
+
+        if (typeof expireTime === "number" && expireTime < 0) {
+            expireTime = Date.now() -expireTime;
+        }
+
         const modelType = ParseUtil.ParseVariable("modelType must be hex-string or Buffer", params.modelType, "hex", true);
         const otherConstraints = ParseUtil.ParseVariable("otherConstraints must be hex-string or Buffer", params.otherConstraints, "hex", true);
         const publicKey = ParseUtil.ParseVariable("publicKey must be hex-string or Buffer", params.publicKey, "hex", true);
@@ -2283,7 +2293,7 @@ export class ParseUtil {
      *  config?: number,
      *  lockedConfig?: number,
      *  creationTime: number,
-     *  expireTime: number,
+     *  expireTime: number (set negative for Date.now() + abs(expireTime)),
      *  cert?: hextring | Buffer,
      *  constraints?: hextring | Buffer,
      *  targetType?: hextring | Buffer,
@@ -2309,7 +2319,12 @@ export class ParseUtil {
         const multiSigThreshold = ParseUtil.ParseVariable("multiSigThreshold must be number, if set", params.multiSigThreshold, "number", true);
         const lockedConfig = ParseUtil.ParseVariable("lockedConfig must be number, if set", params.lockedConfig, "number", true);
         const creationTime = ParseUtil.ParseVariable("creationTime must be set to a number", params.creationTime, "number");
-        const expireTime = ParseUtil.ParseVariable("expireTime must be set to a number", params.expireTime, "number");
+        let expireTime = ParseUtil.ParseVariable("expireTime must be set to a number", params.expireTime, "number");
+
+        if (typeof expireTime === "number" && expireTime < 0) {
+            expireTime = Date.now() -expireTime;
+        }
+
         const cert = ParseUtil.ParseVariable("cert must be hex-string or Buffer, if set", params.cert, "hex", true);
         const constraints = ParseUtil.ParseVariable("constraints must be hex-string or Buffer, if set", params.constraints, "hex", true);
         const targetType = ParseUtil.ParseVariable("targetType must be hex-string or Buffer, if set", params.targetType, "hex", true);
