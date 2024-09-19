@@ -265,7 +265,7 @@ export enum DataConfig {
       * The contentType of the node states exactly in what way this node is special.
       * An embedded special node is not treated in any special way by the Database.
       */
-    SPECIAL         = 0,
+    IS_SPECIAL         = 0,
 
     /**
      * This bit is set to indicate that this node is an annotation node to its parent.
@@ -273,7 +273,7 @@ export enum DataConfig {
      * if represents a "like" on a message.
      * The CRDT models can handle annotations and bundle them up with their parent node.
      */
-    ANNOTATION_EDIT = 1,
+    IS_ANNOTATION_EDIT = 1,
 
     /**
      * If this flag is set then the node is meant to be the edited version of its parent node.
@@ -283,5 +283,5 @@ export enum DataConfig {
      * The CRDT models require that the owner of the edit node is the same as its parent.
      * If there are many edit nodes then the one with the newest creationTime is selected.
      */
-    ANNOTATION_REACTION = 2,
+    IS_ANNOTATION_REACTION = 2,
 }
