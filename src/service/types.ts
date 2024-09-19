@@ -18,7 +18,7 @@ import {
 
 import {
     ThreadTemplate,
-    ThreadFetchParams,
+    ThreadVariables,
 } from "../storage/thread";
 
 import {
@@ -128,7 +128,7 @@ export type SyncConf = {
          */
         direction: "pull" | "push" | "both",
 
-        threadFetchParams: ThreadFetchParams,
+        threadVariables: ThreadVariables,
     }[],
 };
 

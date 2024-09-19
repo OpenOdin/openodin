@@ -563,6 +563,9 @@ export class Service {
         this.threadTemplates[name] = DeepCopy(threadTemplate);
     }
 
+    /**
+     * Returns added thread templates, which are unparsed structures.
+     */
     public getThreadTemplates(): ThreadTemplates {
         return DeepCopy(this.threadTemplates);
     }
@@ -731,11 +734,8 @@ export class Service {
                     throw new Error(`Missing thread template requried for sync: ${syncThread.name}`);
                 }
 
-                const threadFetchParams = DeepCopy(syncThread.threadFetchParams);
 
-                threadFetchParams.query = threadFetchParams.query ?? {};
-
-                const fetchRequest = Thread.GetFetchRequest(threadTemplate, threadFetchParams,
+                const fetchRequest = Thread.GetFetchRequest(threadTemplate, syncThread.threadVariables,
                     syncThread.stream);
 
                 // CRDTs are not allowed to be used when auto syncing.
