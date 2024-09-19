@@ -1897,9 +1897,7 @@ function setupTests(config: any) {
                 }
             },
             postLicense: {
-                hello: {
-                    targets: [publicKey],
-                }
+                hello: {}
             }
         };
 
@@ -1914,7 +1912,7 @@ function setupTests(config: any) {
 
         let node = await thread.post("hello");
 
-        const licenses = await thread.postLicense("hello", node);
+        const licenses = await thread.postLicense("hello", node, [publicKey]);
         assert(licenses.length === 1);
 
         const items = await promise;
@@ -1981,14 +1979,12 @@ function setupTests(config: any) {
                 hello: {
                     parentId,
                     bubbleTrigger: true,  // This is needed for children of the node to trigger
-                    data: Buffer.from("Hello World"),
+                    data: "${data:string:" + Buffer.from("Hello World").toString("hex") + "}",
                     isLicensed: true,
                 }
             },
             postLicense: {
-                hello: {
-                    targets: [publicKey],
-                }
+                hello: {}
             }
         };
 
@@ -1997,7 +1993,7 @@ function setupTests(config: any) {
 
         let node = await thread.post("hello");
 
-        let licenses = await thread.postLicense("hello", node);
+        let licenses = await thread.postLicense("hello", node, [publicKey]);
         assert(licenses.length === 1);
 
         const {promise, cb} = PromiseCallback<any>();
@@ -2036,7 +2032,7 @@ function setupTests(config: any) {
 
         assert(node4.isAnnotationReaction());
 
-        licenses = await thread.postLicense("hello", [node3, node4]);
+        licenses = await thread.postLicense("hello", [node3, node4], [publicKey]);
         assert(licenses.length === 2);
 
         items = await promise2;
