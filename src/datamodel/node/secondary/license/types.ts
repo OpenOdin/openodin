@@ -25,7 +25,8 @@ export const LICENSE0_NODE_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_I
 
 export const LICENSE0_NODE_TYPE_ALIAS = "License0";
 
-export type LicenseParams = NodeParams & {
+export type LicenseParams = Omit<NodeParams, "id2" | "network" | "licenseMaxDistance" |
+    "childMinDifficulty" | "licenseMinDistance" | "copiedSignature" | "copiedParentId" | "copiedId1"> & {
     licenseConfig?: number,
     targetPublicKey?: Buffer,
     terms?: string,
