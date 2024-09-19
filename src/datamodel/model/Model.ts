@@ -100,12 +100,21 @@ export class Model {
      * @throws an error message when unable the filter target name is not present in the current model fields.
      */
     public cmp(filter: Filter): boolean {
-        const field = this.fields[filter.field];
-        if (!field) {
+        let fieldType = this.fields[filter.field]?.type;
+
+        let value1;
+        let value2 = filter.value;
+
+        if (filter.field === "id") {
+            value1 = this.getAny("id2") ?? this.getAny("id1");
+            fieldType = this.fields["id1"].type;
+        }
+        else if (fieldType) {
+            value1 = this.getAny(filter.field);
+        }
+        else {
             throw new Error(`Unknown field: ${filter.field}`);
         }
-        let value1 = filter.field === "id" ? this.getAny("id2") ?? this.getAny("id1") : this.getAny(filter.field);
-        let value2 = filter.value;
 
         let doHash = false;
         let sliceIndex: number | undefined;
@@ -164,7 +173,7 @@ export class Model {
 
         let diff = 0;
 
-        if (BIGINTTYPES.includes(field.type)) {
+        if (BIGINTTYPES.includes(fieldType)) {
             if (typeof(value1) !== "bigint") {
                 return false;
             }
@@ -188,7 +197,7 @@ export class Model {
                 diff = -1;
             }
         }
-        else if (INTEGERTYPES.includes(field.type)) {
+        else if (INTEGERTYPES.includes(fieldType)) {
             if (typeof(value1) !== "number") {
                 return false;
             }
@@ -202,18 +211,18 @@ export class Model {
                 throw new Error(`Hash operator not applicable to field: ${filter.field}`);
             }
             if (bitop && bitopvalue !== undefined) {
-                if (!INTEGERTYPES_BITWISE.includes(field.type)) {
+                if (!INTEGERTYPES_BITWISE.includes(fieldType)) {
                     throw new Error(`Bitwise operator not applicable to field: ${filter.field}`);
                 }
                 let value1b = BigInt(value1);
                 let bitmask = 0xffffffffn;  // 32 bit.
-                if (field.type === FieldType.UINT8) {
+                if (fieldType === FieldType.UINT8) {
                     bitmask = 0xffn;
                 }
-                else if (field.type === FieldType.UINT16LE || field.type === FieldType.UINT16BE) {
+                else if (fieldType === FieldType.UINT16LE || fieldType === FieldType.UINT16BE) {
                     bitmask = 0xffffn;
                 }
-                else if (field.type === FieldType.UINT24LE || field.type === FieldType.UINT24BE) {
+                else if (fieldType === FieldType.UINT24LE || fieldType === FieldType.UINT24BE) {
                     bitmask = 0xffffffn;
                 }
                 if (bitop === '&') {
@@ -235,7 +244,7 @@ export class Model {
             }
             diff = value1 - value2;
         }
-        else if (BUFFERTYPES.includes(field.type)) {
+        else if (BUFFERTYPES.includes(fieldType)) {
             if (!Buffer.isBuffer(value1)) {
                 return false;
             }
@@ -263,7 +272,7 @@ export class Model {
             }
             diff = value1.compare(value2);
         }
-        else if (STRINGTYPES.includes(field.type)) {
+        else if (STRINGTYPES.includes(fieldType)) {
             if (typeof(value1) !== "string") {
                 return false;
             }
