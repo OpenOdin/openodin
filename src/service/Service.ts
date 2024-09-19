@@ -523,8 +523,11 @@ export class Service {
         return DeepCopy(this.applicationConf.custom);
     }
 
+    /**
+     * @returns same WalletConf object as provided in constructor.
+     */
     public getWalletConf(): WalletConf {
-        return DeepCopy(this.walletConf);
+        return this.walletConf;
     }
 
     public getApplicationConf(): ApplicationConf {
