@@ -157,7 +157,7 @@ export type Filter = {
      *  hash   perform a blake2b 32 byte hashing on the field data before comparison.
      *         string are utf8 encoded into buffer before hashing.
      */
-    operator?: string,
+    operator: string,
 
     /** The comparison operator to use. */
     cmp: CMP,
