@@ -169,7 +169,7 @@ async function main() {
         // not be connected yet.
         consoleMain.info("Storage connected, send message from Server side");
         const node = await serverThread.post("message", {data: Buffer.from("Hello from Server")});
-        serverThread.postLicense("message", node, {targets});
+        serverThread.postLicense("message", node, targets);
     });
 
     chatServer.onPeerConnect( () => {
@@ -193,7 +193,7 @@ async function main() {
     chatClient.onStorageConnect( (p2pClient: P2PClient) => {
         const storageClient = p2pClient;
 
-        const threadTemplate = chatServer.getThreadTemplates().channel;
+        const threadTemplate = chatClient.getThreadTemplates().channel;
 
         const threadFetchParams = {query: {parentId: Buffer.alloc(32)}};
 
@@ -228,7 +228,7 @@ async function main() {
 
         const targets = [publicKey2];
 
-        await clientThread!.postLicense("message", node, {targets});
+        await clientThread!.postLicense("message", node, targets);
 
         const nodeId1 = node.getId1();
 

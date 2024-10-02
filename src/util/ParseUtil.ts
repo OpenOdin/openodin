@@ -84,11 +84,7 @@ import {
 
 import {
     ThreadTemplate,
-    ThreadLicenseParams,
-    ThreadDataParams,
-    ThreadQueryParams,
-    ThreadCRDTParams,
-    ThreadFetchParams,
+    ThreadVariables,
 } from "../storage/thread";
 
 import {
@@ -136,7 +132,7 @@ export class ParseUtil {
      *      threads: {
      *          name:               string,
      *          stream?:            boolean,
-     *          threadFetchParams?: ThreadFetchParams,
+     *          threadVariables?: ThreadVariables,
      *          direction?:         "push" | "pull" | "both",
      *      }[],
      *  }[]
@@ -205,7 +201,7 @@ export class ParseUtil {
 
                 const direction = ParseUtil.ParseVariable("applicationConf.sync.threads.direction must be string, if set", thread.direction, "string", true) ?? "pull";
 
-                const threadFetchParams = ParseUtil.ParseThreadFetchParams(thread.threadFetchParams ?? {});
+                const threadVariables = DeepCopy(thread.threadVariables ?? {}) as ThreadVariables;
 
                 if (!["push", "pull", "both"].includes(direction)) {
                     throw new Error("applicationConf.sync.threads.direction must be either \"push\", \"pull\", \"both\", if set");
@@ -214,7 +210,7 @@ export class ParseUtil {
                 threads.push({
                     name,
                     stream,
-                    threadFetchParams,
+                    threadVariables,
                     direction,
                 });
             });
@@ -246,26 +242,13 @@ export class ParseUtil {
      * @throws on error
      */
     public static ParseThread(threadTemplate: any): ThreadTemplate {
-        const query     = ParseUtil.ParseQuery(threadTemplate.query ?? {});
-        const crdt      = ParseUtil.ParseCRDT(threadTemplate.crdt ?? {});
+        const query = threadTemplate.query;
 
-        const post: {[name: string]: ThreadDataParams} = {};
+        const crdt = threadTemplate.crdt;
 
-        Object.keys(threadTemplate.post ?? {}).forEach( name => {
-            const params = threadTemplate.post[name];
-            if (params) {
-                post[name] = ParseUtil.ParseThreadDataParams(params) ?? {};
-            }
-        });
+        const post = threadTemplate.post;
 
-        const postLicense: {[name: string]: ThreadLicenseParams} = {};
-
-        Object.keys(threadTemplate.postLicense ?? {}).forEach( name => {
-            const params = threadTemplate.postLicense[name];
-            if (params) {
-                postLicense[name] = ParseUtil.ParseThreadLicenseParams(params) ?? {};
-            }
-        });
+        const postLicense = threadTemplate.postLicense;
 
         return {
             query,
@@ -273,69 +256,6 @@ export class ParseUtil {
             post,
             postLicense,
         };
-    }
-
-    /**
-     * @param conf object
-     * {
-     *  ...LicenseParams,
-     *  validSeconds?: number,
-     *  targets?: (hexstring | Buffer)[],
-     *
-     *  @returns ThreadLicenseParams or undefined
-     */
-    public static ParseThreadLicenseParams(conf: any): ThreadLicenseParams | undefined {
-        if (!conf) {
-            return undefined;
-        }
-
-        const licenseParams = ParseUtil.ParseLicenseParams(conf);
-
-        const threadLicenseParams: ThreadLicenseParams = {
-            ...licenseParams,
-        };
-
-        if (Object.prototype.hasOwnProperty.call(conf, "validSeconds")) {
-            threadLicenseParams.validSeconds =
-                ParseUtil.ParseVariable("ThreadLicenseParams.validSeconds must be number, if set",
-                    conf.validSeconds, "number", true);  // allow undefined.
-        }
-
-        if (Object.prototype.hasOwnProperty.call(conf, "targets")) {
-            threadLicenseParams.targets =
-                ParseUtil.ParseVariable("ThreadLicenseParams.targets must be hex-string or Buffer array, if set",
-                    conf.targets, "hex[]", true);  // allow undefined
-        }
-
-        return threadLicenseParams;
-    }
-
-    /**
-     * @param conf object
-     * {
-     *  ...DataParams,
-     *  validSeconds?: number,
-     *
-     *  @returns ThreadDataParams or undefined
-     */
-    public static ParseThreadDataParams(conf: any): ThreadDataParams | undefined {
-        if (!conf) {
-            return undefined;
-        }
-
-        const dataParams = ParseUtil.ParseDataParams(conf);
-
-        const threadDataParams: ThreadDataParams = {
-            ...dataParams,
-        };
-
-        if (Object.prototype.hasOwnProperty.call(conf, "validSeconds")) {
-            threadDataParams.validSeconds =
-                ParseUtil.ParseVariable("ThreadDataParams.validSeconds must be number, if set",
-                    conf.validSeconds, "number", true);  // allow undefined.
-        }
-
-        return threadDataParams;
     }
 
     /**
@@ -1563,114 +1483,6 @@ export class ParseUtil {
     }
 
     /**
-     * @param crdt as:
-     * {
-     *  reverse?: boolean,
-     *  cursorId1?: hexstring | Buffer,
-     *  cursorIndex?: number,
-     *  head?: number,
-     *  tail?: number,
-     *
-     * }
-     * @returns ThreadCRDTParams
-     * @throws on unparseable data
-     */
-    public static ParseThreadCRDTParams(crdt: any): ThreadCRDTParams {
-        if (typeof crdt !== "object" || crdt.constructor !== Object) {
-            throw new Error("Expecting crdt to be object.");
-        }
-
-        const head = ParseUtil.ParseVariable("crdt head must be number, if set", crdt.head, "number", true) ?? 0;
-        const tail = ParseUtil.ParseVariable("crdt tail must be number, if set", crdt.tail, "number", true) ?? 0;
-        const reverse = ParseUtil.ParseVariable("crdt reverse must be boolean, if set", crdt.reverse, "boolean", true) ?? false;
-        const cursorId1 = ParseUtil.ParseVariable("crdt cursorId1 must be hex-string or Buffer, if set", crdt.cursorId1, "hex", true) ?? Buffer.alloc(0);
-        const cursorIndex = ParseUtil.ParseVariable("crdt cursorIndex must be number, if set", crdt.cursorIndex, "number", true) ?? -1;
-
-        return {
-            reverse,
-            cursorId1,
-            cursorIndex,
-            head,
-            tail,
-        };
-    }
-
-    /**
-     * @param ThreadQueryParams as:
-     * {
-     *  depth?: number,
-     *  limit?: number,
-     *  cutoffTime?: bigint,
-     *  rootNodeId1?: hexstring | Buffer,
-     *  parentId?: hexstring | Buffer,
-     *  descending?: boolean,
-     *  orderByStorageTime?: boolean,
-     *  discardRoot?: boolean,
-     *  preserveTransient?: boolean,
-     *  ignoreOwn?: boolean,
-     *  ignoreInactive?: boolean,
-     *  region?: string,
-     *  jurisdiction?: string,
-     *  includeLicenses?: number,
-     * }
-     * @returns FetchQuery
-     * @throws on unparseable data
-     */
-    public static ParseThreadQueryParams(query: any): ThreadQueryParams {
-        if (typeof query !== "object" || query.constructor !== Object) {
-            throw new Error("Expecting query to be object.");
-        }
-
-        const depth = ParseUtil.ParseVariable("query depth must be number, if set", query.depth, "number", true) ?? -1;
-        const limit = ParseUtil.ParseVariable("query limit must be number, if set", query.limit, "number", true) ?? -1;
-        const cutoffTime = ParseUtil.ParseVariable("query cutoffTime must be number or bigint as string, if set", query.cutoffTime, "bigint", true) ?? 0n;
-        const rootNodeId1 = ParseUtil.ParseVariable("query rootNodeId1 must be hex-string or Buffer, if set", query.rootNodeId1, "hex", true) ?? Buffer.alloc(0);
-        const parentId = ParseUtil.ParseVariable("query parentId must be hex-string or Buffer, if set", query.parentId, "hex", true) ?? Buffer.alloc(0);
-        const descending = ParseUtil.ParseVariable("query descending must be boolean, if set", query.descending, "boolean", true) ?? false;
-        const orderByStorageTime = ParseUtil.ParseVariable("query orderByStorageTime must be boolean, if set", query.orderByStorageTime, "boolean", true) ?? false;
-        const discardRoot = ParseUtil.ParseVariable("query discardRoot must be boolean, if set", query.discardRoot, "boolean", true) ?? false;
-        const preserveTransient = ParseUtil.ParseVariable("query preserveTransient must be boolean, if set", query.preserveTransient, "boolean", true) ?? false;
-        const ignoreOwn = ParseUtil.ParseVariable("query ignoreOwn must be boolean, if set", query.ignoreOwn, "boolean", true) ?? false;
-        const ignoreInactive = ParseUtil.ParseVariable("query ignoreInactive must be boolean, if set", query.ignoreInactive, "boolean", true) ?? false;
-        const region = ParseUtil.ParseVariable("query region must be string, if set", query.region, "string", true) ?? "";
-        const jurisdiction = ParseUtil.ParseVariable("query jurisdiction must be string, if set", query.jurisdiction, "string", true) ?? "";
-        const includeLicenses = ParseUtil.ParseVariable("query includeLicenses must be number, if set", query.includeLicenses, "number", true) ?? 0;
-
-        const query2: ThreadQueryParams = {
-            depth,
-            limit,
-            cutoffTime,
-            rootNodeId1,
-            parentId,
-            descending,
-            orderByStorageTime,
-            discardRoot,
-            preserveTransient,
-            ignoreOwn,
-            ignoreInactive,
-            region,
-            jurisdiction,
-            includeLicenses,
-        };
-
-        return query2;
-    }
-
-    public static ParseThreadFetchParams(fetch: any): ThreadFetchParams {
-        if (typeof fetch !== "object" || fetch.constructor !== Object) {
-            throw new Error("Expecting fetch to be object.");
-        }
-
-        const query = fetch.query ? ParseUtil.ParseThreadQueryParams(fetch.query) : undefined;
-        const crdt = fetch.crdt ? ParseUtil.ParseThreadCRDTParams(fetch.crdt) : undefined;
-
-        return {
-            query,
-            crdt,
-        };
-    }
-
-    /**
      * Parse array of Match objects.
      * @param supposed Match[] as:
      * [
@@ -1852,7 +1664,7 @@ export class ParseUtil {
      *  signature?: hexstring | Buffer,
      *  copiedSignature?: hexstring | Buffer,
      *  creationTime?: number,
-     *  expireTime?: number,
+     *  expireTime?: number (set negative for Date.now() + abs(expireTime)),
      *  difficulty?: number,
      *  nonce?: hexstring | Buffer,
      *  refId?: hexstring | Buffer,
@@ -1904,7 +1716,12 @@ export class ParseUtil {
         const signature = ParseUtil.ParseVariable("signature must be hex-string or Buffer, if set", params.signature, "hex",true);
         const copiedSignature = ParseUtil.ParseVariable("copiedSignature must be hex-string or Buffer, if set", params.copiedSignature, "hex",true);
         const creationTime = ParseUtil.ParseVariable("creationTime must be number, if set", params.creationTime, "number", true);
-        const expireTime = ParseUtil.ParseVariable("expireTime must be number, if set", params.expireTime, "number", true);
+        let expireTime = ParseUtil.ParseVariable("expireTime must be number, if set", params.expireTime, "number", true);
+
+        if (typeof expireTime === "number" && expireTime < 0) {
+            expireTime = Date.now() -expireTime;
+        }
+
         const difficulty = ParseUtil.ParseVariable("difficulty must be number, if set", params.difficulty, "number", true);
         const nonce = ParseUtil.ParseVariable("nonce must be hex-string or Buffer, if set", params.nonce, "hex",true);
         const refId = ParseUtil.ParseVariable("refId must be hex-string or Buffer, if set", params.refId, "hex",true);
@@ -2231,7 +2048,7 @@ export class ParseUtil {
      * @param FriendCertConstraintValues object of type:
      * {
      *  creationTime: number,
-     *  expireTime?: number,
+     *  expireTime?: number (set negative for Date.now() + abs(expireTime)),
      *  modelType?: hexstring | Buffer,
      *  otherConstraints: hexstring | Buffer,
      *  publicKey: hexstring | Buffer,
@@ -2250,7 +2067,12 @@ export class ParseUtil {
         }
 
         const creationTime = ParseUtil.ParseVariable("creationTime must be number", params.creationTime, "number");
-        const expireTime = ParseUtil.ParseVariable("expireTime must be number, if set", params.expireTime, "number", true);
+        let expireTime = ParseUtil.ParseVariable("expireTime must be number, if set", params.expireTime, "number", true);
+
+        if (typeof expireTime === "number" && expireTime < 0) {
+            expireTime = Date.now() -expireTime;
+        }
+
         const modelType = ParseUtil.ParseVariable("modelType must be hex-string or Buffer", params.modelType, "hex", true);
         const otherConstraints = ParseUtil.ParseVariable("otherConstraints must be hex-string or Buffer", params.otherConstraints, "hex", true);
         const publicKey = ParseUtil.ParseVariable("publicKey must be hex-string or Buffer", params.publicKey, "hex", true);
@@ -2283,7 +2105,7 @@ export class ParseUtil {
      *  config?: number,
      *  lockedConfig?: number,
      *  creationTime: number,
-     *  expireTime: number,
+     *  expireTime: number (set negative for Date.now() + abs(expireTime)),
      *  cert?: hextring | Buffer,
      *  constraints?: hextring | Buffer,
      *  targetType?: hextring | Buffer,
@@ -2309,7 +2131,12 @@ export class ParseUtil {
         const multiSigThreshold = ParseUtil.ParseVariable("multiSigThreshold must be number, if set", params.multiSigThreshold, "number", true);
         const lockedConfig = ParseUtil.ParseVariable("lockedConfig must be number, if set", params.lockedConfig, "number", true);
         const creationTime = ParseUtil.ParseVariable("creationTime must be set to a number", params.creationTime, "number");
-        const expireTime = ParseUtil.ParseVariable("expireTime must be set to a number", params.expireTime, "number");
+        let expireTime = ParseUtil.ParseVariable("expireTime must be set to a number", params.expireTime, "number");
+
+        if (typeof expireTime === "number" && expireTime < 0) {
+            expireTime = Date.now() -expireTime;
+        }
+
         const cert = ParseUtil.ParseVariable("cert must be hex-string or Buffer, if set", params.cert, "hex", true);
         const constraints = ParseUtil.ParseVariable("constraints must be hex-string or Buffer, if set", params.constraints, "hex", true);
         const targetType = ParseUtil.ParseVariable("targetType must be hex-string or Buffer, if set", params.targetType, "hex", true);
@@ -2518,7 +2345,12 @@ export class ParseUtil {
                 }
                 else {
                     if (expectedType === "bigint") {
-                        value = BigInt(value);
+                        try {
+                            value = BigInt(value);
+                        }
+                        catch(e) {
+                            throw new Error(error);
+                        }
                     }
                     else if (typeof value !== expectedType) {
                         throw new Error(error);

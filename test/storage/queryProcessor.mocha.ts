@@ -3956,8 +3956,6 @@ function diffNodes(nodes1: NodeInterface[], nodes2: NodeInterface[]): boolean {
         return false;
     }
 
-    const diff: [NodeInterface, NodeInterface | undefined][] = [];
-
     const nodes1Length = nodes1.length;
     for (let i=0; i<nodes1Length; i++) {
         const node1 = nodes1[i];

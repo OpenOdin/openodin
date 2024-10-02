@@ -1611,7 +1611,7 @@ export abstract class Node implements NodeInterface {
     /**
      * Set the min distance to travel upwards before accepting a parent license.
      * @param distance if 0 it will default to undefined to save storage space.
-     * 0 (or undefined) means accept sibling licenses.
+     * 0 (or undefined) means accept sibling licenses and upwards.
      * 1 means accept from first parent and upwards.
      *
      * Note that the parent nodes own settings of min/maxLicenseDistance is not
@@ -1626,7 +1626,7 @@ export abstract class Node implements NodeInterface {
 
     /**
      * Return the min distance to travel upwrads before accepting a parent license.
-     * 0 means accept sibling licenses.
+     * 0 means accept sibling licenses and upwards.
      * 1 means accept from first parent and upwards.
      * @returns number
      */
@@ -1637,8 +1637,8 @@ export abstract class Node implements NodeInterface {
     /**
      * Set the max distance to travel upwards when accepting a parent license.
      * @param distance if 0 it will default to undefined to save storage space.
-     * 0 (or undefined) means accept sibling licenses.
-     * 1 means accept from first parent and upwards.
+     * 0 (or undefined) means accept only sibling licenses.
+     * 1 means accept up til first parent, etc.
      */
     public setLicenseMaxDistance(distance: number | undefined) {
         if (distance === 0) {
@@ -1649,8 +1649,8 @@ export abstract class Node implements NodeInterface {
 
     /**
      * Return the max distance to travel upwards when accepting a parent license.
-     * 0 means accept sibling licenses.
-     * 1 means accept from first parent and upwards.
+     * 0 means accept only sibling licenses.
+     * 1 means accept up til first parent, etc.
      * @returns number
      */
     public getLicenseMaxDistance(): number {

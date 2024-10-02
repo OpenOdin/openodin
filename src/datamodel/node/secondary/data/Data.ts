@@ -583,30 +583,30 @@ export class Data extends Node implements DataInterface {
      * @param isSpecial if true (default) then this data node is treated as "special" by the database.
      */
     public setSpecial(special: boolean = true) {
-        this.setDataConfigBit(DataConfig.SPECIAL, special);
+        this.setDataConfigBit(DataConfig.IS_SPECIAL, special);
     }
 
     /**
      * @returns isSpecial if true then this data node is treated as "special" by the database.
      */
     public isSpecial(): boolean {
-        return this.isDataConfigBitSet(DataConfig.SPECIAL);
+        return this.isDataConfigBitSet(DataConfig.IS_SPECIAL);
     }
 
     public setAnnotationEdit() {
-        this.setDataConfigBit(DataConfig.ANNOTATION_EDIT, true);
+        this.setDataConfigBit(DataConfig.IS_ANNOTATION_EDIT, true);
     }
 
     public isAnnotationEdit(): boolean {
-        return this.isDataConfigBitSet(DataConfig.ANNOTATION_EDIT);
+        return this.isDataConfigBitSet(DataConfig.IS_ANNOTATION_EDIT);
     }
 
     public setAnnotationReaction() {
-        this.setDataConfigBit(DataConfig.ANNOTATION_REACTION, true);
+        this.setDataConfigBit(DataConfig.IS_ANNOTATION_REACTION, true);
     }
 
     public isAnnotationReaction(): boolean {
-        return this.isDataConfigBitSet(DataConfig.ANNOTATION_REACTION);
+        return this.isDataConfigBitSet(DataConfig.IS_ANNOTATION_REACTION);
     }
 
     /**

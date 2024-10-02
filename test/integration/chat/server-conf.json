@@ -5,6 +5,7 @@
         "channel": {
             "query": {
                 "parentId": "0000000000000000000000000000000000000000000000000000000000000000",
+                "includeLicenses": "${includeLicenses}",
                 "match": [
                     {
                         "nodeType": "Data0"
@@ -18,6 +19,7 @@
             "post": {
                 "message": {
                     "contentType": "app/chat/message",
+                    "data": "${data}",
                     "isLicensed": true
                 }
             },
@@ -51,11 +53,9 @@
            "threads": [
                {
                    "name": "channel",
-                   "threadFetchParams": {
-                       "query": {
-                           "#": "Automatically include licenses and request new licenses to be extended.",
-                           "includeLicenses": 3
-                       }
+                   "threadVariables": {
+                       "#": "Automatically include licenses and request new licenses to be extended.",
+                       "includeLicenses": 3
                    },
                    "stream": true
                }

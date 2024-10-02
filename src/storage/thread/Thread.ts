@@ -24,6 +24,7 @@ import {
 import {
     CopyBuffer,
     DeepCopy,
+    TemplateSubstitute,
 } from "../../util/common";
 
 import {
@@ -40,17 +41,11 @@ import {
 import {
     Status,
     FetchRequest,
-    FetchQuery,
-    FetchCRDT,
 } from "../../types";
 
 import {
     ThreadTemplate,
-    ThreadQueryParams,
-    ThreadCRDTParams,
-    ThreadFetchParams,
-    ThreadDataParams,
-    ThreadLicenseParams,
+    ThreadVariables,
 } from "./types";
 
 import {
@@ -83,16 +78,28 @@ import {
  *
  * A Thread's definition include both query and post actions.
  *
- * Only Data nodes are kept in the model and nodes flagged as isSpecial are ignored.
+ * Only Data (not License) nodes are kept in the model and nodes flagged as isSpecial are ignored.
  * This is because the underlying fetch request might need to includes License nodes and special
  * nodes (which are used for deleting nodes), but those nodes are not interesting for making up
- * the model.
+ * the model provided by Thread (license still apply and are handled automatically).
  *
  * A Thread's FetchRequest is not required to use CRDT in which case the model will be append only
- * and is a cheap way of building a model without the CRDT heavy lifting, but the then
- * the order is not guaranteed.
+ * and is a cheap way of building a model without the CRDT heavy lifting, but the then the order
+ * of nodes is not guaranteed.
  *
  * The model is managed by the StreamCRDT class.
+ *
+ * The Thread is defined with a ThreadTemplate often loaded from a JSON.
+ * The template can define variables to be substituted as "${parentId}", for example.
+ * These variables can then be passed in a ThreadVariables map to each function.
+ *
+ * the "owner" field is allowed to be set in the post templates but it must then match the
+ * publicKey which the Thread is constructed with.
+ *
+ * For license post templates the field "targetPublicKey" is not allowed to be set as this is done
+ * programmatically at runtime.
+ *
+ * If parentId is not provided for post() it is attempted to be copied from the fetch request.
  */
 export class Thread {
     protected handlers: {[name: string]: ( (...args: any) => void)[]} = {};
@@ -101,28 +108,39 @@ export class Thread {
 
     protected _isClosed: boolean = false;
 
+    protected threadTemplate: ThreadTemplate;
+
+    protected threadVariables: ThreadVariables;
+
+    protected publicKey: Buffer;
+
+    protected signerPublicKey: Buffer;
+
+    protected secretKey?: Buffer;
+
     /* Keep track of all streaming requests so we can close them properly */
     protected streamCRDT?: StreamCRDT;
 
     /**
      * Factory to create a Thread using a Service object.
      *
-     * @param threadTemplate
-     * @param threadFetchParams parameters to override threadTemplate with for queries and streaming.
-     * Note that parentId set here is used as default parentId for posting data if not explicitly set in the post parameters.
+     * @param threadTemplate the template most often parsed from a JSON.
+     * @param threadVariables parameters to substitute values in the threadTemplate with for queries and streaming.
+     * Note that parentId set here is used as default parentId for posting data if not explicitly set in the post template or threadVariables passed to post actions.
      * @param service the Service object to be used for storage and peer communication and to extract public key, etc.
      * @param autoStart if true then calls start() to start the streaming immediately. Default is true.
-     * @param autoSync if true then calls addAutoSync() to start syncing with peer(s). Default is false.
+     * @param autoSync if true then calls setAutoSync() to start syncing with peer(s). Default is false.
      * Note that auto sync for Threads can also be inited from the app.json configuration, but in case creating
-     * Thread configurations in runtime autoSync should generally be enabled when instatiating the Thread.
+     * Thread configurations in runtime autoSync should generally be enabled when instantiating the Thread.
      * @param setDataFn passed to CRDTView
      * @param unsetDataFn passed to CRDTView
      * @param purgeInterval passed to StreamCRDT
      *
      * @returns new Thread object.
      */
-    public static fromService(threadTemplate: ThreadTemplate,
-        threadFetchParams: ThreadFetchParams,
+    public static fromService(
+        threadTemplate: ThreadTemplate,
+        threadVariables: ThreadVariables,
         service: Service,
         autoStart: boolean = true,
         autoSync: boolean = false,
@@ -139,16 +157,16 @@ export class Thread {
 
         const signerPublicKey = service.getSignerPublicKey();
 
-        return new Thread(threadTemplate, threadFetchParams, storageClient, nodeUtil, publicKey,
+        return new Thread(threadTemplate, threadVariables, storageClient, nodeUtil, publicKey,
             signerPublicKey, undefined, setDataFn, unsetDataFn, autoStart, autoSync, purgeInterval,
             service);
     }
 
     /**
      *
-     * @param threadTemplate
-     * @param threadFetchParams parameters to override threadTemplate with for queries and streaming
-     * Note that parentId set here is used as default parentId for posting data if not explicitly set in the post parameters
+     * @param threadTemplate the template most often parsed from a JSON.
+     * @param threadVariables parameters to substitute values in the threadTemplate with for queries and streaming.
+     * Note that parentId set here is used as default parentId for posting data if not explicitly set in the post template or threadVariables passed to post actions.
      * @param nodeUtil instantiated NodeUtil, if no SignatureOffloader inited then secretKey must also be passed as parameter
      * @param publicKey the public key to use as owner for new nodes
      * @param signerPublicKey the signing public key, could be same as public key
@@ -156,19 +174,20 @@ export class Thread {
      * @param setDataFn passed to CRDTView
      * @param unsetDataFn passed to CRDTView
      * @param autoStart if true then calls start() to start the streaming immediately. Default is true.
-     * @param autoSync if true then calls addAutoSync() to start syncing with peer(s). Default is false.
+     * @param autoSync if true then calls setAutoSync() to start syncing with peer(s). Default is false.
      * Note that auto sync for Threads can also be inited from the app.json configuration, but in case creating
      * Thread configurations in runtime autoSync should generally be enabled when instatiating the Thread.
      * @param purgeInterval passed to StreamCRDT
      * @param service the Service object to be used for syncing with peers, must be set if autoSync is set
      */
-    constructor(protected threadTemplate: ThreadTemplate,
-        protected threadFetchParams: ThreadFetchParams,
+    constructor(
+        threadTemplate: ThreadTemplate,
+        threadVariables: ThreadVariables,
         protected storageClient: P2PClient,
         protected nodeUtil: NodeUtil,
-        protected publicKey: Buffer,
-        protected signerPublicKey: Buffer,
-        protected secretKey?: Buffer,
+        publicKey: Buffer,
+        signerPublicKey: Buffer,
+        secretKey?: Buffer,
         protected setDataFn?: SetDataFn,
         protected unsetDataFn?: UnsetDataFn,
         autoStart: boolean = true,
@@ -176,6 +195,16 @@ export class Thread {
         protected purgeInterval: number = 60_000,
         protected service?: Service)
     {
+        this.threadTemplate = DeepCopy(threadTemplate);
+
+        this.threadVariables = DeepCopy(threadVariables);
+
+        this.publicKey = DeepCopy(publicKey);
+
+        this.signerPublicKey = DeepCopy(signerPublicKey);
+
+        this.secretKey = DeepCopy(secretKey);
+
         storageClient.onClose(this.close);
 
         if (autoSync) {
@@ -183,7 +212,7 @@ export class Thread {
                 throw new Error("autoSync cannot be set in Thread if no Service object provided");
             }
 
-            this.addAutoSync();
+            this.setAutoSync();
         }
 
         if (autoStart) {
@@ -234,25 +263,31 @@ export class Thread {
 
     /**
      * Create auto sync configurations and pass them to the Service object.
+     *
      * The FetchRequest will be modified to fit the purposes of the Thread which is to auto include
      * licenses and remove any CRDT configuration.
      *
-     * @param fetchRequest optionally set this to override the thread template fetch request,
-     *  this can be useful in cases wanting to change the underlying sync request to broaden
-     *  the data uptake for the model, for example by extending limit.
+     * If passing in arguments to modify the fetch request the thread template must support those
+     * configuration changes in the thread template.
+     *
+     * @param threadVariables optionally set this to override the threads own threadVariables for
+     * the fetch request.
+     * This can be useful in cases wanting to change the underlying sync request to broaden
+     * the data uptake for the model, for example by extending the limit.
+     *
      * @param fetchRequestReverse optionally set this to override the thread
      * template fetch request for the reverse-fetch, that is the data pushed to remote peer(s),
      * this should in general be set the same as fetchRequest.
      */
-    public addAutoSync(fetchRequest?: FetchRequest, fetchRequestReverse?: FetchRequest) {
+    public setAutoSync(threadVariables?: ThreadVariables, reverseThreadVariables?: ThreadVariables) {
         if (this._isClosed || !this.service) {
             return;
         }
 
         this.removeAutoSync();
 
-        fetchRequest = fetchRequest ? DeepCopy(fetchRequest) as FetchRequest :
-            this.getFetchRequest(true);
+        const fetchRequest = Thread.GetFetchRequest(this.threadTemplate, {...this.threadVariables,
+            ...threadVariables}, true);
 
         // Note that when we set includeLicenses=3 the Storage will automatically
         // add relevent licenses to the response and also automatically request licenses
@@ -261,6 +296,10 @@ export class Thread {
         // query.embed and query.match on licenses.
         //
         fetchRequest.query.includeLicenses = 3;
+
+        // We cancel any discard because we need the whole structure when syncing.
+        //
+        fetchRequest.query.match.forEach( match => match.discard = false );
 
         // Not relevant/allowed for auto fetch.
         //
@@ -278,16 +317,21 @@ export class Thread {
 
         this.autoFetchers.push(autoFetch);
 
+        // Default limit on reverse is unlimited (-1).
+        //
+        const reverseFetchRequest = Thread.GetFetchRequest(this.threadTemplate, {...this.threadVariables,
+            ...{limit: -1}, ...reverseThreadVariables}, true);
 
-        fetchRequestReverse = fetchRequestReverse ? DeepCopy(fetchRequestReverse) as FetchRequest :
-            this.getFetchRequest(true);
+        // We cancel any "discard" flag because we need the whole structure when syncing.
+        //
+        reverseFetchRequest.query.match.forEach( match => match.discard = false );
 
-        fetchRequestReverse.query.includeLicenses = 3;
-        fetchRequestReverse.query.preserveTransient = false;
-        fetchRequestReverse.crdt.algo = 0;
+        reverseFetchRequest.query.includeLicenses = 3;
+        reverseFetchRequest.query.preserveTransient = false;
+        reverseFetchRequest.crdt.algo = 0;
 
         const autoFetchReverse: AutoFetch = {
-            fetchRequest: fetchRequestReverse,
+            fetchRequest: reverseFetchRequest,
             remotePublicKey: Buffer.alloc(0),
             blobSizeMaxLimit: -1,
             reverse: true,
@@ -389,24 +433,42 @@ export class Thread {
     }
 
     /**
-     * Generate a FetchRequest based on a thread template and thread fetch params,
+     * Generate a FetchRequest based on a thread template and thread variables,
      * streaming or not streaming.
      *
-     * For streaming triggerNodeId will be copied from query.parentId in the case both
-     * triggerNodeId and triggerInterval are not set. If anyone of them are already set then
-     * triggerNodeId will not be automatically set.
+     * For streaming, in the case none of triggerNodeId nor triggerInterval are set,
+     * then triggerNodeId will be copied from query.parentId,
+     * and in the case rootNodeId1 is used over parentId then there will be no
+     * triggerNodeId automatically set but only triggerInterval set.
      *
-     * triggerInterval will always be set to 60 if not already set.
+     * Also, for streaming, triggerInterval will always be set to 60 if not already set.
      *
      * @param threadTemplate the template to use
-     * @param threadFetchParams the params to override the template with
+     * @param threadVariables the params to override the template with
      * @param stream set to true to make a streaming fetch request.
      */
     public static GetFetchRequest(threadTemplate: ThreadTemplate,
-        threadFetchParams: ThreadFetchParams = {}, stream: boolean = false): FetchRequest {
+        threadVariables: ThreadVariables = {}, stream: boolean = false): FetchRequest 
+    {
+        if (!threadTemplate.query) {
+            throw new Error("Missing query template in Thread");
+        }
 
-        const query = Thread.ParseQuery(threadTemplate, threadFetchParams.query ?? {});
-        const crdt = Thread.ParseCRDT(threadTemplate, threadFetchParams.crdt ?? {});
+        const queryParams = TemplateSubstitute(threadTemplate.query, threadVariables);
+
+        if (queryParams.rootNodeId1?.length) {
+            delete queryParams.parentId;
+        }
+
+        if (!queryParams.parentId && !queryParams.rootNodeId1) {
+            throw new Error("parentId/rootNodeId1 is missing in thread query");
+        }
+
+        const query = ParseUtil.ParseQuery(queryParams);
+
+        const crdtParams = TemplateSubstitute(threadTemplate.crdt ?? {}, threadVariables);
+
+        const crdt = ParseUtil.ParseCRDT(crdtParams);
 
         if (stream) {
             if (query.triggerNodeId.length === 0 && query.triggerInterval === 0) {
@@ -437,9 +499,8 @@ export class Thread {
         };
     }
 
-
     /**
-     * Generate the FetchRequest for this thread based on the template and threadFetchParams
+     * Generate the FetchRequest for this thread based on the template and threadVariables
      * provided in the constructor.
      * @see GetFetchRequest() for details.
      *
@@ -447,19 +508,30 @@ export class Thread {
      * @returns FetchRequest
      */
     public getFetchRequest(stream: boolean = false): FetchRequest {
-        return Thread.GetFetchRequest(this.threadTemplate, this.threadFetchParams, stream);
+        return Thread.GetFetchRequest(this.threadTemplate, this.threadVariables, stream);
     }
 
     /**
      * Post a new node.
      *
-     * @param name of the post template to use.
-     * @param threadDataParams fields on the Data node.
+     * If parentId is not set then it is copied form the fetch request if it is availabe.
+     *
+     * Note that the post template must provide substitution and threadVariables
+     * need to provide the data to be substituted with.
+     *
+     * @param name of the post template to use
+     * @param threadVariables values to substitute with in the post template
      * @returns the node created
-     * @throws if data node could not be created or stored.
+     * @throws if data node could not be created or stored, or if parentId is not set
      */
-    public async post(name: string, threadDataParams: ThreadDataParams = {}): Promise<DataInterface> {
-        const dataParams = this.parsePost(name, threadDataParams);
+    public async post(name: string,
+        threadVariables: ThreadVariables = {}): Promise<DataInterface>
+    {
+        const dataParams = this.parsePost(name, threadVariables);
+
+        if (!dataParams.parentId || dataParams.parentId.length === 0) {
+            throw new Error("missing parentId in thread post");
+        }
 
         const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
             this.secretKey);
@@ -470,26 +542,32 @@ export class Thread {
             return dataNode;
         }
 
-        throw new Error("Thred could not store data node");
+        throw new Error("Thread could not store data node");
     }
 
     /**
      * Post a node which is an annotation node meant to edit the given node.
      *
+     * Note that the post template must provide substitution and threadVariables
+     * need to provide the data to be substituted with.
+     *
      * @param name of the post template to use.
      * @param nodeToEdit the node we want to annotate with an edited node.
-     * @param threadDataParams should contain same data as for post() but where the data field is changed.
-     * Note that it is application specific if the blobHash, etc values are relevant for the new edit node.
+     * @param threadVariables values to substitute with in the post template
+     * Note that it is application specific if the blobHash and other values are relevant for
+     * the new edit node.
      *
      * @returns the edit node.
      * @throws if edit node cannot be stored.
      */
-    public async postEdit(name: string, nodeToEdit: NodeInterface, threadDataParams: ThreadDataParams = {}): Promise<DataInterface> {
-        const dataParams = this.parsePost(name, threadDataParams);
+    public async postEdit(name: string, nodeToEdit: NodeInterface,
+        threadVariables: ThreadVariables = {}): Promise<DataInterface>
+    {
+        const dataParams = this.parsePost(name, threadVariables);
 
         dataParams.parentId = nodeToEdit.getId();
         dataParams.expireTime = nodeToEdit.getExpireTime();
-        dataParams.dataConfig = (dataParams.dataConfig ?? 0) | (1 << DataConfig.ANNOTATION_EDIT);
+        dataParams.dataConfig = (dataParams.dataConfig ?? 0) | (1 << DataConfig.IS_ANNOTATION_EDIT);
 
         const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
             this.secretKey);
@@ -506,17 +584,23 @@ export class Thread {
     /**
      * Post a node which is an annotation node meant as a reaction to a node.
      *
+     * Note that the post template must provide substitution and threadVariables
+     * need to provide the data to be substituted with.
+     *
      * @param name of the post template to use.
      * @param node the node we are reaction to.
-     * @param threadDataParams should contain same data as for post() but where the data field is
-     * Buffer.from("react/thumbsup") or Buffer.from("unreact/thumbsup"), where "thumbsup" is the reaction name.
+     * @param threadVariables should contain same data as for post() but where the data field is
+     * Buffer.from("react/thumbsup") or Buffer.from("unreact/thumbsup"),
+     * where "thumbsup" is the reaction name.
      */
-    public async postReaction(name: string, node: NodeInterface, threadDataParams: ThreadDataParams = {}): Promise<DataInterface> {
-        const dataParams = this.parsePost(name, threadDataParams);
+    public async postReaction(name: string, node: NodeInterface,
+        threadVariables: ThreadVariables = {}): Promise<DataInterface>
+    {
+        const dataParams = this.parsePost(name, threadVariables);
 
         dataParams.parentId = node.getId();
         dataParams.expireTime = node.getExpireTime();
-        dataParams.dataConfig = (dataParams.dataConfig ?? 0) | (1 << DataConfig.ANNOTATION_REACTION);
+        dataParams.dataConfig = (dataParams.dataConfig ?? 0) | (1 << DataConfig.IS_ANNOTATION_REACTION);
 
         const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
             this.secretKey);
@@ -622,29 +706,25 @@ export class Thread {
     }
 
     /**
-     * @param name of the post template to use.
-     * @param nodes to create licenses for. Either single node or array of nodes.
-     * @param threadLicenseParams params to overwrite template values with.
-     * @returns Promise containing an array with all successfully stored licenses.
      *
-     * Order of precedence for properties:
-     * targets property has precendce in threadLicenseParams then template.
-     * threadLicenseParams, template.
-     * Where expireTime has precedence over validSeconds,
-     * expireTime defaults to 30 days, if not set,
-     * further more it will be set to same as node.getExpireTime() if that is set and smaller.
-     * creationTime defaults to node.getCreationTime(), if not set.
-     * nodeId1 and parentId are taken from the node.
-     * owner is always set to current publicKey.
+     * @param name of the post template to use.
+     * @param nodes to create licenses for. Either single node or array of nodes
+     * nodeId1 and parentId are taken from each node
+     * @param targetPublicKeys array of public keys for each to create a license for
+     * @param threadVariables values to substitute with in the post license template
+     * expireTime defaults to 30 days, if not set, but will be adjusted down if node's expireTime is
+     * smaller. expireTime can be set negative to be Date.now() + abs(expireTime).
+     * @returns Promise containing an array with all successfully stored licenses
+     * @throws if targetPublicKey is set in the template or if owner is set but mismatch,
+     * or if nodes cannot be created
      */
-    public async postLicense(name: string, nodes: DataInterface | DataInterface[], threadLicenseParams: ThreadLicenseParams = {}): Promise<LicenseInterface[]> {
-        const template = this.threadTemplate.postLicense[name] ?? {};
-
+    public async postLicense(name: string, nodes: DataInterface | DataInterface[],
+        targetPublicKeys: Buffer[],
+        threadVariables: ThreadVariables = {}): Promise<LicenseInterface[]>
+    {
         if (!Array.isArray(nodes)) {
             nodes = [nodes];
         }
-
-        const targets: Buffer[] | undefined = threadLicenseParams.targets ?? template.targets;
 
         const licenseNodes: LicenseInterface[] = [];
 
@@ -652,18 +732,16 @@ export class Thread {
         for (let i=0; i<nodesLength; i++) {
             const node = nodes[i];
 
-            if (!node.isLicensed() || node.getLicenseMinDistance() !== 0 || !targets) {
+            if (!node.isLicensed() || node.getLicenseMinDistance() !== 0) {
                 continue;
             }
 
-            const targetsLength = targets.length;
+            const targetsLength = targetPublicKeys.length;
             for (let i=0; i<targetsLength; i++) {
-                const targetPublicKey = targets[i];
+                const targetPublicKey = targetPublicKeys[i];
 
-                const licenseParams = this.parsePostLicense(name, node, {
-                    ...threadLicenseParams,
-                    targetPublicKey,
-                });
+                const licenseParams = this.parsePostLicense(name, node, targetPublicKey,
+                    threadVariables);
 
                 const licenseNode = await this.nodeUtil.createLicenseNode(licenseParams,
                     this.signerPublicKey, this.secretKey);
@@ -700,145 +778,81 @@ export class Thread {
         return new BlobStreamReader(nodeId1, [this.storageClient], expectedLength);
     }
 
-    /**
-     * @param name of the post template to use
-     * @param node to create license for
-     * @param threadLicenseParams
-     * @returns LicenseParams
-     *
-     * Order of precedence for properties:
-     * threadLicenseParams, template.
-     * Where expireTime has precedence over validSeconds,
-     * expireTime defaults to 30 days, if not set,
-     * further more it will be set to same as node.getExpireTime() if that is set and smaller.
-     * creationTime defaults to node.getCreationTime(), if not set.
-     * nodeId1 and parentId are taken from the node.
-     * owner is always set to current publicKey.
-     */
-    protected parsePostLicense(name: string, node: DataInterface, threadLicenseParams: ThreadLicenseParams): LicenseParams {
+    protected parsePostLicense(name: string, node: DataInterface, targetPublicKey: Buffer,
+        threadVariables: ThreadVariables): LicenseParams
+    {
         const nodeId1   = node.getId1();
         const parentId  = node.getParentId();
 
         assert(nodeId1);
         assert(parentId);
 
-        const template = this.threadTemplate.postLicense[name] ?? {};
+        const obj = TemplateSubstitute(this.threadTemplate, threadVariables);
 
-        let creationTime: number | undefined = threadLicenseParams.creationTime ?? template.creationTime;
+        assert(obj.postLicense[name], `Missing thread.postLicense template for ${name}`);
 
-        if (creationTime === undefined) {
-            creationTime = node.getCreationTime();
+        const licenseParams = DeepCopy(obj.postLicense[name]);
+
+        if (licenseParams.targetPublicKey?.length > 0) {
+            throw new Error("targetPublicKey must not be set in thread postLicense template");
         }
 
-        let expireTime: number | undefined = threadLicenseParams.expireTime ?? template.expireTime;
-
-        if (expireTime === undefined) {
-            const validSeconds: number | undefined = threadLicenseParams.validSeconds ?? template.validSeconds;
-
-            if (validSeconds !== undefined) {
-                expireTime = (creationTime ?? Date.now()) + validSeconds * 1000;
-            }
+        if (licenseParams.owner?.length > 0 &&
+            // Note: Buffer.from takes both Buffer and string even if second argument is
+            // given in the Buffer case.
+            !Buffer.from(licenseParams.owner, "hex").equals(this.publicKey))
+        {
+            throw new Error("Owner set to different public key than expected");
         }
 
-        if (expireTime === undefined) {
-            expireTime = Date.now() + 30 * 24 * 3600 * 1000;
+        licenseParams.targetPublicKey = targetPublicKey;
+
+        licenseParams.owner = this.publicKey;
+
+        licenseParams.parentId = parentId;
+
+        licenseParams.nodeId1 = nodeId1;
+
+        const licenseParams2 = ParseUtil.ParseLicenseParams(licenseParams);
+
+        if (licenseParams2.expireTime === undefined) {
+            licenseParams2.expireTime = Date.now() + 30 * 24 * 3600 * 1000;
         }
 
         const nodeExpireTime = node.getExpireTime();
 
         if (nodeExpireTime !== undefined) {
-            expireTime = Math.min(expireTime, nodeExpireTime);
+            licenseParams2.expireTime = Math.min(licenseParams2.expireTime, nodeExpireTime);
         }
 
-        const owner = this.publicKey;
-
-        return ParseUtil.ParseLicenseParams(
-            Thread.MergeProperties([{nodeId1, parentId, creationTime, expireTime, owner},
-                threadLicenseParams, template]));
+        return licenseParams2;
     }
 
-    /**
-     * @param name of the post template to use
-     * @param threadDataParams
-     * @returns DataParams
-     *
-     * Order of precedence for properties: threadDataParams, template.
-     * Where expireTime has precedence over validSeconds.
-     * Note that expireTime has no default value for nodes and if not set
-     * will be able to exist indefinitely.
-     * owner is always set to current publicKey.
-     * parentId is by default taken from threadFetchParams if not set in threadDataParams argument,
-     * and last option is to take parentId from the template.
-     */
-    protected parsePost(name: string, threadDataParams: ThreadDataParams): DataParams {
-        const template = this.threadTemplate.post[name] ?? {};
+    protected parsePost(name: string, threadVariables: ThreadVariables): DataParams {
+        const obj = TemplateSubstitute(this.threadTemplate, threadVariables);
 
-        const creationTime: number | undefined = threadDataParams.creationTime ?? template.creationTime;
+        assert(obj.post[name], `Missing thread.post template for ${name}`);
 
-        let expireTime: number | undefined = threadDataParams.expireTime ?? template.expireTime;
+        const dataParams = DeepCopy(obj.post[name]);
 
-        if (expireTime === undefined) {
-            const validSeconds: number | undefined = threadDataParams.validSeconds ?? template.validSeconds;
-
-            if (validSeconds !== undefined) {
-                expireTime = (creationTime ?? Date.now()) + validSeconds * 1000;
-            }
+        if (dataParams.owner?.length > 0 &&
+            // Note: Buffer.from takes both Buffer and string even if second argument is
+            // given in the Buffer case.
+            !Buffer.from(dataParams.owner, "hex").equals(this.publicKey))
+        {
+            throw new Error("Owner set to different public key than expected");
         }
 
-        const owner = this.publicKey;
+        dataParams.owner = this.publicKey;
 
-        const parentId = this.threadFetchParams.query?.parentId;
-
-        const dataParams: DataParams = Thread.MergeProperties([{creationTime, expireTime, owner},
-            threadDataParams, {parentId}, template]) as DataParams;
-
-        if (!dataParams.parentId) {
-            throw new Error("missing parentId in thread post");
+        // Set default parentId same as query template
+        //
+        if (!dataParams.parentId?.length) {
+            const fetchRequest = this.getFetchRequest();
+            dataParams.parentId = fetchRequest.query.parentId;
         }
 
         return ParseUtil.ParseDataParams(dataParams);
-    }
-
-    /**
-     * Parse query by merging template and params, where params have precendence
-     * over template fields.
-     *
-     * rootNodeId1 will have precedence over parentId in the merged query.
-     *
-     * @param threadTemplate default properties coming from template.
-     * @param threadQueryParams have precedence over threadTemplate properties.
-     * @returns FetchQuery
-     */
-    protected static ParseQuery(threadTemplate: ThreadTemplate,
-        threadQueryParams: ThreadQueryParams): FetchQuery
-    {
-        if (!threadTemplate.query) {
-            throw new Error("Missing query template in Thread");
-        }
-
-        const queryParams = Thread.MergeProperties([threadQueryParams, threadTemplate.query]);
-
-        if (queryParams.rootNodeId1?.length) {
-            delete queryParams.parentId;
-        }
-
-        if (!queryParams.parentId && !queryParams.rootNodeId1) {
-            throw new Error("parentId/rootNodeId1 is missing in thread query");
-        }
-
-        return ParseUtil.ParseQuery(queryParams);
-    }
-
-    /**
-     * @params threadTemplate
-     * @params threadCRDTParams have precedence over the template CRDT properties
-     * @returns FetchCRDT
-     */
-    protected static ParseCRDT(threadTemplate: ThreadTemplate,
-        threadCRDTParams: ThreadCRDTParams): FetchCRDT {
-
-        return ParseUtil.ParseCRDT(
-            Thread.MergeProperties([threadCRDTParams, (threadTemplate.crdt ?? {})]));
     }
 
     /**
@@ -869,53 +883,6 @@ export class Thread {
         else {
             throw new Error(`Could not store nodes, type=${anyData.type}, error=${anyData.error}`);
         }
-    }
-
-    /**
-     * Merge a given list of property objects into a new object.
-     *
-     * Keep the first value encountered in the list of objects (in order given), but undefined or
-     * non-set values are skipped over.
-     *
-     * Empty buffers are allowed to be reset by a non empty buffer (length > 0) if encountered in a
-     * later object in the objects list.
-     */
-    protected static MergeProperties(objects: any[]): any {
-        const merged: any = {};
-
-        const objectsLength = objects.length;
-        for (let i=0; i<objectsLength; i++) {
-            const object = objects[i];
-
-            const keys = Object.keys(object);
-            const keysLength = keys.length;
-            for (let i=0; i<keysLength; i++) {
-                const key = keys[i];
-
-                const value = object[key];
-
-                if (value === undefined) {
-                    continue;
-                }
-
-                const setValue = merged[key];
-
-                if (Buffer.isBuffer(setValue) && setValue.length === 0 &&
-                    Buffer.isBuffer(value) && value.length > 0)
-                {
-                    merged[key] = value;
-                    continue;
-                }
-
-                if (setValue !== undefined) {
-                    continue;
-                }
-
-                merged[key] = value;
-            }
-        }
-
-        return merged;
     }
 
     protected hookEvent(name: string, callback: ( (...args: any) => void)) {
