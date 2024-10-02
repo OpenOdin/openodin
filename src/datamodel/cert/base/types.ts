@@ -55,6 +55,7 @@ export enum BaseCertConfig {
     IS_INDESTRUCTIBLE       = 2,
 }
 
+//eslint-disable-next-line @typescript-eslint/no-unused-vars
 enum BaseCertLockedConfig {}
 
 /**

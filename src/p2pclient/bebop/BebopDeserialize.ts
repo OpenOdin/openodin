@@ -26,7 +26,6 @@ import {
     FetchResponse,
     UnsubscribeResponse,
     GenericMessageResponse,
-    Status,
 } from "../../types";
 
 import {

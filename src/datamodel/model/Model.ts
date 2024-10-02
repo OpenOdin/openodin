@@ -103,7 +103,6 @@ export class Model {
         let fieldType = this.fields[filter.field]?.type;
 
         let value1;
-        let value2 = filter.value;
 
         if (filter.field === "id") {
             value1 = this.getAny("id2") ?? this.getAny("id1");
@@ -171,7 +170,7 @@ export class Model {
                 return false;
             }
 
-            const value3 = BigInt(value2);
+            const value2 = BigInt(filter.value);
 
             if (sliceIndex !== undefined) {
                 throw new Error(`Slice operator not applicable to field: ${filter.field}`);
@@ -183,10 +182,10 @@ export class Model {
                 throw new Error(`Hash operator not applicable to field: ${filter.field}`);
             }
             diff = 0;
-            if (value1 > value3) {
+            if (value1 > value2) {
                 diff = 1;
             }
-            else if (value1 < value3) {
+            else if (value1 < value2) {
                 diff = -1;
             }
         }
@@ -195,7 +194,7 @@ export class Model {
                 return false;
             }
 
-            const value3 = Number(value2);
+            const value2 = Number(filter.value);
 
             if (sliceIndex !== undefined) {
                 throw new Error(`Slice operator not applicable to field: ${filter.field}`);
@@ -235,14 +234,14 @@ export class Model {
                 }
                 value1 = Number(value1b & bitmask);
             }
-            diff = value1 - value3;
+            diff = value1 - value2;
         }
         else if (BUFFERTYPES.includes(fieldType)) {
             if (!Buffer.isBuffer(value1)) {
                 return false;
             }
 
-            const value3 = Buffer.from(value2, "hex");
+            const value2 = Buffer.from(filter.value, "hex");
 
             if (bitop) {
                 throw new Error(`Bitwise operator not applicable to field: ${filter.field}`);
@@ -260,12 +259,14 @@ export class Model {
             if (doHash) {
                 value1 = Hash(value1);
             }
-            diff = value1.compare(value3);
+            diff = value1.compare(value2);
         }
         else if (STRINGTYPES.includes(fieldType)) {
             if (typeof(value1) !== "string") {
                 return false;
             }
+
+            const value2 = filter.value;
 
             if (bitop) {
                 throw new Error(`Bitwise operator not applicable to field: ${filter.field}`);
