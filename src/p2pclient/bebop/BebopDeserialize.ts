@@ -30,10 +30,6 @@ import {
 } from "../../types";
 
 import {
-    MakeIntoBuffer,
-} from "./util";
-
-import {
     DeepCopy,
 } from "../../util/common";
 
@@ -165,14 +161,7 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize UnsubscribeRequest, wrong opcode");
         }
 
-        const obj = BopUnsubscribeRequest.decode(data.slice(4));
-
-        //@ts-ignore
-        obj.originalMsgId = MakeIntoBuffer(obj.originalMsgId);
-        //@ts-ignore
-        obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
-
-        return obj as unknown as UnsubscribeRequest;
+        return DeepCopy(BopUnsubscribeRequest.decode(data.slice(4)), true);
     }
 
     /**
@@ -186,9 +175,7 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize UnsubscribeResponse, wrong opcode");
         }
 
-        const obj = BopUnsubscribeResponse.decode(data.slice(4));
-
-        return obj as unknown as UnsubscribeResponse;
+        return DeepCopy(BopUnsubscribeResponse.decode(data.slice(4)), true);
     }
 
     /**
@@ -202,20 +189,7 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize WriteBlobRequest, wrong opcode");
         }
 
-        const obj = BopWriteBlobRequest.decode(data.slice(4));
-
-        //@ts-ignore
-        obj.nodeId1 = MakeIntoBuffer(obj.nodeId1);
-        //@ts-ignore
-        obj.data = MakeIntoBuffer(obj.data);
-        //@ts-ignore
-        obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
-        //@ts-ignore
-        obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
-        //@ts-ignore
-        obj.muteMsgIds = obj.muteMsgIds.map( MakeIntoBuffer );
-
-        return obj as unknown as WriteBlobRequest;
+        return DeepCopy(BopWriteBlobRequest.decode(data.slice(4)), true);
     }
 
     /**
@@ -229,9 +203,7 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize WriteBlobResponse, wrong opcode");
         }
 
-        const obj = BopWriteBlobResponse.decode(data.slice(4));
-
-        return obj as unknown as WriteBlobResponse;
+        return DeepCopy(BopWriteBlobResponse.decode(data.slice(4)), true);
     }
 
     /**
@@ -245,16 +217,7 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize ReadBlobRequest, wrong opcode");
         }
 
-        const obj = BopReadBlobRequest.decode(data.slice(4));
-
-        //@ts-ignore
-        obj.nodeId1 = MakeIntoBuffer(obj.nodeId1);
-        //@ts-ignore
-        obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
-        //@ts-ignore
-        obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
-
-        return obj as unknown as ReadBlobRequest;
+        return DeepCopy(BopReadBlobRequest.decode(data.slice(4)), true);
     }
 
     /**
@@ -268,12 +231,7 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize ReadBlobReResponse, wrong opcode");
         }
 
-        const obj = BopReadBlobResponse.decode(data.slice(4));
-
-        //@ts-ignore
-        obj.data = MakeIntoBuffer(obj.data);
-
-        return obj as unknown as ReadBlobResponse;
+        return DeepCopy(BopReadBlobResponse.decode(data.slice(4)), true);
     }
 
     /**
@@ -287,14 +245,7 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize GenericMessageRequest, wrong opcode");
         }
 
-        const obj = BopGenericMessageRequest.decode(data.slice(4));
-
-        //@ts-ignore
-        obj.data = MakeIntoBuffer(obj.data);
-        //@ts-ignore
-        obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
-
-        return obj as unknown as GenericMessageRequest;
+        return DeepCopy(BopGenericMessageRequest.decode(data.slice(4)), true);
     }
 
     /**
@@ -308,11 +259,6 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize GenericMessageResponse, wrong opcode");
         }
 
-        const obj = BopGenericMessageResponse.decode(data.slice(4));
-
-        //@ts-ignore
-        obj.data = MakeIntoBuffer(obj.data);
-
-        return obj as unknown as GenericMessageResponse;
+        return DeepCopy(BopGenericMessageResponse.decode(data.slice(4)), true);
     }
 }
