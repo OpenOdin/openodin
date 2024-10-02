@@ -243,7 +243,7 @@ export function DeepHash(o: any): Buffer {
     else if (type === "object" || type === "classInstance") {
         const keys = Object.keys(o);
         keys.sort();
-        const values = keys.map( (key, index) => [values.length, index, key, o[key], index] );
+        const values = keys.map( (key, index) => [keys.length, index, key, o[key], index] );
 
         // Prepend 0x05 to not mix this up
         return Buffer.concat([Buffer.from([5]), DeepHash(values)]);
