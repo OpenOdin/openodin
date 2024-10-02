@@ -102,6 +102,7 @@ export class BebopSerialize {
     public FetchRequest(fetchRequest: FetchRequest): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopFetchRequest.opcode);
+        //@ts-ignore
         return CopyBuffer(opcode, BopFetchRequest.encode(fetchRequest));
     }
 
@@ -144,12 +145,14 @@ export class BebopSerialize {
     public ReadBlobResponse(readBlobResponse: ReadBlobResponse): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopReadBlobResponse.opcode);
+        //@ts-ignore
         return CopyBuffer(opcode, BopReadBlobResponse.encode(readBlobResponse));
     }
 
     public WriteBlobResponse(writeBlobResponse: WriteBlobResponse): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopWriteBlobResponse.opcode);
+        //@ts-ignore
         return CopyBuffer(opcode, BopWriteBlobResponse.encode(writeBlobResponse));
     }
 
@@ -165,12 +168,14 @@ export class BebopSerialize {
     public GenericMessageResponse(genericMessageResponse: GenericMessageResponse): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopGenericMessageResponse.opcode);
+        //@ts-ignore
         return CopyBuffer(opcode, BopGenericMessageResponse.encode(genericMessageResponse));
     }
 
     public FetchResponse(fetchResponse: FetchResponse): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopFetchResponse.opcode);
+        //@ts-ignore
         return CopyBuffer(opcode, BopFetchResponse.encode(fetchResponse));
     }
 
@@ -185,12 +190,14 @@ export class BebopSerialize {
 
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopStoreResponse.opcode);
+        //@ts-ignore
         return CopyBuffer(opcode, BopStoreResponse.encode(obj));
     }
 
     public UnsubscribeResponse(unsubscribeResponse: UnsubscribeResponse): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopUnsubscribeResponse.opcode);
+        //@ts-ignore
         return CopyBuffer(opcode, BopUnsubscribeResponse.encode(unsubscribeResponse));
     }
 }

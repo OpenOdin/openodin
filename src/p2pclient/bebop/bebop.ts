@@ -4,51 +4,341 @@
 //
 //
 //       bebopc version:
-//           2.4.10
+//           3.1.2
 //
 //
 //       bebopc source:
-//           https://github.com/RainwayApp/bebop
+//           https://github.com/betwixt-labs/bebop
 //
 //
 //     Changes to this file may cause incorrect behavior and will be lost if
 //     the code is regenerated.
 // </auto-generated>
-import { BebopView, BebopRuntimeError } from "bebop";
+import { BebopView, BebopRuntimeError, BebopRecord, BebopJson, BebopTypeGuard, Guid, GuidMap } from "bebop";
 
+export const BEBOP_SCHEMA = new Uint8Array ([
+3, 21, 0, 0, 0, 76, 105, 109, 105, 116, 70, 105, 101, 108,
+100, 0, 1, 0, 0, 6, 0, 0, 0, 0, 2, 110, 97, 109, 101, 0,
+245, 255, 255, 255, 0, 108, 105, 109, 105, 116, 0, 253,
+255, 255, 255, 0, 70, 105, 108, 116, 101, 114, 0, 1, 0, 0,
+16, 0, 0, 0, 0, 4, 102, 105, 101, 108, 100, 0, 245, 255,
+255, 255, 0, 111, 112, 101, 114, 97, 116, 111, 114, 0,
+245, 255, 255, 255, 0, 99, 109, 112, 0, 245, 255, 255,
+255, 0, 118, 97, 108, 117, 101, 0, 245, 255, 255, 255, 0,
+77, 97, 116, 99, 104, 0, 1, 0, 0, 30, 0, 0, 0, 0, 10, 110,
+111, 100, 101, 84, 121, 112, 101, 0, 242, 255, 255, 255,
+0, 254, 255, 255, 255, 0, 102, 105, 108, 116, 101, 114,
+115, 0, 242, 255, 255, 255, 0, 1, 0, 0, 0, 0, 108, 105,
+109, 105, 116, 0, 250, 255, 255, 255, 0, 108, 105, 109,
+105, 116, 70, 105, 101, 108, 100, 0, 0, 0, 0, 0, 0, 108,
+101, 118, 101, 108, 0, 242, 255, 255, 255, 0, 253, 255,
+255, 255, 0, 100, 105, 115, 99, 97, 114, 100, 0, 255, 255,
+255, 255, 0, 98, 111, 116, 116, 111, 109, 0, 255, 255,
+255, 255, 0, 105, 100, 0, 254, 255, 255, 255, 0, 114, 101,
+113, 117, 105, 114, 101, 73, 100, 0, 254, 255, 255, 255,
+0, 99, 117, 114, 115, 111, 114, 73, 100, 49, 0, 242, 255,
+255, 255, 0, 254, 255, 255, 255, 0, 65, 108, 108, 111,
+119, 69, 109, 98, 101, 100, 0, 1, 0, 0, 8, 0, 0, 0, 0, 2,
+110, 111, 100, 101, 84, 121, 112, 101, 0, 242, 255, 255,
+255, 0, 254, 255, 255, 255, 0, 102, 105, 108, 116, 101,
+114, 115, 0, 242, 255, 255, 255, 0, 1, 0, 0, 0, 0, 70,
+101, 116, 99, 104, 81, 117, 101, 114, 121, 0, 1, 0, 0, 62,
+0, 0, 0, 0, 21, 100, 101, 112, 116, 104, 0, 250, 255, 255,
+255, 0, 108, 105, 109, 105, 116, 0, 250, 255, 255, 255, 0,
+99, 117, 116, 111, 102, 102, 84, 105, 109, 101, 0, 248,
+255, 255, 255, 0, 114, 111, 111, 116, 78, 111, 100, 101,
+73, 100, 49, 0, 242, 255, 255, 255, 0, 254, 255, 255, 255,
+0, 100, 105, 115, 99, 97, 114, 100, 82, 111, 111, 116, 0,
+255, 255, 255, 255, 0, 112, 97, 114, 101, 110, 116, 73,
+100, 0, 242, 255, 255, 255, 0, 254, 255, 255, 255, 0, 116,
+97, 114, 103, 101, 116, 80, 117, 98, 108, 105, 99, 75,
+101, 121, 0, 242, 255, 255, 255, 0, 254, 255, 255, 255, 0,
+115, 111, 117, 114, 99, 101, 80, 117, 98, 108, 105, 99,
+75, 101, 121, 0, 242, 255, 255, 255, 0, 254, 255, 255,
+255, 0, 109, 97, 116, 99, 104, 0, 242, 255, 255, 255, 0,
+2, 0, 0, 0, 0, 101, 109, 98, 101, 100, 0, 242, 255, 255,
+255, 0, 3, 0, 0, 0, 0, 116, 114, 105, 103, 103, 101, 114,
+78, 111, 100, 101, 73, 100, 0, 242, 255, 255, 255, 0, 254,
+255, 255, 255, 0, 116, 114, 105, 103, 103, 101, 114, 73,
+110, 116, 101, 114, 118, 97, 108, 0, 253, 255, 255, 255,
+0, 111, 110, 108, 121, 84, 114, 105, 103, 103, 101, 114,
+0, 255, 255, 255, 255, 0, 100, 101, 115, 99, 101, 110,
+100, 105, 110, 103, 0, 255, 255, 255, 255, 0, 111, 114,
+100, 101, 114, 66, 121, 83, 116, 111, 114, 97, 103, 101,
+84, 105, 109, 101, 0, 255, 255, 255, 255, 0, 105, 103,
+110, 111, 114, 101, 73, 110, 97, 99, 116, 105, 118, 101,
+0, 255, 255, 255, 255, 0, 105, 103, 110, 111, 114, 101,
+79, 119, 110, 0, 255, 255, 255, 255, 0, 112, 114, 101,
+115, 101, 114, 118, 101, 84, 114, 97, 110, 115, 105, 101,
+110, 116, 0, 255, 255, 255, 255, 0, 114, 101, 103, 105,
+111, 110, 0, 245, 255, 255, 255, 0, 106, 117, 114, 105,
+115, 100, 105, 99, 116, 105, 111, 110, 0, 245, 255, 255,
+255, 0, 105, 110, 99, 108, 117, 100, 101, 76, 105, 99,
+101, 110, 115, 101, 115, 0, 254, 255, 255, 255, 0, 70,
+101, 116, 99, 104, 67, 82, 68, 84, 0, 1, 0, 0, 27, 0, 0,
+0, 0, 8, 97, 108, 103, 111, 0, 253, 255, 255, 255, 0, 99,
+111, 110, 102, 0, 245, 255, 255, 255, 0, 109, 115, 103,
+73, 100, 0, 242, 255, 255, 255, 0, 254, 255, 255, 255, 0,
+114, 101, 118, 101, 114, 115, 101, 0, 255, 255, 255, 255,
+0, 104, 101, 97, 100, 0, 250, 255, 255, 255, 0, 116, 97,
+105, 108, 0, 250, 255, 255, 255, 0, 99, 117, 114, 115,
+111, 114, 73, 100, 49, 0, 242, 255, 255, 255, 0, 254, 255,
+255, 255, 0, 99, 117, 114, 115, 111, 114, 73, 110, 100,
+101, 120, 0, 250, 255, 255, 255, 0, 83, 116, 97, 116, 117,
+115, 0, 4, 0, 251, 255, 255, 255, 0, 4, 0, 0, 0, 12, 82,
+69, 83, 85, 76, 84, 0, 0, 1, 0, 0, 0, 77, 65, 76, 70, 79,
+82, 77, 69, 68, 0, 0, 2, 0, 0, 0, 69, 82, 82, 79, 82, 0,
+0, 3, 0, 0, 0, 83, 84, 79, 82, 69, 95, 70, 65, 73, 76, 69,
+68, 0, 0, 4, 0, 0, 0, 70, 69, 84, 67, 72, 95, 70, 65, 73,
+76, 69, 68, 0, 0, 5, 0, 0, 0, 77, 73, 83, 83, 73, 78, 71,
+95, 82, 79, 79, 84, 78, 79, 68, 69, 0, 0, 6, 0, 0, 0, 82,
+79, 79, 84, 78, 79, 68, 69, 95, 76, 73, 67, 69, 78, 83,
+69, 68, 0, 0, 7, 0, 0, 0, 78, 79, 84, 95, 65, 76, 76, 79,
+87, 69, 68, 0, 0, 8, 0, 0, 0, 77, 73, 83, 77, 65, 84, 67,
+72, 0, 0, 9, 0, 0, 0, 69, 88, 73, 83, 84, 83, 0, 0, 10, 0,
+0, 0, 77, 73, 83, 83, 73, 78, 71, 95, 67, 85, 82, 83, 79,
+82, 0, 0, 11, 0, 0, 0, 68, 82, 79, 80, 80, 69, 68, 95, 84,
+82, 73, 71, 71, 69, 82, 0, 0, 12, 0, 0, 0, 70, 101, 116,
+99, 104, 82, 101, 115, 117, 108, 116, 0, 1, 0, 0, 16, 0,
+0, 0, 0, 3, 110, 111, 100, 101, 115, 0, 242, 255, 255,
+255, 1, 254, 255, 255, 255, 0, 101, 109, 98, 101, 100, 0,
+242, 255, 255, 255, 1, 254, 255, 255, 255, 0, 99, 117,
+116, 111, 102, 102, 84, 105, 109, 101, 0, 248, 255, 255,
+255, 0, 67, 82, 68, 84, 82, 101, 115, 117, 108, 116, 0, 1,
+0, 0, 12, 0, 0, 0, 0, 3, 100, 101, 108, 116, 97, 0, 242,
+255, 255, 255, 0, 254, 255, 255, 255, 0, 99, 117, 114,
+115, 111, 114, 73, 110, 100, 101, 120, 0, 250, 255, 255,
+255, 0, 108, 101, 110, 103, 116, 104, 0, 251, 255, 255,
+255, 0, 66, 111, 112, 70, 101, 116, 99, 104, 82, 101, 113,
+117, 101, 115, 116, 0, 1, 1, 111, 112, 99, 111, 100, 101,
+0, 1, 102, 111, 117, 114, 99, 99, 0, 245, 255, 255, 255,
+48, 120, 49, 0, 0, 89, 0, 0, 0, 0, 2, 113, 117, 101, 114,
+121, 0, 4, 0, 0, 0, 0, 99, 114, 100, 116, 0, 5, 0, 0, 0,
+0, 66, 111, 112, 70, 101, 116, 99, 104, 82, 101, 115, 112,
+111, 110, 115, 101, 0, 1, 1, 111, 112, 99, 111, 100, 101,
+0, 1, 102, 111, 117, 114, 99, 99, 0, 245, 255, 255, 255,
+48, 120, 50, 0, 0, 42, 0, 0, 0, 0, 7, 115, 116, 97, 116,
+117, 115, 0, 6, 0, 0, 0, 0, 114, 101, 115, 117, 108, 116,
+0, 7, 0, 0, 0, 0, 99, 114, 100, 116, 82, 101, 115, 117,
+108, 116, 0, 8, 0, 0, 0, 0, 115, 101, 113, 0, 253, 255,
+255, 255, 0, 101, 110, 100, 83, 101, 113, 0, 253, 255,
+255, 255, 0, 114, 111, 119, 67, 111, 117, 110, 116, 0,
+253, 255, 255, 255, 0, 101, 114, 114, 111, 114, 0, 245,
+255, 255, 255, 0, 66, 111, 112, 83, 116, 111, 114, 101,
+82, 101, 113, 117, 101, 115, 116, 0, 1, 1, 111, 112, 99,
+111, 100, 101, 0, 1, 102, 111, 117, 114, 99, 99, 0, 245,
+255, 255, 255, 48, 120, 51, 0, 0, 22, 0, 0, 0, 0, 7, 110,
+111, 100, 101, 115, 0, 242, 255, 255, 255, 1, 254, 255,
+255, 255, 0, 115, 111, 117, 114, 99, 101, 80, 117, 98,
+108, 105, 99, 75, 101, 121, 0, 242, 255, 255, 255, 0, 254,
+255, 255, 255, 0, 116, 97, 114, 103, 101, 116, 80, 117,
+98, 108, 105, 99, 75, 101, 121, 0, 242, 255, 255, 255, 0,
+254, 255, 255, 255, 0, 109, 117, 116, 101, 77, 115, 103,
+73, 100, 115, 0, 242, 255, 255, 255, 1, 254, 255, 255,
+255, 0, 112, 114, 101, 115, 101, 114, 118, 101, 84, 114,
+97, 110, 115, 105, 101, 110, 116, 0, 255, 255, 255, 255,
+0, 98, 97, 116, 99, 104, 73, 100, 0, 251, 255, 255, 255,
+0, 104, 97, 115, 77, 111, 114, 101, 0, 255, 255, 255, 255,
+0, 66, 111, 112, 83, 116, 111, 114, 101, 82, 101, 115,
+112, 111, 110, 115, 101, 0, 1, 1, 111, 112, 99, 111, 100,
+101, 0, 1, 102, 111, 117, 114, 99, 99, 0, 245, 255, 255,
+255, 48, 120, 52, 0, 0, 20, 0, 0, 0, 0, 5, 115, 116, 97,
+116, 117, 115, 0, 6, 0, 0, 0, 0, 115, 116, 111, 114, 101,
+100, 73, 100, 49, 83, 0, 242, 255, 255, 255, 1, 254, 255,
+255, 255, 0, 109, 105, 115, 115, 105, 110, 103, 66, 108,
+111, 98, 73, 100, 49, 83, 0, 242, 255, 255, 255, 1, 254,
+255, 255, 255, 0, 109, 105, 115, 115, 105, 110, 103, 66,
+108, 111, 98, 83, 105, 122, 101, 115, 0, 242, 255, 255,
+255, 0, 248, 255, 255, 255, 0, 101, 114, 114, 111, 114, 0,
+245, 255, 255, 255, 0, 66, 111, 112, 85, 110, 115, 117,
+98, 115, 99, 114, 105, 98, 101, 82, 101, 113, 117, 101,
+115, 116, 0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1, 102,
+111, 117, 114, 99, 99, 0, 245, 255, 255, 255, 48, 120, 53,
+0, 0, 8, 0, 0, 0, 0, 2, 111, 114, 105, 103, 105, 110, 97,
+108, 77, 115, 103, 73, 100, 0, 242, 255, 255, 255, 0, 254,
+255, 255, 255, 0, 116, 97, 114, 103, 101, 116, 80, 117,
+98, 108, 105, 99, 75, 101, 121, 0, 242, 255, 255, 255, 0,
+254, 255, 255, 255, 0, 66, 111, 112, 85, 110, 115, 117,
+98, 115, 99, 114, 105, 98, 101, 82, 101, 115, 112, 111,
+110, 115, 101, 0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1,
+102, 111, 117, 114, 99, 99, 0, 245, 255, 255, 255, 48,
+120, 54, 0, 0, 8, 0, 0, 0, 0, 2, 115, 116, 97, 116, 117,
+115, 0, 6, 0, 0, 0, 0, 101, 114, 114, 111, 114, 0, 245,
+255, 255, 255, 0, 66, 111, 112, 87, 114, 105, 116, 101,
+66, 108, 111, 98, 82, 101, 113, 117, 101, 115, 116, 0, 1,
+1, 111, 112, 99, 111, 100, 101, 0, 1, 102, 111, 117, 114,
+99, 99, 0, 245, 255, 255, 255, 48, 120, 55, 0, 0, 28, 0,
+0, 0, 0, 6, 110, 111, 100, 101, 73, 100, 49, 0, 242, 255,
+255, 255, 0, 254, 255, 255, 255, 0, 115, 111, 117, 114,
+99, 101, 80, 117, 98, 108, 105, 99, 75, 101, 121, 0, 242,
+255, 255, 255, 0, 254, 255, 255, 255, 0, 116, 97, 114,
+103, 101, 116, 80, 117, 98, 108, 105, 99, 75, 101, 121, 0,
+242, 255, 255, 255, 0, 254, 255, 255, 255, 0, 100, 97,
+116, 97, 0, 242, 255, 255, 255, 0, 254, 255, 255, 255, 0,
+112, 111, 115, 0, 249, 255, 255, 255, 0, 109, 117, 116,
+101, 77, 115, 103, 73, 100, 115, 0, 242, 255, 255, 255, 1,
+254, 255, 255, 255, 0, 66, 111, 112, 87, 114, 105, 116,
+101, 66, 108, 111, 98, 82, 101, 115, 112, 111, 110, 115,
+101, 0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1, 102, 111,
+117, 114, 99, 99, 0, 245, 255, 255, 255, 48, 120, 56, 0,
+0, 16, 0, 0, 0, 0, 3, 115, 116, 97, 116, 117, 115, 0, 6,
+0, 0, 0, 0, 99, 117, 114, 114, 101, 110, 116, 76, 101,
+110, 103, 116, 104, 0, 249, 255, 255, 255, 0, 101, 114,
+114, 111, 114, 0, 245, 255, 255, 255, 0, 66, 111, 112, 82,
+101, 97, 100, 66, 108, 111, 98, 82, 101, 113, 117, 101,
+115, 116, 0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1, 102,
+111, 117, 114, 99, 99, 0, 245, 255, 255, 255, 48, 120, 57,
+0, 0, 24, 0, 0, 0, 0, 5, 110, 111, 100, 101, 73, 100, 49,
+0, 242, 255, 255, 255, 0, 254, 255, 255, 255, 0, 116, 97,
+114, 103, 101, 116, 80, 117, 98, 108, 105, 99, 75, 101,
+121, 0, 242, 255, 255, 255, 0, 254, 255, 255, 255, 0, 115,
+111, 117, 114, 99, 101, 80, 117, 98, 108, 105, 99, 75,
+101, 121, 0, 242, 255, 255, 255, 0, 254, 255, 255, 255, 0,
+112, 111, 115, 0, 249, 255, 255, 255, 0, 108, 101, 110,
+103, 116, 104, 0, 251, 255, 255, 255, 0, 66, 111, 112, 82,
+101, 97, 100, 66, 108, 111, 98, 82, 101, 115, 112, 111,
+110, 115, 101, 0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1,
+102, 111, 117, 114, 99, 99, 0, 245, 255, 255, 255, 48,
+120, 65, 0, 0, 24, 0, 0, 0, 0, 6, 115, 116, 97, 116, 117,
+115, 0, 6, 0, 0, 0, 0, 100, 97, 116, 97, 0, 242, 255, 255,
+255, 0, 254, 255, 255, 255, 0, 115, 101, 113, 0, 253, 255,
+255, 255, 0, 101, 110, 100, 83, 101, 113, 0, 253, 255,
+255, 255, 0, 98, 108, 111, 98, 76, 101, 110, 103, 116,
+104, 0, 249, 255, 255, 255, 0, 101, 114, 114, 111, 114, 0,
+245, 255, 255, 255, 0, 66, 111, 112, 71, 101, 110, 101,
+114, 105, 99, 77, 101, 115, 115, 97, 103, 101, 82, 101,
+113, 117, 101, 115, 116, 0, 1, 1, 111, 112, 99, 111, 100,
+101, 0, 1, 102, 111, 117, 114, 99, 99, 0, 245, 255, 255,
+255, 48, 120, 66, 0, 0, 12, 0, 0, 0, 0, 3, 97, 99, 116,
+105, 111, 110, 0, 245, 255, 255, 255, 0, 115, 111, 117,
+114, 99, 101, 80, 117, 98, 108, 105, 99, 75, 101, 121, 0,
+242, 255, 255, 255, 0, 254, 255, 255, 255, 0, 100, 97,
+116, 97, 0, 242, 255, 255, 255, 0, 254, 255, 255, 255, 0,
+66, 111, 112, 71, 101, 110, 101, 114, 105, 99, 77, 101,
+115, 115, 97, 103, 101, 82, 101, 115, 112, 111, 110, 115,
+101, 0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1, 102, 111,
+117, 114, 99, 99, 0, 245, 255, 255, 255, 48, 120, 67, 0,
+0, 12, 0, 0, 0, 0, 3, 115, 116, 97, 116, 117, 115, 0, 6,
+0, 0, 0, 0, 100, 97, 116, 97, 0, 242, 255, 255, 255, 0,
+254, 255, 255, 255, 0, 101, 114, 114, 111, 114, 0, 245,
+255, 255, 255, 0, 0, 0, 0, 0
+]);
 /**
- * These data structs are converted into TypeScript using the bebop tool: `npm run bebop`.
- * The types are used to serialize/deserialize the TypeScript structs defined in requestTypes.ts (see this file for documentation on the structs).
- * See: https://github.com/RainwayApp/bebop/wiki/Writing-Bops:-The-Bebop-Schema-Language
+ * This struct is part of Match and is used to limit how many times a Match matches on specific
+ * fields.
+ *
+ * When processing a query having a match with limitField set then for each identical value of the
+ * field  identified by limitField.name a counter is increased and when the counter is greater then
+ * limitField.limit the following nodes who match limitField are ignored and not part of the
+ * result set.
+ *
+ * A match state is reset for each query below a node, meaning a limitField constraint is local to a
+ * set of sibling nodes.
+ *
+ * The usage of this could be to limit the number of occurrences of nodes returned who have the field
+ * "name" set to the same value.
+ *
+ * For example setting limitField to `{name: "Highlander", limit: 1}` will only allow one node having
+ * the field `name` set to "Highlander" within the same set of sibling nodes.
+ *
+ * Note that if the chosen node is later discarded due to its timestamp the matched node will not be
+ * returned in the result set as will no other node who was constrained under the limitField.
+ * In these cases one could increase the `limit` or try reversing (descending=true) the result set
+ * to pick from neweset nodes instead of oldest nodes first.
  */
-export interface ILimitField {
-  name: string;
-  limit: number;
+export interface ILimitField extends BebopRecord {
+  /**
+   * Name of the field to count identical values on.
+   */
+  readonly name: string;
+  /**
+   * Limit of identical hits on the field to return results for.
+   */
+  readonly limit: number;
 }
 
-export const LimitField = {
-  encode(message: ILimitField): Uint8Array {
+export class LimitField implements ILimitField {
+  public readonly name: string;
+  public readonly limit: number;
+
+  constructor(record: ILimitField) {
+    this.name = record.name;
+    this.limit = record.limit;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return LimitField.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: ILimitField): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    LimitField.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link LimitField}.
+   */
+  public static validateCompatibility(record: ILimitField): void {
+    BebopTypeGuard.ensureString(record.name)
+    BebopTypeGuard.ensureUint16(record.limit)
+  }
+
+  /**
+   * Unsafely creates an instance of {@link LimitField} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): ILimitField {
+      return new LimitField(record);
+  }
+
+  /**
+   * Creates a new {@link LimitField} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): ILimitField {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`LimitField.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    LimitField.validateCompatibility(parsed);
+    return LimitField.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return LimitField.encode(this);
+  }
+
+  public static encode(record: ILimitField): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    this.encodeInto(message, view);
+    LimitField.encodeInto(record, view);
     return view.toArray();
-  },
+  }
 
-  encodeInto(message: ILimitField, view: BebopView): number {
+  public static encodeInto(record: ILimitField, view: BebopView): number {
     const before = view.length;
-      view.writeString(message.name);
-      view.writeUint16(message.limit);
+    view.writeString(record.name);
+    view.writeUint16(record.limit);
     const after = view.length;
     return after - before;
-  },
+  }
 
-  decode(buffer: Uint8Array): ILimitField {
+  public static decode(buffer: Uint8Array): ILimitField {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return this.readFrom(view);
-  },
+    return LimitField.readFrom(view);
+  }
 
-  readFrom(view: BebopView): ILimitField {
+  public static readFrom(view: BebopView): ILimitField {
     let field0: string;
     field0 = view.readString();
     let field1: number;
@@ -57,116 +347,362 @@ export const LimitField = {
       name: field0,
       limit: field1,
     };
-    return message;
-  },
-};
-
-export interface IFilter {
-  field: string;
-  operator: string;
-  cmp: string;
-  value: Uint8Array;
+    return new LimitField(message);
+  }
 }
 
-export const Filter = {
-  encode(message: IFilter): Uint8Array {
+/**
+ * This struct matched Filter in datamodel/model/types.ts.
+ */
+export interface IFilter extends BebopRecord {
+  /**
+   * The name of the field which value to compare.
+   *
+   * Special cases:
+   * - If "id" then gets id2, if no id2 then gets the id1 value.
+   */
+  readonly field: string;
+  /**
+   * An optional operator which can be applied to some data field types.
+   * On unsigned integer fields UINT8, UINT16, UINT24, UINT32 the following
+   * bitwise operations can be applied:
+   * & x     AND a bitmask with an integer field,
+   * | x     OR a bitmask with an integer field,
+   * ^ x     XOR a bitmask with an integer field,
+   * >> x    right shift an integer field by x,
+   * << x    left shift an integer field by x.
+   *
+   * On string or bytes fields the slice operator can be applied, as:
+   * :1,3   cut a string or bytes field by index:length where ",length" is optional,
+   * :-1    cut a string or bytes field by index:length where start index counts from end.
+   *
+   * On string or bytes fields the hash operator can be applied, as:
+   * hash   perform a blake2b 32 byte hashing on the field data before comparison.
+   * string are utf8 encoded into buffer before hashing.
+   */
+  readonly operator: string;
+  /**
+   * The comparison operator to use.
+   */
+  readonly cmp: string;
+  /**
+   * The value to compare the field value to.
+   *
+   * The resulting type is determined by the type of the field comparing to.
+   *
+   * For number, bigint the value is parsed from string to number/bigint.
+   *
+   * For Buffer string is hexadecimal encoded into Buffer.
+   */
+  readonly value: string;
+}
+
+export class Filter implements IFilter {
+  public readonly field: string;
+  public readonly operator: string;
+  public readonly cmp: string;
+  public readonly value: string;
+
+  constructor(record: IFilter) {
+    this.field = record.field;
+    this.operator = record.operator;
+    this.cmp = record.cmp;
+    this.value = record.value;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return Filter.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IFilter): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    Filter.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link Filter}.
+   */
+  public static validateCompatibility(record: IFilter): void {
+    BebopTypeGuard.ensureString(record.field)
+    BebopTypeGuard.ensureString(record.operator)
+    BebopTypeGuard.ensureString(record.cmp)
+    BebopTypeGuard.ensureString(record.value)
+  }
+
+  /**
+   * Unsafely creates an instance of {@link Filter} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IFilter {
+      return new Filter(record);
+  }
+
+  /**
+   * Creates a new {@link Filter} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IFilter {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`Filter.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    Filter.validateCompatibility(parsed);
+    return Filter.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return Filter.encode(this);
+  }
+
+  public static encode(record: IFilter): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    this.encodeInto(message, view);
+    Filter.encodeInto(record, view);
     return view.toArray();
-  },
+  }
 
-  encodeInto(message: IFilter, view: BebopView): number {
+  public static encodeInto(record: IFilter, view: BebopView): number {
     const before = view.length;
-      view.writeString(message.field);
-      view.writeString(message.operator);
-      view.writeString(message.cmp);
-      view.writeBytes(message.value);
+    view.writeString(record.field);
+    view.writeString(record.operator);
+    view.writeString(record.cmp);
+    view.writeString(record.value);
     const after = view.length;
     return after - before;
-  },
+  }
 
-  decode(buffer: Uint8Array): IFilter {
+  public static decode(buffer: Uint8Array): IFilter {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return this.readFrom(view);
-  },
+    return Filter.readFrom(view);
+  }
 
-  readFrom(view: BebopView): IFilter {
+  public static readFrom(view: BebopView): IFilter {
     let field0: string;
     field0 = view.readString();
     let field1: string;
     field1 = view.readString();
     let field2: string;
     field2 = view.readString();
-    let field3: Uint8Array;
-    field3 = view.readBytes();
+    let field3: string;
+    field3 = view.readString();
     let message: IFilter = {
       field: field0,
       operator: field1,
       cmp: field2,
       value: field3,
     };
-    return message;
-  },
-};
-
-export interface IMatch {
-  nodeType: Uint8Array;
-  filters: Array<IFilter>;
-  limit: number;
-  limitField: ILimitField;
-  level: Array<number>;
-  discard: boolean;
-  bottom: boolean;
-  id: number;
-  requireId: number;
-  cursorId1: Uint8Array;
+    return new Filter(message);
+  }
 }
 
-export const Match = {
-  encode(message: IMatch): Uint8Array {
+/**
+ * A FetchQuery must have atleast one Match struct to match on nodes.
+ * A Match is processed for each set of nodes in the tree in respect to their level in the tree.
+ * Matches must have matched on levels above to be able to traverse downwards on those matched nodes.
+ */
+export interface IMatch extends BebopRecord {
+  /**
+   * Up to six bytes, lesser means wildcard match on node type.
+   */
+  readonly nodeType: Uint8Array;
+  /**
+   * For a Match to be valid all Filters (if any given) have to match.
+   *
+   * For filter.field === "creationTime" and filter.value < 0 then value is automatically
+   * recalculated as Date.now() + value; This can be used to have a sliding window.
+   */
+  readonly filters: Array<IFilter>;
+  /**
+   * Maximum nodes allowed for this match.
+   * -1 means no limit.
+   */
+  readonly limit: number;
+  /**
+   * Limit max nr of key:value occurrences for this filter so it does not exceed limit.
+   */
+  readonly limitField: ILimitField;
+  /**
+   * The levels in the tree this Match is applicable to.
+   * Leave empty for all levels.
+   * 0 is root level of the FetchQuery, however Matches do not match at level 0
+   * since the root node is already matched on its id in the query.
+   * The match state is reset for each new level for Match's used on multiple levels.
+   */
+  readonly level: Array<number>;
+  /**
+   * If set then the node will be discarded from the resultset.
+   * But up til that last moment the node will be used for traversing just as if not discarded,
+   * and also match state is managed as when not discarding.
+   * It is enough that a single Match object has discard=false for the node to be kept in the
+   * result set.
+   */
+  readonly discard: boolean;
+  /**
+   * Set to true to not allow any further matches on levels below this node.
+   * If more than one Match matches a node and if any Match is not set as bottom
+   * then the database will allow further matches below this node within the fetch query.
+   */
+  readonly bottom: boolean;
+  /**
+   * If set > 0 then the running query will note that a node was matched with this specific match
+   * ID.
+   * The use of matchId is for matches on the next level to requrie that a specific match was
+   * actively matching the parent node.
+   * Ids are not unique, many matches can have the same id.
+   */
+  readonly id: number;
+  /**
+   * If set > 0 then this match requires that at least one match matching the parent node had its
+   * matchId value set to this.
+   */
+  readonly requireId: number;
+  /**
+   * When paging we use this do cutoff everything before and up til this node.
+   * The Match is inert until the cursor node is passed.
+   * However the Match must match the cursor node to be able to mark it as passed.
+   *
+   * Note that if the cursor is not found no error is returned, just an empty resultset.
+   */
+  readonly cursorId1: Uint8Array;
+}
+
+export class Match implements IMatch {
+  public readonly nodeType: Uint8Array;
+  public readonly filters: Array<IFilter>;
+  public readonly limit: number;
+  public readonly limitField: ILimitField;
+  public readonly level: Array<number>;
+  public readonly discard: boolean;
+  public readonly bottom: boolean;
+  public readonly id: number;
+  public readonly requireId: number;
+  public readonly cursorId1: Uint8Array;
+
+  constructor(record: IMatch) {
+    this.nodeType = record.nodeType;
+    this.filters = record.filters;
+    this.limit = record.limit;
+    this.limitField = record.limitField;
+    this.level = record.level;
+    this.discard = record.discard;
+    this.bottom = record.bottom;
+    this.id = record.id;
+    this.requireId = record.requireId;
+    this.cursorId1 = record.cursorId1;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return Match.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IMatch): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    Match.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link Match}.
+   */
+  public static validateCompatibility(record: IMatch): void {
+    BebopTypeGuard.ensureArray(record.nodeType, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureArray(record.filters, Filter.validateCompatibility);
+    BebopTypeGuard.ensureInt32(record.limit)
+    LimitField.validateCompatibility(record.limitField);
+    BebopTypeGuard.ensureArray(record.level, BebopTypeGuard.ensureUint16);
+    BebopTypeGuard.ensureBoolean(record.discard)
+    BebopTypeGuard.ensureBoolean(record.bottom)
+    BebopTypeGuard.ensureUint8(record.id)
+    BebopTypeGuard.ensureUint8(record.requireId)
+    BebopTypeGuard.ensureArray(record.cursorId1, BebopTypeGuard.ensureUint8);
+  }
+
+  /**
+   * Unsafely creates an instance of {@link Match} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IMatch {
+      record.limitField = LimitField.unsafeCast(record.limitField);
+      return new Match(record);
+  }
+
+  /**
+   * Creates a new {@link Match} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IMatch {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`Match.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    Match.validateCompatibility(parsed);
+    return Match.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return Match.encode(this);
+  }
+
+  public static encode(record: IMatch): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    this.encodeInto(message, view);
+    Match.encodeInto(record, view);
     return view.toArray();
-  },
+  }
 
-  encodeInto(message: IMatch, view: BebopView): number {
+  public static encodeInto(record: IMatch, view: BebopView): number {
     const before = view.length;
-      view.writeBytes(message.nodeType);
-      {
-        const length0 = message.filters.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          Filter.encodeInto(message.filters[i0], view)
-        }
+    view.writeBytes(record.nodeType);
+    {
+      const length0 = record.filters.length;
+      view.writeUint32(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        Filter.encodeInto(record.filters[i0], view)
       }
-      view.writeInt32(message.limit);
-      LimitField.encodeInto(message.limitField, view)
-      {
-        const length0 = message.level.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          view.writeUint16(message.level[i0]);
-        }
+    }
+    view.writeInt32(record.limit);
+    LimitField.encodeInto(record.limitField, view)
+    {
+      const length0 = record.level.length;
+      view.writeUint32(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        view.writeUint16(record.level[i0]);
       }
-      view.writeByte(Number(message.discard));
-      view.writeByte(Number(message.bottom));
-      view.writeByte(message.id);
-      view.writeByte(message.requireId);
-      view.writeBytes(message.cursorId1);
+    }
+    view.writeByte(Number(record.discard));
+    view.writeByte(Number(record.bottom));
+    view.writeByte(record.id);
+    view.writeByte(record.requireId);
+    view.writeBytes(record.cursorId1);
     const after = view.length;
     return after - before;
-  },
+  }
 
-  decode(buffer: Uint8Array): IMatch {
+  public static decode(buffer: Uint8Array): IMatch {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return this.readFrom(view);
-  },
+    return Match.readFrom(view);
+  }
 
-  readFrom(view: BebopView): IMatch {
+  public static readFrom(view: BebopView): IMatch {
     let field0: Uint8Array;
     field0 = view.readBytes();
     let field1: Array<IFilter>;
@@ -215,44 +751,114 @@ export const Match = {
       requireId: field8,
       cursorId1: field9,
     };
-    return message;
-  },
-};
-
-export interface IAllowEmbed {
-  nodeType: Uint8Array;
-  filters: Array<IFilter>;
+    return new Match(message);
+  }
 }
 
-export const AllowEmbed = {
-  encode(message: IAllowEmbed): Uint8Array {
+/**
+ * This struct is used in queries for the client to restrict which nodes are passed along as
+ * embedded nodes.
+ * Typically a client would defined that is wants Licenses to be returned as embedded.
+ */
+export interface IAllowEmbed extends BebopRecord {
+  /**
+   * Up to six bytes, fewer bytes means wildcard match on node type.
+   */
+  readonly nodeType: Uint8Array;
+  /**
+   * For a Match to be valid all Filters (if any given) have to match.
+   */
+  readonly filters: Array<IFilter>;
+}
+
+export class AllowEmbed implements IAllowEmbed {
+  public readonly nodeType: Uint8Array;
+  public readonly filters: Array<IFilter>;
+
+  constructor(record: IAllowEmbed) {
+    this.nodeType = record.nodeType;
+    this.filters = record.filters;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return AllowEmbed.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IAllowEmbed): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    AllowEmbed.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link AllowEmbed}.
+   */
+  public static validateCompatibility(record: IAllowEmbed): void {
+    BebopTypeGuard.ensureArray(record.nodeType, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureArray(record.filters, Filter.validateCompatibility);
+  }
+
+  /**
+   * Unsafely creates an instance of {@link AllowEmbed} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IAllowEmbed {
+      return new AllowEmbed(record);
+  }
+
+  /**
+   * Creates a new {@link AllowEmbed} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IAllowEmbed {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`AllowEmbed.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    AllowEmbed.validateCompatibility(parsed);
+    return AllowEmbed.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return AllowEmbed.encode(this);
+  }
+
+  public static encode(record: IAllowEmbed): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    this.encodeInto(message, view);
+    AllowEmbed.encodeInto(record, view);
     return view.toArray();
-  },
+  }
 
-  encodeInto(message: IAllowEmbed, view: BebopView): number {
+  public static encodeInto(record: IAllowEmbed, view: BebopView): number {
     const before = view.length;
-      view.writeBytes(message.nodeType);
-      {
-        const length0 = message.filters.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          Filter.encodeInto(message.filters[i0], view)
-        }
+    view.writeBytes(record.nodeType);
+    {
+      const length0 = record.filters.length;
+      view.writeUint32(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        Filter.encodeInto(record.filters[i0], view)
       }
+    }
     const after = view.length;
     return after - before;
-  },
+  }
 
-  decode(buffer: Uint8Array): IAllowEmbed {
+  public static decode(buffer: Uint8Array): IAllowEmbed {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return this.readFrom(view);
-  },
+    return AllowEmbed.readFrom(view);
+  }
 
-  readFrom(view: BebopView): IAllowEmbed {
+  public static readFrom(view: BebopView): IAllowEmbed {
     let field0: Uint8Array;
     field0 = view.readBytes();
     let field1: Array<IFilter>;
@@ -269,88 +875,393 @@ export const AllowEmbed = {
       nodeType: field0,
       filters: field1,
     };
-    return message;
-  },
-};
-
-export interface IFetchQuery {
-  depth: number;
-  limit: number;
-  cutoffTime: bigint;
-  rootNodeId1: Uint8Array;
-  discardRoot: boolean;
-  parentId: Uint8Array;
-  targetPublicKey: Uint8Array;
-  sourcePublicKey: Uint8Array;
-  match: Array<IMatch>;
-  embed: Array<IAllowEmbed>;
-  triggerNodeId: Uint8Array;
-  triggerInterval: number;
-  onlyTrigger: boolean;
-  descending: boolean;
-  orderByStorageTime: boolean;
-  ignoreInactive: boolean;
-  ignoreOwn: boolean;
-  preserveTransient: boolean;
-  region: string;
-  jurisdiction: string;
-  includeLicenses: number;
+    return new AllowEmbed(message);
+  }
 }
 
-export const FetchQuery = {
-  encode(message: IFetchQuery): Uint8Array {
+/**
+ * Each FetchRequest has one fetch query.
+ */
+export interface IFetchQuery extends BebopRecord {
+  /**
+   * Max depth of request. Default is -1 meaning max limit. Max allowed depth is 100000 nodes deep.
+   */
+  readonly depth: number;
+  /**
+   * Maximum nr of nodes in total returned. Default is -1 meaning max limit.
+   * Max allowed is 1_000_000 nodes (defined by MAX_QUERY_ROWS_LIMIT).
+   *
+   * Note that this limit includes all data and license nodes, all automatically included
+   * license nodes and also all nodes to be embedded.
+   *
+   * This limit should be used as a maximum upper bound of nodes tolerated in the resultset and not
+   * to be used for any dataset limit purposess as the mix of data and licenses nodes will vary
+   * depending on how many licenses there are available which will effect how many data nodes fit
+   * into the limit of the resultset which can yield confusing results.
+   *
+   * To use fine tuned limits use Match limit and/or CRDT.
+   */
+  readonly limit: number;
+  /**
+   * The cutoff timestamp to use to discard nodes from the resultset.
+   * This is used to limit the amount of data being sent again when no changes has
+   * accoured in that resultset.
+   * This value is compared to the node's storageTime and updatedTime.
+   *
+   * When fetching with CRDT this must be set to 0.
+   */
+  readonly cutoffTime: bigint;
+  /**
+   * The ID1 of the root node which is the basis of this query (level 0).
+   *
+   * The root node will be checked for access permissions, even if discardRoot is set to true.
+   *
+   * The root node is not allowed to be licensed, to use hasRightsByAssociation or to be flagged as
+   * beginRestrictiveWriterMode.
+   *
+   * While the root node itself is fetched on its ID1, its regular ID (ID2||ID1) is used as
+   * parentId for the subsequent level 1 fetch.
+   *
+   * Unless discardRoot is set the root node will always be returned in the fetch result (regardless
+   * of how cutoffTime is set) for every subsequent trigger fetch made.
+   *
+   * rootNodeId1 is mutually exclusive to parentId.
+   */
+  readonly rootNodeId1: Uint8Array;
+  /**
+   * If set do not return root node in the result set.
+   *
+   * Only applicable if rootNodeId1 is set.
+   */
+  readonly discardRoot: boolean;
+  /**
+   * The ID of the parent of level 1 fetching.
+   *
+   * This replaces the need of a root node as the fetching starts directly at level 1 using this propery as parentId.
+   *
+   * parentId is mutually exclusive to rootNodeId1.
+   */
+  readonly parentId: Uint8Array;
+  /**
+   * Optional.
+   *
+   * For whom this read is performed. Permissions are applied to this public key.
+   *
+   * Upon arrival this is by default set to the public key of the peer sending the message.
+   *
+   * It can be set differently by the sender if the receiving P2PClient is configured with
+   * allowUncheckedAccess.
+   */
+  readonly targetPublicKey: Uint8Array;
+  /**
+   * Optional.
+   *
+   * Who is the source of the data we are fetching.
+   *
+   * Upon arrival this is by default set to the public key of the peer receiving this message.
+   *
+   * It can be set differently by the sender if the receiving P2PClient is configured with
+   * allowUncheckedAccess.
+   */
+  readonly sourcePublicKey: Uint8Array;
+  /**
+   * At least one Match must match for a node to be added to result set.
+   */
+  readonly match: Array<IMatch>;
+  /**
+   * The node types and criterias which must match for the Database to send nodes-to-be-embedded
+   * back to the client.
+   *
+   * The client requests for example a License from an Intermediary who is proxying the request to
+   * the Storage and also has allowEmbed for License set in its permissions then Licenses will be
+   * embedded and subsequently returned in the result set.
+   *
+   * Note that nodes which get embedded when fetching will not be returned in the first result set,
+   * it will take a second fetch or that the first fetch also has a subscription for the embedded
+   * nodes to be returned.
+   */
+  readonly embed: Array<IAllowEmbed>;
+  /**
+   * If set then the query will init a subscription which is run whenever a node is
+   * added/changed below the triggerNodeId.
+   * triggerNodeId is the parentId of the nodes to observe, it does not need to be related to
+   * the parentId or the rootNodeId1 of the query.
+   *
+   * The Storage is not required to support this feature and if it does not support this feature
+   * then a malformed error is returned.
+   */
+  readonly triggerNodeId: Uint8Array;
+  /**
+   * Set > 0 to init a subscription to rerun the query on an interval in seconds.
+   * Smallest interval is 60 seconds.
+   *
+   * This can be set regardless if/not triggerNodeId is set and is unsubscribed in the same way.
+   *
+   * The Storage is not required to support this feature and if it does not support this feature
+   * then an error with the status malformed is returned.
+   *
+   * If using a CRDT together with a subscription triggerNodeId, then the
+   * triggerInterval must also be set to properly detect expired nodes.
+   *
+   * It can be set with triggerNodeId not set just to keep the model updated on regular intervals.
+   */
+  readonly triggerInterval: number;
+  /**
+   * Set to true to only query on trigger, meaning do not perform an initial fetch,
+   * but only fetch on triggerNodeId activation and/or triggerInterval.
+   *
+   * Cannot be set if fetching with CRDT, because we need the full dataset for the CRDTs.
+   */
+  readonly onlyTrigger: boolean;
+  /**
+   * Nodes per level are by default sorted ascending (oldest first) on creationTime,
+   * set this to true to reverse the order.
+   * Note that the ordering is only applied per level of the fetch, not for the full fetch
+   * and not per parent, but per all children per all parents on the same level.
+   *
+   * If orderByStorageTime is set then order by node storageTime instead of creationTime.
+   */
+  readonly descending: boolean;
+  /**
+   * If set then order by storageTime instead of by creationTime.
+   * This means that ordering is by when the node was first stored in the particular storage
+   * instead of when it was created.
+   * This will naturally yield different orderings between different storages since the storage
+   * timestamp will most often differ.
+   * This feature can be useful for presenting nodes in the order they were first seen instead
+   * of the creationTime which the creator can set arbitrarely.
+   */
+  readonly orderByStorageTime: boolean;
+  /**
+   * Set to true to not include not valid online nodes in result. Default is to include not valid
+   * nodes in resultset.
+   */
+  readonly ignoreInactive: boolean;
+  /**
+   * Set to true to ignore data which has owner targetPublicKey.
+   *
+   * Default is false.
+   */
+  readonly ignoreOwn: boolean;
+  /**
+   * Set to true to preserve nodes transient values across serialization boundaries when fetching.
+   *
+   * This is useful when a client wants to piggy-back on the peer's knowledge of the online
+   * transient properties of nodes, such as if it is validate and also for CRDT annotations.
+   *
+   * Only use this if trusting the peer, also transient values are not guaranteed to be provided by
+   * the peer.
+   */
+  readonly preserveTransient: boolean;
+  /**
+   * If set then the query will be limited to a certain physical region.
+   * A node can be configured for a certain region which must match this setting.
+   *
+   * The format is ISO 3166-1 "SE", "EU", etc.
+   */
+  readonly region: string;
+  /**
+   * If set then the query will be limited to a certain jurisdiction.
+   * A node can be configured for a certain jurisdiction which must match this setting.
+   *
+   * The format is ISO 3166-1 "SE", "EU", etc.
+   */
+  readonly jurisdiction: string;
+  /**
+   * The includeLicenses feature is a way of bundling applicable licenses in the response.
+   *
+   * Compared to adding a Match for license and an Embed to be able to get new licenses,
+   * the includeLicenses feature makes it even more to the point of only targeting licenses
+   * needed for the particular nodes matched.
+   *
+   * Fetching licenses using a Match and Embed sweeps very broadly and might return
+   * many licenses for nodes which are of no interest to the query request.
+   *
+   * If set to 0 this feature is not active.
+   *
+   * If set to 1 then include all valid existing licenses for each specific node matched,
+   * including read and write licenses. Although only read licenses will result in the
+   * node being returned in the query response.
+   *
+   * If set to 2 then automatically add proposed embeddings of licenses which could give
+   * rights to nodes matched. This also includes write licenses, although those do not give
+   * read access to the nodes.
+   *
+   * If set to 3 then do for 1 and 2.
+   */
+  readonly includeLicenses: number;
+}
+
+export class FetchQuery implements IFetchQuery {
+  public readonly depth: number;
+  public readonly limit: number;
+  public readonly cutoffTime: bigint;
+  public readonly rootNodeId1: Uint8Array;
+  public readonly discardRoot: boolean;
+  public readonly parentId: Uint8Array;
+  public readonly targetPublicKey: Uint8Array;
+  public readonly sourcePublicKey: Uint8Array;
+  public readonly match: Array<IMatch>;
+  public readonly embed: Array<IAllowEmbed>;
+  public readonly triggerNodeId: Uint8Array;
+  public readonly triggerInterval: number;
+  public readonly onlyTrigger: boolean;
+  public readonly descending: boolean;
+  public readonly orderByStorageTime: boolean;
+  public readonly ignoreInactive: boolean;
+  public readonly ignoreOwn: boolean;
+  public readonly preserveTransient: boolean;
+  public readonly region: string;
+  public readonly jurisdiction: string;
+  public readonly includeLicenses: number;
+
+  constructor(record: IFetchQuery) {
+    this.depth = record.depth;
+    this.limit = record.limit;
+    this.cutoffTime = record.cutoffTime;
+    this.rootNodeId1 = record.rootNodeId1;
+    this.discardRoot = record.discardRoot;
+    this.parentId = record.parentId;
+    this.targetPublicKey = record.targetPublicKey;
+    this.sourcePublicKey = record.sourcePublicKey;
+    this.match = record.match;
+    this.embed = record.embed;
+    this.triggerNodeId = record.triggerNodeId;
+    this.triggerInterval = record.triggerInterval;
+    this.onlyTrigger = record.onlyTrigger;
+    this.descending = record.descending;
+    this.orderByStorageTime = record.orderByStorageTime;
+    this.ignoreInactive = record.ignoreInactive;
+    this.ignoreOwn = record.ignoreOwn;
+    this.preserveTransient = record.preserveTransient;
+    this.region = record.region;
+    this.jurisdiction = record.jurisdiction;
+    this.includeLicenses = record.includeLicenses;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return FetchQuery.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IFetchQuery): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    FetchQuery.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link FetchQuery}.
+   */
+  public static validateCompatibility(record: IFetchQuery): void {
+    BebopTypeGuard.ensureInt32(record.depth)
+    BebopTypeGuard.ensureInt32(record.limit)
+    BebopTypeGuard.ensureInt64(record.cutoffTime)
+    BebopTypeGuard.ensureArray(record.rootNodeId1, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureBoolean(record.discardRoot)
+    BebopTypeGuard.ensureArray(record.parentId, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureArray(record.targetPublicKey, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureArray(record.sourcePublicKey, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureArray(record.match, Match.validateCompatibility);
+    BebopTypeGuard.ensureArray(record.embed, AllowEmbed.validateCompatibility);
+    BebopTypeGuard.ensureArray(record.triggerNodeId, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureUint16(record.triggerInterval)
+    BebopTypeGuard.ensureBoolean(record.onlyTrigger)
+    BebopTypeGuard.ensureBoolean(record.descending)
+    BebopTypeGuard.ensureBoolean(record.orderByStorageTime)
+    BebopTypeGuard.ensureBoolean(record.ignoreInactive)
+    BebopTypeGuard.ensureBoolean(record.ignoreOwn)
+    BebopTypeGuard.ensureBoolean(record.preserveTransient)
+    BebopTypeGuard.ensureString(record.region)
+    BebopTypeGuard.ensureString(record.jurisdiction)
+    BebopTypeGuard.ensureUint8(record.includeLicenses)
+  }
+
+  /**
+   * Unsafely creates an instance of {@link FetchQuery} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IFetchQuery {
+      return new FetchQuery(record);
+  }
+
+  /**
+   * Creates a new {@link FetchQuery} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IFetchQuery {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`FetchQuery.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    FetchQuery.validateCompatibility(parsed);
+    return FetchQuery.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return FetchQuery.encode(this);
+  }
+
+  public static encode(record: IFetchQuery): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    this.encodeInto(message, view);
+    FetchQuery.encodeInto(record, view);
     return view.toArray();
-  },
+  }
 
-  encodeInto(message: IFetchQuery, view: BebopView): number {
+  public static encodeInto(record: IFetchQuery, view: BebopView): number {
     const before = view.length;
-      view.writeInt32(message.depth);
-      view.writeInt32(message.limit);
-      view.writeInt64(message.cutoffTime);
-      view.writeBytes(message.rootNodeId1);
-      view.writeByte(Number(message.discardRoot));
-      view.writeBytes(message.parentId);
-      view.writeBytes(message.targetPublicKey);
-      view.writeBytes(message.sourcePublicKey);
-      {
-        const length0 = message.match.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          Match.encodeInto(message.match[i0], view)
-        }
+    view.writeInt32(record.depth);
+    view.writeInt32(record.limit);
+    view.writeInt64(record.cutoffTime);
+    view.writeBytes(record.rootNodeId1);
+    view.writeByte(Number(record.discardRoot));
+    view.writeBytes(record.parentId);
+    view.writeBytes(record.targetPublicKey);
+    view.writeBytes(record.sourcePublicKey);
+    {
+      const length0 = record.match.length;
+      view.writeUint32(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        Match.encodeInto(record.match[i0], view)
       }
-      {
-        const length0 = message.embed.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          AllowEmbed.encodeInto(message.embed[i0], view)
-        }
+    }
+    {
+      const length0 = record.embed.length;
+      view.writeUint32(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        AllowEmbed.encodeInto(record.embed[i0], view)
       }
-      view.writeBytes(message.triggerNodeId);
-      view.writeUint16(message.triggerInterval);
-      view.writeByte(Number(message.onlyTrigger));
-      view.writeByte(Number(message.descending));
-      view.writeByte(Number(message.orderByStorageTime));
-      view.writeByte(Number(message.ignoreInactive));
-      view.writeByte(Number(message.ignoreOwn));
-      view.writeByte(Number(message.preserveTransient));
-      view.writeString(message.region);
-      view.writeString(message.jurisdiction);
-      view.writeByte(message.includeLicenses);
+    }
+    view.writeBytes(record.triggerNodeId);
+    view.writeUint16(record.triggerInterval);
+    view.writeByte(Number(record.onlyTrigger));
+    view.writeByte(Number(record.descending));
+    view.writeByte(Number(record.orderByStorageTime));
+    view.writeByte(Number(record.ignoreInactive));
+    view.writeByte(Number(record.ignoreOwn));
+    view.writeByte(Number(record.preserveTransient));
+    view.writeString(record.region);
+    view.writeString(record.jurisdiction);
+    view.writeByte(record.includeLicenses);
     const after = view.length;
     return after - before;
-  },
+  }
 
-  decode(buffer: Uint8Array): IFetchQuery {
+  public static decode(buffer: Uint8Array): IFetchQuery {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return this.readFrom(view);
-  },
+    return FetchQuery.readFrom(view);
+  }
 
-  readFrom(view: BebopView): IFetchQuery {
+  public static readFrom(view: BebopView): IFetchQuery {
     let field0: number;
     field0 = view.readInt32();
     let field1: number;
@@ -432,50 +1343,225 @@ export const FetchQuery = {
       jurisdiction: field19,
       includeLicenses: field20,
     };
-    return message;
-  },
-};
-
-export interface IFetchCRDT {
-  algo: number;
-  conf: string;
-  msgId: Uint8Array;
-  reverse: boolean;
-  head: number;
-  tail: number;
-  cursorId1: Uint8Array;
-  cursorIndex: number;
+    return new FetchQuery(message);
+  }
 }
 
-export const FetchCRDT = {
-  encode(message: IFetchCRDT): Uint8Array {
+/**
+ * A fetchRequest can have a FetchCRDT to apply a CRDT the result from the FetchQuery.
+ */
+export interface IFetchCRDT extends BebopRecord {
+  /**
+   * The ID of the CRDT algo requested.
+   * The server might not allow certain or any algos.
+   * A value of 0 means CRDT is not used.
+   */
+  readonly algo: number;
+  /**
+   * Algos can take configuration parameters in JSON format, provided here.
+   * Algo sorted and Algo refId both can handle annotations.
+   * Annotations is a strategy of further specialising a CRDT algorithm.
+   *
+   * The below configuration works for the Algo Sorted and Algo RefId, to add
+   * annotations to messages for reactions and nested conversations:
+   * {
+   * "annotations": {
+   * "format": "messages"
+   * }
+   * }
+   *
+   * Since this is arbitrary JSON data it can also be used to differentiate between
+   * different fetch requests to force identical requests to have their own underlying
+   * CRDT models, which might be useful in paging scenarios where models need to stay
+   * static over some period of time.
+   * Set a value like "{differentiator: 1}" to force uniqueness.
+   */
+  readonly conf: string;
+  /**
+   * Set this property to the msgId of an active subscription request to update its properties.
+   *
+   * All properties of the fetchRequest must be set the same as the original request,
+   * except triggerNodeId which is ignored.
+   *
+   * The properties of crdt.head, tail, cursorId1, cursorIndex and reverse
+   * are allowed to be set differently to update the view of the model, also
+   * query.triggerInterval can be set to be updated, if set to 0 then the current value is kept.
+   *
+   * The response on this request is an empty fetch response, but on the streaming request
+   * there will be fresh output.
+   */
+  readonly msgId: Uint8Array;
+  /**
+   * Fetch results in reverse order.
+   * Reverse model then get view.
+   *
+   * For head fetches:
+   * If the result without reverse is a,b,c,d,e then the result using reverse will be e,d,c,b,a.
+   * Furthermore if cursor is "c", without reverse result is d,e and with reverse result is b,a.
+   *
+   * For tail fetches:
+   * If the result without reverse is a,b,c,d,e then the result using reverse will be e,d,c,b,a,
+   * furthermore if cursor is "c", without reverse result is a,b and with reverse result is e,d.
+   */
+  readonly reverse: boolean;
+  /**
+   * Read a number if nodes from the start of the sorted model,
+   * -1 means until end (or maximum 100000 nodes).
+   *
+   * This value is mutually exclusive to tail. Set it to 0 if tail is set.
+   *
+   * This value can be changed for streaming requests to change the scope of the resultset.
+   */
+  readonly head: number;
+  /**
+   * Read a number if nodes from the end of the sorted model,
+   * -1 means until start (or maximum 100000 nodes).
+   *
+   * This value is mutually exclusive to head. Set it to 0 if head is set.
+   *
+   * This value can be changed for streaming requests to change the scope of the resultset.
+   */
+  readonly tail: number;
+  /**
+   * This can be used to page the results when fetching.
+   *
+   * The index of the node with the id1 equal to cursorId1 is the previous element in the list
+   * and the first returned element is the node after the cursor node.
+   *
+   * If a cursor is given but not found then the fetch response status is MISSING_CURSOR.
+   *
+   * This value can be changed for streaming requests to change the scope of the resultset.
+   *
+   * When fetching using head, the start index will be the index of cursorId1 + 1.
+   *
+   * When fetching using tail, the end index will be the index of cursorId1 (not including),
+   * meaning the window will be moved upwards from the bottom of the list where the cursor
+   * is the last node (not included).
+   */
+  readonly cursorId1: Uint8Array;
+  /**
+   * This can be used to page the results when fetching.
+   *
+   * It is the index of the presumed cursor element.
+   *
+   * This value can be set on its own or as a fallback to cursorId1 in the case the cursor
+   * element is not found on its id1.
+   *
+   * The first element retrieved is cursorOffset + 1, for head fetch.
+   * The last element retrived is cursorOffset -1, for tail fetch.
+   *
+   * Note that a value of -1 indicates this property is not used, while a value of 0
+   * means to use element at index 0 as cursor element.
+   */
+  readonly cursorIndex: number;
+}
+
+export class FetchCRDT implements IFetchCRDT {
+  public readonly algo: number;
+  public readonly conf: string;
+  public readonly msgId: Uint8Array;
+  public readonly reverse: boolean;
+  public readonly head: number;
+  public readonly tail: number;
+  public readonly cursorId1: Uint8Array;
+  public readonly cursorIndex: number;
+
+  constructor(record: IFetchCRDT) {
+    this.algo = record.algo;
+    this.conf = record.conf;
+    this.msgId = record.msgId;
+    this.reverse = record.reverse;
+    this.head = record.head;
+    this.tail = record.tail;
+    this.cursorId1 = record.cursorId1;
+    this.cursorIndex = record.cursorIndex;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return FetchCRDT.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IFetchCRDT): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    FetchCRDT.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link FetchCRDT}.
+   */
+  public static validateCompatibility(record: IFetchCRDT): void {
+    BebopTypeGuard.ensureUint16(record.algo)
+    BebopTypeGuard.ensureString(record.conf)
+    BebopTypeGuard.ensureArray(record.msgId, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureBoolean(record.reverse)
+    BebopTypeGuard.ensureInt32(record.head)
+    BebopTypeGuard.ensureInt32(record.tail)
+    BebopTypeGuard.ensureArray(record.cursorId1, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureInt32(record.cursorIndex)
+  }
+
+  /**
+   * Unsafely creates an instance of {@link FetchCRDT} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IFetchCRDT {
+      return new FetchCRDT(record);
+  }
+
+  /**
+   * Creates a new {@link FetchCRDT} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IFetchCRDT {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`FetchCRDT.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    FetchCRDT.validateCompatibility(parsed);
+    return FetchCRDT.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return FetchCRDT.encode(this);
+  }
+
+  public static encode(record: IFetchCRDT): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    this.encodeInto(message, view);
+    FetchCRDT.encodeInto(record, view);
     return view.toArray();
-  },
+  }
 
-  encodeInto(message: IFetchCRDT, view: BebopView): number {
+  public static encodeInto(record: IFetchCRDT, view: BebopView): number {
     const before = view.length;
-      view.writeUint16(message.algo);
-      view.writeString(message.conf);
-      view.writeBytes(message.msgId);
-      view.writeByte(Number(message.reverse));
-      view.writeInt32(message.head);
-      view.writeInt32(message.tail);
-      view.writeBytes(message.cursorId1);
-      view.writeInt32(message.cursorIndex);
+    view.writeUint16(record.algo);
+    view.writeString(record.conf);
+    view.writeBytes(record.msgId);
+    view.writeByte(Number(record.reverse));
+    view.writeInt32(record.head);
+    view.writeInt32(record.tail);
+    view.writeBytes(record.cursorId1);
+    view.writeInt32(record.cursorIndex);
     const after = view.length;
     return after - before;
-  },
+  }
 
-  decode(buffer: Uint8Array): IFetchCRDT {
+  public static decode(buffer: Uint8Array): IFetchCRDT {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return this.readFrom(view);
-  },
+    return FetchCRDT.readFrom(view);
+  }
 
-  readFrom(view: BebopView): IFetchCRDT {
+  public static readFrom(view: BebopView): IFetchCRDT {
     let field0: number;
     field0 = view.readUint16();
     let field1: string;
@@ -502,67 +1588,194 @@ export const FetchCRDT = {
       cursorId1: field6,
       cursorIndex: field7,
     };
-    return message;
-  },
-};
+    return new FetchCRDT(message);
+  }
+}
 
+/**
+ * Each response has a Status property which states the completion status of the request.
+ */
 export enum Status {
-  RESULT = 1,
-  MALFORMED = 2,
-  ERROR = 3,
-  STORE_FAILED = 4,
-  FETCH_FAILED = 5,
-  MISSING_ROOTNODE = 6,
-  ROOTNODE_LICENSED = 7,
-  NOT_ALLOWED = 8,
-  MISMATCH = 9,
-  EXISTS = 10,
-  MISSING_CURSOR = 11,
-  DROPPED_TRIGGER = 12,
+  /**
+   * This means a result was returned. Which is a success.
+   */
+  Result = 1,
+  /**
+   * This is returned if the incoming request was malformed and could not be parsed properly.
+   */
+  Malformed = 2,
+  /**
+   * Some error occoured while processing the request.
+   */
+  Error = 3,
+  /**
+   * If a storeRequest or writeBlobRequest could not succeed.
+   */
+  StoreFailed = 4,
+  /**
+   * If a readBlobRequest fails because blob data is not available.
+   */
+  FetchFailed = 5,
+  /**
+   * If a fetchRequest refers to a real root ID but the root node
+   * was not found then this error code is returned.
+   */
+  MissingRootnode = 6,
+  /**
+   * If a fetchRequest refers to a real root node but the root node is either licensed,
+   * uses hasRightsByAssociation or is flagged as beginRestrictiveWriterMode then
+   * the given root node cannot be used as a root node.
+   */
+  RootnodeLicensed = 7,
+  /**
+   * If access to root node is denied, or
+   * when writing/reading a blob whos node we are not allowed to access,
+   */
+  NotAllowed = 8,
+  /**
+   * If content hash does not match expected hash when writing a blob.
+   */
+  Mismatch = 9,
+  /**
+   * When a blobWrite got finalized or if the blob already did exist when writing.
+   */
+  Exists = 10,
+  /**
+   * When a CRDT fetch is done using a cursor but the cursor does not exist, this return
+   * status is only for requests using CRDTs, and not applicable for query.cursordId1.
+   *
+   * Note that this is not regarded as an error message and if the request is a trigger subscription
+   * then it will not be automatically removed (as when sending any other error replies).
+   */
+  MissingCursor = 11,
+  /**
+   * Sent from the Storage when a trigger has been dropped.
+   * Message is sent with seq=0 so that message is cleared out and onCancel()
+   * is triggered on the GetResponse object.
+   */
+  DroppedTrigger = 12,
 }
 
-export interface IFetchResult {
-  nodes: Array<Uint8Array>;
-  embed: Array<Uint8Array>;
-  cutoffTime: bigint;
+/**
+ * A FetchResult is the result of a FetchQuery.
+ */
+export interface IFetchResult extends BebopRecord {
+  /**
+   * array of buffers where each buffer is a serialized node
+   */
+  readonly nodes: Array<Uint8Array>;
+  /**
+   * The Storage can send this array of serialized nodes which are to be signed and sent back to
+   * storage for storing.
+   *
+   * The serialized node is a proposal from the extender of the embedding node to be signed.
+   */
+  readonly embed: Array<Uint8Array>;
+  /**
+   * The next cutoff timestamp to use in any subsequent query to reduce the number of duplicate
+   * nodes in the result set.
+   */
+  readonly cutoffTime: bigint;
 }
 
-export const FetchResult = {
-  encode(message: IFetchResult): Uint8Array {
+export class FetchResult implements IFetchResult {
+  public readonly nodes: Array<Uint8Array>;
+  public readonly embed: Array<Uint8Array>;
+  public readonly cutoffTime: bigint;
+
+  constructor(record: IFetchResult) {
+    this.nodes = record.nodes;
+    this.embed = record.embed;
+    this.cutoffTime = record.cutoffTime;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return FetchResult.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IFetchResult): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    FetchResult.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link FetchResult}.
+   */
+  public static validateCompatibility(record: IFetchResult): void {
+    BebopTypeGuard.ensureArray(record.nodes, (element) => BebopTypeGuard.ensureArray(element, BebopTypeGuard.ensureUint8));
+    BebopTypeGuard.ensureArray(record.embed, (element) => BebopTypeGuard.ensureArray(element, BebopTypeGuard.ensureUint8));
+    BebopTypeGuard.ensureInt64(record.cutoffTime)
+  }
+
+  /**
+   * Unsafely creates an instance of {@link FetchResult} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IFetchResult {
+      return new FetchResult(record);
+  }
+
+  /**
+   * Creates a new {@link FetchResult} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IFetchResult {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`FetchResult.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    FetchResult.validateCompatibility(parsed);
+    return FetchResult.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return FetchResult.encode(this);
+  }
+
+  public static encode(record: IFetchResult): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    this.encodeInto(message, view);
+    FetchResult.encodeInto(record, view);
     return view.toArray();
-  },
+  }
 
-  encodeInto(message: IFetchResult, view: BebopView): number {
+  public static encodeInto(record: IFetchResult, view: BebopView): number {
     const before = view.length;
-      {
-        const length0 = message.nodes.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          view.writeBytes(message.nodes[i0]);
-        }
+    {
+      const length0 = record.nodes.length;
+      view.writeUint32(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        view.writeBytes(record.nodes[i0]);
       }
-      {
-        const length0 = message.embed.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          view.writeBytes(message.embed[i0]);
-        }
+    }
+    {
+      const length0 = record.embed.length;
+      view.writeUint32(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        view.writeBytes(record.embed[i0]);
       }
-      view.writeInt64(message.cutoffTime);
+    }
+    view.writeInt64(record.cutoffTime);
     const after = view.length;
     return after - before;
-  },
+  }
 
-  decode(buffer: Uint8Array): IFetchResult {
+  public static decode(buffer: Uint8Array): IFetchResult {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return this.readFrom(view);
-  },
+    return FetchResult.readFrom(view);
+  }
 
-  readFrom(view: BebopView): IFetchResult {
+  public static readFrom(view: BebopView): IFetchResult {
     let field0: Array<Uint8Array>;
     {
       let length0 = view.readUint32();
@@ -590,40 +1803,136 @@ export const FetchResult = {
       embed: field1,
       cutoffTime: field2,
     };
-    return message;
-  },
-};
-
-export interface ICRDTResult {
-  delta: Uint8Array;
-  cursorIndex: number;
-  length: number;
+    return new FetchResult(message);
+  }
 }
 
-export const CRDTResult = {
-  encode(message: ICRDTResult): Uint8Array {
+
+export interface ICRDTResult extends BebopRecord {
+  /**
+   * The delta used to patch old model to updated model.
+   * All added nodes are passed in the query response and the delta is for patching
+   * the order of the nodes.
+   * The first byte of the delta tells us what diff algorithm has been used and how is
+   * the patch formatted.
+   * As for now we support one algo which is FossilDelta and the byte-prefix for that is a
+   * single zero byte. The rest of the data is a buffer encoded JSON string, as: {
+   * patch: <fossilDelta patch>
+   * }
+   */
+  readonly delta: Uint8Array;
+  /**
+   * The index of the last node in the view, or -1 if no nodes are in the view.
+   *
+   * If using head and reverse == false, then index will always be equal to the
+   * index of the last element in the returned.
+   *
+   * If using head and reverse == true then index will always be equal to the
+   * index of the first element in the view.
+   *
+   * If using tail and reverse == false then index will always be equal to the index of
+   * the first element in the returned view.
+   *
+   * If using tail and reverse == true then index will also always be equal to the index of
+   * the first element in the returned view.
+   *
+   * When paging this returned value of cursorIndex can be fed into the next request,
+   * unless it is -1 then no results were returned and paging has reached its end.
+   */
+  readonly cursorIndex: number;
+  /**
+   * The total length of the model.
+   * This can be useful when paging to show nr of pages.
+   */
+  readonly length: number;
+}
+
+export class CRDTResult implements ICRDTResult {
+  public readonly delta: Uint8Array;
+  public readonly cursorIndex: number;
+  public readonly length: number;
+
+  constructor(record: ICRDTResult) {
+    this.delta = record.delta;
+    this.cursorIndex = record.cursorIndex;
+    this.length = record.length;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return CRDTResult.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: ICRDTResult): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    CRDTResult.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link CRDTResult}.
+   */
+  public static validateCompatibility(record: ICRDTResult): void {
+    BebopTypeGuard.ensureArray(record.delta, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureInt32(record.cursorIndex)
+    BebopTypeGuard.ensureUint32(record.length)
+  }
+
+  /**
+   * Unsafely creates an instance of {@link CRDTResult} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): ICRDTResult {
+      return new CRDTResult(record);
+  }
+
+  /**
+   * Creates a new {@link CRDTResult} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): ICRDTResult {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`CRDTResult.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    CRDTResult.validateCompatibility(parsed);
+    return CRDTResult.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return CRDTResult.encode(this);
+  }
+
+  public static encode(record: ICRDTResult): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    this.encodeInto(message, view);
+    CRDTResult.encodeInto(record, view);
     return view.toArray();
-  },
+  }
 
-  encodeInto(message: ICRDTResult, view: BebopView): number {
+  public static encodeInto(record: ICRDTResult, view: BebopView): number {
     const before = view.length;
-      view.writeBytes(message.delta);
-      view.writeInt32(message.cursorIndex);
-      view.writeUint32(message.length);
+    view.writeBytes(record.delta);
+    view.writeInt32(record.cursorIndex);
+    view.writeUint32(record.length);
     const after = view.length;
     return after - before;
-  },
+  }
 
-  decode(buffer: Uint8Array): ICRDTResult {
+  public static decode(buffer: Uint8Array): ICRDTResult {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return this.readFrom(view);
-  },
+    return CRDTResult.readFrom(view);
+  }
 
-  readFrom(view: BebopView): ICRDTResult {
+  public static readFrom(view: BebopView): ICRDTResult {
     let field0: Uint8Array;
     field0 = view.readBytes();
     let field1: number;
@@ -635,1102 +1944,1836 @@ export const CRDTResult = {
       cursorIndex: field1,
       length: field2,
     };
-    return message;
-  },
-};
-
-export interface IBopFetchRequest {
-  query?: IFetchQuery;
-  crdt?: IFetchCRDT;
+    return new CRDTResult(message);
+  }
 }
 
-export const BopFetchRequest = {
-  opcode: 0x1,
-  encode(message: IBopFetchRequest): Uint8Array {
-    const view = BebopView.getInstance();
-    view.startWriting();
-    this.encodeInto(message, view);
-    return view.toArray();
-  },
+/**
+ * The struct used for performing fetch requests.
+ */
+export interface IBopFetchRequest extends BebopRecord {
 
-  encodeInto(message: IBopFetchRequest, view: BebopView): number {
-    const before = view.length;
-      const pos = view.reserveMessageLength();
-      const start = view.length;
-      if (message.query != null) {
-        view.writeByte(1);
-        FetchQuery.encodeInto(message.query, view)
-      }
-      if (message.crdt != null) {
-        view.writeByte(2);
-        FetchCRDT.encodeInto(message.crdt, view)
-      }
-      view.writeByte(0);
-      const end = view.length;
-      view.fillMessageLength(pos, end - start);
-    const after = view.length;
-    return after - before;
-  },
+  readonly query: IFetchQuery;
 
-  decode(buffer: Uint8Array): IBopFetchRequest {
-    const view = BebopView.getInstance();
-    view.startReading(buffer);
-    return this.readFrom(view);
-  },
-
-  readFrom(view: BebopView): IBopFetchRequest {
-    let message: IBopFetchRequest = {};
-    const length = view.readMessageLength();
-    const end = view.index + length;
-    while (true) {
-      switch (view.readByte()) {
-        case 0:
-          return message;
-
-        case 1:
-          message.query = FetchQuery.readFrom(view);
-          break;
-
-        case 2:
-          message.crdt = FetchCRDT.readFrom(view);
-          break;
-
-        default:
-          view.index = end;
-          return message;
-      }
-    }
-  },
-};
-
-export interface IBopFetchResponse {
-  status?: Status;
-  result?: IFetchResult;
-  crdtResult?: ICRDTResult;
-  seq?: number;
-  endSeq?: number;
-  rowCount?: number;
-  error?: string;
+  readonly crdt: IFetchCRDT;
 }
 
-export const BopFetchResponse = {
-  opcode: 0x2,
-  encode(message: IBopFetchResponse): Uint8Array {
+export class BopFetchRequest implements IBopFetchRequest {
+  public static readonly opcode: number = 0x1 as 0x1;
+  public readonly query: IFetchQuery;
+  public readonly crdt: IFetchCRDT;
+
+  constructor(record: IBopFetchRequest) {
+    this.query = record.query;
+    this.crdt = record.crdt;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return BopFetchRequest.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IBopFetchRequest): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    BopFetchRequest.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link BopFetchRequest}.
+   */
+  public static validateCompatibility(record: IBopFetchRequest): void {
+    FetchQuery.validateCompatibility(record.query);
+    FetchCRDT.validateCompatibility(record.crdt);
+  }
+
+  /**
+   * Unsafely creates an instance of {@link BopFetchRequest} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IBopFetchRequest {
+      record.query = FetchQuery.unsafeCast(record.query);
+      record.crdt = FetchCRDT.unsafeCast(record.crdt);
+      return new BopFetchRequest(record);
+  }
+
+  /**
+   * Creates a new {@link BopFetchRequest} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IBopFetchRequest {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`BopFetchRequest.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    BopFetchRequest.validateCompatibility(parsed);
+    return BopFetchRequest.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return BopFetchRequest.encode(this);
+  }
+
+  public static encode(record: IBopFetchRequest): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    this.encodeInto(message, view);
+    BopFetchRequest.encodeInto(record, view);
     return view.toArray();
-  },
+  }
 
-  encodeInto(message: IBopFetchResponse, view: BebopView): number {
+  public static encodeInto(record: IBopFetchRequest, view: BebopView): number {
     const before = view.length;
-      const pos = view.reserveMessageLength();
-      const start = view.length;
-      if (message.status != null) {
-        view.writeByte(1);
-        view.writeUint32(message.status);
-      }
-      if (message.result != null) {
-        view.writeByte(2);
-        FetchResult.encodeInto(message.result, view)
-      }
-      if (message.crdtResult != null) {
-        view.writeByte(3);
-        CRDTResult.encodeInto(message.crdtResult, view)
-      }
-      if (message.seq != null) {
-        view.writeByte(4);
-        view.writeUint16(message.seq);
-      }
-      if (message.endSeq != null) {
-        view.writeByte(5);
-        view.writeUint16(message.endSeq);
-      }
-      if (message.rowCount != null) {
-        view.writeByte(6);
-        view.writeUint16(message.rowCount);
-      }
-      if (message.error != null) {
-        view.writeByte(7);
-        view.writeString(message.error);
-      }
-      view.writeByte(0);
-      const end = view.length;
-      view.fillMessageLength(pos, end - start);
+    FetchQuery.encodeInto(record.query, view)
+    FetchCRDT.encodeInto(record.crdt, view)
     const after = view.length;
     return after - before;
-  },
+  }
 
-  decode(buffer: Uint8Array): IBopFetchResponse {
+  public static decode(buffer: Uint8Array): IBopFetchRequest {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return this.readFrom(view);
-  },
+    return BopFetchRequest.readFrom(view);
+  }
 
-  readFrom(view: BebopView): IBopFetchResponse {
-    let message: IBopFetchResponse = {};
-    const length = view.readMessageLength();
-    const end = view.index + length;
-    while (true) {
-      switch (view.readByte()) {
-        case 0:
-          return message;
-
-        case 1:
-          message.status = view.readUint32() as Status;
-          break;
-
-        case 2:
-          message.result = FetchResult.readFrom(view);
-          break;
-
-        case 3:
-          message.crdtResult = CRDTResult.readFrom(view);
-          break;
-
-        case 4:
-          message.seq = view.readUint16();
-          break;
-
-        case 5:
-          message.endSeq = view.readUint16();
-          break;
-
-        case 6:
-          message.rowCount = view.readUint16();
-          break;
-
-        case 7:
-          message.error = view.readString();
-          break;
-
-        default:
-          view.index = end;
-          return message;
-      }
-    }
-  },
-};
-
-export interface IBopStoreRequest {
-  nodes?: Array<Uint8Array>;
-  sourcePublicKey?: Uint8Array;
-  targetPublicKey?: Uint8Array;
-  muteMsgIds?: Array<Uint8Array>;
-  preserveTransient?: boolean;
-  batchId?: number;
-  hasMore?: boolean;
+  public static readFrom(view: BebopView): IBopFetchRequest {
+    let field0: IFetchQuery;
+    field0 = FetchQuery.readFrom(view);
+    let field1: IFetchCRDT;
+    field1 = FetchCRDT.readFrom(view);
+    let message: IBopFetchRequest = {
+      query: field0,
+      crdt: field1,
+    };
+    return new BopFetchRequest(message);
+  }
 }
 
-export const BopStoreRequest = {
-  opcode: 0x3,
-  encode(message: IBopStoreRequest): Uint8Array {
-    const view = BebopView.getInstance();
-    view.startWriting();
-    this.encodeInto(message, view);
-    return view.toArray();
-  },
+/**
+ * The struct used for responding to fetch requests
+ */
+export interface IBopFetchResponse extends BebopRecord {
+  /**
+   * Expected status values:
+   * Status.RESULT
+   * Status.ERROR
+   * Status.NOT_ALLOWED
+   * Status.ROOTNODE_LICENSED
+   * Status.MISSING_ROOTNODE
+   * Status.MISSING_CURSOR
+   * Status.MALFORMED
+   */
+  readonly status: Status;
 
-  encodeInto(message: IBopStoreRequest, view: BebopView): number {
-    const before = view.length;
-      const pos = view.reserveMessageLength();
-      const start = view.length;
-      if (message.nodes != null) {
-        view.writeByte(1);
-        {
-        const length0 = message.nodes.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          view.writeBytes(message.nodes[i0]);
-        }
-      }
-      }
-      if (message.sourcePublicKey != null) {
-        view.writeByte(2);
-        view.writeBytes(message.sourcePublicKey);
-      }
-      if (message.targetPublicKey != null) {
-        view.writeByte(3);
-        view.writeBytes(message.targetPublicKey);
-      }
-      if (message.muteMsgIds != null) {
-        view.writeByte(4);
-        {
-        const length0 = message.muteMsgIds.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          view.writeBytes(message.muteMsgIds[i0]);
-        }
-      }
-      }
-      if (message.preserveTransient != null) {
-        view.writeByte(5);
-        view.writeByte(Number(message.preserveTransient));
-      }
-      if (message.batchId != null) {
-        view.writeByte(6);
-        view.writeUint32(message.batchId);
-      }
-      if (message.hasMore != null) {
-        view.writeByte(7);
-        view.writeByte(Number(message.hasMore));
-      }
-      view.writeByte(0);
-      const end = view.length;
-      view.fillMessageLength(pos, end - start);
-    const after = view.length;
-    return after - before;
-  },
+  readonly result: IFetchResult;
 
-  decode(buffer: Uint8Array): IBopStoreRequest {
-    const view = BebopView.getInstance();
-    view.startReading(buffer);
-    return this.readFrom(view);
-  },
-
-  readFrom(view: BebopView): IBopStoreRequest {
-    let message: IBopStoreRequest = {};
-    const length = view.readMessageLength();
-    const end = view.index + length;
-    while (true) {
-      switch (view.readByte()) {
-        case 0:
-          return message;
-
-        case 1:
-          {
-        let length0 = view.readUint32();
-        message.nodes = new Array<Uint8Array>(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          let x0: Uint8Array;
-          x0 = view.readBytes();
-          message.nodes[i0] = x0;
-        }
-      }
-          break;
-
-        case 2:
-          message.sourcePublicKey = view.readBytes();
-          break;
-
-        case 3:
-          message.targetPublicKey = view.readBytes();
-          break;
-
-        case 4:
-          {
-        let length0 = view.readUint32();
-        message.muteMsgIds = new Array<Uint8Array>(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          let x0: Uint8Array;
-          x0 = view.readBytes();
-          message.muteMsgIds[i0] = x0;
-        }
-      }
-          break;
-
-        case 5:
-          message.preserveTransient = !!view.readByte();
-          break;
-
-        case 6:
-          message.batchId = view.readUint32();
-          break;
-
-        case 7:
-          message.hasMore = !!view.readByte();
-          break;
-
-        default:
-          view.index = end;
-          return message;
-      }
-    }
-  },
-};
-
-export interface IBopStoreResponse {
-  status?: Status;
-  storedId1S?: Array<Uint8Array>;
-  missingBlobId1S?: Array<Uint8Array>;
-  missingBlobSizes?: Array<bigint>;
-  error?: string;
+  readonly crdtResult: ICRDTResult;
+  /**
+   * Counter starting from 1 and will increase for each FetchResponse sent.
+   * A batch is identified as having the same endSeq set.
+   *
+   * If seq == 0 then indicates an error or an unsubscription,
+   * and the GetResponse will be cancelled.
+   * The message will be removed from the pocket-messaging cache and no more data will flow.
+   *
+   * A trigger subscription is already removed from the Storage and it is not necessary
+   * to explicitly unsubscribe from failed requests.
+   */
+  readonly seq: number;
+  /**
+   * The seq nr of the last fetchResponse in the batch.
+   * If endSeq == 0 then undetermined nr of responses will follow.
+   * If endSeq == seq it means this is the last response in this batch, however more batches could
+   * follow if the fetch request is a subscription.
+   */
+  readonly endSeq: number;
+  /**
+   * The number of rows in the database processed so far to return this resultset.
+   * If this number is much higher than the expected length of the resulset (or hits the max limit)
+   * then it is a good indicator that the query is not specific enough.
+   * The rowCount increases for each sequence of the total response returned for a query,
+   * meaning it is the aggregated value of all sequences prior for the current query result.
+   */
+  readonly rowCount: number;
+  /**
+   * If there was an error reported in Status an error message could be provided.
+   */
+  readonly error: string;
 }
 
-export const BopStoreResponse = {
-  opcode: 0x4,
-  encode(message: IBopStoreResponse): Uint8Array {
+export class BopFetchResponse implements IBopFetchResponse {
+  public static readonly opcode: number = 0x2 as 0x2;
+  public readonly status: Status;
+  public readonly result: IFetchResult;
+  public readonly crdtResult: ICRDTResult;
+  public readonly seq: number;
+  public readonly endSeq: number;
+  public readonly rowCount: number;
+  public readonly error: string;
+
+  constructor(record: IBopFetchResponse) {
+    this.status = record.status;
+    this.result = record.result;
+    this.crdtResult = record.crdtResult;
+    this.seq = record.seq;
+    this.endSeq = record.endSeq;
+    this.rowCount = record.rowCount;
+    this.error = record.error;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return BopFetchResponse.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IBopFetchResponse): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    BopFetchResponse.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link BopFetchResponse}.
+   */
+  public static validateCompatibility(record: IBopFetchResponse): void {
+    BebopTypeGuard.ensureEnum(record.status, Status);
+    FetchResult.validateCompatibility(record.result);
+    CRDTResult.validateCompatibility(record.crdtResult);
+    BebopTypeGuard.ensureUint16(record.seq)
+    BebopTypeGuard.ensureUint16(record.endSeq)
+    BebopTypeGuard.ensureUint16(record.rowCount)
+    BebopTypeGuard.ensureString(record.error)
+  }
+
+  /**
+   * Unsafely creates an instance of {@link BopFetchResponse} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IBopFetchResponse {
+      record.result = FetchResult.unsafeCast(record.result);
+      record.crdtResult = CRDTResult.unsafeCast(record.crdtResult);
+      return new BopFetchResponse(record);
+  }
+
+  /**
+   * Creates a new {@link BopFetchResponse} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IBopFetchResponse {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`BopFetchResponse.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    BopFetchResponse.validateCompatibility(parsed);
+    return BopFetchResponse.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return BopFetchResponse.encode(this);
+  }
+
+  public static encode(record: IBopFetchResponse): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    this.encodeInto(message, view);
+    BopFetchResponse.encodeInto(record, view);
     return view.toArray();
-  },
+  }
 
-  encodeInto(message: IBopStoreResponse, view: BebopView): number {
+  public static encodeInto(record: IBopFetchResponse, view: BebopView): number {
     const before = view.length;
-      const pos = view.reserveMessageLength();
-      const start = view.length;
-      if (message.status != null) {
-        view.writeByte(1);
-        view.writeUint32(message.status);
-      }
-      if (message.storedId1S != null) {
-        view.writeByte(2);
-        {
-        const length0 = message.storedId1S.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          view.writeBytes(message.storedId1S[i0]);
-        }
-      }
-      }
-      if (message.missingBlobId1S != null) {
-        view.writeByte(3);
-        {
-        const length0 = message.missingBlobId1S.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          view.writeBytes(message.missingBlobId1S[i0]);
-        }
-      }
-      }
-      if (message.missingBlobSizes != null) {
-        view.writeByte(4);
-        {
-        const length0 = message.missingBlobSizes.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          view.writeInt64(message.missingBlobSizes[i0]);
-        }
-      }
-      }
-      if (message.error != null) {
-        view.writeByte(5);
-        view.writeString(message.error);
-      }
-      view.writeByte(0);
-      const end = view.length;
-      view.fillMessageLength(pos, end - start);
+    view.writeUint32(record.status);
+    FetchResult.encodeInto(record.result, view)
+    CRDTResult.encodeInto(record.crdtResult, view)
+    view.writeUint16(record.seq);
+    view.writeUint16(record.endSeq);
+    view.writeUint16(record.rowCount);
+    view.writeString(record.error);
     const after = view.length;
     return after - before;
-  },
+  }
 
-  decode(buffer: Uint8Array): IBopStoreResponse {
+  public static decode(buffer: Uint8Array): IBopFetchResponse {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return this.readFrom(view);
-  },
+    return BopFetchResponse.readFrom(view);
+  }
 
-  readFrom(view: BebopView): IBopStoreResponse {
-    let message: IBopStoreResponse = {};
-    const length = view.readMessageLength();
-    const end = view.index + length;
-    while (true) {
-      switch (view.readByte()) {
-        case 0:
-          return message;
-
-        case 1:
-          message.status = view.readUint32() as Status;
-          break;
-
-        case 2:
-          {
-        let length0 = view.readUint32();
-        message.storedId1S = new Array<Uint8Array>(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          let x0: Uint8Array;
-          x0 = view.readBytes();
-          message.storedId1S[i0] = x0;
-        }
-      }
-          break;
-
-        case 3:
-          {
-        let length0 = view.readUint32();
-        message.missingBlobId1S = new Array<Uint8Array>(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          let x0: Uint8Array;
-          x0 = view.readBytes();
-          message.missingBlobId1S[i0] = x0;
-        }
-      }
-          break;
-
-        case 4:
-          {
-        let length0 = view.readUint32();
-        message.missingBlobSizes = new Array<bigint>(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          let x0: bigint;
-          x0 = view.readInt64();
-          message.missingBlobSizes[i0] = x0;
-        }
-      }
-          break;
-
-        case 5:
-          message.error = view.readString();
-          break;
-
-        default:
-          view.index = end;
-          return message;
-      }
-    }
-  },
-};
-
-export interface IBopUnsubscribeRequest {
-  originalMsgId?: Uint8Array;
-  targetPublicKey?: Uint8Array;
+  public static readFrom(view: BebopView): IBopFetchResponse {
+    let field0: Status;
+    field0 = view.readUint32() as Status;
+    let field1: IFetchResult;
+    field1 = FetchResult.readFrom(view);
+    let field2: ICRDTResult;
+    field2 = CRDTResult.readFrom(view);
+    let field3: number;
+    field3 = view.readUint16();
+    let field4: number;
+    field4 = view.readUint16();
+    let field5: number;
+    field5 = view.readUint16();
+    let field6: string;
+    field6 = view.readString();
+    let message: IBopFetchResponse = {
+      status: field0,
+      result: field1,
+      crdtResult: field2,
+      seq: field3,
+      endSeq: field4,
+      rowCount: field5,
+      error: field6,
+    };
+    return new BopFetchResponse(message);
+  }
 }
 
-export const BopUnsubscribeRequest = {
-  opcode: 0x5,
-  encode(message: IBopUnsubscribeRequest): Uint8Array {
-    const view = BebopView.getInstance();
-    view.startWriting();
-    this.encodeInto(message, view);
-    return view.toArray();
-  },
-
-  encodeInto(message: IBopUnsubscribeRequest, view: BebopView): number {
-    const before = view.length;
-      const pos = view.reserveMessageLength();
-      const start = view.length;
-      if (message.originalMsgId != null) {
-        view.writeByte(1);
-        view.writeBytes(message.originalMsgId);
-      }
-      if (message.targetPublicKey != null) {
-        view.writeByte(2);
-        view.writeBytes(message.targetPublicKey);
-      }
-      view.writeByte(0);
-      const end = view.length;
-      view.fillMessageLength(pos, end - start);
-    const after = view.length;
-    return after - before;
-  },
-
-  decode(buffer: Uint8Array): IBopUnsubscribeRequest {
-    const view = BebopView.getInstance();
-    view.startReading(buffer);
-    return this.readFrom(view);
-  },
-
-  readFrom(view: BebopView): IBopUnsubscribeRequest {
-    let message: IBopUnsubscribeRequest = {};
-    const length = view.readMessageLength();
-    const end = view.index + length;
-    while (true) {
-      switch (view.readByte()) {
-        case 0:
-          return message;
-
-        case 1:
-          message.originalMsgId = view.readBytes();
-          break;
-
-        case 2:
-          message.targetPublicKey = view.readBytes();
-          break;
-
-        default:
-          view.index = end;
-          return message;
-      }
-    }
-  },
-};
-
-export interface IBopUnsubscribeResponse {
-  status?: Status;
-  error?: string;
+/**
+ * The struct used when sending store requests.
+ */
+export interface IBopStoreRequest extends BebopRecord {
+  /**
+   * The serialized data of the nodes to be stored.
+   */
+  readonly nodes: Array<Uint8Array>;
+  /**
+   * Optional.
+   *
+   * Set who is storing data.
+   *
+   * Upon arrival this is by default set to the public key of the peer sending the message.
+   *
+   * It can be set differently by the sender if the receiving P2PClient is configured with
+   * allowUncheckedAccess.
+   *
+   * P2PClientAutoFetchers set it to the public key from where they are fetching data
+   * which is then getting stored. It is however reset to its default value upon arrival
+   * unless allowUncheckedAccess is set in the receiving P2PClient.
+   */
+  readonly sourcePublicKey: Uint8Array;
+  /**
+   * Optional.
+   *
+   * Set who is the reason we are storing this data.
+   *
+   * P2PClientExtender set this when extending new licenses and storing them towards
+   * the targetPublicKey.
+   *
+   * Upon arrival this is by default set to the public key of the peer sending the message.
+   *
+   * It can be set differently by the sender if the receiving P2PClient is configured with
+   * allowUncheckedAccess.
+   */
+  readonly targetPublicKey: Uint8Array;
+  /**
+   * Could be populated with msg IDs which were the msg IDs of the fetchRequest message sent when
+   * creating a subscription.
+   * This is useful so that the same data is not bounced back to the peer which the data just was
+   * fetched from.
+   * Peer clients are not expected to set this.
+   */
+  readonly muteMsgIds: Array<Uint8Array>;
+  /**
+   * Set to true to preserve nodes transient values across serialization boundaries when sending
+   * nodes to storage.
+   * One usage of this is when a client fetches from a peer using fetchQuery.preserveTransient and
+   * then wanting to store the transient values in its storage,
+   * because the client's storage might not be capable of looking up transient values it self.
+   *
+   * The Storage must be configured to allow the preservation of transient values for them to be
+   * stored.
+   */
+  readonly preserveTransient: boolean;
+  /**
+   * The peer sending the storage request can signal that it will send more data as part of a batch.
+   * This can help the receiving peer postpone costly operations such as updating CRDT models.
+   * This is an optional field which defaults to 0 meaning no batch in use.
+   * batchId should be a unique uint32 number which is not to be reused by the client.
+   * muteMsgIds is preserved only for the first request of the batch, then it is ignored.
+   */
+  readonly batchId: number;
+  /**
+   * When using batchId this field should be set when more data will be sent in a subsequent
+   * request.
+   *
+   * When the last request of the batch is sent this should be false.
+   *
+   * If batchId is not > 0 then this field is ignored.
+   *
+   * Default is false.
+   */
+  readonly hasMore: boolean;
 }
 
-export const BopUnsubscribeResponse = {
-  opcode: 0x6,
-  encode(message: IBopUnsubscribeResponse): Uint8Array {
+export class BopStoreRequest implements IBopStoreRequest {
+  public static readonly opcode: number = 0x3 as 0x3;
+  public readonly nodes: Array<Uint8Array>;
+  public readonly sourcePublicKey: Uint8Array;
+  public readonly targetPublicKey: Uint8Array;
+  public readonly muteMsgIds: Array<Uint8Array>;
+  public readonly preserveTransient: boolean;
+  public readonly batchId: number;
+  public readonly hasMore: boolean;
+
+  constructor(record: IBopStoreRequest) {
+    this.nodes = record.nodes;
+    this.sourcePublicKey = record.sourcePublicKey;
+    this.targetPublicKey = record.targetPublicKey;
+    this.muteMsgIds = record.muteMsgIds;
+    this.preserveTransient = record.preserveTransient;
+    this.batchId = record.batchId;
+    this.hasMore = record.hasMore;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return BopStoreRequest.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IBopStoreRequest): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    BopStoreRequest.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link BopStoreRequest}.
+   */
+  public static validateCompatibility(record: IBopStoreRequest): void {
+    BebopTypeGuard.ensureArray(record.nodes, (element) => BebopTypeGuard.ensureArray(element, BebopTypeGuard.ensureUint8));
+    BebopTypeGuard.ensureArray(record.sourcePublicKey, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureArray(record.targetPublicKey, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureArray(record.muteMsgIds, (element) => BebopTypeGuard.ensureArray(element, BebopTypeGuard.ensureUint8));
+    BebopTypeGuard.ensureBoolean(record.preserveTransient)
+    BebopTypeGuard.ensureUint32(record.batchId)
+    BebopTypeGuard.ensureBoolean(record.hasMore)
+  }
+
+  /**
+   * Unsafely creates an instance of {@link BopStoreRequest} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IBopStoreRequest {
+      return new BopStoreRequest(record);
+  }
+
+  /**
+   * Creates a new {@link BopStoreRequest} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IBopStoreRequest {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`BopStoreRequest.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    BopStoreRequest.validateCompatibility(parsed);
+    return BopStoreRequest.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return BopStoreRequest.encode(this);
+  }
+
+  public static encode(record: IBopStoreRequest): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    this.encodeInto(message, view);
+    BopStoreRequest.encodeInto(record, view);
     return view.toArray();
-  },
+  }
 
-  encodeInto(message: IBopUnsubscribeResponse, view: BebopView): number {
+  public static encodeInto(record: IBopStoreRequest, view: BebopView): number {
     const before = view.length;
-      const pos = view.reserveMessageLength();
-      const start = view.length;
-      if (message.status != null) {
-        view.writeByte(1);
-        view.writeUint32(message.status);
-      }
-      if (message.error != null) {
-        view.writeByte(2);
-        view.writeString(message.error);
-      }
-      view.writeByte(0);
-      const end = view.length;
-      view.fillMessageLength(pos, end - start);
-    const after = view.length;
-    return after - before;
-  },
-
-  decode(buffer: Uint8Array): IBopUnsubscribeResponse {
-    const view = BebopView.getInstance();
-    view.startReading(buffer);
-    return this.readFrom(view);
-  },
-
-  readFrom(view: BebopView): IBopUnsubscribeResponse {
-    let message: IBopUnsubscribeResponse = {};
-    const length = view.readMessageLength();
-    const end = view.index + length;
-    while (true) {
-      switch (view.readByte()) {
-        case 0:
-          return message;
-
-        case 1:
-          message.status = view.readUint32() as Status;
-          break;
-
-        case 2:
-          message.error = view.readString();
-          break;
-
-        default:
-          view.index = end;
-          return message;
+    {
+      const length0 = record.nodes.length;
+      view.writeUint32(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        view.writeBytes(record.nodes[i0]);
       }
     }
-  },
-};
+    view.writeBytes(record.sourcePublicKey);
+    view.writeBytes(record.targetPublicKey);
+    {
+      const length0 = record.muteMsgIds.length;
+      view.writeUint32(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        view.writeBytes(record.muteMsgIds[i0]);
+      }
+    }
+    view.writeByte(Number(record.preserveTransient));
+    view.writeUint32(record.batchId);
+    view.writeByte(Number(record.hasMore));
+    const after = view.length;
+    return after - before;
+  }
 
-export interface IBopWriteBlobRequest {
-  nodeId1?: Uint8Array;
-  sourcePublicKey?: Uint8Array;
-  targetPublicKey?: Uint8Array;
-  data?: Uint8Array;
-  pos?: bigint;
-  muteMsgIds?: Array<Uint8Array>;
+  public static decode(buffer: Uint8Array): IBopStoreRequest {
+    const view = BebopView.getInstance();
+    view.startReading(buffer);
+    return BopStoreRequest.readFrom(view);
+  }
+
+  public static readFrom(view: BebopView): IBopStoreRequest {
+    let field0: Array<Uint8Array>;
+    {
+      let length0 = view.readUint32();
+      field0 = new Array<Uint8Array>(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        let x0: Uint8Array;
+        x0 = view.readBytes();
+        field0[i0] = x0;
+      }
+    }
+    let field1: Uint8Array;
+    field1 = view.readBytes();
+    let field2: Uint8Array;
+    field2 = view.readBytes();
+    let field3: Array<Uint8Array>;
+    {
+      let length0 = view.readUint32();
+      field3 = new Array<Uint8Array>(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        let x0: Uint8Array;
+        x0 = view.readBytes();
+        field3[i0] = x0;
+      }
+    }
+    let field4: boolean;
+    field4 = !!view.readByte();
+    let field5: number;
+    field5 = view.readUint32();
+    let field6: boolean;
+    field6 = !!view.readByte();
+    let message: IBopStoreRequest = {
+      nodes: field0,
+      sourcePublicKey: field1,
+      targetPublicKey: field2,
+      muteMsgIds: field3,
+      preserveTransient: field4,
+      batchId: field5,
+      hasMore: field6,
+    };
+    return new BopStoreRequest(message);
+  }
 }
 
-export const BopWriteBlobRequest = {
-  opcode: 0x7,
-  encode(message: IBopWriteBlobRequest): Uint8Array {
-    const view = BebopView.getInstance();
-    view.startWriting();
-    this.encodeInto(message, view);
-    return view.toArray();
-  },
-
-  encodeInto(message: IBopWriteBlobRequest, view: BebopView): number {
-    const before = view.length;
-      const pos = view.reserveMessageLength();
-      const start = view.length;
-      if (message.nodeId1 != null) {
-        view.writeByte(1);
-        view.writeBytes(message.nodeId1);
-      }
-      if (message.sourcePublicKey != null) {
-        view.writeByte(2);
-        view.writeBytes(message.sourcePublicKey);
-      }
-      if (message.targetPublicKey != null) {
-        view.writeByte(3);
-        view.writeBytes(message.targetPublicKey);
-      }
-      if (message.data != null) {
-        view.writeByte(4);
-        view.writeBytes(message.data);
-      }
-      if (message.pos != null) {
-        view.writeByte(5);
-        view.writeUint64(message.pos);
-      }
-      if (message.muteMsgIds != null) {
-        view.writeByte(6);
-        {
-        const length0 = message.muteMsgIds.length;
-        view.writeUint32(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          view.writeBytes(message.muteMsgIds[i0]);
-        }
-      }
-      }
-      view.writeByte(0);
-      const end = view.length;
-      view.fillMessageLength(pos, end - start);
-    const after = view.length;
-    return after - before;
-  },
-
-  decode(buffer: Uint8Array): IBopWriteBlobRequest {
-    const view = BebopView.getInstance();
-    view.startReading(buffer);
-    return this.readFrom(view);
-  },
-
-  readFrom(view: BebopView): IBopWriteBlobRequest {
-    let message: IBopWriteBlobRequest = {};
-    const length = view.readMessageLength();
-    const end = view.index + length;
-    while (true) {
-      switch (view.readByte()) {
-        case 0:
-          return message;
-
-        case 1:
-          message.nodeId1 = view.readBytes();
-          break;
-
-        case 2:
-          message.sourcePublicKey = view.readBytes();
-          break;
-
-        case 3:
-          message.targetPublicKey = view.readBytes();
-          break;
-
-        case 4:
-          message.data = view.readBytes();
-          break;
-
-        case 5:
-          message.pos = view.readUint64();
-          break;
-
-        case 6:
-          {
-        let length0 = view.readUint32();
-        message.muteMsgIds = new Array<Uint8Array>(length0);
-        for (let i0 = 0; i0 < length0; i0++) {
-          let x0: Uint8Array;
-          x0 = view.readBytes();
-          message.muteMsgIds[i0] = x0;
-        }
-      }
-          break;
-
-        default:
-          view.index = end;
-          return message;
-      }
-    }
-  },
-};
-
-export interface IBopWriteBlobResponse {
-  status?: Status;
-  currentLength?: bigint;
-  error?: string;
+/**
+ * Struct used for responding to store requests.
+ */
+export interface IBopStoreResponse extends BebopRecord {
+  /**
+   * Expected status values:
+   * Status.RESULT
+   * Status.STORE_FAILED
+   * Status.MALFORMED
+   * Status.ERROR
+   */
+  readonly status: Status;
+  /**
+   * Node ID1s of all nodes which got stored.
+   */
+  readonly storedId1S: Array<Uint8Array>;
+  /**
+   * Node ID1s of all nodes in StoreRequest which are missing blobs.
+   * Use this to know what blobs to download from the peer.
+   */
+  readonly missingBlobId1S: Array<Uint8Array>;
+  /**
+   * Corresponds to missingBlobId1s and gives the size of the blob in bytes.
+   */
+  readonly missingBlobSizes: Array<bigint>;
+  /**
+   * If there was an error reported in Status an error message could be provided.
+   */
+  readonly error: string;
 }
 
-export const BopWriteBlobResponse = {
-  opcode: 0x8,
-  encode(message: IBopWriteBlobResponse): Uint8Array {
+export class BopStoreResponse implements IBopStoreResponse {
+  public static readonly opcode: number = 0x4 as 0x4;
+  public readonly status: Status;
+  public readonly storedId1S: Array<Uint8Array>;
+  public readonly missingBlobId1S: Array<Uint8Array>;
+  public readonly missingBlobSizes: Array<bigint>;
+  public readonly error: string;
+
+  constructor(record: IBopStoreResponse) {
+    this.status = record.status;
+    this.storedId1S = record.storedId1S;
+    this.missingBlobId1S = record.missingBlobId1S;
+    this.missingBlobSizes = record.missingBlobSizes;
+    this.error = record.error;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return BopStoreResponse.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IBopStoreResponse): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    BopStoreResponse.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link BopStoreResponse}.
+   */
+  public static validateCompatibility(record: IBopStoreResponse): void {
+    BebopTypeGuard.ensureEnum(record.status, Status);
+    BebopTypeGuard.ensureArray(record.storedId1S, (element) => BebopTypeGuard.ensureArray(element, BebopTypeGuard.ensureUint8));
+    BebopTypeGuard.ensureArray(record.missingBlobId1S, (element) => BebopTypeGuard.ensureArray(element, BebopTypeGuard.ensureUint8));
+    BebopTypeGuard.ensureArray(record.missingBlobSizes, BebopTypeGuard.ensureInt64);
+    BebopTypeGuard.ensureString(record.error)
+  }
+
+  /**
+   * Unsafely creates an instance of {@link BopStoreResponse} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IBopStoreResponse {
+      return new BopStoreResponse(record);
+  }
+
+  /**
+   * Creates a new {@link BopStoreResponse} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IBopStoreResponse {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`BopStoreResponse.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    BopStoreResponse.validateCompatibility(parsed);
+    return BopStoreResponse.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return BopStoreResponse.encode(this);
+  }
+
+  public static encode(record: IBopStoreResponse): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    this.encodeInto(message, view);
+    BopStoreResponse.encodeInto(record, view);
     return view.toArray();
-  },
+  }
 
-  encodeInto(message: IBopWriteBlobResponse, view: BebopView): number {
+  public static encodeInto(record: IBopStoreResponse, view: BebopView): number {
     const before = view.length;
-      const pos = view.reserveMessageLength();
-      const start = view.length;
-      if (message.status != null) {
-        view.writeByte(1);
-        view.writeUint32(message.status);
-      }
-      if (message.currentLength != null) {
-        view.writeByte(2);
-        view.writeUint64(message.currentLength);
-      }
-      if (message.error != null) {
-        view.writeByte(3);
-        view.writeString(message.error);
-      }
-      view.writeByte(0);
-      const end = view.length;
-      view.fillMessageLength(pos, end - start);
-    const after = view.length;
-    return after - before;
-  },
-
-  decode(buffer: Uint8Array): IBopWriteBlobResponse {
-    const view = BebopView.getInstance();
-    view.startReading(buffer);
-    return this.readFrom(view);
-  },
-
-  readFrom(view: BebopView): IBopWriteBlobResponse {
-    let message: IBopWriteBlobResponse = {};
-    const length = view.readMessageLength();
-    const end = view.index + length;
-    while (true) {
-      switch (view.readByte()) {
-        case 0:
-          return message;
-
-        case 1:
-          message.status = view.readUint32() as Status;
-          break;
-
-        case 2:
-          message.currentLength = view.readUint64();
-          break;
-
-        case 3:
-          message.error = view.readString();
-          break;
-
-        default:
-          view.index = end;
-          return message;
+    view.writeUint32(record.status);
+    {
+      const length0 = record.storedId1S.length;
+      view.writeUint32(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        view.writeBytes(record.storedId1S[i0]);
       }
     }
-  },
-};
+    {
+      const length0 = record.missingBlobId1S.length;
+      view.writeUint32(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        view.writeBytes(record.missingBlobId1S[i0]);
+      }
+    }
+    {
+      const length0 = record.missingBlobSizes.length;
+      view.writeUint32(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        view.writeInt64(record.missingBlobSizes[i0]);
+      }
+    }
+    view.writeString(record.error);
+    const after = view.length;
+    return after - before;
+  }
 
-export interface IBopReadBlobRequest {
-  nodeId1?: Uint8Array;
-  targetPublicKey?: Uint8Array;
-  sourcePublicKey?: Uint8Array;
-  pos?: bigint;
-  length?: number;
+  public static decode(buffer: Uint8Array): IBopStoreResponse {
+    const view = BebopView.getInstance();
+    view.startReading(buffer);
+    return BopStoreResponse.readFrom(view);
+  }
+
+  public static readFrom(view: BebopView): IBopStoreResponse {
+    let field0: Status;
+    field0 = view.readUint32() as Status;
+    let field1: Array<Uint8Array>;
+    {
+      let length0 = view.readUint32();
+      field1 = new Array<Uint8Array>(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        let x0: Uint8Array;
+        x0 = view.readBytes();
+        field1[i0] = x0;
+      }
+    }
+    let field2: Array<Uint8Array>;
+    {
+      let length0 = view.readUint32();
+      field2 = new Array<Uint8Array>(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        let x0: Uint8Array;
+        x0 = view.readBytes();
+        field2[i0] = x0;
+      }
+    }
+    let field3: Array<bigint>;
+    {
+      let length0 = view.readUint32();
+      field3 = new Array<bigint>(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        let x0: bigint;
+        x0 = view.readInt64();
+        field3[i0] = x0;
+      }
+    }
+    let field4: string;
+    field4 = view.readString();
+    let message: IBopStoreResponse = {
+      status: field0,
+      storedId1S: field1,
+      missingBlobId1S: field2,
+      missingBlobSizes: field3,
+      error: field4,
+    };
+    return new BopStoreResponse(message);
+  }
 }
 
-export const BopReadBlobRequest = {
-  opcode: 0x9,
-  encode(message: IBopReadBlobRequest): Uint8Array {
-    const view = BebopView.getInstance();
-    view.startWriting();
-    this.encodeInto(message, view);
-    return view.toArray();
-  },
-
-  encodeInto(message: IBopReadBlobRequest, view: BebopView): number {
-    const before = view.length;
-      const pos = view.reserveMessageLength();
-      const start = view.length;
-      if (message.nodeId1 != null) {
-        view.writeByte(1);
-        view.writeBytes(message.nodeId1);
-      }
-      if (message.targetPublicKey != null) {
-        view.writeByte(2);
-        view.writeBytes(message.targetPublicKey);
-      }
-      if (message.sourcePublicKey != null) {
-        view.writeByte(3);
-        view.writeBytes(message.sourcePublicKey);
-      }
-      if (message.pos != null) {
-        view.writeByte(4);
-        view.writeUint64(message.pos);
-      }
-      if (message.length != null) {
-        view.writeByte(5);
-        view.writeUint32(message.length);
-      }
-      view.writeByte(0);
-      const end = view.length;
-      view.fillMessageLength(pos, end - start);
-    const after = view.length;
-    return after - before;
-  },
-
-  decode(buffer: Uint8Array): IBopReadBlobRequest {
-    const view = BebopView.getInstance();
-    view.startReading(buffer);
-    return this.readFrom(view);
-  },
-
-  readFrom(view: BebopView): IBopReadBlobRequest {
-    let message: IBopReadBlobRequest = {};
-    const length = view.readMessageLength();
-    const end = view.index + length;
-    while (true) {
-      switch (view.readByte()) {
-        case 0:
-          return message;
-
-        case 1:
-          message.nodeId1 = view.readBytes();
-          break;
-
-        case 2:
-          message.targetPublicKey = view.readBytes();
-          break;
-
-        case 3:
-          message.sourcePublicKey = view.readBytes();
-          break;
-
-        case 4:
-          message.pos = view.readUint64();
-          break;
-
-        case 5:
-          message.length = view.readUint32();
-          break;
-
-        default:
-          view.index = end;
-          return message;
-      }
-    }
-  },
-};
-
-export interface IBopReadBlobResponse {
-  status?: Status;
-  data?: Uint8Array;
-  seq?: number;
-  endSeq?: number;
-  blobLength?: bigint;
-  error?: string;
+/**
+ * Struct used to send unsubscribe requests created on a prior fetch request.
+ */
+export interface IBopUnsubscribeRequest extends BebopRecord {
+  /**
+   * The msg ID of the fetch request message sent prior, from which we want to unsubscribe.
+   */
+  readonly originalMsgId: Uint8Array;
+  /**
+   * Optional.
+   *
+   * Who is the fetcher now unsubscribing from a prior fetch request.
+   * This public key must match the targetPublicKey in the fetch query we are
+   * now unsubscring from.
+   *
+   * Upon arrival this is by default set to the public key of the peer sending the message.
+   *
+   * It can be set differently by the sender if the receiving P2PClient is configured with
+   * allowUncheckedAccess.
+   */
+  readonly targetPublicKey: Uint8Array;
 }
 
-export const BopReadBlobResponse = {
-  opcode: 0xA,
-  encode(message: IBopReadBlobResponse): Uint8Array {
+export class BopUnsubscribeRequest implements IBopUnsubscribeRequest {
+  public static readonly opcode: number = 0x5 as 0x5;
+  public readonly originalMsgId: Uint8Array;
+  public readonly targetPublicKey: Uint8Array;
+
+  constructor(record: IBopUnsubscribeRequest) {
+    this.originalMsgId = record.originalMsgId;
+    this.targetPublicKey = record.targetPublicKey;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return BopUnsubscribeRequest.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IBopUnsubscribeRequest): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    BopUnsubscribeRequest.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link BopUnsubscribeRequest}.
+   */
+  public static validateCompatibility(record: IBopUnsubscribeRequest): void {
+    BebopTypeGuard.ensureArray(record.originalMsgId, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureArray(record.targetPublicKey, BebopTypeGuard.ensureUint8);
+  }
+
+  /**
+   * Unsafely creates an instance of {@link BopUnsubscribeRequest} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IBopUnsubscribeRequest {
+      return new BopUnsubscribeRequest(record);
+  }
+
+  /**
+   * Creates a new {@link BopUnsubscribeRequest} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IBopUnsubscribeRequest {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`BopUnsubscribeRequest.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    BopUnsubscribeRequest.validateCompatibility(parsed);
+    return BopUnsubscribeRequest.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return BopUnsubscribeRequest.encode(this);
+  }
+
+  public static encode(record: IBopUnsubscribeRequest): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    this.encodeInto(message, view);
+    BopUnsubscribeRequest.encodeInto(record, view);
     return view.toArray();
-  },
+  }
 
-  encodeInto(message: IBopReadBlobResponse, view: BebopView): number {
+  public static encodeInto(record: IBopUnsubscribeRequest, view: BebopView): number {
     const before = view.length;
-      const pos = view.reserveMessageLength();
-      const start = view.length;
-      if (message.status != null) {
-        view.writeByte(1);
-        view.writeUint32(message.status);
-      }
-      if (message.data != null) {
-        view.writeByte(2);
-        view.writeBytes(message.data);
-      }
-      if (message.seq != null) {
-        view.writeByte(3);
-        view.writeUint16(message.seq);
-      }
-      if (message.endSeq != null) {
-        view.writeByte(4);
-        view.writeUint16(message.endSeq);
-      }
-      if (message.blobLength != null) {
-        view.writeByte(5);
-        view.writeUint64(message.blobLength);
-      }
-      if (message.error != null) {
-        view.writeByte(6);
-        view.writeString(message.error);
-      }
-      view.writeByte(0);
-      const end = view.length;
-      view.fillMessageLength(pos, end - start);
+    view.writeBytes(record.originalMsgId);
+    view.writeBytes(record.targetPublicKey);
     const after = view.length;
     return after - before;
-  },
+  }
 
-  decode(buffer: Uint8Array): IBopReadBlobResponse {
+  public static decode(buffer: Uint8Array): IBopUnsubscribeRequest {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return this.readFrom(view);
-  },
+    return BopUnsubscribeRequest.readFrom(view);
+  }
 
-  readFrom(view: BebopView): IBopReadBlobResponse {
-    let message: IBopReadBlobResponse = {};
-    const length = view.readMessageLength();
-    const end = view.index + length;
-    while (true) {
-      switch (view.readByte()) {
-        case 0:
-          return message;
-
-        case 1:
-          message.status = view.readUint32() as Status;
-          break;
-
-        case 2:
-          message.data = view.readBytes();
-          break;
-
-        case 3:
-          message.seq = view.readUint16();
-          break;
-
-        case 4:
-          message.endSeq = view.readUint16();
-          break;
-
-        case 5:
-          message.blobLength = view.readUint64();
-          break;
-
-        case 6:
-          message.error = view.readString();
-          break;
-
-        default:
-          view.index = end;
-          return message;
-      }
-    }
-  },
-};
-
-export interface IBopGenericMessageRequest {
-  action?: string;
-  sourcePublicKey?: Uint8Array;
-  data?: Uint8Array;
+  public static readFrom(view: BebopView): IBopUnsubscribeRequest {
+    let field0: Uint8Array;
+    field0 = view.readBytes();
+    let field1: Uint8Array;
+    field1 = view.readBytes();
+    let message: IBopUnsubscribeRequest = {
+      originalMsgId: field0,
+      targetPublicKey: field1,
+    };
+    return new BopUnsubscribeRequest(message);
+  }
 }
 
-export const BopGenericMessageRequest = {
-  opcode: 0xB,
-  encode(message: IBopGenericMessageRequest): Uint8Array {
-    const view = BebopView.getInstance();
-    view.startWriting();
-    this.encodeInto(message, view);
-    return view.toArray();
-  },
-
-  encodeInto(message: IBopGenericMessageRequest, view: BebopView): number {
-    const before = view.length;
-      const pos = view.reserveMessageLength();
-      const start = view.length;
-      if (message.action != null) {
-        view.writeByte(1);
-        view.writeString(message.action);
-      }
-      if (message.sourcePublicKey != null) {
-        view.writeByte(2);
-        view.writeBytes(message.sourcePublicKey);
-      }
-      if (message.data != null) {
-        view.writeByte(3);
-        view.writeBytes(message.data);
-      }
-      view.writeByte(0);
-      const end = view.length;
-      view.fillMessageLength(pos, end - start);
-    const after = view.length;
-    return after - before;
-  },
-
-  decode(buffer: Uint8Array): IBopGenericMessageRequest {
-    const view = BebopView.getInstance();
-    view.startReading(buffer);
-    return this.readFrom(view);
-  },
-
-  readFrom(view: BebopView): IBopGenericMessageRequest {
-    let message: IBopGenericMessageRequest = {};
-    const length = view.readMessageLength();
-    const end = view.index + length;
-    while (true) {
-      switch (view.readByte()) {
-        case 0:
-          return message;
-
-        case 1:
-          message.action = view.readString();
-          break;
-
-        case 2:
-          message.sourcePublicKey = view.readBytes();
-          break;
-
-        case 3:
-          message.data = view.readBytes();
-          break;
-
-        default:
-          view.index = end;
-          return message;
-      }
-    }
-  },
-};
-
-export interface IBopGenericMessageResponse {
-  status?: Status;
-  data?: Uint8Array;
-  error?: string;
+/**
+ * Struct used for responding to unsubscribe requests.
+ */
+export interface IBopUnsubscribeResponse extends BebopRecord {
+  /**
+   * Expected status values:
+   * Status.RESULT
+   */
+  readonly status: Status;
+  /**
+   * If there was an error reported in Status an error message could be provided.
+   */
+  readonly error: string;
 }
 
-export const BopGenericMessageResponse = {
-  opcode: 0xC,
-  encode(message: IBopGenericMessageResponse): Uint8Array {
+export class BopUnsubscribeResponse implements IBopUnsubscribeResponse {
+  public static readonly opcode: number = 0x6 as 0x6;
+  public readonly status: Status;
+  public readonly error: string;
+
+  constructor(record: IBopUnsubscribeResponse) {
+    this.status = record.status;
+    this.error = record.error;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return BopUnsubscribeResponse.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IBopUnsubscribeResponse): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    BopUnsubscribeResponse.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link BopUnsubscribeResponse}.
+   */
+  public static validateCompatibility(record: IBopUnsubscribeResponse): void {
+    BebopTypeGuard.ensureEnum(record.status, Status);
+    BebopTypeGuard.ensureString(record.error)
+  }
+
+  /**
+   * Unsafely creates an instance of {@link BopUnsubscribeResponse} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IBopUnsubscribeResponse {
+      return new BopUnsubscribeResponse(record);
+  }
+
+  /**
+   * Creates a new {@link BopUnsubscribeResponse} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IBopUnsubscribeResponse {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`BopUnsubscribeResponse.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    BopUnsubscribeResponse.validateCompatibility(parsed);
+    return BopUnsubscribeResponse.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return BopUnsubscribeResponse.encode(this);
+  }
+
+  public static encode(record: IBopUnsubscribeResponse): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    this.encodeInto(message, view);
+    BopUnsubscribeResponse.encodeInto(record, view);
     return view.toArray();
-  },
+  }
 
-  encodeInto(message: IBopGenericMessageResponse, view: BebopView): number {
+  public static encodeInto(record: IBopUnsubscribeResponse, view: BebopView): number {
     const before = view.length;
-      const pos = view.reserveMessageLength();
-      const start = view.length;
-      if (message.status != null) {
-        view.writeByte(1);
-        view.writeUint32(message.status);
-      }
-      if (message.data != null) {
-        view.writeByte(2);
-        view.writeBytes(message.data);
-      }
-      if (message.error != null) {
-        view.writeByte(3);
-        view.writeString(message.error);
-      }
-      view.writeByte(0);
-      const end = view.length;
-      view.fillMessageLength(pos, end - start);
+    view.writeUint32(record.status);
+    view.writeString(record.error);
     const after = view.length;
     return after - before;
-  },
+  }
 
-  decode(buffer: Uint8Array): IBopGenericMessageResponse {
+  public static decode(buffer: Uint8Array): IBopUnsubscribeResponse {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return this.readFrom(view);
-  },
+    return BopUnsubscribeResponse.readFrom(view);
+  }
 
-  readFrom(view: BebopView): IBopGenericMessageResponse {
-    let message: IBopGenericMessageResponse = {};
-    const length = view.readMessageLength();
-    const end = view.index + length;
-    while (true) {
-      switch (view.readByte()) {
-        case 0:
-          return message;
+  public static readFrom(view: BebopView): IBopUnsubscribeResponse {
+    let field0: Status;
+    field0 = view.readUint32() as Status;
+    let field1: string;
+    field1 = view.readString();
+    let message: IBopUnsubscribeResponse = {
+      status: field0,
+      error: field1,
+    };
+    return new BopUnsubscribeResponse(message);
+  }
+}
 
-        case 1:
-          message.status = view.readUint32() as Status;
-          break;
+/**
+ * Struct used for sending write blob requests.
+ */
+export interface IBopWriteBlobRequest extends BebopRecord {
+  /**
+   * The node ID1 of the node we are writing blob data for.
+   */
+  readonly nodeId1: Uint8Array;
+  /**
+   * Optional.
+   *
+   * Who is the sender. Permissions are applied to this public key and access is
+   * needed to the blob node to be able to write blob data.
+   *
+   * Upon arrival this is by default set to the public key of the peer sending the message.
+   *
+   * It can be set differently by the sender if the receiving P2PClient is configured with
+   * allowUncheckedAccess.
+   */
+  readonly sourcePublicKey: Uint8Array;
+  /**
+   * Optional.
+   *
+   * Set for whom we are storing this blob data.
+   *
+   * Upon arrival this is by default set to the public key of the peer receiving this message.
+   *
+   * It can be set differently by the sender if the receiving P2PClient is configured with
+   * allowUncheckedAccess.
+   */
+  readonly targetPublicKey: Uint8Array;
+  /**
+   * The data of the blob to write at the given positon.
+   */
+  readonly data: Uint8Array;
+  /**
+   * The position in the blob to write at.
+   */
+  readonly pos: bigint;
+  /**
+   * Same as for StoreRequest.
+   */
+  readonly muteMsgIds: Array<Uint8Array>;
+}
 
-        case 2:
-          message.data = view.readBytes();
-          break;
+export class BopWriteBlobRequest implements IBopWriteBlobRequest {
+  public static readonly opcode: number = 0x7 as 0x7;
+  public readonly nodeId1: Uint8Array;
+  public readonly sourcePublicKey: Uint8Array;
+  public readonly targetPublicKey: Uint8Array;
+  public readonly data: Uint8Array;
+  public readonly pos: bigint;
+  public readonly muteMsgIds: Array<Uint8Array>;
 
-        case 3:
-          message.error = view.readString();
-          break;
+  constructor(record: IBopWriteBlobRequest) {
+    this.nodeId1 = record.nodeId1;
+    this.sourcePublicKey = record.sourcePublicKey;
+    this.targetPublicKey = record.targetPublicKey;
+    this.data = record.data;
+    this.pos = record.pos;
+    this.muteMsgIds = record.muteMsgIds;
+  }
 
-        default:
-          view.index = end;
-          return message;
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return BopWriteBlobRequest.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IBopWriteBlobRequest): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    BopWriteBlobRequest.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link BopWriteBlobRequest}.
+   */
+  public static validateCompatibility(record: IBopWriteBlobRequest): void {
+    BebopTypeGuard.ensureArray(record.nodeId1, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureArray(record.sourcePublicKey, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureArray(record.targetPublicKey, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureArray(record.data, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureUint64(record.pos)
+    BebopTypeGuard.ensureArray(record.muteMsgIds, (element) => BebopTypeGuard.ensureArray(element, BebopTypeGuard.ensureUint8));
+  }
+
+  /**
+   * Unsafely creates an instance of {@link BopWriteBlobRequest} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IBopWriteBlobRequest {
+      return new BopWriteBlobRequest(record);
+  }
+
+  /**
+   * Creates a new {@link BopWriteBlobRequest} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IBopWriteBlobRequest {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`BopWriteBlobRequest.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    BopWriteBlobRequest.validateCompatibility(parsed);
+    return BopWriteBlobRequest.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return BopWriteBlobRequest.encode(this);
+  }
+
+  public static encode(record: IBopWriteBlobRequest): Uint8Array {
+    const view = BebopView.getInstance();
+    view.startWriting();
+    BopWriteBlobRequest.encodeInto(record, view);
+    return view.toArray();
+  }
+
+  public static encodeInto(record: IBopWriteBlobRequest, view: BebopView): number {
+    const before = view.length;
+    view.writeBytes(record.nodeId1);
+    view.writeBytes(record.sourcePublicKey);
+    view.writeBytes(record.targetPublicKey);
+    view.writeBytes(record.data);
+    view.writeUint64(record.pos);
+    {
+      const length0 = record.muteMsgIds.length;
+      view.writeUint32(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        view.writeBytes(record.muteMsgIds[i0]);
       }
     }
-  },
-};
+    const after = view.length;
+    return after - before;
+  }
+
+  public static decode(buffer: Uint8Array): IBopWriteBlobRequest {
+    const view = BebopView.getInstance();
+    view.startReading(buffer);
+    return BopWriteBlobRequest.readFrom(view);
+  }
+
+  public static readFrom(view: BebopView): IBopWriteBlobRequest {
+    let field0: Uint8Array;
+    field0 = view.readBytes();
+    let field1: Uint8Array;
+    field1 = view.readBytes();
+    let field2: Uint8Array;
+    field2 = view.readBytes();
+    let field3: Uint8Array;
+    field3 = view.readBytes();
+    let field4: bigint;
+    field4 = view.readUint64();
+    let field5: Array<Uint8Array>;
+    {
+      let length0 = view.readUint32();
+      field5 = new Array<Uint8Array>(length0);
+      for (let i0 = 0; i0 < length0; i0++) {
+        let x0: Uint8Array;
+        x0 = view.readBytes();
+        field5[i0] = x0;
+      }
+    }
+    let message: IBopWriteBlobRequest = {
+      nodeId1: field0,
+      sourcePublicKey: field1,
+      targetPublicKey: field2,
+      data: field3,
+      pos: field4,
+      muteMsgIds: field5,
+    };
+    return new BopWriteBlobRequest(message);
+  }
+}
+
+/**
+ * Struct used for responding to write blob requests.
+ */
+export interface IBopWriteBlobResponse extends BebopRecord {
+  /**
+   * Expected status values:
+   * Status.ERROR some error occurred
+   * Status.NOT_ALLOWED if access to node is not allowed, node not found or if allowWriteBlob is
+   * set to false.
+   * Status.MALFORMED if input values are wrong or if node is not configured for blob.
+   * Status.EXISTS if the blob already exists or if the blob just got finalized to exist from this
+   * write or copy action
+   * Status.STORE_FAILED if data could not be written or finalized. Database could be busy.
+   * Status.MISMATCH if hash does not compute after all data is written.
+   * Status.RESULT on successful write, currentLength is set to the size of the written data so far.
+   * The length is the continuous length from start til first gap.
+   * This info can be used for resuming writes.
+   */
+  readonly status: Status;
+  /**
+   * The current length of the blob data written.
+   * If Status.EXISTS is returned currentLength is set to the full length of the blob.
+   * If Status.RESULT is returned currentLength is set to the current length of the total
+   * continuous blob data written.
+   */
+  readonly currentLength: bigint;
+  /**
+   * If there was an error reported in Status an error message could be provided.
+   */
+  readonly error: string;
+}
+
+export class BopWriteBlobResponse implements IBopWriteBlobResponse {
+  public static readonly opcode: number = 0x8 as 0x8;
+  public readonly status: Status;
+  public readonly currentLength: bigint;
+  public readonly error: string;
+
+  constructor(record: IBopWriteBlobResponse) {
+    this.status = record.status;
+    this.currentLength = record.currentLength;
+    this.error = record.error;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return BopWriteBlobResponse.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IBopWriteBlobResponse): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    BopWriteBlobResponse.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link BopWriteBlobResponse}.
+   */
+  public static validateCompatibility(record: IBopWriteBlobResponse): void {
+    BebopTypeGuard.ensureEnum(record.status, Status);
+    BebopTypeGuard.ensureUint64(record.currentLength)
+    BebopTypeGuard.ensureString(record.error)
+  }
+
+  /**
+   * Unsafely creates an instance of {@link BopWriteBlobResponse} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IBopWriteBlobResponse {
+      return new BopWriteBlobResponse(record);
+  }
+
+  /**
+   * Creates a new {@link BopWriteBlobResponse} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IBopWriteBlobResponse {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`BopWriteBlobResponse.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    BopWriteBlobResponse.validateCompatibility(parsed);
+    return BopWriteBlobResponse.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return BopWriteBlobResponse.encode(this);
+  }
+
+  public static encode(record: IBopWriteBlobResponse): Uint8Array {
+    const view = BebopView.getInstance();
+    view.startWriting();
+    BopWriteBlobResponse.encodeInto(record, view);
+    return view.toArray();
+  }
+
+  public static encodeInto(record: IBopWriteBlobResponse, view: BebopView): number {
+    const before = view.length;
+    view.writeUint32(record.status);
+    view.writeUint64(record.currentLength);
+    view.writeString(record.error);
+    const after = view.length;
+    return after - before;
+  }
+
+  public static decode(buffer: Uint8Array): IBopWriteBlobResponse {
+    const view = BebopView.getInstance();
+    view.startReading(buffer);
+    return BopWriteBlobResponse.readFrom(view);
+  }
+
+  public static readFrom(view: BebopView): IBopWriteBlobResponse {
+    let field0: Status;
+    field0 = view.readUint32() as Status;
+    let field1: bigint;
+    field1 = view.readUint64();
+    let field2: string;
+    field2 = view.readString();
+    let message: IBopWriteBlobResponse = {
+      status: field0,
+      currentLength: field1,
+      error: field2,
+    };
+    return new BopWriteBlobResponse(message);
+  }
+}
+
+/**
+ * Struct used for sending read blob requests.
+ */
+export interface IBopReadBlobRequest extends BebopRecord {
+  /**
+   * The node ID1 of the node we are reading blob data for.
+   */
+  readonly nodeId1: Uint8Array;
+  /**
+   * Optional.
+   *
+   * For whom this blob read is performed. Permissions are applied to this public key.
+   *
+   * Upon arrival this is by default set to the public key of the peer sending the message.
+   *
+   * It can be set differently by the sender if the receiving P2PClient is configured with
+   * allowUncheckedAccess.
+   */
+  readonly targetPublicKey: Uint8Array;
+  /**
+   * Optional.
+   *
+   * Who is the source of the blob data we are fetching.
+   *
+   * Upon arrival this is by default set to the public key of the peer receiving this message.
+   *
+   * It can be set differently by the sender if the receiving P2PClient is configured with
+   * allowUncheckedAccess.
+   */
+  readonly sourcePublicKey: Uint8Array;
+  /**
+   * The position in the blob to read from.
+   */
+  readonly pos: bigint;
+  /**
+   * Number of bytes to read.
+   * Reads are chopped up in sequences of smaller packages in the KiB range (as is fetching).
+   * Length cannot be greater than 1 MiB, if blob is larger than a subsequent request must be made.
+   */
+  readonly length: number;
+}
+
+export class BopReadBlobRequest implements IBopReadBlobRequest {
+  public static readonly opcode: number = 0x9 as 0x9;
+  public readonly nodeId1: Uint8Array;
+  public readonly targetPublicKey: Uint8Array;
+  public readonly sourcePublicKey: Uint8Array;
+  public readonly pos: bigint;
+  public readonly length: number;
+
+  constructor(record: IBopReadBlobRequest) {
+    this.nodeId1 = record.nodeId1;
+    this.targetPublicKey = record.targetPublicKey;
+    this.sourcePublicKey = record.sourcePublicKey;
+    this.pos = record.pos;
+    this.length = record.length;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return BopReadBlobRequest.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IBopReadBlobRequest): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    BopReadBlobRequest.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link BopReadBlobRequest}.
+   */
+  public static validateCompatibility(record: IBopReadBlobRequest): void {
+    BebopTypeGuard.ensureArray(record.nodeId1, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureArray(record.targetPublicKey, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureArray(record.sourcePublicKey, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureUint64(record.pos)
+    BebopTypeGuard.ensureUint32(record.length)
+  }
+
+  /**
+   * Unsafely creates an instance of {@link BopReadBlobRequest} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IBopReadBlobRequest {
+      return new BopReadBlobRequest(record);
+  }
+
+  /**
+   * Creates a new {@link BopReadBlobRequest} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IBopReadBlobRequest {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`BopReadBlobRequest.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    BopReadBlobRequest.validateCompatibility(parsed);
+    return BopReadBlobRequest.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return BopReadBlobRequest.encode(this);
+  }
+
+  public static encode(record: IBopReadBlobRequest): Uint8Array {
+    const view = BebopView.getInstance();
+    view.startWriting();
+    BopReadBlobRequest.encodeInto(record, view);
+    return view.toArray();
+  }
+
+  public static encodeInto(record: IBopReadBlobRequest, view: BebopView): number {
+    const before = view.length;
+    view.writeBytes(record.nodeId1);
+    view.writeBytes(record.targetPublicKey);
+    view.writeBytes(record.sourcePublicKey);
+    view.writeUint64(record.pos);
+    view.writeUint32(record.length);
+    const after = view.length;
+    return after - before;
+  }
+
+  public static decode(buffer: Uint8Array): IBopReadBlobRequest {
+    const view = BebopView.getInstance();
+    view.startReading(buffer);
+    return BopReadBlobRequest.readFrom(view);
+  }
+
+  public static readFrom(view: BebopView): IBopReadBlobRequest {
+    let field0: Uint8Array;
+    field0 = view.readBytes();
+    let field1: Uint8Array;
+    field1 = view.readBytes();
+    let field2: Uint8Array;
+    field2 = view.readBytes();
+    let field3: bigint;
+    field3 = view.readUint64();
+    let field4: number;
+    field4 = view.readUint32();
+    let message: IBopReadBlobRequest = {
+      nodeId1: field0,
+      targetPublicKey: field1,
+      sourcePublicKey: field2,
+      pos: field3,
+      length: field4,
+    };
+    return new BopReadBlobRequest(message);
+  }
+}
+
+/**
+ * Struct used for responding to read blob requests.
+ */
+export interface IBopReadBlobResponse extends BebopRecord {
+  /**
+   * Expected status values:
+   * Status.ERROR if some error or exception occurred.
+   * Status.NOT_ALLOWED if read permissions to the node is not allowed for the client,target combo
+   * or if allowReadBlob is set to false, or if the node is not found.
+   * Status.FETCH_FAILED if blob data is not (yet) available.
+   * Status.MALFORMED if input values are wrong or if the node is fetched on id2, or if node is not
+   * configured for blob.
+   * Status.RESULT on successful read.
+   */
+  readonly status: Status;
+  /**
+   * The read data.
+   */
+  readonly data: Uint8Array;
+  /**
+   * Counter starting from 1 and will increase for each ReadBlobResponse sent for the same ReadBlobRequest.
+   * If seq == 0 then indicates an error and the message will be removed.
+   */
+  readonly seq: number;
+  /**
+   * States how many responses to expect.
+   * If == 0 then undetermined nr of responses will follow.
+   * If endSeq == seq it means this is the last response in this batch and the message will be removed.
+   */
+  readonly endSeq: number;
+  /**
+   * When successfully reading blob data this property tells the full length in bytes of the blob.
+   */
+  readonly blobLength: bigint;
+  /**
+   * If there was an error reported in Status an error message could be provided.
+   */
+  readonly error: string;
+}
+
+export class BopReadBlobResponse implements IBopReadBlobResponse {
+  public static readonly opcode: number = 0xA as 0xA;
+  public readonly status: Status;
+  public readonly data: Uint8Array;
+  public readonly seq: number;
+  public readonly endSeq: number;
+  public readonly blobLength: bigint;
+  public readonly error: string;
+
+  constructor(record: IBopReadBlobResponse) {
+    this.status = record.status;
+    this.data = record.data;
+    this.seq = record.seq;
+    this.endSeq = record.endSeq;
+    this.blobLength = record.blobLength;
+    this.error = record.error;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return BopReadBlobResponse.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IBopReadBlobResponse): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    BopReadBlobResponse.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link BopReadBlobResponse}.
+   */
+  public static validateCompatibility(record: IBopReadBlobResponse): void {
+    BebopTypeGuard.ensureEnum(record.status, Status);
+    BebopTypeGuard.ensureArray(record.data, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureUint16(record.seq)
+    BebopTypeGuard.ensureUint16(record.endSeq)
+    BebopTypeGuard.ensureUint64(record.blobLength)
+    BebopTypeGuard.ensureString(record.error)
+  }
+
+  /**
+   * Unsafely creates an instance of {@link BopReadBlobResponse} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IBopReadBlobResponse {
+      return new BopReadBlobResponse(record);
+  }
+
+  /**
+   * Creates a new {@link BopReadBlobResponse} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IBopReadBlobResponse {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`BopReadBlobResponse.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    BopReadBlobResponse.validateCompatibility(parsed);
+    return BopReadBlobResponse.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return BopReadBlobResponse.encode(this);
+  }
+
+  public static encode(record: IBopReadBlobResponse): Uint8Array {
+    const view = BebopView.getInstance();
+    view.startWriting();
+    BopReadBlobResponse.encodeInto(record, view);
+    return view.toArray();
+  }
+
+  public static encodeInto(record: IBopReadBlobResponse, view: BebopView): number {
+    const before = view.length;
+    view.writeUint32(record.status);
+    view.writeBytes(record.data);
+    view.writeUint16(record.seq);
+    view.writeUint16(record.endSeq);
+    view.writeUint64(record.blobLength);
+    view.writeString(record.error);
+    const after = view.length;
+    return after - before;
+  }
+
+  public static decode(buffer: Uint8Array): IBopReadBlobResponse {
+    const view = BebopView.getInstance();
+    view.startReading(buffer);
+    return BopReadBlobResponse.readFrom(view);
+  }
+
+  public static readFrom(view: BebopView): IBopReadBlobResponse {
+    let field0: Status;
+    field0 = view.readUint32() as Status;
+    let field1: Uint8Array;
+    field1 = view.readBytes();
+    let field2: number;
+    field2 = view.readUint16();
+    let field3: number;
+    field3 = view.readUint16();
+    let field4: bigint;
+    field4 = view.readUint64();
+    let field5: string;
+    field5 = view.readString();
+    let message: IBopReadBlobResponse = {
+      status: field0,
+      data: field1,
+      seq: field2,
+      endSeq: field3,
+      blobLength: field4,
+      error: field5,
+    };
+    return new BopReadBlobResponse(message);
+  }
+}
+
+/**
+ * Struct used for sending generic messages to peer
+ * This generic messaging gives two peers the possibility to exchange messages but which are not
+ * nodes in the tree.
+ */
+export interface IBopGenericMessageRequest extends BebopRecord {
+  /**
+   * Arbitrary string which the peer might understand the meaning of.
+   */
+  readonly action: string;
+  /**
+   * Optional.
+   *
+   * Upon arrival this is by default set to the public key of the peer sending the message.
+   *
+   * It can be set differently by the sender if the receiving P2PClient is configured with
+   * allowUncheckedAccess.
+   */
+  readonly sourcePublicKey: Uint8Array;
+  /**
+   * This can be JSON or whatever else serialized that the peer can understand.
+   * Note that any request sent has a total envelope limit of 64 KiB,
+   * meaning that any longer messages have to be split up.
+   */
+  readonly data: Uint8Array;
+}
+
+export class BopGenericMessageRequest implements IBopGenericMessageRequest {
+  public static readonly opcode: number = 0xB as 0xB;
+  public readonly action: string;
+  public readonly sourcePublicKey: Uint8Array;
+  public readonly data: Uint8Array;
+
+  constructor(record: IBopGenericMessageRequest) {
+    this.action = record.action;
+    this.sourcePublicKey = record.sourcePublicKey;
+    this.data = record.data;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return BopGenericMessageRequest.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IBopGenericMessageRequest): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    BopGenericMessageRequest.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link BopGenericMessageRequest}.
+   */
+  public static validateCompatibility(record: IBopGenericMessageRequest): void {
+    BebopTypeGuard.ensureString(record.action)
+    BebopTypeGuard.ensureArray(record.sourcePublicKey, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureArray(record.data, BebopTypeGuard.ensureUint8);
+  }
+
+  /**
+   * Unsafely creates an instance of {@link BopGenericMessageRequest} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IBopGenericMessageRequest {
+      return new BopGenericMessageRequest(record);
+  }
+
+  /**
+   * Creates a new {@link BopGenericMessageRequest} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IBopGenericMessageRequest {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`BopGenericMessageRequest.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    BopGenericMessageRequest.validateCompatibility(parsed);
+    return BopGenericMessageRequest.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return BopGenericMessageRequest.encode(this);
+  }
+
+  public static encode(record: IBopGenericMessageRequest): Uint8Array {
+    const view = BebopView.getInstance();
+    view.startWriting();
+    BopGenericMessageRequest.encodeInto(record, view);
+    return view.toArray();
+  }
+
+  public static encodeInto(record: IBopGenericMessageRequest, view: BebopView): number {
+    const before = view.length;
+    view.writeString(record.action);
+    view.writeBytes(record.sourcePublicKey);
+    view.writeBytes(record.data);
+    const after = view.length;
+    return after - before;
+  }
+
+  public static decode(buffer: Uint8Array): IBopGenericMessageRequest {
+    const view = BebopView.getInstance();
+    view.startReading(buffer);
+    return BopGenericMessageRequest.readFrom(view);
+  }
+
+  public static readFrom(view: BebopView): IBopGenericMessageRequest {
+    let field0: string;
+    field0 = view.readString();
+    let field1: Uint8Array;
+    field1 = view.readBytes();
+    let field2: Uint8Array;
+    field2 = view.readBytes();
+    let message: IBopGenericMessageRequest = {
+      action: field0,
+      sourcePublicKey: field1,
+      data: field2,
+    };
+    return new BopGenericMessageRequest(message);
+  }
+}
+
+/**
+ * Struct used for responding on generic message requests
+ */
+export interface IBopGenericMessageResponse extends BebopRecord {
+  /**
+   * Expected status values is all dependant on how the peers implement their messaging protocol.
+   */
+  readonly status: Status;
+  /**
+   * Whatever the peer responded with.
+   */
+  readonly data: Uint8Array;
+  /**
+   * If there was an error reported in Status an error message could be provided.
+   */
+  readonly error: string;
+}
+
+export class BopGenericMessageResponse implements IBopGenericMessageResponse {
+  public static readonly opcode: number = 0xC as 0xC;
+  public readonly status: Status;
+  public readonly data: Uint8Array;
+  public readonly error: string;
+
+  constructor(record: IBopGenericMessageResponse) {
+    this.status = record.status;
+    this.data = record.data;
+    this.error = record.error;
+  }
+
+  /**
+   * Serializes the current instance into a JSON-Over-Bebop string
+   */
+  public stringify(): string {
+    return BopGenericMessageResponse.encodeToJSON(this);
+  }
+
+  /**
+   * Serializes the specified object into a JSON-Over-Bebop string
+   */
+  public static encodeToJSON(record: IBopGenericMessageResponse): string {
+    return JSON.stringify(record, BebopJson.replacer);
+  }
+
+  /**
+   * Validates that the runtime types of members in the current instance are correct.
+   */
+  public validateTypes(): void {
+    BopGenericMessageResponse.validateCompatibility(this);
+  }
+
+  /**
+   * Validates that the specified dynamic object can become an instance of {@link BopGenericMessageResponse}.
+   */
+  public static validateCompatibility(record: IBopGenericMessageResponse): void {
+    BebopTypeGuard.ensureEnum(record.status, Status);
+    BebopTypeGuard.ensureArray(record.data, BebopTypeGuard.ensureUint8);
+    BebopTypeGuard.ensureString(record.error)
+  }
+
+  /**
+   * Unsafely creates an instance of {@link BopGenericMessageResponse} from the specified dynamic object. No type checking is performed.
+   */
+  public static unsafeCast(record: any): IBopGenericMessageResponse {
+      return new BopGenericMessageResponse(record);
+  }
+
+  /**
+   * Creates a new {@link BopGenericMessageResponse} instance from a JSON-Over-Bebop string. Type checking is performed.
+   */
+  public static fromJSON(json: string): IBopGenericMessageResponse {
+    if (typeof json !== 'string' || json.trim().length === 0) {
+      throw new BebopRuntimeError(`BopGenericMessageResponse.fromJSON: expected string`);
+    }
+    const parsed = JSON.parse(json, BebopJson.reviver);
+    BopGenericMessageResponse.validateCompatibility(parsed);
+    return BopGenericMessageResponse.unsafeCast(parsed);
+  }
+  public encode(): Uint8Array {
+    return BopGenericMessageResponse.encode(this);
+  }
+
+  public static encode(record: IBopGenericMessageResponse): Uint8Array {
+    const view = BebopView.getInstance();
+    view.startWriting();
+    BopGenericMessageResponse.encodeInto(record, view);
+    return view.toArray();
+  }
+
+  public static encodeInto(record: IBopGenericMessageResponse, view: BebopView): number {
+    const before = view.length;
+    view.writeUint32(record.status);
+    view.writeBytes(record.data);
+    view.writeString(record.error);
+    const after = view.length;
+    return after - before;
+  }
+
+  public static decode(buffer: Uint8Array): IBopGenericMessageResponse {
+    const view = BebopView.getInstance();
+    view.startReading(buffer);
+    return BopGenericMessageResponse.readFrom(view);
+  }
+
+  public static readFrom(view: BebopView): IBopGenericMessageResponse {
+    let field0: Status;
+    field0 = view.readUint32() as Status;
+    let field1: Uint8Array;
+    field1 = view.readBytes();
+    let field2: string;
+    field2 = view.readString();
+    let message: IBopGenericMessageResponse = {
+      status: field0,
+      data: field1,
+      error: field2,
+    };
+    return new BopGenericMessageResponse(message);
+  }
+}
 

@@ -107,17 +107,21 @@ export class BebopDeserialize {
 
         const obj = BopFetchRequest.decode(data.slice(4));
 
-        if (obj.query === undefined || obj.crdt === undefined) {
-            throw new Error("Could not deserialize FetchRequest");
-        }
-
+        //@ts-ignore
         obj.crdt.cursorId1 = MakeIntoBuffer(obj.crdt.cursorId1);
+        //@ts-ignore
         obj.crdt.msgId = MakeIntoBuffer(obj.crdt.msgId);
+        //@ts-ignore
         obj.query.rootNodeId1 = MakeIntoBuffer(obj.query.rootNodeId1);
+        //@ts-ignore
         obj.query.parentId = MakeIntoBuffer(obj.query.parentId);
+        //@ts-ignore
         obj.query.targetPublicKey = MakeIntoBuffer(obj.query.targetPublicKey);
+        //@ts-ignore
         obj.query.sourcePublicKey = MakeIntoBuffer(obj.query.sourcePublicKey);
+        //@ts-ignore
         obj.query.triggerNodeId = MakeIntoBuffer(obj.query.triggerNodeId);
+        //@ts-ignore
         obj.query.match = obj.query.match.map( match => {
             return {
                 ...match,
@@ -125,6 +129,7 @@ export class BebopDeserialize {
                 cursorId1: MakeIntoBuffer(match.cursorId1),
             };
         });
+        //@ts-ignore
         obj.query.embed = obj.query.embed.map( embed => {
             return {
                 ...embed,
@@ -148,15 +153,11 @@ export class BebopDeserialize {
 
         const obj = BopFetchResponse.decode(data.slice(4));
 
-        if (obj.result === undefined || obj.crdtResult === undefined ||
-            obj.status === undefined || obj.seq === undefined ||
-            obj.endSeq === undefined || obj.rowCount === undefined || obj.error === undefined)
-        {
-            throw new Error("Could not deserialize FetchResponse");
-        }
-
+        //@ts-ignore
         obj.result.nodes = obj.result.nodes.map( MakeIntoBuffer );
+        //@ts-ignore
         obj.result.embed = obj.result.embed.map( MakeIntoBuffer );
+        //@ts-ignore
         obj.crdtResult.delta = MakeIntoBuffer(obj.crdtResult.delta);
 
         return (obj as unknown) as FetchResponse;
@@ -175,17 +176,13 @@ export class BebopDeserialize {
 
         const obj = BopStoreRequest.decode(data.slice(4));
 
-        if (obj.nodes === undefined || obj.sourcePublicKey === undefined ||
-            obj.targetPublicKey === undefined || obj.muteMsgIds === undefined ||
-            obj.preserveTransient === undefined || obj.batchId === undefined ||
-            obj.hasMore === undefined)
-        {
-            throw new Error("Could not deserialize StoreRequest");
-        }
-
+        //@ts-ignore
         obj.nodes = obj.nodes.map( MakeIntoBuffer );
+        //@ts-ignore
         obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
+        //@ts-ignore
         obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
+        //@ts-ignore
         obj.muteMsgIds = obj.muteMsgIds.map( MakeIntoBuffer );
 
         return obj as unknown as StoreRequest;
@@ -204,15 +201,9 @@ export class BebopDeserialize {
 
         const obj = BopStoreResponse.decode(data.slice(4));
 
-        if (obj.status === undefined || obj.storedId1S === undefined ||
-            obj.missingBlobId1S === undefined || obj.missingBlobSizes === undefined ||
-            obj.error === undefined)
-        {
-            throw new Error("Could not deserialize StoreResponse");
-        }
-
         const storeResponse: StoreResponse = {
             error: obj.error as string,
+            //@ts-ignore
             status: obj.status as Status,
             storedId1s: obj.storedId1S.map( MakeIntoBuffer ),
             missingBlobId1s: obj.missingBlobId1S.map( MakeIntoBuffer ),
@@ -235,11 +226,9 @@ export class BebopDeserialize {
 
         const obj = BopUnsubscribeRequest.decode(data.slice(4));
 
-        if (obj.originalMsgId === undefined || obj.targetPublicKey === undefined) {
-            throw new Error("Could not deserialize UnsubscribeRequest");
-        }
-
+        //@ts-ignore
         obj.originalMsgId = MakeIntoBuffer(obj.originalMsgId);
+        //@ts-ignore
         obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
 
         return obj as unknown as UnsubscribeRequest;
@@ -258,10 +247,6 @@ export class BebopDeserialize {
 
         const obj = BopUnsubscribeResponse.decode(data.slice(4));
 
-        if (obj.status === undefined || obj.error === undefined) {
-            throw new Error("Could not deserialize UnsubscribeResponse");
-        }
-
         return obj as unknown as UnsubscribeResponse;
     }
 
@@ -278,17 +263,15 @@ export class BebopDeserialize {
 
         const obj = BopWriteBlobRequest.decode(data.slice(4));
 
-        if (obj.nodeId1 === undefined || obj.sourcePublicKey === undefined ||
-            obj.targetPublicKey === undefined || obj.data === undefined ||
-            obj.pos === undefined || obj.muteMsgIds === undefined)
-        {
-            throw new Error("Could not deserialize WriteBlobRequest");
-        }
-
+        //@ts-ignore
         obj.nodeId1 = MakeIntoBuffer(obj.nodeId1);
+        //@ts-ignore
         obj.data = MakeIntoBuffer(obj.data);
+        //@ts-ignore
         obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
+        //@ts-ignore
         obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
+        //@ts-ignore
         obj.muteMsgIds = obj.muteMsgIds.map( MakeIntoBuffer );
 
         return obj as unknown as WriteBlobRequest;
@@ -307,10 +290,6 @@ export class BebopDeserialize {
 
         const obj = BopWriteBlobResponse.decode(data.slice(4));
 
-        if (obj.status === undefined || obj.currentLength === undefined || obj.error === undefined) {
-            throw new Error("Could not deserialize WriteBlobResponse");
-        }
-
         return obj as unknown as WriteBlobResponse;
     }
 
@@ -327,14 +306,11 @@ export class BebopDeserialize {
 
         const obj = BopReadBlobRequest.decode(data.slice(4));
 
-        if (obj.nodeId1 === undefined || obj.sourcePublicKey === undefined ||
-            obj.targetPublicKey === undefined || obj.pos === undefined || obj.length === undefined)
-        {
-            throw new Error("Could not deserialize ReadBlobRequest");
-        }
-
+        //@ts-ignore
         obj.nodeId1 = MakeIntoBuffer(obj.nodeId1);
+        //@ts-ignore
         obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
+        //@ts-ignore
         obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
 
         return obj as unknown as ReadBlobRequest;
@@ -353,13 +329,7 @@ export class BebopDeserialize {
 
         const obj = BopReadBlobResponse.decode(data.slice(4));
 
-        if (obj.status === undefined || obj.data === undefined ||
-            obj.seq === undefined || obj.endSeq === undefined ||
-            obj.blobLength === undefined || obj.error === undefined)
-        {
-            throw new Error("Could not deserialize WriteBlobRequest");
-        }
-
+        //@ts-ignore
         obj.data = MakeIntoBuffer(obj.data);
 
         return obj as unknown as ReadBlobResponse;
@@ -378,11 +348,9 @@ export class BebopDeserialize {
 
         const obj = BopGenericMessageRequest.decode(data.slice(4));
 
-        if (obj.action === undefined || obj.sourcePublicKey === undefined || obj.data === undefined) {
-            throw new Error("Could not deserialize GenericMessageRequest");
-        }
-
+        //@ts-ignore
         obj.data = MakeIntoBuffer(obj.data);
+        //@ts-ignore
         obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
 
         return obj as unknown as GenericMessageRequest;
@@ -401,10 +369,7 @@ export class BebopDeserialize {
 
         const obj = BopGenericMessageResponse.decode(data.slice(4));
 
-        if (obj.status === undefined || obj.error === undefined || obj.data === undefined) {
-            throw new Error("Could not deserialize GenericMessageResponse");
-        }
-
+        //@ts-ignore
         obj.data = MakeIntoBuffer(obj.data);
 
         return obj as unknown as GenericMessageResponse;
