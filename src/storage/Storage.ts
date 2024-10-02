@@ -643,7 +643,7 @@ export class Storage {
 
                     trigger.fetchRequest.crdt.cursorIndex = fetchRequestCopy.crdt.cursorIndex;
 
-                    const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
+                    const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE) as FetchResponse;
 
                     sendResponse(fetchResponse);
 
@@ -651,7 +651,7 @@ export class Storage {
                     this.runTrigger(trigger);
                 }
                 else {
-                    const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
+                    const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE) as FetchResponse;
                     fetchResponse.status = Status.MALFORMED;
                     fetchResponse.error  = "Trigger does not exist";
                     sendResponse(fetchResponse);
@@ -696,7 +696,7 @@ export class Storage {
 
             // Note that this message has seq === 0 which will cancel the trigger.
             //
-            const errorFetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
+            const errorFetchResponse = DeepCopy(EMPTY_FETCHRESPONSE) as FetchResponse;
             errorFetchResponse.status = status ?? Status.ERROR;
             errorFetchResponse.error  = error;
 
@@ -1009,7 +1009,7 @@ export class Storage {
         else {
             // Note that this message has seq === 0 which will cancel the trigger.
             //
-            const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
+            const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE) as FetchResponse;
             fetchResponse.status    = status;
             fetchResponse.error     = error ?? "";
 

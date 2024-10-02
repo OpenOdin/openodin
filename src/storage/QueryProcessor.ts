@@ -831,7 +831,7 @@ export class QueryProcessor {
         this.fetchQuery.match.forEach( match => {
             if (match.level.length === 0 || match.level.includes(level)) {
 
-                match = DeepCopy(match);
+                match = DeepCopy(match) as Match;
 
                 const filtersLength = match.filters.length;
                 for (let i=0; i<filtersLength; i++) {

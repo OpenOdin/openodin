@@ -50,7 +50,7 @@ export class StreamCRDT {
         protected unsetDataFn?: UnsetDataFn,
         protected purgeInterval: number = 60_000)
     {
-        this.fetchRequest = DeepCopy(fetchRequest);
+        this.fetchRequest = DeepCopy(fetchRequest) as FetchRequest;
 
         this.crdtView = new CRDTView(fetchRequest.query.preserveTransient, setDataFn, unsetDataFn);
 

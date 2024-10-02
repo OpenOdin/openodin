@@ -102,7 +102,7 @@ export class AuthFactoryRPCServer {
             throw new Error("Auth must be done with an Ed25519 keypair.");
         }
 
-        apiAuthFactoryConfig2.keyPair = DeepCopy(keyPair);
+        apiAuthFactoryConfig2.keyPair = DeepCopy(keyPair) as KeyPair;
 
         const serverPublicKey = apiAuthFactoryConfig2.serverPublicKey;
 
@@ -164,7 +164,7 @@ export class AuthFactoryRPCServer {
             throw new Error("Auth must be done with an Ed25519 keypair.");
         }
 
-        userHandshakeFactoryConfig2.keyPair = DeepCopy(keyPair);
+        userHandshakeFactoryConfig2.keyPair = DeepCopy(keyPair) as KeyPair;
 
         const serverPublicKey = userHandshakeFactoryConfig2.serverPublicKey;
 

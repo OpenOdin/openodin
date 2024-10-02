@@ -105,7 +105,7 @@ export class BebopSerialize {
      * @throws
      */
     public FetchRequest(fetchRequest: FetchRequest): Buffer {
-        const obj = DeepCopy(fetchRequest) as any;
+        const obj = DeepCopy(fetchRequest) as FetchRequest;
         if (!obj || !obj.query) {
             throw new Error("Could not serialize FetchRequest");
         }

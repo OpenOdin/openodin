@@ -89,11 +89,11 @@ export function DeepEquals(o1: any, o2: any): boolean {
  * Return deep copy of an object.
  *
  * Function cannot be copied.
- * Class instances  must have a clone() function, which is called and the result is saved.
+ * Class instances have their properties copied and they are returned as object.
  *
  * @param o object to copy.
  * @returns copied object.
- * @throws on unknown or uncopyable data types.
+ * @throws on unknown or uncopyable data types such as functios.
  */
 export function DeepCopy(o: any): any {
     const type = GetType(o);
@@ -105,7 +105,7 @@ export function DeepCopy(o: any): any {
     else if (type === "array") {
         return o.map( (value: any) => DeepCopy(value) );
     }
-    else if (type === "object") {
+    else if (type === "object" || type === "classInstance") {
         const o2: any = {};
         const keys = Object.keys(o);
         keys.forEach( (key: string) => o2[key] = DeepCopy(o[key]) );
@@ -124,12 +124,34 @@ export function DeepCopy(o: any): any {
 }
 
 /**
+ * Shallow copy first level object, array or pick properties from class instance.
+ */
+export function ShallowCopy(o: any): any {
+    const type = GetType(o);
+
+    if (type === "array") {
+        return o.map( (value: any) => value );
+    }
+    else if (type === "object" || type === "classInstance") {
+        const o2: any = {};
+
+        const keys = Object.keys(o);
+
+        keys.forEach( (key: string) => o2[key] = o[key] );
+
+        return o2;
+    }
+
+    return o;
+}
+
+/**
  * Determine typical types of object.
  * @param o a scalar or object to determine type for.
  * @returns type as string or undefined if type could not be recognized.
  */
 export function GetType(o: any): "undefined" | "null" | "string" | "number" | "boolean" | "bigint" |
-    "array" | "object" | "buffer" | "arraybuffer" | "class" | "function" | undefined
+    "array" | "object" | "buffer" | "arraybuffer" | "classInstance" | "function" | undefined
 {
     if (o === undefined) {
         return "undefined";
@@ -168,7 +190,7 @@ export function GetType(o: any): "undefined" | "null" | "string" | "number" | "b
         return type;
     }
     else if (type === "object") {
-        return "class";
+        return "classInstance";
     }
 
     return undefined;
@@ -202,46 +224,57 @@ export function CopyBuffer(...buffers: (Buffer | Uint8Array)[]): Buffer {
 }
 
 export function DeepHash(o: any): Buffer {
+    const type = GetType(o);
+
     let b: Buffer | undefined;
-    if (Array.isArray(o)) {
+    if (type === "array") {
         const h = blake2b(32);
-        o.forEach( (o2, index) => {
+        o.forEach( (o2: any, index: number) => {
             const indexBuf = Buffer.alloc(4);
             indexBuf.writeUInt32BE(index);
             h.update(indexBuf);
             h.update(DeepHash(o2));
             h.update(indexBuf);
         });
-        return Buffer.from(h.digest());
+
+        // Prepend 0x06 to not mix this up
+        return Buffer.concat([Buffer.from([6]), Buffer.from(h.digest())]);
     }
-    else if (typeof o === "object" && o.constructor === Object) {
+    else if (type === "object" || type === "classInstance") {
         const keys = Object.keys(o);
         keys.sort();
-        const values = keys.map( (key, index) => [index, key, o[key], index] );
-        return DeepHash(values);
+        const values = keys.map( (key, index) => [values.length, index, key, o[key], index] );
+
+        // Prepend 0x05 to not mix this up
+        return Buffer.concat([Buffer.from([5]), DeepHash(values)]);
     }
     else if (o === undefined || o === null) {
         b = Buffer.alloc(0);
     }
-    else if (typeof o === "string") {
-        b = Buffer.from(o, "utf8");
+    else if (type === "string") {
+        // Prepend 0x00 to not mix this up
+        b = Buffer.concat([Buffer.from([0]), Buffer.from(o, "utf8")]);
     }
-    else if (typeof o === "number") {
+    else if (type === "number") {
         if (isNaN(o)) {
             throw new Error("NaN is not supported");
         }
+        // Prepend 0x01 to not mix this up
+        b = Buffer.concat([Buffer.from([1]), Buffer.from(o.toString(), "ascii")]);
         b = Buffer.alloc(4);
         b.writeInt32BE(o);
     }
-    else if (typeof o === "boolean") {
-        b = Buffer.alloc(4);
-        b.writeInt32BE(Number(o));
+    else if (type === "boolean") {
+        // Prepend 0x02 to not mix this up
+        b = Buffer.concat([Buffer.from([2]), Buffer.from(o.toString())]);
     }
-    else if (typeof o === "bigint") {
-        b = Buffer.from(o.toString(), "utf8");
+    else if (type === "bigint") {
+        // Prepend 0x03 to not mix this up
+        b = Buffer.concat([Buffer.from([3]), Buffer.from(o.toString(), "ascii")]);
     }
     else if (Buffer.isBuffer(o)) {
-        b = o;
+        // Prepend 0x04 to not mix this up
+        b = Buffer.concat([Buffer.from([4]), o]);
     }
     else {
         throw new Error(`Cannot hash type of ${o}`);

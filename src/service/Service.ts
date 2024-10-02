@@ -271,7 +271,7 @@ export class Service {
             throw new Error("When using an authCert also nodeCerts are required");
         }
 
-        this.applicationConf   = DeepCopy(applicationConf);
+        this.applicationConf   = DeepCopy(applicationConf) as ApplicationConf;
 
         this.nodeUtil = new NodeUtil(this.signatureOffloader);
 
@@ -560,7 +560,7 @@ export class Service {
     }
 
     public addThreadTemplate(name: string, threadTemplate: ThreadTemplate) {
-        this.threadTemplates[name] = DeepCopy(threadTemplate);
+        this.threadTemplates[name] = DeepCopy(threadTemplate) as ThreadTemplate;
     }
 
     /**

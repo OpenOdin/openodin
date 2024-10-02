@@ -195,15 +195,15 @@ export class Thread {
         protected purgeInterval: number = 60_000,
         protected service?: Service)
     {
-        this.threadTemplate = DeepCopy(threadTemplate);
+        this.threadTemplate = DeepCopy(threadTemplate) as ThreadTemplate;
 
-        this.threadVariables = DeepCopy(threadVariables);
+        this.threadVariables = DeepCopy(threadVariables) as ThreadVariables;
 
-        this.publicKey = DeepCopy(publicKey);
+        this.publicKey = DeepCopy(publicKey) as Buffer;
 
-        this.signerPublicKey = DeepCopy(signerPublicKey);
+        this.signerPublicKey = DeepCopy(signerPublicKey) as Buffer;
 
-        this.secretKey = DeepCopy(secretKey);
+        this.secretKey = DeepCopy(secretKey) as Buffer;
 
         storageClient.onClose(this.close);
 

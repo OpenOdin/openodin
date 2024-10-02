@@ -109,7 +109,7 @@ export class P2PClientAutoFetcher {
         // Copy autoFetch because we will set
         // query.sourcePublicKey and query.targetPublicKey
         //
-        autoFetch = DeepCopy(autoFetch);
+        autoFetch = DeepCopy(autoFetch) as AutoFetch;
 
         const fetchRequest = autoFetch.fetchRequest;
 
@@ -385,7 +385,7 @@ export class P2PClientAutoFetcher {
         // Copy autoFetch because we will set
         // query.sourcePublicKey and query.targetPublicKey
         //
-        autoFetch = DeepCopy(autoFetch);
+        autoFetch = DeepCopy(autoFetch) as AutoFetch;
 
         const targetPublicKey = this.reverse ?
             // If reverse then this is the publicKey of where we are storing to.

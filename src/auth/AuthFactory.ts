@@ -66,7 +66,7 @@ export class AuthFactory implements AuthFactoryInterface {
     {
         const apiAuthFactoryConfig2 = DeepCopy(apiAuthFactoryConfig) as APIAuthFactoryConfig;
 
-        apiAuthFactoryConfig2.keyPair = DeepCopy(keyPair);
+        apiAuthFactoryConfig2.keyPair = DeepCopy(keyPair) as KeyPair;
 
         const serverPublicKey = apiAuthFactoryConfig2.serverPublicKey;
 
@@ -96,7 +96,7 @@ export class AuthFactory implements AuthFactoryInterface {
     {
         const handshakeFactoryConfig2 = DeepCopy(nativeAuthFactoryConfig) as HandshakeFactoryConfig;
 
-        handshakeFactoryConfig2.keyPair = DeepCopy(keyPair);
+        handshakeFactoryConfig2.keyPair = DeepCopy(keyPair) as KeyPair;
 
         const serverPublicKey = handshakeFactoryConfig2.serverPublicKey;
 

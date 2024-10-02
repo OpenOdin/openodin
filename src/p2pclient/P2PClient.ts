@@ -228,7 +228,7 @@ export class P2PClient {
         }
 
         // Default permissions are locked down.
-        this.permissions = DeepCopy(permissions ?? LOCKED_PERMISSIONS);
+        this.permissions = DeepCopy(permissions ?? LOCKED_PERMISSIONS) as P2PClientPermissions;
 
         const eventEmitter = this.messaging.getEventEmitter();
         eventEmitter.on(EventType.CLOSE, this.close);
