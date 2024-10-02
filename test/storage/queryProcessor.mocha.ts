@@ -1435,7 +1435,7 @@ function setupTests(config: any) {
                     filters: [
                         {
                             field: "creationTime",
-                            value: -10,
+                            value: "-10",
                             cmp: CMP.GT,
                         }
                     ]
@@ -1684,7 +1684,7 @@ function setupTests(config: any) {
                             field: "data",
                             operator: ":0,5",
                             cmp: CMP.EQ,
-                            value: Buffer.from("lvl2a"),
+                            value: Buffer.from("lvl2a").toString("hex"),
                         }
                     ]
                 },
@@ -1697,7 +1697,7 @@ function setupTests(config: any) {
                             field: "data",
                             operator: ":0,5",
                             cmp: CMP.EQ,
-                            value: Buffer.from("lvl2b"),
+                            value: Buffer.from("lvl2b").toString("hex"),
                         }
                     ]
                 },

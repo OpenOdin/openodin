@@ -123,11 +123,12 @@ export enum CMP {
     LE = "le",
     GT = "gt",
     GE = "ge",
+    IS_NULL = "is_null",
 }
 
 /**
- * The value type must be the same type as the field.
- * Except when field is Buffer value is allowed to be string which is encoded as hexadecimal into a buffer before comparing.
+ * The value type will be parsed into the same type as the field.
+ * Except when field is Buffer value the value string encoded as hexadecimal into a buffer before comparing.
  */
 export type Filter = {
     /**
@@ -162,8 +163,13 @@ export type Filter = {
     cmp: CMP,
 
     /**
-     * The value to compare the field value to. The types must match.
-     * If the field is of bytes type then this value can be hexencoded string.
+     * The value to compare the field value to.
+     *
+     * The resulting type is determined by the type of the field comparing to.
+     *
+     * For number, bigint the value is parsed from string to number/bigint.
+     *
+     * For Buffer string is hexadecimal encoded into Buffer.
      */
-    value: string | number | Buffer | undefined,
+    value: string,
 };

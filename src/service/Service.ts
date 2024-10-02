@@ -1425,7 +1425,7 @@ export class Service {
                         {
                             field: "owner",
                             cmp: CMP.EQ,
-                            value: this.publicKey,
+                            value: this.publicKey.toString("hex"),
                         },
                         {
                             field: "contentType",
@@ -1436,7 +1436,7 @@ export class Service {
                             field: "embedded",
                             operator: "hash",
                             cmp: CMP.EQ,
-                            value: Hash(authCert),
+                            value: Hash(authCert).toString("hex"),
                         },
                     ],
                 }

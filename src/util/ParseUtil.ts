@@ -1553,35 +1553,13 @@ export class ParseUtil {
         return filters.map( (filter: Filter) => {
             const field = ParseUtil.ParseVariable("filters[index2] field must be string", filter.field, "string");
             const operator = ParseUtil.ParseVariable("filters[index2] operator must be string, if set", filter.operator, "string", true) ?? "";
+            const value = ParseUtil.ParseVariable("filters[index2] value must be string, if set", filter.value, "string", true) ?? "";
             const cmp0 = ParseUtil.ParseVariable("filters[index2] cmp must be string", filter.cmp, "string");
             const cmp = ParseUtil.MatchCMPEnum(cmp0);
             if (cmp === undefined) {
                 throw new Error("permissions embed[index] filters[index2] cmp must match CMP enum.");
             }
-            // value is parsed manually because it can have different types.
-            let value = filter.value;
-            if (Array.isArray(value)) {
-                value = Buffer.from(value);
-            }
-            else if (Buffer.isBuffer(value)) {
-                // Pass through
-            }
-            else if (typeof value === "string") {
-                // Pass through
-            }
-            else if (typeof value === "number") {
-                // Pass through
-            }
-            else if (value === undefined) {
-                // Pass through
-            }
-            else if (value === null) {
-                // null becomes undefined, since we only use undefined in our models.
-                value = undefined;
-            }
-            else {
-                throw new Error("filter.value must be string, number or number[] or undefined");
-            }
+
             return {
                 field,
                 operator,
@@ -1614,6 +1592,9 @@ export class ParseUtil {
                 break;
             case "ge":
                 return CMP.GE;
+                break;
+            case "is_null":
+                return CMP.IS_NULL;
                 break;
             default:
                 return undefined;

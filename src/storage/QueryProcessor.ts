@@ -836,8 +836,8 @@ export class QueryProcessor {
                 const filtersLength = match.filters.length;
                 for (let i=0; i<filtersLength; i++) {
                     const filter = match.filters[i];
-                    if (filter.field === "creationTime" && typeof filter.value === "number" && filter.value < 0) {
-                        filter.value = this.now + filter.value;
+                    if (filter.field === "creationTime" && Number(filter.value) < 0) {
+                        filter.value = String(this.now + Number(filter.value));
                     }
                 }
 

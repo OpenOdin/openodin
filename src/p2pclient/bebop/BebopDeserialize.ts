@@ -30,7 +30,6 @@ import {
 } from "../../types";
 
 import {
-    UnpackFilters,
     MakeIntoBuffer,
 } from "./util";
 
@@ -123,7 +122,6 @@ export class BebopDeserialize {
             return {
                 ...match,
                 nodeType: MakeIntoBuffer(match.nodeType),
-                filters: UnpackFilters(match.filters),
                 cursorId1: MakeIntoBuffer(match.cursorId1),
             };
         });
@@ -131,7 +129,6 @@ export class BebopDeserialize {
             return {
                 ...embed,
                 nodeType: MakeIntoBuffer(embed.nodeType),
-                filters: UnpackFilters(embed.filters),
             };
         });
 

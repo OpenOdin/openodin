@@ -196,7 +196,7 @@ export class StorageUtil {
                             {
                                 field: "id1",
                                 cmp: CMP.EQ,
-                                value: nodeId1,
+                                value: nodeId1.toString("hex"),
                             }
                         ],
                     },

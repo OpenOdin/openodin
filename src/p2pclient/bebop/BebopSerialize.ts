@@ -31,11 +31,6 @@ import {
 } from "../../types";
 
 import {
-    PackFilters,
-} from "./util";
-
-import {
-    DeepCopy,
     CopyBuffer,
 } from "../../util/common";
 
@@ -105,25 +100,9 @@ export class BebopSerialize {
      * @throws
      */
     public FetchRequest(fetchRequest: FetchRequest): Buffer {
-        const obj = DeepCopy(fetchRequest) as FetchRequest;
-        if (!obj || !obj.query) {
-            throw new Error("Could not serialize FetchRequest");
-        }
-        obj.query.match = obj.query.match.map( (match: Match) => {
-            return {
-                ...match,
-                filters: PackFilters(match.filters),
-            };
-        });
-        obj.query.embed = obj.query.embed.map( (embed: AllowEmbed) => {
-            return {
-                ...embed,
-                filters: PackFilters(embed.filters),
-            };
-        });
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopFetchRequest.opcode);
-        return CopyBuffer(opcode, BopFetchRequest.encode(obj));
+        return CopyBuffer(opcode, BopFetchRequest.encode(fetchRequest));
     }
 
     /**

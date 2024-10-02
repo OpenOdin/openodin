@@ -32,10 +32,47 @@ struct LimitField {
 
 /** This struct matched Filter in datamodel/model/types.ts. */
 struct Filter {
+    /**
+     * The name of the field which value to compare.
+     *
+     * Special cases:
+     * - If "id" then gets id2, if no id2 then gets the id1 value.
+     */
     string field;
+
+    /**
+     * An optional operator which can be applied to some data field types.
+     * On unsigned integer fields UINT8, UINT16, UINT24, UINT32 the following
+     * bitwise operations can be applied:
+     *  & x     AND a bitmask with an integer field,
+     *  | x     OR a bitmask with an integer field,
+     *  ^ x     XOR a bitmask with an integer field,
+     *  >> x    right shift an integer field by x,
+     *  << x    left shift an integer field by x.
+     *
+     *  On string or bytes fields the slice operator can be applied, as:
+     *  :1,3   cut a string or bytes field by index:length where ",length" is optional,
+     *  :-1    cut a string or bytes field by index:length where start index counts from end.
+     *
+     *  On string or bytes fields the hash operator can be applied, as:
+     *  hash   perform a blake2b 32 byte hashing on the field data before comparison.
+     *         string are utf8 encoded into buffer before hashing.
+     */
     string operator;
+
+    /** The comparison operator to use. */
     string cmp;
-    byte[] value;
+
+    /**
+     * The value to compare the field value to.
+     *
+     * The resulting type is determined by the type of the field comparing to.
+     *
+     * For number, bigint the value is parsed from string to number/bigint.
+     *
+     * For Buffer string is hexadecimal encoded into Buffer.
+     */
+    string value;
 }
 
 /**

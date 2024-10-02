@@ -107,12 +107,13 @@ export class Model {
 
         if (filter.field === "id") {
             value1 = this.getAny("id2") ?? this.getAny("id1");
-            fieldType = this.fields["id1"].type;
+            fieldType = this.fields["id1"]?.type;
         }
         else if (fieldType) {
             value1 = this.getAny(filter.field);
         }
-        else {
+
+        if (!fieldType) {
             throw new Error(`Unknown field: ${filter.field}`);
         }
 
@@ -154,20 +155,12 @@ export class Model {
             return false;
         }
 
-        // If both of left or right side are undefined then
-        // only the EQ operator can be true.
-        // Unlike in SQL we define that null == null.
-        if (value1 === undefined && value2 === undefined) {
-            if (filter.cmp === CMP.EQ) {
-                return true;
-            }
-            return false;
+        // Just like in SQL we can't compare a value to null, but need a special check for it.
+        //
+        if (value1 === undefined) {
+            return filter.cmp === CMP.IS_NULL;
         }
-        else if (value1 === undefined || value2 === undefined) {
-            // If any of the sides are undefined but not both only NE can yield true.
-            if (filter.cmp === CMP.NE) {
-                return true;
-            }
+        else if (filter.cmp === CMP.IS_NULL) {
             return false;
         }
 
@@ -177,9 +170,9 @@ export class Model {
             if (typeof(value1) !== "bigint") {
                 return false;
             }
-            if (typeof(value2) !== "bigint") {
-                return false;
-            }
+
+            const value3 = BigInt(value2);
+
             if (sliceIndex !== undefined) {
                 throw new Error(`Slice operator not applicable to field: ${filter.field}`);
             }
@@ -190,10 +183,10 @@ export class Model {
                 throw new Error(`Hash operator not applicable to field: ${filter.field}`);
             }
             diff = 0;
-            if (value1 > value2) {
+            if (value1 > value3) {
                 diff = 1;
             }
-            else if (value1 < value2) {
+            else if (value1 < value3) {
                 diff = -1;
             }
         }
@@ -201,9 +194,9 @@ export class Model {
             if (typeof(value1) !== "number") {
                 return false;
             }
-            if (typeof(value2) !== "number") {
-                return false;
-            }
+
+            const value3 = Number(value2);
+
             if (sliceIndex !== undefined) {
                 throw new Error(`Slice operator not applicable to field: ${filter.field}`);
             }
@@ -242,18 +235,15 @@ export class Model {
                 }
                 value1 = Number(value1b & bitmask);
             }
-            diff = value1 - value2;
+            diff = value1 - value3;
         }
         else if (BUFFERTYPES.includes(fieldType)) {
             if (!Buffer.isBuffer(value1)) {
                 return false;
             }
-            if (typeof(value2) === "string") {
-                value2 = Buffer.from(value2, "hex");
-            }
-            if (!Buffer.isBuffer(value2)) {
-                return false;
-            }
+
+            const value3 = Buffer.from(value2, "hex");
+
             if (bitop) {
                 throw new Error(`Bitwise operator not applicable to field: ${filter.field}`);
             }
@@ -270,15 +260,13 @@ export class Model {
             if (doHash) {
                 value1 = Hash(value1);
             }
-            diff = value1.compare(value2);
+            diff = value1.compare(value3);
         }
         else if (STRINGTYPES.includes(fieldType)) {
             if (typeof(value1) !== "string") {
                 return false;
             }
-            if (typeof(value2) !== "string") {
-                return false;
-            }
+
             if (bitop) {
                 throw new Error(`Bitwise operator not applicable to field: ${filter.field}`);
             }
