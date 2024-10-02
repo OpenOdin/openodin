@@ -95,7 +95,7 @@ export function DeepEquals(o1: any, o2: any): boolean {
  * @returns copied object.
  * @throws on unknown or uncopyable data types such as functios.
  */
-export function DeepCopy(o: any): any {
+export function DeepCopy(o: any, keepBuffer: boolean = false): any {
     const type = GetType(o);
 
     // Scalar types are directly returned.
@@ -103,15 +103,19 @@ export function DeepCopy(o: any): any {
         return o;
     }
     else if (type === "array") {
-        return o.map( (value: any) => DeepCopy(value) );
+        return o.map( (value: any) => DeepCopy(value, keepBuffer) );
     }
     else if (type === "object" || type === "classInstance") {
         const o2: any = {};
         const keys = Object.keys(o);
-        keys.forEach( (key: string) => o2[key] = DeepCopy(o[key]) );
+        keys.forEach( (key: string) => o2[key] = DeepCopy(o[key], keepBuffer) );
         return o2;
     }
     else if (type === "buffer" || type === "arraybuffer") {
+        if (keepBuffer) {
+            return o;
+        }
+
         const l = o.length;
         const o2 = Buffer.alloc(l);
         for (let i=0; i<l; i++) {
