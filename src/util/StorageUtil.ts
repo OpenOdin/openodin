@@ -141,7 +141,7 @@ export class StorageUtil {
         if (anyData.type === EventType.REPLY) {
             const storeResponse = anyData.response;
 
-            if (!storeResponse || storeResponse.status !== Status.RESULT) {
+            if (!storeResponse || storeResponse.status !== Status.Result) {
                 throw new Error(`Could not store nodes: ${storeResponse?.error}`);
             }
 
@@ -219,7 +219,7 @@ export class StorageUtil {
         if (anyData.type === EventType.REPLY) {
             const fetchResponse = anyData.response;
 
-            if (fetchResponse && fetchResponse.status === Status.RESULT) {
+            if (fetchResponse && fetchResponse.status === Status.Result) {
                 const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse);
                 if (nodes.length > 0) {
                     return nodes[0] as DataInterface;

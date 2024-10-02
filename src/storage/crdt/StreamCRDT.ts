@@ -63,10 +63,10 @@ export class StreamCRDT {
         this.getResponseObj = getResponse;
 
         this.getResponseObj.onReply( (fetchResponse: FetchResponse) => {
-            if (fetchResponse.status === Status.RESULT) {
+            if (fetchResponse.status === Status.Result) {
                 this.crdtView.handleResponse(fetchResponse);
             }
-            else if (fetchResponse.status === Status.DROPPED_TRIGGER) {
+            else if (fetchResponse.status === Status.DroppedTrigger) {
                 // Do nothing
             }
             else {

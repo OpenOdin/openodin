@@ -94,7 +94,7 @@ export class BlobStreamWriter extends AbstractStreamWriter {
 
         const writeBlobResponse: WriteBlobResponse = anyData.response;
 
-        if (writeBlobResponse.status === Status.MISMATCH) {
+        if (writeBlobResponse.status === Status.Mismatch) {
             // The written data's hash did not match.
             // Retry the full writing once from the start.
             if (this.retries++ === 0) {
@@ -109,13 +109,13 @@ export class BlobStreamWriter extends AbstractStreamWriter {
                 return [StreamStatus.UNRECOVERABLE, error];
             }
         }
-        else if (writeBlobResponse.status === Status.NOT_ALLOWED) {
+        else if (writeBlobResponse.status === Status.NotAllowed) {
             return [StreamStatus.NOT_ALLOWED, writeBlobResponse.error];
         }
-        else if (writeBlobResponse.status === Status.MALFORMED) {
+        else if (writeBlobResponse.status === Status.Malformed) {
             return [StreamStatus.UNRECOVERABLE, writeBlobResponse.error];
         }
-        else if (![Status.RESULT, Status.EXISTS].includes(writeBlobResponse.status)) {
+        else if (![Status.Result, Status.Exists].includes(writeBlobResponse.status)) {
             return [StreamStatus.ERROR, writeBlobResponse.error];
         }
         else {

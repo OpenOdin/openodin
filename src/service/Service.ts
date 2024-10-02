@@ -1456,7 +1456,7 @@ export class Service {
         if (anyData.type === EventType.REPLY) {
             const fetchResponse = anyData.response;
 
-            if (fetchResponse && fetchResponse.status === Status.RESULT) {
+            if (fetchResponse && fetchResponse.status === Status.Result) {
                 const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse, false, Data.GetType(4)) as DataInterface[];
 
                 if (nodes.length > 0) {
@@ -1501,7 +1501,7 @@ export class Service {
         if (anyData.type === EventType.REPLY) {
             const storeResponse = anyData.response;
 
-            if (storeResponse?.status === Status.RESULT) {
+            if (storeResponse?.status === Status.Result) {
                 if (storeResponse.storedId1List.length === 1) {
                     return true;
                 }

@@ -177,7 +177,7 @@ export class GetResponse<ResponseDataType> {
 
                     // Dirty check
                     //
-                    if (cancelSeq || (response as unknown as FetchResponse).status === Status.DROPPED_TRIGGER) {
+                    if (cancelSeq || (response as unknown as FetchResponse).status === Status.DroppedTrigger) {
                         this.cancel();
                     }
                     else if (isEndOfStream && this.isMultipleStream) {

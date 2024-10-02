@@ -253,7 +253,7 @@ export class QueryProcessor {
                 // Already processed
                 this.flushCount++;
                 this.handleFetchReplyData({
-                    status: Status.RESULT, rowCount: 0, now: this.now, isFirst: true, isLast: true});
+                    status: Status.Result, rowCount: 0, now: this.now, isFirst: true, isLast: true});
                 return;
             }
 
@@ -347,12 +347,12 @@ export class QueryProcessor {
 
         if (this.error()) {
             this.handleFetchReplyData({
-                status: Status.ERROR, error: "Error fetching from database", rowCount: this.rowCount, now: this.now, isFirst, isLast: true});
+                status: Status.Error, error: "Error fetching from database", rowCount: this.rowCount, now: this.now, isFirst, isLast: true});
             throw this._error;
         }
 
         this.handleFetchReplyData({
-            status: Status.RESULT, rowCount: this.rowCount, now: this.now, isFirst, isLast: true});
+            status: Status.Result, rowCount: this.rowCount, now: this.now, isFirst, isLast: true});
     }
 
     /**
@@ -804,7 +804,7 @@ export class QueryProcessor {
                 this.flushCount++;
 
                 this.handleFetchReplyData({
-                    status: Status.RESULT, nodes, embed, rowCount: this.rowCount, now: this.now, isFirst});
+                    status: Status.Result, nodes, embed, rowCount: this.rowCount, now: this.now, isFirst});
             }
 
             if (this.currentRows.length === 0) {

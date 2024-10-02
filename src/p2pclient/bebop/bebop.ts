@@ -1428,7 +1428,7 @@ export interface IFetchCRDT extends BebopRecord {
    * The index of the node with the id1 equal to cursorId1 is the previous element in the list
    * and the first returned element is the node after the cursor node.
    *
-   * If a cursor is given but not found then the fetch response status is MISSING_CURSOR.
+   * If a cursor is given but not found then the fetch response status is MissingCursor.
    *
    * This value can be changed for streaming requests to change the scope of the resultset.
    *

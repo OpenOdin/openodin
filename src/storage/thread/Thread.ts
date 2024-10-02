@@ -874,7 +874,7 @@ export class Thread {
         if (anyData.type === EventType.REPLY) {
             const storeResponse = anyData.response;
 
-            if (!storeResponse || storeResponse.status !== Status.RESULT) {
+            if (!storeResponse || storeResponse.status !== Status.Result) {
                 throw new Error(`Could not store nodes, status=${storeResponse?.status} error=${storeResponse?.error}`);
             }
 

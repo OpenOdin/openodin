@@ -416,7 +416,7 @@ export type FetchCRDT = {
      * The index of the node with the id1 equal to cursorId1 is the previous element in the list
      * and the first returned element is the node after the cursor node.
      *
-     * If a cursor is given but not found then the fetch response status is MISSING_CURSOR.
+     * If a cursor is given but not found then the fetch response status is MissingCursor.
      *
      * This value can be changed for streaming requests to change the scope of the resultset.
      *
@@ -450,44 +450,44 @@ export type FetchCRDT = {
  */
 export enum Status {
     /** This means a result was returned. Which is a success. */
-    RESULT              = 1,
+    Result              = 1,
 
     /** This is returned if the incoming request was malformed and could not be parsed properly. */
-    MALFORMED           = 2,
+    Malformed           = 2,
 
     /** Some error occoured while processing the request. */
-    ERROR               = 3,
+    Error               = 3,
 
     /** If a storeRequest or writeBlobRequest could not succeed. */
-    STORE_FAILED        = 4,
+    StoreFailed         = 4,
 
     /** If a readBlobRequest fails because blob data is not available. */
-    FETCH_FAILED        = 5,
+    FetchFailed         = 5,
 
     /**
      * If a fetchRequest refers to a real root ID but the root node
      * was not found then this error code is returned.
      */
-    MISSING_ROOTNODE    = 6,
+    MissingRootnode     = 6,
 
     /**
      * If a fetchRequest refers to a real root node but the root node is either licensed,
      * uses hasRightsByAssociation or is flagged as beginRestrictiveWriterMode then
      * the given root node cannot be used as a root node.
      */
-    ROOTNODE_LICENSED   = 7,
+    RootnodeLicensed    = 7,
 
     /**
      * If access to root node is denied, or
      * when writing/reading a blob whos node we are not allowed to access,
      */
-    NOT_ALLOWED         = 8,
+    NotAllowed          = 8,
 
     /** If content hash does not match expected hash when writing a blob. */
-    MISMATCH            = 9,
+    Mismatch            = 9,
 
     /** When a blobWrite got finalized or if the blob already did exist when writing. */
-    EXISTS              = 10,
+    Exists              = 10,
 
     /**
      * When a CRDT fetch is done using a cursor but the cursor does not exist, this return
@@ -496,14 +496,14 @@ export enum Status {
      * Note that this is not regarded as an error message and if the request is a trigger subscription
      * then it will not be automatically removed (as when sending any other error replies).
      */
-    MISSING_CURSOR      = 11,
+    MissingCursor       = 11,
 
     /**
      * Sent from the Storage when a trigger has been dropped.
      * Message is sent with seq=0 so that message is cleared out and onCancel()
      * is triggered on the GetResponse object.
      */
-    DROPPED_TRIGGER     = 12,
+    DroppedTrigger      = 12,
 }
 
 /**
@@ -574,13 +574,13 @@ export type FetchRequest = {
 export type FetchResponse = {
     /**
      * Expected status values:
-     * Status.RESULT
-     * Status.ERROR
-     * Status.NOT_ALLOWED
-     * Status.ROOTNODE_LICENSED
-     * Status.MISSING_ROOTNODE
-     * Status.MISSING_CURSOR
-     * Status.MALFORMED
+     * Status.Result
+     * Status.Error
+     * Status.NotAllowed
+     * Status.RootnodeLicensed
+     * Status.MissingRootnode
+     * Status.MissingCursor
+     * Status.Malformed
      */
     status: Status,
 
@@ -698,10 +698,10 @@ export type StoreRequest = {
 export type StoreResponse = {
     /**
      * Expected status values:
-     * Status.RESULT
-     * Status.STORE_FAILED
-     * Status.MALFORMED
-     * Status.ERROR
+     * Status.Result
+     * Status.StoreFailed
+     * Status.Malformed
+     * Status.Error
      */
     status: Status,
 
@@ -753,7 +753,7 @@ export type UnsubscribeRequest = {
 export type UnsubscribeResponse = {
     /**
      * Expected status values:
-     * Status.RESULT
+     * Status.Result
      */
     status: Status,
 
@@ -815,13 +815,13 @@ export type WriteBlobRequest = {
 export type WriteBlobResponse = {
     /**
      * Expected status values:
-     * Status.ERROR some error occurred
-     * Status.NOT_ALLOWED if access to node is not allowed, node not found or if allowWriteBlob is set to false.
-     * Status.MALFORMED if input values are wrong or if node is not configured for blob.
-     * Status.EXISTS if the blob already exists or if the blob just got finalized to exist from this write or copy action
-     * Status.STORE_FAILED if data could not be written or finalized. Database could be busy.
-     * Status.MISMATCH if hash does not compute after all data is written.
-     * Status.RESULT on successful write, currentLength is set to the size of the written data so far.
+     * Status.Error some error occurred
+     * Status.NotAllowed if access to node is not allowed, node not found or if allowWriteBlob is set to false.
+     * Status.Malformed if input values are wrong or if node is not configured for blob.
+     * Status.Exists if the blob already exists or if the blob just got finalized to exist from this write or copy action
+     * Status.StoreFailed if data could not be written or finalized. Database could be busy.
+     * Status.Mismatch if hash does not compute after all data is written.
+     * Status.Result on successful write, currentLength is set to the size of the written data so far.
      *      The length is the continuous length from start til first gap.
      *      This info can be used for resuming writes.
      */
@@ -829,8 +829,8 @@ export type WriteBlobResponse = {
 
     /**
      * The current length of the blob data written.
-     * If Status.EXISTS is returned currentLength is set to the full length of the blob.
-     * If Status.RESULT is returned currentLength is set to the current length of the total continuous blob data written.
+     * If Status.Exists is returned currentLength is set to the full length of the blob.
+     * If Status.Result is returned currentLength is set to the current length of the total continuous blob data written.
      */
     currentLength: bigint,
 
@@ -888,12 +888,12 @@ export type ReadBlobRequest = {
 export type ReadBlobResponse = {
     /**
      * Expected status values:
-     * Status.ERROR if some error or exception occurred.
-     * Status.NOT_ALLOWED if read permissions to the node is not allowed for the client,target combo or
+     * Status.Error if some error or exception occurred.
+     * Status.NotAllowed if read permissions to the node is not allowed for the client,target combo or
      *  if allowReadBlob is set to false, or if the node is not found.
-     * Status.FETCH_FAILED if blob data is not (yet) available.
-     * Status.MALFORMED if input values are wrong or if the node is fetched on id2, or if node is not configured for blob.
-     * Status.RESULT on successful read.
+     * Status.FetchFailed if blob data is not (yet) available.
+     * Status.Malformed if input values are wrong or if the node is fetched on id2, or if node is not configured for blob.
+     * Status.Result on successful read.
      */
     status: Status,
 

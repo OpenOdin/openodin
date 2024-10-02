@@ -195,7 +195,7 @@ export class Driver implements DriverInterface {
 
         if (!node) {
             return [undefined, {
-                status: Status.MISSING_ROOTNODE,
+                status: Status.MissingRootnode,
                 error: "The root node is not found but expected to exist.",
             }];
         }
@@ -205,13 +205,13 @@ export class Driver implements DriverInterface {
         }
         else if (node.isLicensed()) {
             return [undefined, {
-                status: Status.ROOTNODE_LICENSED,
+                status: Status.RootnodeLicensed,
                 error: "Licensed node cannot be used as root node.",
             }];
         }
         else if (node.isBeginRestrictiveWriteMode()) {
             return [undefined, {
-                status: Status.ROOTNODE_LICENSED,
+                status: Status.RootnodeLicensed,
                 error: "Begin restrictive writer mode node cannot be used as root node.",
             }];
         }
@@ -220,13 +220,13 @@ export class Driver implements DriverInterface {
         }
         else if (node.hasRightsByAssociation()) {
             return [undefined, {
-                status: Status.ROOTNODE_LICENSED,
+                status: Status.RootnodeLicensed,
                 error: "Root node cannot use hasRightsByAssociation.",
             }];
         }
         else {
             return [undefined, {
-                status: Status.NOT_ALLOWED,
+                status: Status.NotAllowed,
                 error: "Access to requested root node is not allowed.",
             }];
         }

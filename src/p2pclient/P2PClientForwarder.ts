@@ -217,7 +217,7 @@ export class P2PClientForwarder {
         }
 
         const unsubscribeResponse: UnsubscribeResponse = {
-            status: Status.RESULT,
+            status: Status.Result,
             error: "",
         };
 

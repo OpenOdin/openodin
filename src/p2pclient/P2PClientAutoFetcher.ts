@@ -150,7 +150,7 @@ export class P2PClientAutoFetcher {
 
         getResponse.onReply( (fetchResponse: FetchResponse) => {
             // Data is incoming from server peer, put it to storage.
-            if (fetchResponse.status === Status.RESULT) {
+            if (fetchResponse.status === Status.Result) {
                 // If we requested transient values to be kept on the nodes when fetching from peer,
                 // we try to preserve them into the Storage
                 // (this requires that the Storage is OK with that).
@@ -255,7 +255,7 @@ export class P2PClientAutoFetcher {
             }
 
             getResponse.onceAny().then( anyData => {
-                if (anyData.type !== EventType.REPLY || anyData.response?.status !== Status.RESULT) {
+                if (anyData.type !== EventType.REPLY || anyData.response?.status !== Status.Result) {
                     const reverse = this.reverse ? " (reverse store) " : "";
 
                     console.error(`Could not store the incoming fetched data to Storage${reverse}. Store response type: ${anyData.type}. Response status: ${anyData.response?.status}. Error: ${anyData.response?.error}`);
