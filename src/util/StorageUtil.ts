@@ -145,7 +145,7 @@ export class StorageUtil {
                 throw new Error(`Could not store nodes: ${storeResponse?.error}`);
             }
 
-            return storeResponse.storedId1s;
+            return storeResponse.storedId1List;
         }
         else {
             throw new Error(`Could not store nodes: ${anyData.error}`);
@@ -195,6 +195,7 @@ export class StorageUtil {
                         filters: [
                             {
                                 field: "id1",
+                                operator: "",
                                 cmp: CMP.EQ,
                                 value: nodeId1.toString("hex"),
                             }

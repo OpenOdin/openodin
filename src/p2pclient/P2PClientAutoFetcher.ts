@@ -267,10 +267,10 @@ export class P2PClientAutoFetcher {
                     return;
                 }
 
-                const len = anyData.response.missingBlobId1s.length;
+                const len = anyData.response.missingBlobId1List.length;
 
                 for (let i=0; i<len; i++) {
-                    const id1: Buffer = anyData.response.missingBlobId1s[i];
+                    const id1: Buffer = anyData.response.missingBlobId1List[i];
 
                     const id1Str = id1.toString("hex");
 

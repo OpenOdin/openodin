@@ -790,9 +790,9 @@ function setupTests(config: any) {
         await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
         assert(response);
         assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 2);
-        assert(response.storedId1s[0].equals(node1.getId1()));
-        assert(response.storedId1s[1].equals(node2c.getId1()));
+        assert(response.storedId1List.length === 2);
+        assert(response.storedId1List[0].equals(node1.getId1()));
+        assert(response.storedId1List[1].equals(node2c.getId1()));
 
         // see that what is stored is readable back
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {

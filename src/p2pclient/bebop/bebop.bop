@@ -794,13 +794,13 @@ struct BopStoreResponse {
     /**
      * Node ID1s of all nodes which got stored.
      */
-    byte[][] storedId1S;
+    byte[][] storedId1List;
 
     /**
      * Node ID1s of all nodes in StoreRequest which are missing blobs.
      * Use this to know what blobs to download from the peer.
      */
-    byte[][] missingBlobId1S;
+    byte[][] missingBlobId1List;
 
     /**
      * Corresponds to missingBlobId1s and gives the size of the blob in bytes.

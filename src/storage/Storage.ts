@@ -261,8 +261,8 @@ export class Storage {
                     const error = "StoreRequest not allowed to use preserveTransient for this connection.";
                     const errorStoreResponse: StoreResponse = {
                         status: Status.MALFORMED,
-                        storedId1s: [],
-                        missingBlobId1s: [],
+                        storedId1List: [],
+                        missingBlobId1List: [],
                         missingBlobSizes: [],
                         error,
                     };
@@ -354,9 +354,9 @@ export class Storage {
             let storeResponse: StoreResponse;
 
             if (result) {
-                const [storedId1s, parentIds, blobId1s] = result;
+                const [storedId1List, parentIds, blobId1s] = result;
 
-                const missingBlobId1s: Buffer[] = [];
+                const missingBlobId1List: Buffer[] = [];
                 const missingBlobSizes: bigint[] = [];
 
                 if (blobId1s.length > 0 && this.blobDriver) {
@@ -390,7 +390,7 @@ export class Storage {
                             const blobSize = node?.getBlobLength();
 
                             if (blobSize !== undefined) {
-                                missingBlobId1s.push(blobId1);
+                                missingBlobId1List.push(blobId1);
                                 missingBlobSizes.push(blobSize);
                             }
                         }
@@ -407,8 +407,8 @@ export class Storage {
 
                 storeResponse = {
                     status: Status.RESULT,
-                    storedId1s,
-                    missingBlobId1s,
+                    storedId1List,
+                    missingBlobId1List,
                     missingBlobSizes,
                     error: "",
                 };
@@ -417,8 +417,8 @@ export class Storage {
                 console.debug("Database BUSY, all retries failed.");
                 storeResponse = {
                     status: Status.STORE_FAILED,
-                    storedId1s: [],
-                    missingBlobId1s: [],
+                    storedId1List: [],
+                    missingBlobId1List: [],
                     missingBlobSizes: [],
                     error: "Failed storing nodes, database busy.",
                 };
@@ -436,8 +436,8 @@ export class Storage {
                 const error = `store failed: ${e}`;
                 const errorStoreResponse: StoreResponse = {
                     status: Status.ERROR,
-                    storedId1s: [],
-                    missingBlobId1s: [],
+                    storedId1List: [],
+                    missingBlobId1List: [],
                     missingBlobSizes: [],
                     error,
                 };

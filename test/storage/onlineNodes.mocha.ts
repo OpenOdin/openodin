@@ -122,7 +122,7 @@ describe("Storage: disallow storing persistent values", function() {
 
         assert(response);
         assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 1);
+        assert(response.storedId1List.length === 1);
     });
 });
 
@@ -214,7 +214,7 @@ describe("Storage: update transient values on nodes", function() {
 
         assert(response);
         assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 3);
+        assert(response.storedId1List.length === 3);
 
         const node1Ab = await driver.getNodeById1(node1A.getId1()!, now);
         assert(node1Ab);
@@ -267,7 +267,7 @@ describe("Storage: update transient values on nodes", function() {
 
         assert(response);
         assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 2);
+        assert(response.storedId1List.length === 2);
 
         const node1Ac = await driver.getNodeById1(node1A.getId1()!, now);
 
@@ -294,7 +294,7 @@ describe("Storage: update transient values on nodes", function() {
 
         assert(response);
         assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 1);
+        assert(response.storedId1List.length === 1);
 
         nodes = await runFetch(fetchRequest, storageInstance);
 
@@ -413,7 +413,7 @@ describe("Concensus: test streaming updates", async function() {
 
         assert(response);
         assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 5);
+        assert(response.storedId1List.length === 5);
 
         let fetchRequest = StorageUtil.CreateFetchRequest({query: {
             parentId,
@@ -458,7 +458,7 @@ describe("Concensus: test streaming updates", async function() {
 
         assert(response);
         assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 1);
+        assert(response.storedId1List.length === 1);
 
         await sleep(100);
 
@@ -489,7 +489,7 @@ describe("Concensus: test streaming updates", async function() {
 
         assert(response);
         assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 1);
+        assert(response.storedId1List.length === 1);
 
         await sleep(100);
 

@@ -384,6 +384,7 @@ function setupTests(config: any) {
             filters: [
                 {
                     field: "contentType",
+                    operator: "",
                     cmp: CMP.EQ,
                     value: "app/hello",
                 }
@@ -1435,6 +1436,7 @@ function setupTests(config: any) {
                     filters: [
                         {
                             field: "creationTime",
+                            operator: "",
                             value: "-10",
                             cmp: CMP.GT,
                         }

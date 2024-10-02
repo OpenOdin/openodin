@@ -899,7 +899,7 @@ export class ParseUtil {
         else if (obj.nodes) {
             return ParseUtil.ParseStoreRequest(obj);
         }
-        else if (obj.storedId1s) {
+        else if (obj.storedId1List) {
             return ParseUtil.ParseStoreResponse(obj);
         }
         else if (obj.originalMsgId) {
@@ -1078,13 +1078,13 @@ export class ParseUtil {
             "storeResponse status must be number",
             obj.status, "number") as number;
 
-        const storedId1s = ParseUtil.ParseVariable(
-            "storeResponse storedId1s must be array of hex-string or Buffer, if set",
-            obj.storedId1s, "hex[]", true) ?? [];
+        const storedId1List = ParseUtil.ParseVariable(
+            "storeResponse storedId1List must be array of hex-string or Buffer, if set",
+            obj.storedId1List, "hex[]", true) ?? [];
 
-        const missingBlobId1s = ParseUtil.ParseVariable(
-            "storeResponse missingBlobId1s must be array of hex-string or Buffer, if set",
-            obj.missingBlobId1s, "hex[]", true) ?? [];
+        const missingBlobId1List = ParseUtil.ParseVariable(
+            "storeResponse missingBlobId1List must be array of hex-string or Buffer, if set",
+            obj.missingBlobId1List, "hex[]", true) ?? [];
 
         const missingBlobSizes = ParseUtil.ParseVariable(
             "storeResponse missingBlobSizes must be array of numbers or bigints as strings, if set",
@@ -1095,8 +1095,8 @@ export class ParseUtil {
 
         return {
             status,
-            storedId1s,
-            missingBlobId1s,
+            storedId1List,
+            missingBlobId1List,
             missingBlobSizes,
             error,
         };

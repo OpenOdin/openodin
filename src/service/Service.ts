@@ -1424,11 +1424,13 @@ export class Service {
                     filters: [
                         {
                             field: "owner",
+                            operator: "",
                             cmp: CMP.EQ,
                             value: this.publicKey.toString("hex"),
                         },
                         {
                             field: "contentType",
+                            operator: "",
                             cmp: CMP.EQ,
                             value: "temporary/authCert",
                         },
@@ -1500,7 +1502,7 @@ export class Service {
             const storeResponse = anyData.response;
 
             if (storeResponse?.status === Status.RESULT) {
-                if (storeResponse.storedId1s.length === 1) {
+                if (storeResponse.storedId1List.length === 1) {
                     return true;
                 }
             }

@@ -708,16 +708,16 @@ export type StoreResponse = {
     /**
      * Node ID1s of all nodes which got stored.
      */
-    storedId1s: Buffer[],
+    storedId1List: Buffer[],
 
     /**
      * Node ID1s of all nodes in StoreRequest which are missing blobs.
      * Use this to know what blobs to download from the peer.
      */
-    missingBlobId1s: Buffer[],
+    missingBlobId1List: Buffer[],
 
     /**
-     * Corresponds to missingBlobId1s and gives the size of the blob in bytes.
+     * Corresponds to missingBlobId1List and gives the size of the blob in bytes.
      */
     missingBlobSizes: bigint[],
 

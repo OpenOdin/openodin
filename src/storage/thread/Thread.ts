@@ -536,9 +536,9 @@ export class Thread {
         const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
             this.secretKey);
 
-        const storedId1s = await this.storeNodes([dataNode]);
+        const storedId1List = await this.storeNodes([dataNode]);
 
-        if (storedId1s.length > 0) {
+        if (storedId1List.length > 0) {
             return dataNode;
         }
 
@@ -572,9 +572,9 @@ export class Thread {
         const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
             this.secretKey);
 
-        const storedId1s = await this.storeNodes([dataNode]);
+        const storedId1List = await this.storeNodes([dataNode]);
 
-        if (storedId1s.length > 0) {
+        if (storedId1List.length > 0) {
             return dataNode;
         }
 
@@ -605,9 +605,9 @@ export class Thread {
         const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
             this.secretKey);
 
-        const storedId1s = await this.storeNodes([dataNode]);
+        const storedId1List = await this.storeNodes([dataNode]);
 
-        if (storedId1s.length > 0) {
+        if (storedId1List.length > 0) {
             return dataNode;
         }
 
@@ -699,10 +699,10 @@ export class Thread {
             throw new Error("Cannot delete node");
         }
 
-        const storedId1s = await this.storeNodes(destroyNodes);
+        const storedId1List = await this.storeNodes(destroyNodes);
 
         return destroyNodes.filter( node =>
-            storedId1s.findIndex( id1 => node.getId1()?.equals(id1) ) > -1 );
+            storedId1List.findIndex( id1 => node.getId1()?.equals(id1) ) > -1 );
     }
 
     /**
@@ -750,11 +750,11 @@ export class Thread {
             }
         }
 
-        const storedId1s = await this.storeNodes(licenseNodes);
+        const storedId1List = await this.storeNodes(licenseNodes);
 
         return licenseNodes.filter( license => {
             const id1 = license.getId1()!;
-            return storedId1s.findIndex( id1b => id1b.equals(id1) ) > -1;
+            return storedId1List.findIndex( id1b => id1b.equals(id1) ) > -1;
         });
     }
 
@@ -878,7 +878,7 @@ export class Thread {
                 throw new Error(`Could not store nodes, status=${storeResponse?.status} error=${storeResponse?.error}`);
             }
 
-            return storeResponse.storedId1s;
+            return storeResponse.storedId1List;
         }
         else {
             throw new Error(`Could not store nodes, type=${anyData.type}, error=${anyData.error}`);

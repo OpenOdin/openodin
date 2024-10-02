@@ -65,7 +65,7 @@ export class BebopSerialize {
         else if (obj.nodes) {
             return this.StoreRequest(obj as StoreRequest);
         }
-        else if (obj.storedId1s) {
+        else if (obj.storedId1List) {
             return this.StoreResponse(obj as StoreResponse);
         }
         else if (obj.originalMsgId) {
@@ -102,7 +102,6 @@ export class BebopSerialize {
     public FetchRequest(fetchRequest: FetchRequest): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopFetchRequest.opcode);
-        //@ts-ignore
         return CopyBuffer(opcode, BopFetchRequest.encode(fetchRequest));
     }
 
@@ -180,18 +179,9 @@ export class BebopSerialize {
     }
 
     public StoreResponse(storeResponse: StoreResponse): Buffer {
-        const obj = {
-            status: storeResponse.status,
-            error: storeResponse.error,
-            storedId1S: storeResponse.storedId1s,
-            missingBlobId1S: storeResponse.missingBlobId1s,
-            missingBlobSizes: storeResponse.missingBlobSizes,
-        };
-
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopStoreResponse.opcode);
-        //@ts-ignore
-        return CopyBuffer(opcode, BopStoreResponse.encode(obj));
+        return CopyBuffer(opcode, BopStoreResponse.encode(storeResponse));
     }
 
     public UnsubscribeResponse(unsubscribeResponse: UnsubscribeResponse): Buffer {

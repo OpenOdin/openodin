@@ -33,6 +33,10 @@ import {
     MakeIntoBuffer,
 } from "./util";
 
+import {
+    DeepCopy,
+} from "../../util/common";
+
 
 /**
  * Class of functions used to deserialize buffers into request objects from Bebop.
@@ -105,39 +109,39 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize FetchRequest, wrong opcode");
         }
 
-        const obj = BopFetchRequest.decode(data.slice(4));
+        return DeepCopy(BopFetchRequest.decode(data.slice(4)), true);
 
-        //@ts-ignore
-        obj.crdt.cursorId1 = MakeIntoBuffer(obj.crdt.cursorId1);
-        //@ts-ignore
-        obj.crdt.msgId = MakeIntoBuffer(obj.crdt.msgId);
-        //@ts-ignore
-        obj.query.rootNodeId1 = MakeIntoBuffer(obj.query.rootNodeId1);
-        //@ts-ignore
-        obj.query.parentId = MakeIntoBuffer(obj.query.parentId);
-        //@ts-ignore
-        obj.query.targetPublicKey = MakeIntoBuffer(obj.query.targetPublicKey);
-        //@ts-ignore
-        obj.query.sourcePublicKey = MakeIntoBuffer(obj.query.sourcePublicKey);
-        //@ts-ignore
-        obj.query.triggerNodeId = MakeIntoBuffer(obj.query.triggerNodeId);
-        //@ts-ignore
-        obj.query.match = obj.query.match.map( match => {
-            return {
-                ...match,
-                nodeType: MakeIntoBuffer(match.nodeType),
-                cursorId1: MakeIntoBuffer(match.cursorId1),
-            };
-        });
-        //@ts-ignore
-        obj.query.embed = obj.query.embed.map( embed => {
-            return {
-                ...embed,
-                nodeType: MakeIntoBuffer(embed.nodeType),
-            };
-        });
+        ////@ts-ignore
+        //obj.crdt.cursorId1 = MakeIntoBuffer(obj.crdt.cursorId1);
+        ////@ts-ignore
+        //obj.crdt.msgId = MakeIntoBuffer(obj.crdt.msgId);
+        ////@ts-ignore
+        //obj.query.rootNodeId1 = MakeIntoBuffer(obj.query.rootNodeId1);
+        ////@ts-ignore
+        //obj.query.parentId = MakeIntoBuffer(obj.query.parentId);
+        ////@ts-ignore
+        //obj.query.targetPublicKey = MakeIntoBuffer(obj.query.targetPublicKey);
+        ////@ts-ignore
+        //obj.query.sourcePublicKey = MakeIntoBuffer(obj.query.sourcePublicKey);
+        ////@ts-ignore
+        //obj.query.triggerNodeId = MakeIntoBuffer(obj.query.triggerNodeId);
+        ////@ts-ignore
+        //obj.query.match = obj.query.match.map( match => {
+            //return {
+                //...match,
+                //nodeType: MakeIntoBuffer(match.nodeType),
+                //cursorId1: MakeIntoBuffer(match.cursorId1),
+            //};
+        //});
+        ////@ts-ignore
+        //obj.query.embed = obj.query.embed.map( embed => {
+            //return {
+                //...embed,
+                //nodeType: MakeIntoBuffer(embed.nodeType),
+            //};
+        //});
 
-        return (obj as unknown) as FetchRequest;
+        //return (obj as unknown) as FetchRequest;
     }
 
     /**
@@ -151,16 +155,18 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize FetchResponse, wrong opcode");
         }
 
-        const obj = BopFetchResponse.decode(data.slice(4));
+        return DeepCopy(BopFetchResponse.decode(data.slice(4)), true);
 
-        //@ts-ignore
-        obj.result.nodes = obj.result.nodes.map( MakeIntoBuffer );
-        //@ts-ignore
-        obj.result.embed = obj.result.embed.map( MakeIntoBuffer );
-        //@ts-ignore
-        obj.crdtResult.delta = MakeIntoBuffer(obj.crdtResult.delta);
+        //const obj = BopFetchResponse.decode(data.slice(4));
 
-        return (obj as unknown) as FetchResponse;
+        ////@ts-ignore
+        //obj.result.nodes = obj.result.nodes.map( MakeIntoBuffer );
+        ////@ts-ignore
+        //obj.result.embed = obj.result.embed.map( MakeIntoBuffer );
+        ////@ts-ignore
+        //obj.crdtResult.delta = MakeIntoBuffer(obj.crdtResult.delta);
+
+        //return (obj as unknown) as FetchResponse;
     }
 
     /**
@@ -174,18 +180,20 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize StoreRequest, wrong opcode");
         }
 
-        const obj = BopStoreRequest.decode(data.slice(4));
+        return DeepCopy(BopStoreRequest.decode(data.slice(4)), true);
 
-        //@ts-ignore
-        obj.nodes = obj.nodes.map( MakeIntoBuffer );
-        //@ts-ignore
-        obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
-        //@ts-ignore
-        obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
-        //@ts-ignore
-        obj.muteMsgIds = obj.muteMsgIds.map( MakeIntoBuffer );
+        //const obj = BopStoreRequest.decode(data.slice(4));
 
-        return obj as unknown as StoreRequest;
+        ////@ts-ignore
+        //obj.nodes = obj.nodes.map( MakeIntoBuffer );
+        ////@ts-ignore
+        //obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
+        ////@ts-ignore
+        //obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
+        ////@ts-ignore
+        //obj.muteMsgIds = obj.muteMsgIds.map( MakeIntoBuffer );
+
+        //return obj as unknown as StoreRequest;
     }
 
     /**
@@ -199,18 +207,20 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize StoreResponse, wrong opcode");
         }
 
-        const obj = BopStoreResponse.decode(data.slice(4));
+        return DeepCopy(BopStoreResponse.decode(data.slice(4)), true);
 
-        const storeResponse: StoreResponse = {
-            error: obj.error as string,
-            //@ts-ignore
-            status: obj.status as Status,
-            storedId1s: obj.storedId1S.map( MakeIntoBuffer ),
-            missingBlobId1s: obj.missingBlobId1S.map( MakeIntoBuffer ),
-            missingBlobSizes: obj.missingBlobSizes,
-        };
+        //const obj = BopStoreResponse.decode(data.slice(4));
 
-        return storeResponse;
+        //const storeResponse: StoreResponse = {
+            //error: obj.error as string,
+            ////@ts-ignore
+            //status: obj.status as Status,
+            //storedId1List: obj.storedId1S.map( MakeIntoBuffer ),
+            //missingBlobId1s: obj.missingBlobId1S.map( MakeIntoBuffer ),
+            //missingBlobSizes: obj.missingBlobSizes,
+        //};
+
+        //return storeResponse;
     }
 
     /**

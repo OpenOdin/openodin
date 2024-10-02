@@ -324,7 +324,7 @@ export class P2PClient {
         try {
             switch(routeEvent.target) {
                 case RouteAction.STORE:
-                    this.route<StoreRequest, StoreResponse>(RouteAction.STORE, routeEvent, this.handlerStore, this.limitStoreRequest, this.deserialize.StoreRequest, this.serialize.StoreResponse, this.deserialize.StoreResponse, {storedId1s: [], missingBlobId1s: [], missingBlobSizes: [], status: Status.ERROR, error: ""});
+                    this.route<StoreRequest, StoreResponse>(RouteAction.STORE, routeEvent, this.handlerStore, this.limitStoreRequest, this.deserialize.StoreRequest, this.serialize.StoreResponse, this.deserialize.StoreResponse, {storedId1List: [], missingBlobId1List: [], missingBlobSizes: [], status: Status.ERROR, error: ""});
                     break;
                 case RouteAction.FETCH:
                     this.route<FetchRequest, FetchResponse>(RouteAction.FETCH, routeEvent, this.handlerFetch, this.limitFetchRequest, this.deserialize.FetchRequest, this.serialize.FetchResponse, this.deserialize.FetchResponse, {seq: 0, endSeq: 0, result: {nodes: [], embed: [], cutoffTime: 0n}, crdtResult: {delta: Buffer.alloc(0), length: 0, cursorIndex: -1}, status: Status.ERROR, error: "", rowCount: 0});
@@ -622,8 +622,8 @@ export class P2PClient {
             if (sendResponse) {
                 const storeResponse: StoreResponse = {
                     status: Status.ERROR,
-                    storedId1s: [],
-                    missingBlobId1s: [],
+                    storedId1List: [],
+                    missingBlobId1List: [],
                     missingBlobSizes: [],
                     error: "Store not allowed",
                 };
