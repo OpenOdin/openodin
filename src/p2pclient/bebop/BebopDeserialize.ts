@@ -11,7 +11,7 @@ import {
     BopWriteBlobResponse,
     BopReadBlobResponse,
     BopGenericMessageResponse,
-} from "./bebop";
+} from "../../bebop";
 
 import {
     FetchRequest,

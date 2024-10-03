@@ -1,8 +1,8 @@
 {
-  "include": ["./src/p2pclient/bebop/bebop.bop"],
+  "include": ["./src/**/*.bop"],
   "generators": {
       "ts": {
-          "outFile": "./src/p2pclient/bebop/bebop.ts"
+          "outFile": "./src/bebop.ts"
       }
   }
 }
