@@ -730,13 +730,32 @@ export class P2PClient {
         // Intersect what the client wants to embed and what we allow to be embedded.
         const allowEmbed = this.intersectAllowedEmbed(fetchRequest.query.embed, this.permissions.fetchPermissions.allowEmbed);
 
+        let includeLicenses: typeof fetchRequest.query.includeLicenses = "";
+
+        if (this.permissions.fetchPermissions.allowIncludeLicenses === "IncludeExtend") {
+            includeLicenses = fetchRequest.query.includeLicenses;
+        }
+        else if (this.permissions.fetchPermissions.allowIncludeLicenses === "Include") {
+            if (fetchRequest.query.includeLicenses === "IncludeExtend" ||
+                fetchRequest.query.includeLicenses === "Include") {
+
+                includeLicenses = "Include";
+            }
+        }
+        else if (this.permissions.fetchPermissions.allowIncludeLicenses === "Extend") {
+            if (fetchRequest.query.includeLicenses === "IncludeExtend" ||
+                fetchRequest.query.includeLicenses === "Extend") {
+
+                includeLicenses = "Extend";
+            }
+        }
 
         // Copy fetchRequest with some changes to forward it to our storage.
         const fetchRequest2: FetchRequest = {
             query: {
                 ...fetchRequest.query,
                 embed: allowEmbed,
-                includeLicenses: fetchRequest.query.includeLicenses & this.permissions.fetchPermissions.allowIncludeLicenses,
+                includeLicenses,
             },
             crdt: fetchRequest.crdt,
         };

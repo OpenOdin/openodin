@@ -130,22 +130,23 @@ export type P2PClientFetchPermissions = {
     allowEmbed: AllowEmbed[],
 
     /**
-     * For FetchRequests having includeLicenses set this value is bit masked against the
-     * desired setting in the FetchQuery.
+     * For FetchRequests having includeLicenses set this value is matched against the
+     * desired setting in the FetchQuery deciding if the FetchRequest is allowed to
+     * use includeLicenses.
      *
      * This configuration is separate from allowEmbed and can be used
      * even if allowEmbed is set empty ([]).
      *
      * This setting is also seperate from Match against licenses.
      *
-     * 0 = do not allow.
-     * 1 = allow auto include of all licenses needed to license a matched node.
+     * "" = do not allow.
+     * "Include" = allow auto include of all licenses needed to license a matched node.
      *      Both read and write licenses are included.
-     * 2 = allow auto include of licenses which can be embedded to give permissions to matched nodes.
+     * "Extend" = allow auto include of licenses which can be embedded to give permissions to matched nodes.
      *      Both read and write licenses are included.
-     * 3 = allow both 1 and 2.
+     * "IncludeExtend" = allow both "Include", "Extend", and "IncludeExtend".
      */
-    allowIncludeLicenses: number,
+    allowIncludeLicenses: "" | "Include" | "Extend" | "IncludeExtend",
 
     /** Set if to allow fetch requests using triggers. */
     allowTrigger: boolean,
@@ -185,7 +186,7 @@ export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
                 filters: []
             }
         ],
-        allowIncludeLicenses: 3,
+        allowIncludeLicenses: "IncludeExtend",
         allowTrigger: true,
         allowNodeTypes: [Buffer.from("0004", "hex")],
         allowAlgos: [
@@ -210,7 +211,7 @@ export const DEFAULT_PEER_PERMISSIONS: P2PClientPermissions = {
                 "filters": []
             }
         ],
-        allowIncludeLicenses: 3,
+        allowIncludeLicenses: "IncludeExtend",
         allowTrigger: true,
         allowNodeTypes: [Buffer.from("0004", "hex")],
         allowAlgos: [],
@@ -231,7 +232,7 @@ export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
                 "filters": []
             }
         ],
-        allowIncludeLicenses: 3,
+        allowIncludeLicenses: "IncludeExtend",
         allowTrigger: true,
         allowNodeTypes: [Buffer.from("0004", "hex")],
         allowAlgos: [
@@ -251,7 +252,7 @@ export const LOCKED_PERMISSIONS: P2PClientPermissions = {
     allowUncheckedAccess: false,
     fetchPermissions: {
         allowEmbed: [],
-        allowIncludeLicenses: 0,
+        allowIncludeLicenses: "",
         allowTrigger: false,
         allowNodeTypes: [],
         allowAlgos: [],

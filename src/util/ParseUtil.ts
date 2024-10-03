@@ -731,7 +731,7 @@ export class ParseUtil {
     public static ParseP2PClientPermissions(permissions: any): P2PClientPermissions {
         let fetchPermissions: P2PClientFetchPermissions = {
             allowNodeTypes: [],
-            allowIncludeLicenses: 0,
+            allowIncludeLicenses: "",
             allowTrigger: false,
             allowEmbed: [],
             allowAlgos: [],
@@ -783,7 +783,7 @@ export class ParseUtil {
      * @param permissions object of type:
      * {
      *  allowEmbed: {nodeType: alias | hexstring | Buffer, filters: Filter[]}[],
-     *  allowIncludeLicenses?: number,
+     *  allowIncludeLicenses?: string,
      *  allowTrigger: boolean,
      *  allowNodeTypes: hexstring[] | Buffer[],
      *  allowAlgos: number[],
@@ -812,7 +812,7 @@ export class ParseUtil {
             });
         }
 
-        const allowIncludeLicenses = ParseUtil.ParseVariable("permissions allowIncludeLicenses must be number, if set", permissions.allowIncludeLicenses, "number", true) ?? 0;
+        const allowIncludeLicenses = ParseUtil.ParseVariable("permissions allowIncludeLicenses must be string, if set", permissions.allowIncludeLicenses, "string", true) ?? "";
         const allowTrigger = ParseUtil.ParseVariable("permissions allowTrigger must be boolean, if set", permissions.allowTrigger, "boolean", true) ?? false;
         const allowAlgos = ParseUtil.ParseVariable("permissions allowAlgos must be number[], if set", permissions.allowAlgos, "number[]", true) ?? [];
         const allowNodeTypes: Buffer[] = ParseUtil.ParseVariable("permissions allowNodeTypes must be hex-string[] or Buffer[]", permissions.allowNodeTypes, "hex[]");
@@ -1353,7 +1353,7 @@ export class ParseUtil {
      *  embed: {nodeType: alias | hexstring | Buffer, filters: Filter[]}[],
      *  region?: string,
      *  jurisdiction?: string,
-     *  includeLicenses?: number,
+     *  includeLicenses?: string,
      * }
      * @returns FetchQuery
      * @throws on unparseable data
@@ -1382,7 +1382,7 @@ export class ParseUtil {
         const sourcePublicKey = ParseUtil.ParseVariable("query sourcePublicKey must be hex-string or Buffer, if set", query.sourcePublicKey, "hex", true) ?? Buffer.alloc(0);
         const region = ParseUtil.ParseVariable("query region must be string, if set", query.region, "string", true) ?? "";
         const jurisdiction = ParseUtil.ParseVariable("query jurisdiction must be string, if set", query.jurisdiction, "string", true) ?? "";
-        const includeLicenses = ParseUtil.ParseVariable("query includeLicenses must be number, if set", query.includeLicenses, "number", true) ?? 0;
+        const includeLicenses = ParseUtil.ParseVariable("query includeLicenses must be string, if set", query.includeLicenses, "string", true) ?? "";
 
         let embed: AllowEmbed[] = [];
 

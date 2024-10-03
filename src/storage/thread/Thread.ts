@@ -289,13 +289,13 @@ export class Thread {
         const fetchRequest = Thread.GetFetchRequest(this.threadTemplate, {...this.threadVariables,
             ...threadVariables}, true);
 
-        // Note that when we set includeLicenses=3 the Storage will automatically
+        // Note that when we set includeLicenses="IncludeExtend" the Storage will automatically
         // add relevent licenses to the response and also automatically request licenses
         // to be extended for data matched.
         // This is a more fine grained approach in requesting licenses than using
         // query.embed and query.match on licenses.
         //
-        fetchRequest.query.includeLicenses = 3;
+        fetchRequest.query.includeLicenses = "IncludeExtend";
 
         // We cancel any discard because we need the whole structure when syncing.
         //
@@ -326,7 +326,7 @@ export class Thread {
         //
         reverseFetchRequest.query.match.forEach( match => match.discard = false );
 
-        reverseFetchRequest.query.includeLicenses = 3;
+        reverseFetchRequest.query.includeLicenses = "IncludeExtend";
         reverseFetchRequest.query.preserveTransient = false;
         reverseFetchRequest.crdt.algo = 0;
 

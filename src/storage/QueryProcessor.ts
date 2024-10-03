@@ -1188,12 +1188,14 @@ export class QueryProcessor {
     {
         const includedLicensesEmbedded: LicenseInterface[] = [];
 
-        const includeLicenses = (this.fetchQuery.includeLicenses & 1) > 0;
+        const includeLicenses = (this.fetchQuery.includeLicenses === "Include" ||
+            this.fetchQuery.includeLicenses === "IncludeExtend");
 
         const [allowedNodes, includedLicenses] = await this.filterLicensedNodes(allNodes,
             this.fetchQuery.targetPublicKey, includeLicenses);
 
-        const includeEmbeddableLicenses = (this.fetchQuery.includeLicenses & 2) > 0;
+        const includeEmbeddableLicenses = (this.fetchQuery.includeLicenses === "Extend" ||
+            this.fetchQuery.includeLicenses === "IncludeExtend");
 
         if (includeEmbeddableLicenses &&
             !this.fetchQuery.targetPublicKey.equals(this.fetchQuery.sourcePublicKey))

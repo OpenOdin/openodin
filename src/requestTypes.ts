@@ -304,28 +304,29 @@ export type FetchQuery = {
     jurisdiction: string,
 
     /**
-     * The includeLicenses feature is a way of bundling applicable licenses in the response.
+     * The includeLicenses feature is a way of automatically bundling applicable licenses in
+     * the response.
      *
      * Compared to adding a Match for license and an Embed to be able to get new licenses,
      * the includeLicenses feature makes it even more to the point of only targeting licenses
      * needed for the particular nodes matched.
      *
-     * Fetching licenses using a Match and Embed sweeps very broadly and might return
-     * many licenses for nodes which are of no interest to the query request.
+     * Because fetching licenses using a Match and Embed sweeps very broadly it might return
+     * many licenses for nodes which are of no interest to the given fetch request.
      *
-     * If set to 0 this feature is not active.
+     * If set to "" this feature is not active.
      *
-     * If set to 1 then include all valid existing licenses for each specific node matched,
-     * including read and write licenses. Although only read licenses will result in the
-     * node being returned in the query response.
+     * If set to "include" then include all valid existing licenses for each specific node matched,
+     * including both read and write licenses (although only read licenses will result in the
+     * node actually being returned in the query response).
      *
-     * If set to 2 then automatically add proposed embeddings of licenses which will give
-     * rights to nodes matched. This also includes write licenses, although those do not give
-     * read access to the nodes.
+     * If set to "extend" then automatically add proposed embeddings of licenses which will give
+     * rights to nodes matched (this also includes write licenses, although those do not give
+     * read access to the nodes).
      *
-     * If set to 3 then do for 1 and 2.
+     * If set to "include-extend" then both include and extend licenses.
      */
-    includeLicenses: number,
+    includeLicenses: "" | "Include" | "Extend" | "IncludeExtend",
 };
 
 /**

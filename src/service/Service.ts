@@ -1552,7 +1552,8 @@ export class Service {
         // If our permissions (as server) allow us to embed we spawn an extender server.
         //
         if (permissions.fetchPermissions.allowEmbed.length > 0 ||
-            (permissions.fetchPermissions.allowIncludeLicenses & 2) > 0)
+            (permissions.fetchPermissions.allowIncludeLicenses === "Extend" ||
+                permissions.fetchPermissions.allowIncludeLicenses === "IncludeExtend"))
         {
             const storageExtender = new P2PClientExtender(p2pClient, this.state.storageClient,
                 this.publicKey, this.config.nodeCerts, this.signatureOffloader, muteMsgIds);

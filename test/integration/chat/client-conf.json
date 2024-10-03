@@ -54,7 +54,7 @@
                    "name": "channel",
                    "threadVariables": {
                        "#": "Automatically include licenses and request new licenses to be extended.",
-                       "includeLicenses": 3
+                       "includeLicenses": "IncludeExtend"
                    },
                    "stream": true
                }

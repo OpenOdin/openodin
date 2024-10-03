@@ -3049,7 +3049,7 @@ function setupTests(config: any) {
                     filters: []
                 },
             ],
-            includeLicenses: 1,
+            includeLicenses: "Include",
         }});
 
         let nodes: NodeInterface[] = [];
@@ -3072,7 +3072,7 @@ function setupTests(config: any) {
                     filters: []
                 },
             ],
-            includeLicenses: 0,
+            includeLicenses: "",
             depth: 1,
         }});
 
@@ -3095,7 +3095,7 @@ function setupTests(config: any) {
                     filters: []
                 },
             ],
-            includeLicenses: 3,
+            includeLicenses: "IncludeExtend",
             depth: 1,
         }});
 
@@ -3118,7 +3118,7 @@ function setupTests(config: any) {
                     filters: []
                 },
             ],
-            includeLicenses: 2,
+            includeLicenses: "Extend",
             depth: 1,
         }});
 
@@ -3140,7 +3140,7 @@ function setupTests(config: any) {
                     filters: []
                 },
             ],
-            includeLicenses: 3,
+            includeLicenses: "IncludeExtend",
             depth: 10,
         }});
 
