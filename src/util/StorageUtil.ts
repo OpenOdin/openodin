@@ -21,7 +21,7 @@ import {
     LimitField,
     WriteBlobRequest,
     ReadBlobRequest,
-} from "../requestTypes";
+} from "../request/types";
 
 import {
     P2PClient,

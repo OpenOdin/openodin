@@ -3,7 +3,7 @@
  * @module
  */
 
-import {Filter} from "./datamodel";
+import {Filter} from "../datamodel";
 
 /**
  * This struct is part of Match and is used to limit how many times a Match matches on specific
