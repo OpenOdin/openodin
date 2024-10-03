@@ -13,8 +13,11 @@ import {
 
 import {
     BebopSerialize,
+} from "../request/BebopSerialize";
+
+import {
     BebopDeserialize,
-} from "../p2pclient/bebop";
+} from "../request/BebopDeserialize";
 
 import {
     APIRequest,

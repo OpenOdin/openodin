@@ -11,7 +11,7 @@ import {
     BopWriteBlobResponse,
     BopReadBlobResponse,
     BopGenericMessageResponse,
-} from "../../bebop";
+} from "../bebop";
 
 import {
     FetchRequest,
@@ -26,7 +26,7 @@ import {
     FetchResponse,
     UnsubscribeResponse,
     GenericMessageResponse,
-} from "../../types";
+} from "./types";
 
 /**
  * Class of functions used to serialize request structures into buffers using Bebop.

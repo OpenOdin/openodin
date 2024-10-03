@@ -9,8 +9,11 @@ import {
 
 import {
     BebopSerialize,
+} from "../request/BebopSerialize";
+
+import {
     BebopDeserialize,
-} from "./bebop";
+} from "../request/BebopDeserialize";
 
 import {
     Status,

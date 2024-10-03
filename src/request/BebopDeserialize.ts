@@ -11,7 +11,7 @@ import {
     BopWriteBlobResponse,
     BopReadBlobResponse,
     BopGenericMessageResponse,
-} from "../../bebop";
+} from "../bebop";
 
 import {
     FetchRequest,
@@ -26,11 +26,11 @@ import {
     FetchResponse,
     UnsubscribeResponse,
     GenericMessageResponse,
-} from "../../types";
+} from "./types";
 
 import {
     DeepCopy,
-} from "../../util/common";
+} from "../util/common";
 
 
 /**
