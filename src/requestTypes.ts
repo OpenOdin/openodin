@@ -6,17 +6,27 @@
 import {Filter} from "./datamodel";
 
 /**
- * This struct is part of Match and is used to limit how many times a Match matches on specific fields.
- * When processing a query having a match with limitField set then for each identical value of the field
- * identified by limitField.name a counter is increased and when the counter is greater then limitField.limit
- * the following nodes who match limitField are ignored and not part of the result set.
- * A match state is reset for each query below a node, meaning a limitField constraint is local to a set of sibling nodes.
- * The usage of this could be to limit the number of occurrences of nodes returned who have the field "name" set to the same value.
- * For example setting limitField to `{name: "Highlander", limit: 1}` will only allow one node having the field `name` set
- * to "Highlander" within the same set of sibling nodes.
- * Note that if the chosen node is later discarded due to its timestamp the matched node will not be returned in the result
- * set as will no other node who was constrained under the limitField. In these cases one could increase the `limit` or try
- * reversing (descending=true) the result set to pick from neweset nodes instead of oldest nodes first.
+ * This struct is part of Match and is used to limit how many times a Match matches on specific
+ * fields.
+ *
+ * When processing a query having a match with limitField set then for each identical value of the
+ * field  identified by limitField.name a counter is increased and when the counter is greater then
+ * limitField.limit the following nodes who match limitField are ignored and not part of the
+ * result set.
+ *
+ * A match state is reset for each query below a node, meaning a limitField constraint is local to a
+ * set of sibling nodes.
+ *
+ * The usage of this could be to limit the number of occurrences of nodes returned who have the field
+ * "name" set to the same value.
+ *
+ * For example setting limitField to `{name: "Highlander", limit: 1}` will only allow one node having
+ * the field `name` set to "Highlander" within the same set of sibling nodes.
+ *
+ * Note that if the chosen node is later discarded due to its timestamp the matched node will not be
+ * returned in the result set as will no other node who was constrained under the limitField.
+ * In these cases one could increase the `limit` or try reversing (descending=true) the result set
+ * to pick from neweset nodes instead of oldest nodes first.
  */
 export type LimitField = {
     /** Name of the field to count identical values on. */
@@ -64,7 +74,8 @@ export type Match = {
      * If set then the node will be discarded from the resultset.
      * But up til that last moment the node will be used for traversing just as if not discarded,
      * and also match state is managed as when not discarding.
-     * It is enough that a single Match object has discard=false for the node to be kept in the resultset.
+     * It is enough that a single Match object has discard=false for the node to be kept in the
+     * result set.
      */
     discard: boolean,
 
@@ -76,14 +87,17 @@ export type Match = {
     bottom: boolean,
 
     /**
-     * If set > 0 then the running query will note that a node was matched with this specific match ID.
-     * The use of matchId is for matches on the next level to requrie that a specific match was actively matching the parent node.
+     * If set > 0 then the running query will note that a node was matched with this specific match
+     * ID.
+     * The use of matchId is for matches on the next level to requrie that a specific match was
+     * actively matching the parent node.
      * Ids are not unique, many matches can have the same id.
      */
     id: number,
 
     /**
-     * If set > 0 then this match requires that at least one match matching the parent node had its matchId value set to this.
+     * If set > 0 then this match requires that at least one match matching the parent node had its
+     * matchId value set to this.
      */
     requireId: number,
 
@@ -98,7 +112,8 @@ export type Match = {
 };
 
 /**
- * This struct is used in queries for the client to restrict which nodes are passed along as embedded nodes.
+ * This struct is used in queries for the client to restrict which nodes are passed along as
+ * embedded nodes.
  * Typically a client would defined that is wants Licenses to be returned as embedded.
  */
 export type AllowEmbed = {
@@ -113,7 +128,9 @@ export type AllowEmbed = {
  * Each FetchRequest has one fetch query.
  */
 export type FetchQuery = {
-    /** max depth of request. Default is -1 meaning max limit. Max allowed depth is 100000 nodes deep. */
+    /**
+     * Max depth of request. Default is -1 meaning max limit. Max allowed depth is 100000 nodes deep.
+     */
     depth: number,
 
     /**
@@ -204,11 +221,16 @@ export type FetchQuery = {
     match: Match[],
 
     /**
-     * The node types and criterias which must match for the Database to send nodes-to-be-embedded back to the client.
-     * The client requests for example a License from an Intermediary who is proxying the request to the Storage and also has allowEmbed for License set in its permissions
-     * then Licenses will be embedded and subsequently returned in the result set.
-     * Note that nodes which get embedded when fetching will not be returned in the first result set, it will take a second fetch or
-     * that the first fetch also has a subscription for the embedded nodes to be returned.
+     * The node types and criterias which must match for the Database to send nodes-to-be-embedded
+     * back to the client.
+     *
+     * The client requests for example a License from an Intermediary who is proxying the request to
+     * the Storage and also has allowEmbed for License set in its permissions then Licenses will be
+     * embedded and subsequently returned in the result set.
+     *
+     * Note that nodes which get embedded when fetching will not be returned in the first result set,
+     * it will take a second fetch or that the first fetch also has a subscription for the embedded
+     * nodes to be returned.
      */
     embed: AllowEmbed[],
 
@@ -217,6 +239,7 @@ export type FetchQuery = {
      * added/changed below the triggerNodeId.
      * triggerNodeId is the parentId of the nodes to observe, it does not need to be related to
      * the parentId or the rootNodeId1 of the query.
+     *
      * The Storage is not required to support this feature and if it does not support this feature
      * then a malformed error is returned.
      */
@@ -267,7 +290,10 @@ export type FetchQuery = {
      */
     orderByStorageTime: boolean,
 
-    /** Set to true to not include not valid online nodes in result. Default is to include not valid nodes in resultset. */
+    /**
+     * Set to true to not include not valid online nodes in result. Default is to include not valid
+     * nodes in resultset.
+     */
     ignoreInactive: boolean,
 
     /**
@@ -280,10 +306,11 @@ export type FetchQuery = {
     /**
      * Set to true to preserve nodes transient values across serialization boundaries when fetching.
      *
-     * This is useful when a client wants to piggy-back on the peer's knowledge of the online transient
-     * properties of nodes, such as if it is validate and also for CRDT annotations.
+     * This is useful when a client wants to piggy-back on the peer's knowledge of the online
+     * transient properties of nodes, such as if it is validate and also for CRDT annotations.
      *
-     * Only use this if trusting the peer, also transient values are not guaranteed to be provided by the peer.
+     * Only use this if trusting the peer, also transient values are not guaranteed to be provided by
+     * the peer.
      */
     preserveTransient: boolean,
 
@@ -515,12 +542,17 @@ export type FetchResult = {
     nodes: Buffer[],
 
     /**
-     * The Storage can send this array of serialized nodes which are to be signed and sent back to storage for storing.
+     * The Storage can send this array of serialized nodes which are to be signed and sent back to
+     * storage for storing.
+     *
      * The serialized node is a proposal from the extender of the embedding node to be signed.
      */
     embed: Buffer[],
 
-    /** The next cutoff timestamp to use in any subsequent query to reduce the number of duplicate nodes in the result set. */
+    /**
+     * The next cutoff timestamp to use in any subsequent query to reduce the number of duplicate
+     * nodes in the result set.
+     */
     cutoffTime: bigint,
 };
 
@@ -611,11 +643,6 @@ export type FetchResponse = {
     endSeq: number,
 
     /**
-     * If there was an error reported in Status an error message could be provided.
-     */
-    error: string,
-
-    /**
      * The number of rows in the database processed so far to return this resultset.
      * If this number is much higher than the expected length of the resulset (or hits the max limit)
      * then it is a good indicator that the query is not specific enough.
@@ -623,6 +650,11 @@ export type FetchResponse = {
      * meaning it is the aggregated value of all sequences prior for the current query result.
      */
     rowCount: number,
+
+    /**
+     * If there was an error reported in Status an error message could be provided.
+     */
+    error: string,
 };
 
 /** The struct used when sending store requests. */
@@ -663,17 +695,23 @@ export type StoreRequest = {
     targetPublicKey: Buffer,
 
     /**
-     * Could be populated with msg IDs which were the msg IDs of the fetchRequest message sent when creating a subscription.
-     * This is useful so that the same data is not bounced back to the peer which the data just was fetched from.
+     * Could be populated with msg IDs which were the msg IDs of the fetchRequest message sent when
+     * creating a subscription.
+     * This is useful so that the same data is not bounced back to the peer which the data just was
+     * fetched from.
      * Peer clients are not expected to set this.
      */
     muteMsgIds: Buffer[],
 
     /**
-     * Set to true to preserve nodes transient values across serialization boundaries when sending nodes to storage.
-     * One usage of this is when a client fetches from a peer using fetchQuery.preserveTransient and then wanting to store the transient values in its storage,
+     * Set to true to preserve nodes transient values across serialization boundaries when sending
+     * nodes to storage.
+     * One usage of this is when a client fetches from a peer using fetchQuery.preserveTransient and
+     * then wanting to store the transient values in its storage,
      * because the client's storage might not be capable of looking up transient values it self.
-     * The Storage must be configured to allow the preservation of transient values for them to be stored.
+     *
+     * The Storage must be configured to allow the preservation of transient values for them to be
+     * stored.
      */
     preserveTransient: boolean,
 
@@ -687,9 +725,13 @@ export type StoreRequest = {
     batchId: number,
 
     /**
-     * When using batchId this field should be set when more data will be sent in a subsequent request.
+     * When using batchId this field should be set when more data will be sent in a subsequent
+     * request.
+     *
      * When the last request of the batch is sent this should be false.
+     *
      * If batchId is not > 0 then this field is ignored.
+     *
      * Default is false.
      */
     hasMore: boolean,
@@ -830,8 +872,9 @@ export type WriteBlobResponse = {
 
     /**
      * The current length of the blob data written.
-     * If Status.Exists is returned currentLength is set to the full length of the blob.
-     * If Status.Result is returned currentLength is set to the current length of the total continuous blob data written.
+     * If Status.EXISTS is returned currentLength is set to the full length of the blob.
+     * If Status.RESULT is returned currentLength is set to the current length of the total
+     * continuous blob data written.
      */
     currentLength: bigint,
 
@@ -893,7 +936,8 @@ export type ReadBlobResponse = {
      * Status.NotAllowed if read permissions to the node is not allowed for the client,target combo or
      *  if allowReadBlob is set to false, or if the node is not found.
      * Status.FetchFailed if blob data is not (yet) available.
-     * Status.Malformed if input values are wrong or if the node is fetched on id2, or if node is not configured for blob.
+     * Status.Malformed if input values are wrong or if the node is fetched on id2, or if node is not
+     * configured for blob.
      * Status.Result on successful read.
      */
     status: Status,
