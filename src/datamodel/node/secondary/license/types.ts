@@ -23,7 +23,7 @@ import {
  */
 export const LICENSE0_NODE_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_ID, 0, SECONDARY_INTERFACE_ID, NODE_CLASS, CLASS_MAJOR_VERSION]);
 
-export const LICENSE0_NODE_TYPE_ALIAS = "License0";
+export const LICENSE0_NODE_TYPE_ALIAS = "LicenseNode";
 
 export type LicenseParams = Omit<NodeParams, "id2" | "network" | "licenseMaxDistance" |
     "childMinDifficulty" | "licenseMinDistance" | "copiedSignature" | "copiedParentId" | "copiedId1"> & {

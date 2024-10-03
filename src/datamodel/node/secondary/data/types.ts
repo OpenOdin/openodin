@@ -23,7 +23,7 @@ import {
  */
 export const DATA0_NODE_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_ID, 0, SECONDARY_INTERFACE_ID, NODE_CLASS, CLASS_MAJOR_VERSION]);
 
-export const DATA0_NODE_TYPE_ALIAS = "Data0";
+export const DATA0_NODE_TYPE_ALIAS = "DataNode";
 
 export type DataParams = NodeParams & {
     dataConfig?: number,
