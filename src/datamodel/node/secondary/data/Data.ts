@@ -37,8 +37,9 @@ import {
 } from "../../../model";
 
 import {
-    StripObject,
-} from "../../../../util/common";
+    ToJSONObject,
+} from "../../../../util/SchemaUtil";
+
 
 import {
     DATA0_NODE_TYPE,
@@ -672,6 +673,6 @@ export class Data extends Node implements DataInterface {
         o.hasOnline = this.hasOnline();
         o.isOnline = this.isOnline();
 
-        return JSON.stringify(StripObject(o), null, 4);
+        return JSON.stringify(ToJSONObject(o), null, 4);
     }
 }

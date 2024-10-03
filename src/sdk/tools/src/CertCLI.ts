@@ -8,8 +8,11 @@ import {
     CertUtil,
     ParseUtil,
     ModelTypeToNameMap,
-    StripObject,
 } from "../../../util";
+
+import {
+    ToJSONObject,
+} from "../../../util/SchemaUtil";
 
 import {
     JSONUtil,
@@ -93,7 +96,7 @@ export class CertCLI {
             const image = Buffer.from(certObject.cert, "hex");
             const certUtil = new CertUtil();
             const info = await certUtil.unpackCert(image);
-            console.log(JSON.stringify(StripObject(info), null, 4));
+            console.log(JSON.stringify(ToJSONObject(info), null, 4));
         }
         catch(e) {
             const message = (e as Error)?.message ? (e as Error).message : e;
@@ -111,7 +114,7 @@ export class CertCLI {
             const image = Buffer.from(certObject.cert, "hex");
             const cert = Decoder.DecodeAnyCert(image);
             const params = cert.getParams();
-            console.log(JSON.stringify(StripObject(params), null, 4));
+            console.log(JSON.stringify(ToJSONObject(params), null, 4));
         }
         catch(e) {
             const message = (e as Error)?.message ? (e as Error).message : e;

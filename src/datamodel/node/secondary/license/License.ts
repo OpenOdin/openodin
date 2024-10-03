@@ -27,8 +27,8 @@ import {
 } from "../../../model";
 
 import {
-    StripObject,
-} from "../../../../util/common";
+    ToJSONObject,
+} from "../../../../util/SchemaUtil";
 
 import {
     LICENSE0_NODE_TYPE,
@@ -1775,6 +1775,6 @@ export class License extends Node implements LicenseInterface {
             o[fieldName] = this.model.getAny(fieldName);
         });
 
-        return JSON.stringify(StripObject(o), null, 4);
+        return JSON.stringify(ToJSONObject(o), null, 4);
     }
 }

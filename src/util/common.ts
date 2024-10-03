@@ -296,40 +296,6 @@ export function DeepHash(o: any): Buffer {
     return Buffer.from(h.digest());
 }
 
-/**
- * Clean and prepare object for output.
- * Transform buffers to hex strings in object,
- * remove instances and functions.
- */
-export function StripObject(obj: any): any {
-    if (Buffer.isBuffer(obj)) {
-        return obj.toString("hex");
-    }
-    else if (typeof(obj) === "bigint") {
-        return Number(obj);
-    }
-    else if (Array.isArray(obj)) {
-        return obj.map( (elm: any) => {
-            return StripObject(elm);
-        });
-    }
-    else if (obj && typeof obj === "object" && obj.constructor === Object) {
-        const keys = Object.keys(obj);
-        const obj2: any = {};
-        keys.forEach( (key: string) => {
-            obj2[key] = StripObject(obj[key]);
-        });
-        return obj2;
-    }
-    else if (obj && typeof obj === "object" && obj.constructor !== Object) {
-        return undefined;
-    }
-    else if (obj && typeof obj === "function") {
-        return undefined;
-    }
-    return obj;
-}
-
 type fn<ReturnType> = (res: ReturnType | undefined) => void;
 
 export function PromiseCallback<ReturnType>(): {promise: Promise<ReturnType>, cb: (err?: Error | null, result?: ReturnType) => void} {

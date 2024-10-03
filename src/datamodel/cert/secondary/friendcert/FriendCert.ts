@@ -28,8 +28,8 @@ import {
 } from "../../../hash";
 
 import {
-    StripObject,
-} from "../../../../util/common";
+    ToJSONObject,
+} from "../../../../util/SchemaUtil";
 
 /** The added fields for FriendCert. */
 const FIELDS: Fields = {
@@ -313,6 +313,6 @@ export class FriendCert extends PrimaryDefaultCert implements FriendCertInterfac
             o[fieldName] = this.model.getAny(fieldName);
         });
 
-        return JSON.stringify(StripObject(o), null, 4);
+        return JSON.stringify(ToJSONObject(o), null, 4);
     }
 }

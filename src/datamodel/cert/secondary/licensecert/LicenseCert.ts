@@ -24,8 +24,8 @@ import {
 } from "../../../hash";
 
 import {
-    StripObject,
-} from "../../../../util/common";
+    ToJSONObject,
+} from "../../../../util/SchemaUtil";
 
 /** The added fields for LicenseCert. */
 const FIELDS: Fields = {
@@ -259,6 +259,6 @@ export class LicenseCert extends PrimaryNodeCert implements LicenseCertInterface
             o[fieldName] = this.model.getAny(fieldName);
         });
 
-        return JSON.stringify(StripObject(o), null, 4);
+        return JSON.stringify(ToJSONObject(o), null, 4);
     }
 }

@@ -89,8 +89,11 @@ import {
 
 import {
     DeepCopy,
-    StripObject,
 } from "../util/common";
+
+import {
+    ToJSONObject,
+} from "./SchemaUtil";
 
 import {
     APIAuthFactoryConfig,
@@ -867,7 +870,7 @@ export class ParseUtil {
             obj.data = obj.data.toString("base64");
         }
 
-        return JSON.stringify(StripObject(obj));
+        return JSON.stringify(ToJSONObject(obj));
     }
 
     /**
