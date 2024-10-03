@@ -89,9 +89,11 @@ export function DeepEquals(o1: any, o2: any): boolean {
  * Return deep copy of an object.
  *
  * Function cannot be copied.
- * Class instances have their properties copied and they are returned as object.
+ * Class instances have their properties copied and they are returned as objects.
  *
  * @param o object to copy.
+ * @param keepBuffer if set then do not copy buffers byte-per-byte but use the same object
+ * Uin8Arrays are returned wrapped in Buffer.
  * @returns copied object.
  * @throws on unknown or uncopyable data types such as functios.
  */
@@ -113,14 +115,19 @@ export function DeepCopy(o: any, keepBuffer: boolean = false): any {
     }
     else if (type === "buffer" || type === "arraybuffer") {
         if (keepBuffer) {
-            return o;
+            // This reuses the underlying data, and in the case of arraybuffer
+            // wraps it in a Buffer object.
+            return Buffer.from(o);
         }
 
         const l = o.length;
+
         const o2 = Buffer.alloc(l);
+
         for (let i=0; i<l; i++) {
             o2[i] = o[i];
         }
+
         return o2;
     }
 
@@ -187,11 +194,11 @@ export function GetType(o: any): "undefined" | "null" | "string" | "number" | "b
     else if (Buffer.isBuffer(o)) {
         return "buffer";
     }
-    else if (ArrayBuffer.isView(o)) {
-        return "arraybuffer";
-    }
     else if (type === "object" && o.constructor === Object) {
         return type;
+    }
+    else if (o instanceof Uint8Array) {
+        return "arraybuffer";
     }
     else if (type === "object") {
         return "classInstance";
