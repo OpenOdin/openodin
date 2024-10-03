@@ -1636,7 +1636,7 @@ function setupTests(config: any) {
                 ]
             },
             crdt: {
-                algo: 1,
+                algo: "Sorted",
                 head: -1,
             }
         });
@@ -1879,7 +1879,7 @@ function setupTests(config: any) {
                 ]
             },
             crdt: {
-                algo: 1,
+                algo: "Sorted",
                 head: -1,
             }
         });
@@ -1960,7 +1960,7 @@ function setupTests(config: any) {
                 depth: 2,  // Important we have depth 2 since annotation nodes are child nodes.
             },
             crdt: {
-                algo: 1,
+                algo: "Sorted",
                 head: -1,
                 conf: {
                     annotations: {

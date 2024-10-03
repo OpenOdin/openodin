@@ -75,8 +75,8 @@ export const BEBOP_SCHEMA = new Uint8Array ([
 115, 100, 105, 99, 116, 105, 111, 110, 0, 245, 255, 255,
 255, 0, 105, 110, 99, 108, 117, 100, 101, 76, 105, 99,
 101, 110, 115, 101, 115, 0, 245, 255, 255, 255, 0, 70,
-101, 116, 99, 104, 67, 82, 68, 84, 0, 1, 0, 0, 27, 0, 0,
-0, 0, 8, 97, 108, 103, 111, 0, 253, 255, 255, 255, 0, 99,
+101, 116, 99, 104, 67, 82, 68, 84, 0, 1, 0, 0, 29, 0, 0,
+0, 0, 8, 97, 108, 103, 111, 0, 245, 255, 255, 255, 0, 99,
 111, 110, 102, 0, 245, 255, 255, 255, 0, 109, 115, 103,
 73, 100, 0, 242, 255, 255, 255, 0, 254, 255, 255, 255, 0,
 114, 101, 118, 101, 114, 115, 101, 0, 255, 255, 255, 255,
@@ -113,7 +113,7 @@ export const BEBOP_SCHEMA = new Uint8Array ([
 116, 104, 0, 251, 255, 255, 255, 0, 66, 111, 112, 70, 101,
 116, 99, 104, 82, 101, 113, 117, 101, 115, 116, 0, 1, 1,
 111, 112, 99, 111, 100, 101, 0, 1, 102, 111, 117, 114, 99,
-99, 0, 245, 255, 255, 255, 48, 120, 49, 0, 0, 92, 0, 0, 0,
+99, 0, 245, 255, 255, 255, 48, 120, 49, 0, 0, 94, 0, 0, 0,
 0, 2, 113, 117, 101, 114, 121, 0, 4, 0, 0, 0, 0, 99, 114,
 100, 116, 0, 5, 0, 0, 0, 0, 66, 111, 112, 70, 101, 116,
 99, 104, 82, 101, 115, 112, 111, 110, 115, 101, 0, 1, 1,
@@ -1358,7 +1358,7 @@ export interface IFetchCRDT extends BebopRecord {
    * The server might not allow certain or any algos.
    * A value of 0 means CRDT is not used.
    */
-  readonly algo: number;
+  readonly algo: string;
   /**
    * Algos can take configuration parameters in JSON format, provided here.
    * Algo sorted and Algo refId both can handle annotations.
@@ -1459,7 +1459,7 @@ export interface IFetchCRDT extends BebopRecord {
 }
 
 export class FetchCRDT implements IFetchCRDT {
-  public readonly algo: number;
+  public readonly algo: string;
   public readonly conf: string;
   public readonly msgId: Uint8Array;
   public readonly reverse: boolean;
@@ -1504,7 +1504,7 @@ export class FetchCRDT implements IFetchCRDT {
    * Validates that the specified dynamic object can become an instance of {@link FetchCRDT}.
    */
   public static validateCompatibility(record: IFetchCRDT): void {
-    BebopTypeGuard.ensureUint16(record.algo)
+    BebopTypeGuard.ensureString(record.algo)
     BebopTypeGuard.ensureString(record.conf)
     BebopTypeGuard.ensureArray(record.msgId, BebopTypeGuard.ensureUint8);
     BebopTypeGuard.ensureBoolean(record.reverse)
@@ -1545,7 +1545,7 @@ export class FetchCRDT implements IFetchCRDT {
 
   public static encodeInto(record: IFetchCRDT, view: BebopView): number {
     const before = view.length;
-    view.writeUint16(record.algo);
+    view.writeString(record.algo);
     view.writeString(record.conf);
     view.writeBytes(record.msgId);
     view.writeByte(Number(record.reverse));
@@ -1564,8 +1564,8 @@ export class FetchCRDT implements IFetchCRDT {
   }
 
   public static readFrom(view: BebopView): IFetchCRDT {
-    let field0: number;
-    field0 = view.readUint16();
+    let field0: string;
+    field0 = view.readString();
     let field1: string;
     field1 = view.readString();
     let field2: Uint8Array;

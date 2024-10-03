@@ -786,7 +786,7 @@ export class ParseUtil {
      *  allowIncludeLicenses?: string,
      *  allowTrigger: boolean,
      *  allowNodeTypes: hexstring[] | Buffer[],
-     *  allowAlgos: number[],
+     *  allowAlgos: string[],
      *  allowReadBlob?: boolean,
      * }
      * @returns P2PClientFetchPermissions object
@@ -814,7 +814,7 @@ export class ParseUtil {
 
         const allowIncludeLicenses = ParseUtil.ParseVariable("permissions allowIncludeLicenses must be string, if set", permissions.allowIncludeLicenses, "string", true) ?? "";
         const allowTrigger = ParseUtil.ParseVariable("permissions allowTrigger must be boolean, if set", permissions.allowTrigger, "boolean", true) ?? false;
-        const allowAlgos = ParseUtil.ParseVariable("permissions allowAlgos must be number[], if set", permissions.allowAlgos, "number[]", true) ?? [];
+        const allowAlgos = ParseUtil.ParseVariable("permissions allowAlgos must be string[], if set", permissions.allowAlgos, "string[]", true) ?? [];
         const allowNodeTypes: Buffer[] = ParseUtil.ParseVariable("permissions allowNodeTypes must be hex-string[] or Buffer[]", permissions.allowNodeTypes, "hex[]");
 
         const allowReadBlob = ParseUtil.ParseVariable("permissions allowReadBlob must be boolean, if set", permissions.allowReadBlob, "boolean", true) ?? false;
@@ -1434,7 +1434,7 @@ export class ParseUtil {
     /**
      * @param crdt as:
      * {
-     *  algo: number,
+     *  algo: string,
      *  conf?: JSONObject | string,
      *  reverse?: boolean,
      *  cursorId1?: hexstring | Buffer,
@@ -1453,7 +1453,7 @@ export class ParseUtil {
         }
 
         const msgId = ParseUtil.ParseVariable("crdt msgId must be hex-string or Buffer, if set", crdt.msgId, "hex", true) ?? Buffer.alloc(0);
-        const algo = ParseUtil.ParseVariable("crdt algo must be number, if set", crdt.algo, "number", true) ?? 0;
+        const algo = ParseUtil.ParseVariable("crdt algo must be string, if set", crdt.algo, "string", true) ?? "";
 
         let conf: string = "";
 

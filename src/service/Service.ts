@@ -739,7 +739,7 @@ export class Service {
                     syncThread.stream);
 
                 // CRDTs are not allowed to be used when auto syncing.
-                fetchRequest.crdt.algo = 0;
+                fetchRequest.crdt.algo = "";
 
                 if (syncThread.direction === "pull" || syncThread.direction === "both") {
                     autoFetchers.push({

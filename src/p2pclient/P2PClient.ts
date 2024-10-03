@@ -697,7 +697,7 @@ export class P2PClient {
         if (allowed) {
             const algoId = fetchRequest.crdt.algo;
 
-            if (algoId > 0 && this.permissions.fetchPermissions.allowAlgos.indexOf(algoId) === -1) {
+            if (algoId.length > 0 && this.permissions.fetchPermissions.allowAlgos.indexOf(algoId) === -1) {
                 errorMsg = `CRDT algo ${algoId} requested is not supported`;
                 allowed = false;
             }

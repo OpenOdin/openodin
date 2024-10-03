@@ -77,7 +77,7 @@ export type FetchRequestQueryParams = {
 };
 
 export type FetchRequestCRDTParams = {
-    algo: number,
+    algo: string,
     conf?: string | {[key: string]: any},
     reverse?: boolean,
     cursorId1?: Buffer | string,

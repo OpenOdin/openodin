@@ -64,12 +64,12 @@ export class AlgoRefId implements AlgoInterface {
         this.targetPublicKey = targetPublicKey;
     }
 
-    public static GetId(): number {
-        return 2;
+    public static GetId(): string {
+        return "RefId";
     }
 
-    public getId(): number {
-        return 2;
+    public getId(): string {
+        return AlgoRefId.GetId();
     }
 
     public getLength(): number {

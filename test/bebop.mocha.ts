@@ -91,7 +91,7 @@ const FetchRequestSchema: ObjectSchema = {
         "includeLicenses?": 0,
     },
     "crdt?": {
-        algo: 0,
+        algo: "",
         conf: "",
         msgId: Buffer.alloc(0),
         reverse: false,

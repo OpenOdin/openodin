@@ -18,7 +18,7 @@ export type CRDTViewType = {
 };
 
 export interface AlgoInterface {
-    getId(): number;
+    getId(): string;
     getLength(): number;
     getAllNodes(): {[id1: string]: NodeValues};
     add(nodes: DataInterface[]): [NodeValues[], Buffer[]];

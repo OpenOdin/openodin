@@ -304,7 +304,7 @@ export class Thread {
         // Not relevant/allowed for auto fetch.
         //
         fetchRequest.query.preserveTransient = false;
-        fetchRequest.crdt.algo = 0;
+        fetchRequest.crdt.algo = "";
 
         const autoFetch: AutoFetch = {
             fetchRequest,
@@ -328,7 +328,7 @@ export class Thread {
 
         reverseFetchRequest.query.includeLicenses = "IncludeExtend";
         reverseFetchRequest.query.preserveTransient = false;
-        reverseFetchRequest.crdt.algo = 0;
+        reverseFetchRequest.crdt.algo = "";
 
         const autoFetchReverse: AutoFetch = {
             fetchRequest: reverseFetchRequest,

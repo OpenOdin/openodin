@@ -336,9 +336,9 @@ export type FetchCRDT = {
     /**
      * The ID of the CRDT algo requested.
      * The server might not allow certain or any algos.
-     * A value of 0 means CRDT is not used.
+     * A value of "" means CRDT is not used.
      */
-    algo: number,
+    algo: string,
 
     /**
      * Algos can take configuration parameters in JSON format, provided here.

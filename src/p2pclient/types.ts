@@ -155,7 +155,7 @@ export type P2PClientFetchPermissions = {
     allowNodeTypes: Buffer[],
 
     /** Algo IDs supported for CRDT requests. */
-    allowAlgos: number[],
+    allowAlgos: string[],
 
     /** Is the peer allowed to read blob data? The peer must also have access to the node it self. */
     allowReadBlob: boolean,

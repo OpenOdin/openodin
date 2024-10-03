@@ -582,7 +582,7 @@ export class Storage {
                     Math.max(fetchRequestCopy.query.triggerInterval, 60);
             }
 
-            if (fetchRequestCopy.crdt.algo > 0) {
+            if (fetchRequestCopy.crdt.algo.length > 0) {
                 if (fetchRequestCopy.query.cutoffTime !== 0n) {
                     status = Status.Malformed;
                     throw new Error("query.cutoffTime must be set to 0 when fetching with CRDT");
@@ -619,7 +619,7 @@ export class Storage {
             //
             // This is a request to update the underlying fetch request.
             //
-            if (fetchRequestCopy.crdt.algo > 0 &&
+            if (fetchRequestCopy.crdt.algo.length > 0 &&
                 fetchRequestCopy.crdt.msgId.length > 0) {
 
                 const key = CRDTManager.HashKey(fetchRequestCopy);
@@ -712,7 +712,7 @@ export class Storage {
         try {
             const now = this.timeFreeze.read();
 
-            const usesCrdt = fetchRequest.crdt.algo > 0;
+            const usesCrdt = fetchRequest.crdt.algo.length > 0;
 
             if (usesCrdt) {
                 const key = CRDTManager.HashKey(fetchRequest);
@@ -882,7 +882,7 @@ export class Storage {
                 if (interval > 0 && now - trigger.lastIntervalRun > interval) {
                     if (!trigger.isRunning) {
 
-                        if (trigger.fetchRequest.crdt.algo > 0) {
+                        if (trigger.fetchRequest.crdt.algo.length > 0) {
                             // Do full refetch when using CRDT and subscription.
                             trigger.fetchRequest.query.cutoffTime = 0n;
                         }

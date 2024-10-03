@@ -13,7 +13,7 @@
                 ]
             },
             "crdt": {
-                "algo": 2,
+                "algo": "RefId",
                 "head": -1
             },
             "post": {
