@@ -24,8 +24,11 @@ import {
 import {
     CopyBuffer,
     DeepCopy,
-    TemplateSubstitute,
 } from "../../util/common";
+
+import {
+    TemplateSubstitute,
+} from "../../util/TemplateUtil";
 
 import {
     DataParams,
