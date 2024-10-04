@@ -36,20 +36,6 @@ export class NodeUtil {
     }
 
     /**
-    * Check in the image header data if it looks like a node.
-    * @param image the node image
-    * @returns true if the image header is recognized as being of primary interface node.
-    */
-    public static IsNode(image: Buffer): boolean {
-        const nodePrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_NODE_ID]);
-        if (image.slice(0, 2).equals(nodePrimaryInterface)) {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
      * Create new Data node, optionally sign it.
      * Default parentId is set to 00...00
      * Default creationTime is set to Date.now().
