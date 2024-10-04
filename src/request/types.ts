@@ -196,18 +196,6 @@ export type FetchQuery = {
     /**
      * Optional.
      *
-     * For whom this read is performed. Permissions are applied to this public key.
-     *
-     * Upon arrival this is by default set to the public key of the peer sending the message.
-     *
-     * It can be set differently by the sender if the receiving P2PClient is configured with
-     * allowUncheckedAccess.
-     */
-    targetPublicKey: Buffer,
-
-    /**
-     * Optional.
-     *
      * Who is the source of the data we are fetching.
      *
      * Upon arrival this is by default set to the public key of the peer receiving this message.
@@ -216,6 +204,18 @@ export type FetchQuery = {
      * allowUncheckedAccess.
      */
     sourcePublicKey: Buffer,
+
+    /**
+     * Optional.
+     *
+     * For whom this read is performed. Permissions are applied to this public key.
+     *
+     * Upon arrival this is by default set to the public key of the peer sending the message.
+     *
+     * It can be set differently by the sender if the receiving P2PClient is configured with
+     * allowUncheckedAccess.
+     */
+    targetPublicKey: Buffer,
 
     /** At least one Match must match for a node to be added to result set. */
     match: Match[],
@@ -908,18 +908,6 @@ export type ReadBlobRequest = {
     /**
      * Optional.
      *
-     * For whom this blob read is performed. Permissions are applied to this public key.
-     *
-     * Upon arrival this is by default set to the public key of the peer sending the message.
-     *
-     * It can be set differently by the sender if the receiving P2PClient is configured with
-     * allowUncheckedAccess.
-     */
-    targetPublicKey: Buffer,
-
-    /**
-     * Optional.
-     *
      * Who is the source of the blob data we are fetching.
      *
      * Upon arrival this is by default set to the public key of the peer receiving this message.
@@ -928,6 +916,18 @@ export type ReadBlobRequest = {
      * allowUncheckedAccess.
      */
     sourcePublicKey: Buffer,
+
+    /**
+     * Optional.
+     *
+     * For whom this blob read is performed. Permissions are applied to this public key.
+     *
+     * Upon arrival this is by default set to the public key of the peer sending the message.
+     *
+     * It can be set differently by the sender if the receiving P2PClient is configured with
+     * allowUncheckedAccess.
+     */
+    targetPublicKey: Buffer,
 };
 
 /** Struct used for responding to read blob requests. */
