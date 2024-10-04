@@ -1,3 +1,5 @@
+export type JSONObject = Record<string, any>;
+
 /**
  * The SchemaUtil parses JSON into native objects according to a given schema object.
  * {
@@ -31,6 +33,10 @@
  *  // Value is allowed to be boolean or number and is converted into boolean
  *  //
  *  "confirmed": false,
+ *
+ *  // If type is string and passed in value is object then the value is JSON.stringified to a string.
+ *  //
+ *  "conf?": "",
  *
  *  // If the schema value is (empty) Uint8Array or Buffer,
  *  // then the given value is parsed from string as (encoding as prefix):
@@ -90,6 +96,10 @@ export function ParseSchema(obj: any, schema: any, pKey: string = ""): any {
     // Validate value
     //
     if (typeof schema === "string") {
+        if (typeof obj === "object" && obj.constructor === Object) {
+            return JSON.stringify(obj);
+        }
+
         return String(obj);
     }
     else if (typeof schema === "number") {
