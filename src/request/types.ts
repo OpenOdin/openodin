@@ -476,46 +476,46 @@ export type FetchCRDT = {
 /**
  * Each response has a Status property which states the completion status of the request.
  */
-export enum Status {
+export const Status = {
     /** This means a result was returned. Which is a success. */
-    Result              = 1,
+    Result:              1,
 
     /** This is returned if the incoming request was malformed and could not be parsed properly. */
-    Malformed           = 2,
+    Malformed:           2,
 
     /** Some error occoured while processing the request. */
-    Error               = 3,
+    Error:               3,
 
     /** If a storeRequest or writeBlobRequest could not succeed. */
-    StoreFailed         = 4,
+    StoreFailed:         4,
 
     /** If a readBlobRequest fails because blob data is not available. */
-    FetchFailed         = 5,
+    FetchFailed:         5,
 
     /**
      * If a fetchRequest refers to a real root ID but the root node
      * was not found then this error code is returned.
      */
-    MissingRootnode     = 6,
+    MissingRootnode:     6,
 
     /**
      * If a fetchRequest refers to a real root node but the root node is either licensed,
      * uses hasRightsByAssociation or is flagged as beginRestrictiveWriterMode then
      * the given root node cannot be used as a root node.
      */
-    RootnodeLicensed    = 7,
+    RootnodeLicensed:    7,
 
     /**
      * If access to root node is denied, or
      * when writing/reading a blob whos node we are not allowed to access,
      */
-    NotAllowed          = 8,
+    NotAllowed:          8,
 
     /** If content hash does not match expected hash when writing a blob. */
-    Mismatch            = 9,
+    Mismatch:            9,
 
     /** When a blobWrite got finalized or if the blob already did exist when writing. */
-    Exists              = 10,
+    Exists:              10,
 
     /**
      * When a CRDT fetch is done using a cursor but the cursor does not exist, this return
@@ -524,15 +524,17 @@ export enum Status {
      * Note that this is not regarded as an error message and if the request is a trigger subscription
      * then it will not be automatically removed (as when sending any other error replies).
      */
-    MissingCursor       = 11,
+    MissingCursor:       11,
 
     /**
      * Sent from the Storage when a trigger has been dropped.
      * Message is sent with seq=0 so that message is cleared out and onCancel()
      * is triggered on the GetResponse object.
      */
-    DroppedTrigger      = 12,
-}
+    DroppedTrigger:      12,
+} as const;
+
+export type StatusValues = typeof Status[keyof typeof Status];
 
 /**
  *  A FetchResult is the result of a FetchQuery.
@@ -615,7 +617,7 @@ export type FetchResponse = {
      * Status.MissingCursor
      * Status.Malformed
      */
-    status: Status,
+    status: StatusValues,
 
     result: FetchResult,
 
@@ -746,7 +748,7 @@ export type StoreResponse = {
      * Status.Malformed
      * Status.Error
      */
-    status: Status,
+    status: StatusValues,
 
     /**
      * Node ID1s of all nodes which got stored.
@@ -798,7 +800,7 @@ export type UnsubscribeResponse = {
      * Expected status values:
      * Status.Result
      */
-    status: Status,
+    status: StatusValues,
 
     /**
      * If there was an error reported in Status an error message could be provided.
@@ -868,7 +870,7 @@ export type WriteBlobResponse = {
      *      The length is the continuous length from start til first gap.
      *      This info can be used for resuming writes.
      */
-    status: Status,
+    status: StatusValues,
 
     /**
      * The current length of the blob data written.
@@ -940,7 +942,7 @@ export type ReadBlobResponse = {
      * configured for blob.
      * Status.Result on successful read.
      */
-    status: Status,
+    status: StatusValues,
 
     /** The read data. */
     data: Buffer,
@@ -1002,7 +1004,7 @@ export type GenericMessageResponse = {
     /**
      * Expected status values is all dependant on how the peers implement their messaging protocol.
      */
-    status: Status,
+    status: StatusValues,
 
     /** Whatever the peer responded with. */
     data: Buffer,

@@ -61,6 +61,7 @@ import {
     ReadBlobResponse,
     GenericMessageResponse,
     GenericMessageRequest,
+    StatusValues,
 } from "../types";
 
 import {
@@ -954,7 +955,7 @@ export class ParseUtil {
         }
 
         const status = ParseUtil.ParseVariable("fetchResponse status must be number",
-            obj.status, "number") as number;
+            obj.status, "number") as StatusValues;
 
         const result = ParseUtil.ParseFetchResult(obj.result ?? {});
 
@@ -1079,7 +1080,7 @@ export class ParseUtil {
 
         const status = ParseUtil.ParseVariable(
             "storeResponse status must be number",
-            obj.status, "number") as number;
+            obj.status, "number") as StatusValues;
 
         const storedId1List = ParseUtil.ParseVariable(
             "storeResponse storedId1List must be array of hex-string or Buffer, if set",
@@ -1131,7 +1132,7 @@ export class ParseUtil {
 
         const status = ParseUtil.ParseVariable(
             "unsubscribeResponse status must be number",
-            obj.status, "number") as number;
+            obj.status, "number") as StatusValues;
 
         const error = ParseUtil.ParseVariable(
             "unsubscribeResponse error must be string, if set",
@@ -1189,7 +1190,7 @@ export class ParseUtil {
 
         const status = ParseUtil.ParseVariable(
             "writeBlobResponse status must be number",
-            obj.status, "number") as number;
+            obj.status, "number") as StatusValues;
 
         const currentLength = ParseUtil.ParseVariable(
             "writeBlobResponse currentLength must be number or bigint as string",
@@ -1247,7 +1248,7 @@ export class ParseUtil {
 
         const status = ParseUtil.ParseVariable(
             "readBlobResponse status must be number",
-            obj.status, "number") as number;
+            obj.status, "number") as StatusValues;
 
         const data = ParseUtil.ParseVariable(
             "readBlobResponse data must be base64 or Buffer",
@@ -1310,7 +1311,7 @@ export class ParseUtil {
 
         const status = ParseUtil.ParseVariable(
             "genericMessageResponse status must be number",
-            obj.status, "number") as number;
+            obj.status, "number") as StatusValues;
 
         const data = ParseUtil.ParseVariable(
             "genericMessageResponse data must be base64 or Buffer, if set",

@@ -33,6 +33,7 @@ import {
 
 import {
     Status,
+    StatusValues,
     StoreRequest,
     StoreResponse,
     FetchRequest,
@@ -549,7 +550,7 @@ export class Storage {
             return;
         }
 
-        let status: Status | undefined;
+        let status: StatusValues | undefined;
 
         try {
             // Deep copy the fetch request object since we might update some properties.
@@ -1099,7 +1100,7 @@ export class Storage {
         async (writeBlobRequest: WriteBlobRequest, peer: P2PClient, fromMsgId: Buffer,
             expectingReply: ExpectingReply, sendResponse?: SendResponseFn<WriteBlobResponse>) => {
 
-        let status: Status | undefined;
+        let status: StatusValues | undefined;
 
         // Collect all locks here in case finally needs to release all locks.
         const locks: Mutex[] = [];
@@ -1350,7 +1351,7 @@ export class Storage {
             return;
         }
 
-        let status: Status | undefined;
+        let status: StatusValues | undefined;
 
         // Collect all locks here in case finally needs to release all locks.
         const locks: Mutex[] = [];

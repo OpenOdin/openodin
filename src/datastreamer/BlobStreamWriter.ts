@@ -115,7 +115,7 @@ export class BlobStreamWriter extends AbstractStreamWriter {
         else if (writeBlobResponse.status === Status.Malformed) {
             return [StreamStatus.UNRECOVERABLE, writeBlobResponse.error];
         }
-        else if (![Status.Result, Status.Exists].includes(writeBlobResponse.status)) {
+        else if (![Status.Result, Status.Exists].includes(writeBlobResponse.status as any)) {
             return [StreamStatus.ERROR, writeBlobResponse.error];
         }
         else {
