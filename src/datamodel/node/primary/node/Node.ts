@@ -47,16 +47,21 @@ import {
 } from "../interface/NodeInterface";
 
 import {
+    PRIMARY_INTERFACE_CHAINCERT_ID,
+} from "../../../cert/primary/interface/PrimaryChainCertInterface";
+
+import {
+    PRIMARY_INTERFACE_DEFAULTCERT_ID,
+} from "../../../cert/primary/interface/PrimaryDefaultCertInterface";
+
+import {
     PrimaryNodeCertInterface,
+    PRIMARY_INTERFACE_NODECERT_ID,
 } from "../../../cert/primary/interface/PrimaryNodeCertInterface";
 
 import {
     DataModelInterface,
 } from "../../../interface/DataModelInterface";
-
-import {
-    IsCert,
-} from "../../../../util/common";
 
 import {
     RegionUtil,
@@ -2768,4 +2773,28 @@ export abstract class Node implements NodeInterface {
             isOnlineRevoked,
         };
     }
+}
+
+/**
+* Check in the image header data if it looks like a cert.
+* @param image the cert image
+* @returns true if the image header is recognized as being of primary interface cert.
+*/
+export function IsCert(image: Buffer): boolean {
+    const chainCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_CHAINCERT_ID]);
+    if (image.slice(0, 2).equals(chainCertPrimaryInterface)) {
+        return true;
+    }
+
+    const defaultCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_DEFAULTCERT_ID]);
+    if (image.slice(0, 2).equals(defaultCertPrimaryInterface)) {
+        return true;
+    }
+
+    const nodeCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_NODECERT_ID]);
+    if (image.slice(0, 2).equals(nodeCertPrimaryInterface)) {
+        return true;
+    }
+
+    return false;
 }

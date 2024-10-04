@@ -68,6 +68,10 @@ import {
     DataModelInterface,
 } from "../datamodel/interface/DataModelInterface";
 
+import {
+    IsCert,
+} from "../datamodel/node/primary/node/Node";
+
 /**
  * Specifies all the node classes we support for decoding.
  * Node image headers are matched against the GetType() of the classes to match.
@@ -343,7 +347,7 @@ export class Decoder {
                             // The node might know how to deal with this itself.
                         }
                     }
-                    else if (Decoder.IsCert(embeddedImage)) {
+                    else if (IsCert(embeddedImage)) {
                         try {
                             const embeddedCert = Decoder.DecodeAnyCert(embeddedImage);
                             node.setEmbeddedObject(embeddedCert as any);  // We force this "as any" to let the node decide if it wants this embedded object.
@@ -440,30 +444,6 @@ export class Decoder {
     protected static IsNode(image: Buffer): boolean {
         const nodePrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_NODE_ID]);
         if (image.slice(0, 2).equals(nodePrimaryInterface)) {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-    * Check in the image header data if it looks like a cert.
-    * @param image the cert image
-    * @returns true if the image header is recognized as being of primary interface cert.
-    */
-    protected static IsCert(image: Buffer): boolean {
-        const chainCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_CHAINCERT_ID]);
-        if (image.slice(0, 2).equals(chainCertPrimaryInterface)) {
-            return true;
-        }
-
-        const defaultCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_DEFAULTCERT_ID]);
-        if (image.slice(0, 2).equals(defaultCertPrimaryInterface)) {
-            return true;
-        }
-
-        const nodeCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_NODECERT_ID]);
-        if (image.slice(0, 2).equals(nodeCertPrimaryInterface)) {
             return true;
         }
 
