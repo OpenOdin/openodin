@@ -40,6 +40,8 @@ import {
     Decoder,
     sleep,
     Version,
+    ParseSchema,
+    FetchRequestSchema,
 } from "../../src";
 
 type StorageInstance = {
@@ -233,7 +235,7 @@ describe("Storage: update transient values on nodes", function() {
         assert(!node2b.hasOnlineId());
 
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey,
             targetPublicKey,
@@ -415,7 +417,7 @@ describe("Concensus: test streaming updates", async function() {
         assert(response.status === Status.Result);
         assert(response.storedId1List.length === 5);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey,
             targetPublicKey,

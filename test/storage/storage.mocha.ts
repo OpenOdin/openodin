@@ -55,6 +55,8 @@ import {
     SPECIAL_NODES,
     CRDTMessagesAnnotations,
     Version,
+    ParseSchema,
+    FetchRequestSchema,
 } from "../../src";
 
 export class StorageWrapper extends Storage {
@@ -162,7 +164,7 @@ describe("Storage: triggers", function() {
         let triggerNodeId = Buffer.alloc(32).fill(0x10);
         let msgId = Buffer.from([1,2,3,4,5]);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId: Buffer.alloc(32),
             sourcePublicKey,
             targetPublicKey,
@@ -231,7 +233,7 @@ describe("Storage: triggers", function() {
         let triggerNodeId = Buffer.alloc(32).fill(0x10);
         let msgId = Buffer.from([1,2,3,4,5]);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId: Buffer.alloc(32),
             sourcePublicKey,
             targetPublicKey,
@@ -300,7 +302,7 @@ describe("Storage: triggers", function() {
         let targetPublicKey = Buffer.alloc(32).fill(0x02);
         let msgId = Buffer.from([1,2,3,4,5]);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId: Buffer.alloc(32),
             sourcePublicKey,
             targetPublicKey,
@@ -795,7 +797,7 @@ function setupTests(config: any) {
         assert(response.storedId1List[1].equals(node2c.getId1()));
 
         // see that what is stored is readable back
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey,
             targetPublicKey,
@@ -843,7 +845,7 @@ function setupTests(config: any) {
         let muteMsgIds: Buffer[] = [];
         let nodes: Buffer[] = [];
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey,
             targetPublicKey,
@@ -1182,7 +1184,7 @@ function setupTests(config: any) {
         // the emitting is done in setImmediate.
         await sleep(1);
 
-        const fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        const fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId: node2.getParentId(),
             sourcePublicKey,
             targetPublicKey,
@@ -1621,7 +1623,7 @@ function setupTests(config: any) {
         let muteMsgIds: Buffer[] = [];
         let nodes: Buffer[] = [];
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({
+        let fetchRequest = ParseSchema(FetchRequestSchema, {
             query: {
                 parentId,
                 sourcePublicKey,
@@ -1866,7 +1868,7 @@ function setupTests(config: any) {
 
         let parentId = Buffer.alloc(32);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({
+        let fetchRequest = ParseSchema(FetchRequestSchema, {
             query: {
                 parentId,
                 sourcePublicKey: publicKey,
@@ -1945,7 +1947,7 @@ function setupTests(config: any) {
 
         let parentId = Buffer.alloc(32);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({
+        let fetchRequest = ParseSchema(FetchRequestSchema, {
             query: {
                 parentId,
                 sourcePublicKey: publicKey,

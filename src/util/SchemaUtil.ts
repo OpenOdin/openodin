@@ -84,12 +84,12 @@ import {
 } from "./common";
 
 /**
- * @param obj the object to apply the schema to
  * @param schema the schema
+ * @param obj the object to apply the schema to
  * @returns new adapted object
  * @throws if schema cannot be applied to obj
  */
-export function ParseSchema(obj: any, schema: any, pKey: string = ""): any {
+export function ParseSchema(schema: any, obj: any, pKey: string = ""): any {
     if (obj === undefined || obj === null) {
         throw new Error(`undefined or null provided as value in conflict with schema for key ${pKey}`);
     }
@@ -191,7 +191,7 @@ export function ParseSchema(obj: any, schema: any, pKey: string = ""): any {
                     }
                 }
 
-                obj2[key] = ParseSchema(v, subSchema, `${pKey}.${key}`);
+                obj2[key] = ParseSchema(subSchema, v, `${pKey}.${key}`);
             });
 
             return obj2;
@@ -211,7 +211,7 @@ export function ParseSchema(obj: any, schema: any, pKey: string = ""): any {
 
         const subSchema = schema[0];
 
-        return obj.map( (elm, index) => ParseSchema(elm, subSchema, `${pKey}[${index}]`));
+        return obj.map( (elm, index) => ParseSchema(subSchema, elm, `${pKey}[${index}]`));
     }
     else {
         throw new Error(`Unknown schema type for key ${pKey}`);

@@ -116,8 +116,13 @@ import {
 } from "../util/common";
 
 import {
-    StorageUtil,
-} from "../util/StorageUtil";
+    ParseSchema,
+} from "../util/SchemaUtil";
+
+import {
+    FetchRequestSchema,
+    StoreRequestSchema,
+} from "../request/jsonSchema";
 
 import {
     NodeUtil,
@@ -1410,7 +1415,7 @@ export class Service {
         const parentId = Hash(authCert);
 
         // A fetch request to query for data nodes wrapping the authcert.
-        const fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        const fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             depth: 1,
             cutoffTime: 0n,
@@ -1457,7 +1462,8 @@ export class Service {
             const fetchResponse = anyData.response;
 
             if (fetchResponse && fetchResponse.status === Status.Result) {
-                const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse, false, Data.GetType(4)) as DataInterface[];
+                const nodes = Decoder.DecodeNodes(fetchResponse.result.nodes, false,
+                    Data.GetType(4)) as DataInterface[];
 
                 if (nodes.length > 0) {
                     return nodes[0];
@@ -1483,11 +1489,10 @@ export class Service {
                 expireTime: Date.now() + 3600 * 1000, // TODO use TimeFreeze
             }, this.publicKey);
 
-        const storeRequest = StorageUtil.CreateStoreRequest({
+        const storeRequest = ParseSchema(StoreRequestSchema, {
             sourcePublicKey: this.publicKey,
             targetPublicKey: this.publicKey,
             nodes: [dataNode.export()],
-
         });
 
         const {getResponse} = storageP2PClient.store(storeRequest);

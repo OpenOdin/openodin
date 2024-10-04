@@ -64,8 +64,12 @@ import {
 } from "../decoder";
 
 import {
-    StorageUtil,
-} from "../util/StorageUtil";
+    ParseSchema,
+} from "../util/SchemaUtil";
+
+import {
+    FetchRequestSchema,
+} from "../request/jsonSchema";
 
 import {
     PocketConsole,
@@ -255,7 +259,7 @@ export class Driver implements DriverInterface {
             }
             else if (node.isLicensed() || node.hasRightsByAssociation()) {
 
-                const fetchRequest = StorageUtil.CreateFetchRequest({query: {
+                const fetchRequest = ParseSchema(FetchRequestSchema, {query: {
                     sourcePublicKey,
                     targetPublicKey,
                     depth: MAX_LICENSE_DISTANCE,
@@ -731,7 +735,7 @@ export class Driver implements DriverInterface {
         for (let i=0; i<nodeIdsLength; i++) {
             const nodeId = parentIds[i];
 
-            const fetchRequest = StorageUtil.CreateFetchRequest({query: {
+            const fetchRequest = ParseSchema(FetchRequestSchema, {query: {
                 parentId: nodeId,
                 depth,
                 match: [

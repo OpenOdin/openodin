@@ -6,9 +6,13 @@ import {
 
 import {
     RegionUtil,
-    StorageUtil,
     DeepCopy,
+    ParseSchema,
 } from "../util";
+
+import {
+    FetchRequestSchema,
+} from "../request/jsonSchema";
 
 import {
     NodeInterface,
@@ -1554,7 +1558,7 @@ export class QueryProcessor {
         for (let i=0; i<parentIdsLength; i++) {
             const parentId = parentIds[i];
 
-            const fetchRequest = StorageUtil.CreateFetchRequest({query: {
+            const fetchRequest = ParseSchema(FetchRequestSchema, {query: {
                 parentId,
                 sourcePublicKey: this.fetchQuery.sourcePublicKey,
                 targetPublicKey: this.fetchQuery.sourcePublicKey,  // Yes, sourcePublicKey since it's the source who needs access to the nodes in this case.

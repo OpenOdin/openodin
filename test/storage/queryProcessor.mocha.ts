@@ -27,6 +27,8 @@ import {
     FriendCertInterface,
     SelectFriendCertPair,
     SPECIAL_NODES,
+    ParseSchema,
+    FetchRequestSchema,
 } from "../../src";
 
 // These are exported friend certificates taken from
@@ -236,7 +238,7 @@ function setupTests(config: any) {
         let sourcePublicKey = Buffer.alloc(32).fill(110);
         let targetPublicKey = Buffer.alloc(32).fill(110);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId: Buffer.alloc(32),
             sourcePublicKey,
             targetPublicKey,
@@ -351,7 +353,7 @@ function setupTests(config: any) {
             contentType: "app/one",
         });
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey,
             targetPublicKey,
@@ -523,7 +525,7 @@ function setupTests(config: any) {
             contentType: "app/hello",
         });
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey,
             targetPublicKey,
@@ -606,7 +608,7 @@ function setupTests(config: any) {
             // Do nothing
         };
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey,
             targetPublicKey,
@@ -710,7 +712,7 @@ function setupTests(config: any) {
 
 
 
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: sourcePublicKey,
             targetPublicKey: clientPublicKey3,
@@ -900,7 +902,7 @@ function setupTests(config: any) {
 
         await driver.storeNodes([node1A, node1B, node2A, node2B, node3A, node3B, node4A, license4A], now, true);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId: rootNodeId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
@@ -946,7 +948,7 @@ function setupTests(config: any) {
         assert(entries.length === 3);
 
         // Test for different targetPublicKey
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId: rootNodeId,
             sourcePublicKey: clientPublicKey2,
             targetPublicKey: clientPublicKey2,
@@ -1043,7 +1045,7 @@ function setupTests(config: any) {
 
         await driver.storeNodes([nodeA1, nodeL1], now);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: targetPublicKey,
             targetPublicKey,
@@ -1091,7 +1093,7 @@ function setupTests(config: any) {
             // Do nothing
         };
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
@@ -1204,7 +1206,7 @@ function setupTests(config: any) {
             gottenNodes.push(...fetchReplyData.nodes ?? []);
         };
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
@@ -1264,7 +1266,7 @@ function setupTests(config: any) {
 
         await driver.storeNodes([...nodes1, ...lvl3a, ...lvl4a], now);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
@@ -1299,7 +1301,7 @@ function setupTests(config: any) {
 
 
 
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
@@ -1317,7 +1319,7 @@ function setupTests(config: any) {
         assert(same);
 
 
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
@@ -1334,7 +1336,7 @@ function setupTests(config: any) {
         same = diffNodes([...lvl1, ...lvl2a, ...lvl2b, ...lvl3a, ...lvl4a], nodes2);
         assert(same);
 
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
@@ -1352,7 +1354,7 @@ function setupTests(config: any) {
         same = diffNodes([...lvl1, ...lvl2a, ...lvl2b], nodes2);
         assert(same);
 
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
@@ -1379,7 +1381,7 @@ function setupTests(config: any) {
         node0.setOnlineValidated(false);
         await driver.insertNodes([node0], now);
 
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
@@ -1426,7 +1428,7 @@ function setupTests(config: any) {
         await driver.storeNodes([lvl2[1]], now);
         await driver.storeNodes([lvl2[2]], now);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: owner,
             targetPublicKey: owner,
@@ -1478,7 +1480,7 @@ function setupTests(config: any) {
         await driver.storeNodes([lvl2[1]], now + 3);
         await driver.storeNodes([lvl2[2]], now + 2);
 
-        const fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        const fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: owner,
             targetPublicKey: owner,
@@ -1540,7 +1542,7 @@ function setupTests(config: any) {
 
         await driver.storeNodes([...lvl1, ...lvl2a, ...lvl2b, ...lvl3a, ...lvl3b, ...lvl4a, ...lvl4b], now);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
@@ -1557,7 +1559,7 @@ function setupTests(config: any) {
         let same = diffNodes([...lvl1, ...lvl2a, ...lvl3b], nodes2);
         assert(same);
 
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
@@ -1576,7 +1578,7 @@ function setupTests(config: any) {
 
 
         rootNode = lvl1[0];
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
             depth: 1,
@@ -1596,7 +1598,7 @@ function setupTests(config: any) {
         assert((nodes2[1].getId1() as Buffer).equals(lvl2a[0].getId1() as Buffer));
 
 
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
             depth: 1,
@@ -1616,7 +1618,7 @@ function setupTests(config: any) {
         assert((nodes2[1].getId1() as Buffer).equals(lvl2a[1].getId1() as Buffer));
 
 
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
             depth: 1,
@@ -1667,7 +1669,7 @@ function setupTests(config: any) {
 
         await driver.storeNodes([...lvl1, ...lvl2a, ...lvl2b, ...lvl3a, ...lvl3b], now);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
@@ -1759,7 +1761,7 @@ function setupTests(config: any) {
 
         await driver.storeNodes([...lvl1, ...lvl2a, ...lvl2b, ...lvl3a, ...lvl3b], now, true);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
@@ -1872,7 +1874,7 @@ function setupTests(config: any) {
 
         await driver.storeNodes(nodes1, now);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
@@ -1943,7 +1945,7 @@ function setupTests(config: any) {
 
         await driver.storeNodes([nodeA, nodeB, nodeC], now);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
@@ -2053,7 +2055,7 @@ function setupTests(config: any) {
 
         await driver.storeNodes([nodeA, nodeB, nodeC], now);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
@@ -2410,7 +2412,7 @@ function setupTests(config: any) {
 
         await driver.storeNodes([nodeA, nodeAb, nodeB, nodeC, nodeD1, nodeD2, nodeD3, nodeE1, nodeE2, nodeE3], now);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
@@ -2733,7 +2735,7 @@ function setupTests(config: any) {
             licenseMaxDistance: 3,
         });
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
@@ -3039,7 +3041,7 @@ function setupTests(config: any) {
             licenseMaxDistance: 3,
         });
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
@@ -3062,7 +3064,7 @@ function setupTests(config: any) {
 
         await driver.storeNodes([licenseA, licenseB2, licenseAw, licenseAw2, licenseB1w, licenseB1w2, licenseB2w, licenseB2w2, licenseC1w, licenseC1w2, licenseC2w, licenseC2w2, licenseDw], now);
 
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
@@ -3085,7 +3087,7 @@ function setupTests(config: any) {
 
 
 
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
@@ -3108,7 +3110,7 @@ function setupTests(config: any) {
 
 
 
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey2,
@@ -3130,7 +3132,7 @@ function setupTests(config: any) {
         assert(same);
 
 
-        fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
@@ -3299,7 +3301,7 @@ function setupTests(config: any) {
 
         await driver.storeNodes([node0, nodeA, nodeB1, nodeB2, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], now);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId: nodeIdE1,
             sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
@@ -3527,7 +3529,7 @@ function setupTests(config: any) {
 
         await driver.storeNodes([nodeA, nodeB1, nodeB2, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], now);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
@@ -3605,7 +3607,7 @@ function setupTests(config: any) {
             // Do nothing
         };
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: friendCertAIssuer,
             targetPublicKey: friendCertAIssuer,
@@ -3674,7 +3676,7 @@ function setupTests(config: any) {
             creationTime: now,
         });
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: friendCertIIssuer,
             targetPublicKey: friendCertBIssuer,
@@ -3817,7 +3819,7 @@ function setupTests(config: any) {
         assert(a.length === 7);
 
         // Connect as Intermediary
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: friendCertIIssuer,
             targetPublicKey: friendCertAIssuer,

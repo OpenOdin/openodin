@@ -18,8 +18,12 @@ import {
 } from "../../p2pclient";
 
 import {
-    StorageUtil,
-} from "../../util/StorageUtil";
+    ParseSchema,
+} from "../../util/SchemaUtil";
+
+import {
+    StoreRequestSchema,
+} from "../../request/jsonSchema";
 
 import {
     CopyBuffer,
@@ -864,7 +868,8 @@ export class Thread {
      * @throws on error
      */
     protected async storeNodes(nodes: NodeInterface[]): Promise<Buffer[]> {
-        const storeRequest = StorageUtil.CreateStoreRequest({nodes: nodes.map( node => node.export() )});
+        const storeRequest = ParseSchema(StoreRequestSchema,
+            {nodes: nodes.map( node => node.export())});
 
         const {getResponse} = this.storageClient.store(storeRequest);
 

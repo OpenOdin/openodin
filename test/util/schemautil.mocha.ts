@@ -26,13 +26,13 @@ describe("SchemaUtil", function() {
             },
         };
 
-        const parsed = ParseSchema(obj, FetchRequestSchema);
+        const parsed = ParseSchema(FetchRequestSchema, obj);
 
         assert(parsed.query.match[0].nodeType.equals(LICENSE0_NODE_TYPE));
 
         const obj2 = ToJSONObject(parsed);
 
-        const parsed2 = ParseSchema(obj, FetchRequestSchema);
+        const parsed2 = ParseSchema(FetchRequestSchema, obj);
 
         assert(DeepEquals(parsed, parsed2));
 
@@ -42,7 +42,7 @@ describe("SchemaUtil", function() {
 
         const obj3 = ToJSONObject(parsed3);
 
-        const parsed4 = ParseSchema(obj3, FetchRequestSchema);
+        const parsed4 = ParseSchema(FetchRequestSchema, obj3);
 
         assert(DeepEquals(parsed, parsed4));
     });

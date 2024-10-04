@@ -408,6 +408,42 @@ export class Decoder {
     }
 
     /**
+     * Decode list of nodes.
+     *
+     * Note that this function does not verify or validate nodes decoded.
+     *
+     * Any node which could not be decoded is not part of the result.
+     *
+     * @param nodes list of images to decode
+     * @param preserveTransient if true then load and preserve transient values
+     * @param nodeType if set then only return nodes matching the given nodeType.
+     * @returns array of decoded nodes.
+     */
+    public static DecodeNodes(images: Buffer[], preserveTransient: boolean = false,
+        nodeType?: Buffer): NodeInterface[]
+    {
+        const nodes: NodeInterface[] = [];
+
+        images.forEach( image => {
+            try {
+                const node = Decoder.DecodeNode(image, preserveTransient);
+
+                if (nodeType) {
+                    if (!node.getType(nodeType.length).equals(nodeType)) {
+                        return;
+                    }
+                }
+
+                nodes.push(node);
+            }
+            catch(e) {
+                // continue
+            }
+        });
+
+        return nodes;
+    }
+    /**
      * The point of this function is to find in a list of certificates a certificate which can be used to sign a node given the signers public key and the node owner.
      * @param node The node we want to sign.
      * @param signerPublicKey the public key of the keypair which will be used to sign the node.
