@@ -1,22 +1,21 @@
-
-struct LimitField {
+struct BopLimitField {
     string name;
     uint16 limit;
 }
 
 /** This struct matched Filter in datamodel/model/types.ts. */
-struct Filter {
+struct BopFilter {
     string field;
     string operator;
     string cmp;
     string value;
 }
 
-struct Match {
+struct BopMatch {
     byte[] nodeType;
-    Filter[] filters;
+    BopFilter[] filters;
     int32 limit;
-    LimitField limitField;
+    BopLimitField limitField;
     uint16[] level;
     bool discard;
     bool bottom;
@@ -25,12 +24,12 @@ struct Match {
     byte[] cursorId1;
 }
 
-struct AllowEmbed {
+struct BopAllowEmbed {
     byte[] nodeType;
-    Filter[] filters;
+    BopFilter[] filters;
 }
 
-struct FetchQuery {
+struct BopFetchQuery {
     int32 depth;
     int32 limit;
     int64 cutoffTime;
@@ -39,8 +38,8 @@ struct FetchQuery {
     byte[] parentId;
     byte[] targetPublicKey;
     byte[] sourcePublicKey;
-    Match[] match;
-    AllowEmbed[] embed;
+    BopMatch[] match;
+    BopAllowEmbed[] embed;
     byte[] triggerNodeId;
     uint16 triggerInterval;
     bool onlyTrigger;
@@ -54,7 +53,7 @@ struct FetchQuery {
     string includeLicenses;
 }
 
-struct FetchCRDT {
+struct BopFetchCRDT {
     string algo;
     string conf;
     byte[] msgId;
@@ -65,28 +64,13 @@ struct FetchCRDT {
     int32 cursorIndex;
 }
 
-enum Status {
-    Result              = 1;
-    Malformed           = 2;
-    Error               = 3;
-    StoreFailed         = 4;
-    FetchFailed         = 5;
-    MissingRootnode     = 6;
-    RootnodeLicensed    = 7;
-    NotAllowed          = 8;
-    Mismatch             = 9;
-    Exists               = 10;
-    MissingCursor       = 11;
-    DroppedTrigger      = 12;
-}
-
-struct FetchResult {
+struct BopFetchResult {
     byte[][] nodes;
     byte[][] embed;
     int64 cutoffTime;
 }
 
-struct CRDTResult {
+struct BopCRDTResult {
     byte[] delta;
     int32 cursorIndex;
     uint32 length;
@@ -94,15 +78,15 @@ struct CRDTResult {
 
 @opcode(0x00000001)
 struct BopFetchRequest {
-    FetchQuery query;
-    FetchCRDT crdt;
+    BopFetchQuery query;
+    BopFetchCRDT crdt;
 }
 
 @opcode(0x00000002)
 struct BopFetchResponse {
-    Status status;
-    FetchResult result;
-    CRDTResult crdtResult;
+    uint8 status;
+    BopFetchResult result;
+    BopCRDTResult crdtResult;
     uint16 seq;
     uint16 endSeq;
     uint16 rowCount;
@@ -122,7 +106,7 @@ struct BopStoreRequest {
 
 @opcode(0x00000004)
 struct BopStoreResponse {
-    Status status;
+    uint8 status;
     byte[][] storedId1List;
     byte[][] missingBlobId1List;
     int64[] missingBlobSizes;
@@ -137,7 +121,7 @@ struct BopUnsubscribeRequest {
 
 @opcode(0x00000006)
 struct BopUnsubscribeResponse {
-    Status status;
+    uint8 status;
     string error;
 }
 
@@ -153,7 +137,7 @@ struct BopWriteBlobRequest {
 
 @opcode(0x00000008)
 struct BopWriteBlobResponse {
-    Status status;
+    uint8 status;
     uint64 currentLength;
     string error;
 }
@@ -169,7 +153,7 @@ struct BopReadBlobRequest {
 
 @opcode(0x0000000a)
 struct BopReadBlobResponse {
-    Status status;
+    uint8 status;
     byte[] data;
     uint16 seq;
     uint16 endSeq;
@@ -186,7 +170,7 @@ struct BopGenericMessageRequest {
 
 @opcode(0x0000000c)
 struct BopGenericMessageResponse {
-    Status status;
+    uint8 status;
     byte[] data;
     string error;
 }

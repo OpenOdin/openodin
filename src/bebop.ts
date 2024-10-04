@@ -17,31 +17,32 @@
 import { BebopView, BebopRuntimeError, BebopRecord, BebopJson, BebopTypeGuard, Guid, GuidMap } from "bebop";
 
 export const BEBOP_SCHEMA = new Uint8Array ([
-3, 21, 0, 0, 0, 76, 105, 109, 105, 116, 70, 105, 101, 108,
-100, 0, 1, 0, 0, 6, 0, 0, 0, 0, 2, 110, 97, 109, 101, 0,
-245, 255, 255, 255, 0, 108, 105, 109, 105, 116, 0, 253,
-255, 255, 255, 0, 70, 105, 108, 116, 101, 114, 0, 1, 0, 0,
-16, 0, 0, 0, 0, 4, 102, 105, 101, 108, 100, 0, 245, 255,
-255, 255, 0, 111, 112, 101, 114, 97, 116, 111, 114, 0,
-245, 255, 255, 255, 0, 99, 109, 112, 0, 245, 255, 255,
-255, 0, 118, 97, 108, 117, 101, 0, 245, 255, 255, 255, 0,
-77, 97, 116, 99, 104, 0, 1, 0, 0, 30, 0, 0, 0, 0, 10, 110,
-111, 100, 101, 84, 121, 112, 101, 0, 242, 255, 255, 255,
-0, 254, 255, 255, 255, 0, 102, 105, 108, 116, 101, 114,
-115, 0, 242, 255, 255, 255, 0, 1, 0, 0, 0, 0, 108, 105,
-109, 105, 116, 0, 250, 255, 255, 255, 0, 108, 105, 109,
-105, 116, 70, 105, 101, 108, 100, 0, 0, 0, 0, 0, 0, 108,
-101, 118, 101, 108, 0, 242, 255, 255, 255, 0, 253, 255,
-255, 255, 0, 100, 105, 115, 99, 97, 114, 100, 0, 255, 255,
-255, 255, 0, 98, 111, 116, 116, 111, 109, 0, 255, 255,
-255, 255, 0, 105, 100, 0, 254, 255, 255, 255, 0, 114, 101,
-113, 117, 105, 114, 101, 73, 100, 0, 254, 255, 255, 255,
-0, 99, 117, 114, 115, 111, 114, 73, 100, 49, 0, 242, 255,
-255, 255, 0, 254, 255, 255, 255, 0, 65, 108, 108, 111,
-119, 69, 109, 98, 101, 100, 0, 1, 0, 0, 8, 0, 0, 0, 0, 2,
-110, 111, 100, 101, 84, 121, 112, 101, 0, 242, 255, 255,
-255, 0, 254, 255, 255, 255, 0, 102, 105, 108, 116, 101,
-114, 115, 0, 242, 255, 255, 255, 0, 1, 0, 0, 0, 0, 70,
+3, 20, 0, 0, 0, 66, 111, 112, 76, 105, 109, 105, 116, 70,
+105, 101, 108, 100, 0, 1, 0, 0, 6, 0, 0, 0, 0, 2, 110, 97,
+109, 101, 0, 245, 255, 255, 255, 0, 108, 105, 109, 105,
+116, 0, 253, 255, 255, 255, 0, 66, 111, 112, 70, 105, 108,
+116, 101, 114, 0, 1, 0, 0, 16, 0, 0, 0, 0, 4, 102, 105,
+101, 108, 100, 0, 245, 255, 255, 255, 0, 111, 112, 101,
+114, 97, 116, 111, 114, 0, 245, 255, 255, 255, 0, 99, 109,
+112, 0, 245, 255, 255, 255, 0, 118, 97, 108, 117, 101, 0,
+245, 255, 255, 255, 0, 66, 111, 112, 77, 97, 116, 99, 104,
+0, 1, 0, 0, 30, 0, 0, 0, 0, 10, 110, 111, 100, 101, 84,
+121, 112, 101, 0, 242, 255, 255, 255, 0, 254, 255, 255,
+255, 0, 102, 105, 108, 116, 101, 114, 115, 0, 242, 255,
+255, 255, 0, 1, 0, 0, 0, 0, 108, 105, 109, 105, 116, 0,
+250, 255, 255, 255, 0, 108, 105, 109, 105, 116, 70, 105,
+101, 108, 100, 0, 0, 0, 0, 0, 0, 108, 101, 118, 101, 108,
+0, 242, 255, 255, 255, 0, 253, 255, 255, 255, 0, 100, 105,
+115, 99, 97, 114, 100, 0, 255, 255, 255, 255, 0, 98, 111,
+116, 116, 111, 109, 0, 255, 255, 255, 255, 0, 105, 100, 0,
+254, 255, 255, 255, 0, 114, 101, 113, 117, 105, 114, 101,
+73, 100, 0, 254, 255, 255, 255, 0, 99, 117, 114, 115, 111,
+114, 73, 100, 49, 0, 242, 255, 255, 255, 0, 254, 255, 255,
+255, 0, 66, 111, 112, 65, 108, 108, 111, 119, 69, 109, 98,
+101, 100, 0, 1, 0, 0, 8, 0, 0, 0, 0, 2, 110, 111, 100,
+101, 84, 121, 112, 101, 0, 242, 255, 255, 255, 0, 254,
+255, 255, 255, 0, 102, 105, 108, 116, 101, 114, 115, 0,
+242, 255, 255, 255, 0, 1, 0, 0, 0, 0, 66, 111, 112, 70,
 101, 116, 99, 104, 81, 117, 101, 114, 121, 0, 1, 0, 0, 65,
 0, 0, 0, 0, 21, 100, 101, 112, 116, 104, 0, 250, 255, 255,
 255, 0, 108, 105, 109, 105, 116, 0, 250, 255, 255, 255, 0,
@@ -74,170 +75,155 @@ export const BEBOP_SCHEMA = new Uint8Array ([
 111, 110, 0, 245, 255, 255, 255, 0, 106, 117, 114, 105,
 115, 100, 105, 99, 116, 105, 111, 110, 0, 245, 255, 255,
 255, 0, 105, 110, 99, 108, 117, 100, 101, 76, 105, 99,
-101, 110, 115, 101, 115, 0, 245, 255, 255, 255, 0, 70,
-101, 116, 99, 104, 67, 82, 68, 84, 0, 1, 0, 0, 29, 0, 0,
-0, 0, 8, 97, 108, 103, 111, 0, 245, 255, 255, 255, 0, 99,
-111, 110, 102, 0, 245, 255, 255, 255, 0, 109, 115, 103,
-73, 100, 0, 242, 255, 255, 255, 0, 254, 255, 255, 255, 0,
-114, 101, 118, 101, 114, 115, 101, 0, 255, 255, 255, 255,
-0, 104, 101, 97, 100, 0, 250, 255, 255, 255, 0, 116, 97,
-105, 108, 0, 250, 255, 255, 255, 0, 99, 117, 114, 115,
-111, 114, 73, 100, 49, 0, 242, 255, 255, 255, 0, 254, 255,
-255, 255, 0, 99, 117, 114, 115, 111, 114, 73, 110, 100,
-101, 120, 0, 250, 255, 255, 255, 0, 83, 116, 97, 116, 117,
-115, 0, 4, 0, 251, 255, 255, 255, 0, 4, 0, 0, 0, 12, 82,
-101, 115, 117, 108, 116, 0, 0, 1, 0, 0, 0, 77, 97, 108,
-102, 111, 114, 109, 101, 100, 0, 0, 2, 0, 0, 0, 69, 114,
-114, 111, 114, 0, 0, 3, 0, 0, 0, 83, 116, 111, 114, 101,
-70, 97, 105, 108, 101, 100, 0, 0, 4, 0, 0, 0, 70, 101,
-116, 99, 104, 70, 97, 105, 108, 101, 100, 0, 0, 5, 0, 0,
-0, 77, 105, 115, 115, 105, 110, 103, 82, 111, 111, 116,
-110, 111, 100, 101, 0, 0, 6, 0, 0, 0, 82, 111, 111, 116,
-110, 111, 100, 101, 76, 105, 99, 101, 110, 115, 101, 100,
-0, 0, 7, 0, 0, 0, 78, 111, 116, 65, 108, 108, 111, 119,
-101, 100, 0, 0, 8, 0, 0, 0, 77, 105, 115, 109, 97, 116,
-99, 104, 0, 0, 9, 0, 0, 0, 69, 120, 105, 115, 116, 115, 0,
-0, 10, 0, 0, 0, 77, 105, 115, 115, 105, 110, 103, 67, 117,
-114, 115, 111, 114, 0, 0, 11, 0, 0, 0, 68, 114, 111, 112,
-112, 101, 100, 84, 114, 105, 103, 103, 101, 114, 0, 0, 12,
-0, 0, 0, 70, 101, 116, 99, 104, 82, 101, 115, 117, 108,
+101, 110, 115, 101, 115, 0, 245, 255, 255, 255, 0, 66,
+111, 112, 70, 101, 116, 99, 104, 67, 82, 68, 84, 0, 1, 0,
+0, 29, 0, 0, 0, 0, 8, 97, 108, 103, 111, 0, 245, 255, 255,
+255, 0, 99, 111, 110, 102, 0, 245, 255, 255, 255, 0, 109,
+115, 103, 73, 100, 0, 242, 255, 255, 255, 0, 254, 255,
+255, 255, 0, 114, 101, 118, 101, 114, 115, 101, 0, 255,
+255, 255, 255, 0, 104, 101, 97, 100, 0, 250, 255, 255,
+255, 0, 116, 97, 105, 108, 0, 250, 255, 255, 255, 0, 99,
+117, 114, 115, 111, 114, 73, 100, 49, 0, 242, 255, 255,
+255, 0, 254, 255, 255, 255, 0, 99, 117, 114, 115, 111,
+114, 73, 110, 100, 101, 120, 0, 250, 255, 255, 255, 0, 66,
+111, 112, 70, 101, 116, 99, 104, 82, 101, 115, 117, 108,
 116, 0, 1, 0, 0, 16, 0, 0, 0, 0, 3, 110, 111, 100, 101,
 115, 0, 242, 255, 255, 255, 1, 254, 255, 255, 255, 0, 101,
 109, 98, 101, 100, 0, 242, 255, 255, 255, 1, 254, 255,
 255, 255, 0, 99, 117, 116, 111, 102, 102, 84, 105, 109,
-101, 0, 248, 255, 255, 255, 0, 67, 82, 68, 84, 82, 101,
-115, 117, 108, 116, 0, 1, 0, 0, 12, 0, 0, 0, 0, 3, 100,
-101, 108, 116, 97, 0, 242, 255, 255, 255, 0, 254, 255,
-255, 255, 0, 99, 117, 114, 115, 111, 114, 73, 110, 100,
-101, 120, 0, 250, 255, 255, 255, 0, 108, 101, 110, 103,
-116, 104, 0, 251, 255, 255, 255, 0, 66, 111, 112, 70, 101,
-116, 99, 104, 82, 101, 113, 117, 101, 115, 116, 0, 1, 1,
-111, 112, 99, 111, 100, 101, 0, 1, 102, 111, 117, 114, 99,
-99, 0, 245, 255, 255, 255, 48, 120, 49, 0, 0, 94, 0, 0, 0,
-0, 2, 113, 117, 101, 114, 121, 0, 4, 0, 0, 0, 0, 99, 114,
-100, 116, 0, 5, 0, 0, 0, 0, 66, 111, 112, 70, 101, 116,
-99, 104, 82, 101, 115, 112, 111, 110, 115, 101, 0, 1, 1,
-111, 112, 99, 111, 100, 101, 0, 1, 102, 111, 117, 114, 99,
-99, 0, 245, 255, 255, 255, 48, 120, 50, 0, 0, 42, 0, 0, 0,
-0, 7, 115, 116, 97, 116, 117, 115, 0, 6, 0, 0, 0, 0, 114,
-101, 115, 117, 108, 116, 0, 7, 0, 0, 0, 0, 99, 114, 100,
-116, 82, 101, 115, 117, 108, 116, 0, 8, 0, 0, 0, 0, 115,
-101, 113, 0, 253, 255, 255, 255, 0, 101, 110, 100, 83,
-101, 113, 0, 253, 255, 255, 255, 0, 114, 111, 119, 67,
-111, 117, 110, 116, 0, 253, 255, 255, 255, 0, 101, 114,
-114, 111, 114, 0, 245, 255, 255, 255, 0, 66, 111, 112, 83,
-116, 111, 114, 101, 82, 101, 113, 117, 101, 115, 116, 0,
+101, 0, 248, 255, 255, 255, 0, 66, 111, 112, 67, 82, 68,
+84, 82, 101, 115, 117, 108, 116, 0, 1, 0, 0, 12, 0, 0, 0,
+0, 3, 100, 101, 108, 116, 97, 0, 242, 255, 255, 255, 0,
+254, 255, 255, 255, 0, 99, 117, 114, 115, 111, 114, 73,
+110, 100, 101, 120, 0, 250, 255, 255, 255, 0, 108, 101,
+110, 103, 116, 104, 0, 251, 255, 255, 255, 0, 66, 111,
+112, 70, 101, 116, 99, 104, 82, 101, 113, 117, 101, 115,
+116, 0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1, 102, 111,
+117, 114, 99, 99, 0, 245, 255, 255, 255, 48, 120, 49, 0,
+0, 94, 0, 0, 0, 0, 2, 113, 117, 101, 114, 121, 0, 4, 0, 0,
+0, 0, 99, 114, 100, 116, 0, 5, 0, 0, 0, 0, 66, 111, 112,
+70, 101, 116, 99, 104, 82, 101, 115, 112, 111, 110, 115,
+101, 0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1, 102, 111,
+117, 114, 99, 99, 0, 245, 255, 255, 255, 48, 120, 50, 0,
+0, 39, 0, 0, 0, 0, 7, 115, 116, 97, 116, 117, 115, 0, 254,
+255, 255, 255, 0, 114, 101, 115, 117, 108, 116, 0, 6, 0,
+0, 0, 0, 99, 114, 100, 116, 82, 101, 115, 117, 108, 116,
+0, 7, 0, 0, 0, 0, 115, 101, 113, 0, 253, 255, 255, 255, 0,
+101, 110, 100, 83, 101, 113, 0, 253, 255, 255, 255, 0,
+114, 111, 119, 67, 111, 117, 110, 116, 0, 253, 255, 255,
+255, 0, 101, 114, 114, 111, 114, 0, 245, 255, 255, 255, 0,
+66, 111, 112, 83, 116, 111, 114, 101, 82, 101, 113, 117,
+101, 115, 116, 0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1,
+102, 111, 117, 114, 99, 99, 0, 245, 255, 255, 255, 48,
+120, 51, 0, 0, 22, 0, 0, 0, 0, 7, 110, 111, 100, 101, 115,
+0, 242, 255, 255, 255, 1, 254, 255, 255, 255, 0, 115, 111,
+117, 114, 99, 101, 80, 117, 98, 108, 105, 99, 75, 101,
+121, 0, 242, 255, 255, 255, 0, 254, 255, 255, 255, 0, 116,
+97, 114, 103, 101, 116, 80, 117, 98, 108, 105, 99, 75,
+101, 121, 0, 242, 255, 255, 255, 0, 254, 255, 255, 255, 0,
+109, 117, 116, 101, 77, 115, 103, 73, 100, 115, 0, 242,
+255, 255, 255, 1, 254, 255, 255, 255, 0, 112, 114, 101,
+115, 101, 114, 118, 101, 84, 114, 97, 110, 115, 105, 101,
+110, 116, 0, 255, 255, 255, 255, 0, 98, 97, 116, 99, 104,
+73, 100, 0, 251, 255, 255, 255, 0, 104, 97, 115, 77, 111,
+114, 101, 0, 255, 255, 255, 255, 0, 66, 111, 112, 83, 116,
+111, 114, 101, 82, 101, 115, 112, 111, 110, 115, 101, 0,
 1, 1, 111, 112, 99, 111, 100, 101, 0, 1, 102, 111, 117,
-114, 99, 99, 0, 245, 255, 255, 255, 48, 120, 51, 0, 0, 22,
-0, 0, 0, 0, 7, 110, 111, 100, 101, 115, 0, 242, 255, 255,
-255, 1, 254, 255, 255, 255, 0, 115, 111, 117, 114, 99,
-101, 80, 117, 98, 108, 105, 99, 75, 101, 121, 0, 242, 255,
-255, 255, 0, 254, 255, 255, 255, 0, 116, 97, 114, 103,
-101, 116, 80, 117, 98, 108, 105, 99, 75, 101, 121, 0, 242,
-255, 255, 255, 0, 254, 255, 255, 255, 0, 109, 117, 116,
-101, 77, 115, 103, 73, 100, 115, 0, 242, 255, 255, 255, 1,
-254, 255, 255, 255, 0, 112, 114, 101, 115, 101, 114, 118,
-101, 84, 114, 97, 110, 115, 105, 101, 110, 116, 0, 255,
-255, 255, 255, 0, 98, 97, 116, 99, 104, 73, 100, 0, 251,
-255, 255, 255, 0, 104, 97, 115, 77, 111, 114, 101, 0, 255,
-255, 255, 255, 0, 66, 111, 112, 83, 116, 111, 114, 101,
-82, 101, 115, 112, 111, 110, 115, 101, 0, 1, 1, 111, 112,
-99, 111, 100, 101, 0, 1, 102, 111, 117, 114, 99, 99, 0,
-245, 255, 255, 255, 48, 120, 52, 0, 0, 20, 0, 0, 0, 0, 5,
-115, 116, 97, 116, 117, 115, 0, 6, 0, 0, 0, 0, 115, 116,
-111, 114, 101, 100, 73, 100, 49, 76, 105, 115, 116, 0,
-242, 255, 255, 255, 1, 254, 255, 255, 255, 0, 109, 105,
-115, 115, 105, 110, 103, 66, 108, 111, 98, 73, 100, 49,
+114, 99, 99, 0, 245, 255, 255, 255, 48, 120, 52, 0, 0, 17,
+0, 0, 0, 0, 5, 115, 116, 97, 116, 117, 115, 0, 254, 255,
+255, 255, 0, 115, 116, 111, 114, 101, 100, 73, 100, 49,
 76, 105, 115, 116, 0, 242, 255, 255, 255, 1, 254, 255,
 255, 255, 0, 109, 105, 115, 115, 105, 110, 103, 66, 108,
-111, 98, 83, 105, 122, 101, 115, 0, 242, 255, 255, 255, 0,
-248, 255, 255, 255, 0, 101, 114, 114, 111, 114, 0, 245,
-255, 255, 255, 0, 66, 111, 112, 85, 110, 115, 117, 98,
-115, 99, 114, 105, 98, 101, 82, 101, 113, 117, 101, 115,
-116, 0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1, 102, 111,
-117, 114, 99, 99, 0, 245, 255, 255, 255, 48, 120, 53, 0,
-0, 8, 0, 0, 0, 0, 2, 111, 114, 105, 103, 105, 110, 97,
-108, 77, 115, 103, 73, 100, 0, 242, 255, 255, 255, 0, 254,
-255, 255, 255, 0, 116, 97, 114, 103, 101, 116, 80, 117,
-98, 108, 105, 99, 75, 101, 121, 0, 242, 255, 255, 255, 0,
-254, 255, 255, 255, 0, 66, 111, 112, 85, 110, 115, 117,
-98, 115, 99, 114, 105, 98, 101, 82, 101, 115, 112, 111,
-110, 115, 101, 0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1,
-102, 111, 117, 114, 99, 99, 0, 245, 255, 255, 255, 48,
-120, 54, 0, 0, 8, 0, 0, 0, 0, 2, 115, 116, 97, 116, 117,
-115, 0, 6, 0, 0, 0, 0, 101, 114, 114, 111, 114, 0, 245,
-255, 255, 255, 0, 66, 111, 112, 87, 114, 105, 116, 101,
-66, 108, 111, 98, 82, 101, 113, 117, 101, 115, 116, 0, 1,
-1, 111, 112, 99, 111, 100, 101, 0, 1, 102, 111, 117, 114,
-99, 99, 0, 245, 255, 255, 255, 48, 120, 55, 0, 0, 28, 0,
-0, 0, 0, 6, 110, 111, 100, 101, 73, 100, 49, 0, 242, 255,
-255, 255, 0, 254, 255, 255, 255, 0, 112, 111, 115, 0, 249,
-255, 255, 255, 0, 100, 97, 116, 97, 0, 242, 255, 255, 255,
-0, 254, 255, 255, 255, 0, 115, 111, 117, 114, 99, 101, 80,
-117, 98, 108, 105, 99, 75, 101, 121, 0, 242, 255, 255,
-255, 0, 254, 255, 255, 255, 0, 116, 97, 114, 103, 101,
-116, 80, 117, 98, 108, 105, 99, 75, 101, 121, 0, 242, 255,
-255, 255, 0, 254, 255, 255, 255, 0, 109, 117, 116, 101,
-77, 115, 103, 73, 100, 115, 0, 242, 255, 255, 255, 1, 254,
-255, 255, 255, 0, 66, 111, 112, 87, 114, 105, 116, 101,
-66, 108, 111, 98, 82, 101, 115, 112, 111, 110, 115, 101,
-0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1, 102, 111, 117,
-114, 99, 99, 0, 245, 255, 255, 255, 48, 120, 56, 0, 0, 16,
-0, 0, 0, 0, 3, 115, 116, 97, 116, 117, 115, 0, 6, 0, 0, 0,
-0, 99, 117, 114, 114, 101, 110, 116, 76, 101, 110, 103,
-116, 104, 0, 249, 255, 255, 255, 0, 101, 114, 114, 111,
-114, 0, 245, 255, 255, 255, 0, 66, 111, 112, 82, 101, 97,
-100, 66, 108, 111, 98, 82, 101, 113, 117, 101, 115, 116,
-0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1, 102, 111, 117,
-114, 99, 99, 0, 245, 255, 255, 255, 48, 120, 57, 0, 0, 24,
-0, 0, 0, 0, 5, 110, 111, 100, 101, 73, 100, 49, 0, 242,
-255, 255, 255, 0, 254, 255, 255, 255, 0, 112, 111, 115, 0,
-249, 255, 255, 255, 0, 108, 101, 110, 103, 116, 104, 0,
-251, 255, 255, 255, 0, 116, 97, 114, 103, 101, 116, 80,
-117, 98, 108, 105, 99, 75, 101, 121, 0, 242, 255, 255,
-255, 0, 254, 255, 255, 255, 0, 115, 111, 117, 114, 99,
-101, 80, 117, 98, 108, 105, 99, 75, 101, 121, 0, 242, 255,
-255, 255, 0, 254, 255, 255, 255, 0, 66, 111, 112, 82, 101,
-97, 100, 66, 108, 111, 98, 82, 101, 115, 112, 111, 110,
-115, 101, 0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1, 102,
-111, 117, 114, 99, 99, 0, 245, 255, 255, 255, 48, 120, 65,
-0, 0, 24, 0, 0, 0, 0, 6, 115, 116, 97, 116, 117, 115, 0,
-6, 0, 0, 0, 0, 100, 97, 116, 97, 0, 242, 255, 255, 255, 0,
-254, 255, 255, 255, 0, 115, 101, 113, 0, 253, 255, 255,
-255, 0, 101, 110, 100, 83, 101, 113, 0, 253, 255, 255,
-255, 0, 98, 108, 111, 98, 76, 101, 110, 103, 116, 104, 0,
+111, 98, 73, 100, 49, 76, 105, 115, 116, 0, 242, 255, 255,
+255, 1, 254, 255, 255, 255, 0, 109, 105, 115, 115, 105,
+110, 103, 66, 108, 111, 98, 83, 105, 122, 101, 115, 0,
+242, 255, 255, 255, 0, 248, 255, 255, 255, 0, 101, 114,
+114, 111, 114, 0, 245, 255, 255, 255, 0, 66, 111, 112, 85,
+110, 115, 117, 98, 115, 99, 114, 105, 98, 101, 82, 101,
+113, 117, 101, 115, 116, 0, 1, 1, 111, 112, 99, 111, 100,
+101, 0, 1, 102, 111, 117, 114, 99, 99, 0, 245, 255, 255,
+255, 48, 120, 53, 0, 0, 8, 0, 0, 0, 0, 2, 111, 114, 105,
+103, 105, 110, 97, 108, 77, 115, 103, 73, 100, 0, 242,
+255, 255, 255, 0, 254, 255, 255, 255, 0, 116, 97, 114,
+103, 101, 116, 80, 117, 98, 108, 105, 99, 75, 101, 121, 0,
+242, 255, 255, 255, 0, 254, 255, 255, 255, 0, 66, 111,
+112, 85, 110, 115, 117, 98, 115, 99, 114, 105, 98, 101,
+82, 101, 115, 112, 111, 110, 115, 101, 0, 1, 1, 111, 112,
+99, 111, 100, 101, 0, 1, 102, 111, 117, 114, 99, 99, 0,
+245, 255, 255, 255, 48, 120, 54, 0, 0, 5, 0, 0, 0, 0, 2,
+115, 116, 97, 116, 117, 115, 0, 254, 255, 255, 255, 0,
+101, 114, 114, 111, 114, 0, 245, 255, 255, 255, 0, 66,
+111, 112, 87, 114, 105, 116, 101, 66, 108, 111, 98, 82,
+101, 113, 117, 101, 115, 116, 0, 1, 1, 111, 112, 99, 111,
+100, 101, 0, 1, 102, 111, 117, 114, 99, 99, 0, 245, 255,
+255, 255, 48, 120, 55, 0, 0, 28, 0, 0, 0, 0, 6, 110, 111,
+100, 101, 73, 100, 49, 0, 242, 255, 255, 255, 0, 254, 255,
+255, 255, 0, 112, 111, 115, 0, 249, 255, 255, 255, 0, 100,
+97, 116, 97, 0, 242, 255, 255, 255, 0, 254, 255, 255, 255,
+0, 115, 111, 117, 114, 99, 101, 80, 117, 98, 108, 105, 99,
+75, 101, 121, 0, 242, 255, 255, 255, 0, 254, 255, 255,
+255, 0, 116, 97, 114, 103, 101, 116, 80, 117, 98, 108,
+105, 99, 75, 101, 121, 0, 242, 255, 255, 255, 0, 254, 255,
+255, 255, 0, 109, 117, 116, 101, 77, 115, 103, 73, 100,
+115, 0, 242, 255, 255, 255, 1, 254, 255, 255, 255, 0, 66,
+111, 112, 87, 114, 105, 116, 101, 66, 108, 111, 98, 82,
+101, 115, 112, 111, 110, 115, 101, 0, 1, 1, 111, 112, 99,
+111, 100, 101, 0, 1, 102, 111, 117, 114, 99, 99, 0, 245,
+255, 255, 255, 48, 120, 56, 0, 0, 13, 0, 0, 0, 0, 3, 115,
+116, 97, 116, 117, 115, 0, 254, 255, 255, 255, 0, 99, 117,
+114, 114, 101, 110, 116, 76, 101, 110, 103, 116, 104, 0,
 249, 255, 255, 255, 0, 101, 114, 114, 111, 114, 0, 245,
-255, 255, 255, 0, 66, 111, 112, 71, 101, 110, 101, 114,
-105, 99, 77, 101, 115, 115, 97, 103, 101, 82, 101, 113,
-117, 101, 115, 116, 0, 1, 1, 111, 112, 99, 111, 100, 101,
-0, 1, 102, 111, 117, 114, 99, 99, 0, 245, 255, 255, 255,
-48, 120, 66, 0, 0, 12, 0, 0, 0, 0, 3, 97, 99, 116, 105,
-111, 110, 0, 245, 255, 255, 255, 0, 115, 111, 117, 114,
-99, 101, 80, 117, 98, 108, 105, 99, 75, 101, 121, 0, 242,
-255, 255, 255, 0, 254, 255, 255, 255, 0, 100, 97, 116, 97,
-0, 242, 255, 255, 255, 0, 254, 255, 255, 255, 0, 66, 111,
-112, 71, 101, 110, 101, 114, 105, 99, 77, 101, 115, 115,
-97, 103, 101, 82, 101, 115, 112, 111, 110, 115, 101, 0, 1,
-1, 111, 112, 99, 111, 100, 101, 0, 1, 102, 111, 117, 114,
-99, 99, 0, 245, 255, 255, 255, 48, 120, 67, 0, 0, 12, 0,
-0, 0, 0, 3, 115, 116, 97, 116, 117, 115, 0, 6, 0, 0, 0, 0,
-100, 97, 116, 97, 0, 242, 255, 255, 255, 0, 254, 255, 255,
+255, 255, 255, 0, 66, 111, 112, 82, 101, 97, 100, 66, 108,
+111, 98, 82, 101, 113, 117, 101, 115, 116, 0, 1, 1, 111,
+112, 99, 111, 100, 101, 0, 1, 102, 111, 117, 114, 99, 99,
+0, 245, 255, 255, 255, 48, 120, 57, 0, 0, 24, 0, 0, 0, 0,
+5, 110, 111, 100, 101, 73, 100, 49, 0, 242, 255, 255, 255,
+0, 254, 255, 255, 255, 0, 112, 111, 115, 0, 249, 255, 255,
+255, 0, 108, 101, 110, 103, 116, 104, 0, 251, 255, 255,
+255, 0, 116, 97, 114, 103, 101, 116, 80, 117, 98, 108,
+105, 99, 75, 101, 121, 0, 242, 255, 255, 255, 0, 254, 255,
+255, 255, 0, 115, 111, 117, 114, 99, 101, 80, 117, 98,
+108, 105, 99, 75, 101, 121, 0, 242, 255, 255, 255, 0, 254,
+255, 255, 255, 0, 66, 111, 112, 82, 101, 97, 100, 66, 108,
+111, 98, 82, 101, 115, 112, 111, 110, 115, 101, 0, 1, 1,
+111, 112, 99, 111, 100, 101, 0, 1, 102, 111, 117, 114, 99,
+99, 0, 245, 255, 255, 255, 48, 120, 65, 0, 0, 21, 0, 0, 0,
+0, 6, 115, 116, 97, 116, 117, 115, 0, 254, 255, 255, 255,
+0, 100, 97, 116, 97, 0, 242, 255, 255, 255, 0, 254, 255,
+255, 255, 0, 115, 101, 113, 0, 253, 255, 255, 255, 0, 101,
+110, 100, 83, 101, 113, 0, 253, 255, 255, 255, 0, 98, 108,
+111, 98, 76, 101, 110, 103, 116, 104, 0, 249, 255, 255,
 255, 0, 101, 114, 114, 111, 114, 0, 245, 255, 255, 255, 0,
-0, 0, 0, 0
+66, 111, 112, 71, 101, 110, 101, 114, 105, 99, 77, 101,
+115, 115, 97, 103, 101, 82, 101, 113, 117, 101, 115, 116,
+0, 1, 1, 111, 112, 99, 111, 100, 101, 0, 1, 102, 111, 117,
+114, 99, 99, 0, 245, 255, 255, 255, 48, 120, 66, 0, 0, 12,
+0, 0, 0, 0, 3, 97, 99, 116, 105, 111, 110, 0, 245, 255,
+255, 255, 0, 115, 111, 117, 114, 99, 101, 80, 117, 98,
+108, 105, 99, 75, 101, 121, 0, 242, 255, 255, 255, 0, 254,
+255, 255, 255, 0, 100, 97, 116, 97, 0, 242, 255, 255, 255,
+0, 254, 255, 255, 255, 0, 66, 111, 112, 71, 101, 110, 101,
+114, 105, 99, 77, 101, 115, 115, 97, 103, 101, 82, 101,
+115, 112, 111, 110, 115, 101, 0, 1, 1, 111, 112, 99, 111,
+100, 101, 0, 1, 102, 111, 117, 114, 99, 99, 0, 245, 255,
+255, 255, 48, 120, 67, 0, 0, 9, 0, 0, 0, 0, 3, 115, 116,
+97, 116, 117, 115, 0, 254, 255, 255, 255, 0, 100, 97, 116,
+97, 0, 242, 255, 255, 255, 0, 254, 255, 255, 255, 0, 101,
+114, 114, 111, 114, 0, 245, 255, 255, 255, 0, 0, 0, 0, 0
 ]);
 
-export interface ILimitField extends BebopRecord {
+export interface IBopLimitField extends BebopRecord {
 
   readonly name: string;
 
   readonly limit: number;
 }
 
-export class LimitField implements ILimitField {
+export class BopLimitField implements IBopLimitField {
   public readonly name: string;
   public readonly limit: number;
 
-  constructor(record: ILimitField) {
+  constructor(record: IBopLimitField) {
     this.name = record.name;
     this.limit = record.limit;
   }
@@ -246,13 +232,13 @@ export class LimitField implements ILimitField {
    * Serializes the current instance into a JSON-Over-Bebop string
    */
   public stringify(): string {
-    return LimitField.encodeToJSON(this);
+    return BopLimitField.encodeToJSON(this);
   }
 
   /**
    * Serializes the specified object into a JSON-Over-Bebop string
    */
-  public static encodeToJSON(record: ILimitField): string {
+  public static encodeToJSON(record: IBopLimitField): string {
     return JSON.stringify(record, BebopJson.replacer);
   }
 
@@ -260,47 +246,47 @@ export class LimitField implements ILimitField {
    * Validates that the runtime types of members in the current instance are correct.
    */
   public validateTypes(): void {
-    LimitField.validateCompatibility(this);
+    BopLimitField.validateCompatibility(this);
   }
 
   /**
-   * Validates that the specified dynamic object can become an instance of {@link LimitField}.
+   * Validates that the specified dynamic object can become an instance of {@link BopLimitField}.
    */
-  public static validateCompatibility(record: ILimitField): void {
+  public static validateCompatibility(record: IBopLimitField): void {
     BebopTypeGuard.ensureString(record.name)
     BebopTypeGuard.ensureUint16(record.limit)
   }
 
   /**
-   * Unsafely creates an instance of {@link LimitField} from the specified dynamic object. No type checking is performed.
+   * Unsafely creates an instance of {@link BopLimitField} from the specified dynamic object. No type checking is performed.
    */
-  public static unsafeCast(record: any): ILimitField {
-      return new LimitField(record);
+  public static unsafeCast(record: any): IBopLimitField {
+      return new BopLimitField(record);
   }
 
   /**
-   * Creates a new {@link LimitField} instance from a JSON-Over-Bebop string. Type checking is performed.
+   * Creates a new {@link BopLimitField} instance from a JSON-Over-Bebop string. Type checking is performed.
    */
-  public static fromJSON(json: string): ILimitField {
+  public static fromJSON(json: string): IBopLimitField {
     if (typeof json !== 'string' || json.trim().length === 0) {
-      throw new BebopRuntimeError(`LimitField.fromJSON: expected string`);
+      throw new BebopRuntimeError(`BopLimitField.fromJSON: expected string`);
     }
     const parsed = JSON.parse(json, BebopJson.reviver);
-    LimitField.validateCompatibility(parsed);
-    return LimitField.unsafeCast(parsed);
+    BopLimitField.validateCompatibility(parsed);
+    return BopLimitField.unsafeCast(parsed);
   }
   public encode(): Uint8Array {
-    return LimitField.encode(this);
+    return BopLimitField.encode(this);
   }
 
-  public static encode(record: ILimitField): Uint8Array {
+  public static encode(record: IBopLimitField): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    LimitField.encodeInto(record, view);
+    BopLimitField.encodeInto(record, view);
     return view.toArray();
   }
 
-  public static encodeInto(record: ILimitField, view: BebopView): number {
+  public static encodeInto(record: IBopLimitField, view: BebopView): number {
     const before = view.length;
     view.writeString(record.name);
     view.writeUint16(record.limit);
@@ -308,29 +294,29 @@ export class LimitField implements ILimitField {
     return after - before;
   }
 
-  public static decode(buffer: Uint8Array): ILimitField {
+  public static decode(buffer: Uint8Array): IBopLimitField {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return LimitField.readFrom(view);
+    return BopLimitField.readFrom(view);
   }
 
-  public static readFrom(view: BebopView): ILimitField {
+  public static readFrom(view: BebopView): IBopLimitField {
     let field0: string;
     field0 = view.readString();
     let field1: number;
     field1 = view.readUint16();
-    let message: ILimitField = {
+    let message: IBopLimitField = {
       name: field0,
       limit: field1,
     };
-    return new LimitField(message);
+    return new BopLimitField(message);
   }
 }
 
 /**
  * This struct matched Filter in datamodel/model/types.ts.
  */
-export interface IFilter extends BebopRecord {
+export interface IBopFilter extends BebopRecord {
 
   readonly field: string;
 
@@ -341,13 +327,13 @@ export interface IFilter extends BebopRecord {
   readonly value: string;
 }
 
-export class Filter implements IFilter {
+export class BopFilter implements IBopFilter {
   public readonly field: string;
   public readonly operator: string;
   public readonly cmp: string;
   public readonly value: string;
 
-  constructor(record: IFilter) {
+  constructor(record: IBopFilter) {
     this.field = record.field;
     this.operator = record.operator;
     this.cmp = record.cmp;
@@ -358,13 +344,13 @@ export class Filter implements IFilter {
    * Serializes the current instance into a JSON-Over-Bebop string
    */
   public stringify(): string {
-    return Filter.encodeToJSON(this);
+    return BopFilter.encodeToJSON(this);
   }
 
   /**
    * Serializes the specified object into a JSON-Over-Bebop string
    */
-  public static encodeToJSON(record: IFilter): string {
+  public static encodeToJSON(record: IBopFilter): string {
     return JSON.stringify(record, BebopJson.replacer);
   }
 
@@ -372,13 +358,13 @@ export class Filter implements IFilter {
    * Validates that the runtime types of members in the current instance are correct.
    */
   public validateTypes(): void {
-    Filter.validateCompatibility(this);
+    BopFilter.validateCompatibility(this);
   }
 
   /**
-   * Validates that the specified dynamic object can become an instance of {@link Filter}.
+   * Validates that the specified dynamic object can become an instance of {@link BopFilter}.
    */
-  public static validateCompatibility(record: IFilter): void {
+  public static validateCompatibility(record: IBopFilter): void {
     BebopTypeGuard.ensureString(record.field)
     BebopTypeGuard.ensureString(record.operator)
     BebopTypeGuard.ensureString(record.cmp)
@@ -386,35 +372,35 @@ export class Filter implements IFilter {
   }
 
   /**
-   * Unsafely creates an instance of {@link Filter} from the specified dynamic object. No type checking is performed.
+   * Unsafely creates an instance of {@link BopFilter} from the specified dynamic object. No type checking is performed.
    */
-  public static unsafeCast(record: any): IFilter {
-      return new Filter(record);
+  public static unsafeCast(record: any): IBopFilter {
+      return new BopFilter(record);
   }
 
   /**
-   * Creates a new {@link Filter} instance from a JSON-Over-Bebop string. Type checking is performed.
+   * Creates a new {@link BopFilter} instance from a JSON-Over-Bebop string. Type checking is performed.
    */
-  public static fromJSON(json: string): IFilter {
+  public static fromJSON(json: string): IBopFilter {
     if (typeof json !== 'string' || json.trim().length === 0) {
-      throw new BebopRuntimeError(`Filter.fromJSON: expected string`);
+      throw new BebopRuntimeError(`BopFilter.fromJSON: expected string`);
     }
     const parsed = JSON.parse(json, BebopJson.reviver);
-    Filter.validateCompatibility(parsed);
-    return Filter.unsafeCast(parsed);
+    BopFilter.validateCompatibility(parsed);
+    return BopFilter.unsafeCast(parsed);
   }
   public encode(): Uint8Array {
-    return Filter.encode(this);
+    return BopFilter.encode(this);
   }
 
-  public static encode(record: IFilter): Uint8Array {
+  public static encode(record: IBopFilter): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    Filter.encodeInto(record, view);
+    BopFilter.encodeInto(record, view);
     return view.toArray();
   }
 
-  public static encodeInto(record: IFilter, view: BebopView): number {
+  public static encodeInto(record: IBopFilter, view: BebopView): number {
     const before = view.length;
     view.writeString(record.field);
     view.writeString(record.operator);
@@ -424,13 +410,13 @@ export class Filter implements IFilter {
     return after - before;
   }
 
-  public static decode(buffer: Uint8Array): IFilter {
+  public static decode(buffer: Uint8Array): IBopFilter {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return Filter.readFrom(view);
+    return BopFilter.readFrom(view);
   }
 
-  public static readFrom(view: BebopView): IFilter {
+  public static readFrom(view: BebopView): IBopFilter {
     let field0: string;
     field0 = view.readString();
     let field1: string;
@@ -439,26 +425,26 @@ export class Filter implements IFilter {
     field2 = view.readString();
     let field3: string;
     field3 = view.readString();
-    let message: IFilter = {
+    let message: IBopFilter = {
       field: field0,
       operator: field1,
       cmp: field2,
       value: field3,
     };
-    return new Filter(message);
+    return new BopFilter(message);
   }
 }
 
 
-export interface IMatch extends BebopRecord {
+export interface IBopMatch extends BebopRecord {
 
   readonly nodeType: Uint8Array;
 
-  readonly filters: Array<IFilter>;
+  readonly filters: Array<IBopFilter>;
 
   readonly limit: number;
 
-  readonly limitField: ILimitField;
+  readonly limitField: IBopLimitField;
 
   readonly level: Array<number>;
 
@@ -473,11 +459,11 @@ export interface IMatch extends BebopRecord {
   readonly cursorId1: Uint8Array;
 }
 
-export class Match implements IMatch {
+export class BopMatch implements IBopMatch {
   public readonly nodeType: Uint8Array;
-  public readonly filters: Array<IFilter>;
+  public readonly filters: Array<IBopFilter>;
   public readonly limit: number;
-  public readonly limitField: ILimitField;
+  public readonly limitField: IBopLimitField;
   public readonly level: Array<number>;
   public readonly discard: boolean;
   public readonly bottom: boolean;
@@ -485,7 +471,7 @@ export class Match implements IMatch {
   public readonly requireId: number;
   public readonly cursorId1: Uint8Array;
 
-  constructor(record: IMatch) {
+  constructor(record: IBopMatch) {
     this.nodeType = record.nodeType;
     this.filters = record.filters;
     this.limit = record.limit;
@@ -502,13 +488,13 @@ export class Match implements IMatch {
    * Serializes the current instance into a JSON-Over-Bebop string
    */
   public stringify(): string {
-    return Match.encodeToJSON(this);
+    return BopMatch.encodeToJSON(this);
   }
 
   /**
    * Serializes the specified object into a JSON-Over-Bebop string
    */
-  public static encodeToJSON(record: IMatch): string {
+  public static encodeToJSON(record: IBopMatch): string {
     return JSON.stringify(record, BebopJson.replacer);
   }
 
@@ -516,17 +502,17 @@ export class Match implements IMatch {
    * Validates that the runtime types of members in the current instance are correct.
    */
   public validateTypes(): void {
-    Match.validateCompatibility(this);
+    BopMatch.validateCompatibility(this);
   }
 
   /**
-   * Validates that the specified dynamic object can become an instance of {@link Match}.
+   * Validates that the specified dynamic object can become an instance of {@link BopMatch}.
    */
-  public static validateCompatibility(record: IMatch): void {
+  public static validateCompatibility(record: IBopMatch): void {
     BebopTypeGuard.ensureArray(record.nodeType, BebopTypeGuard.ensureUint8);
-    BebopTypeGuard.ensureArray(record.filters, Filter.validateCompatibility);
+    BebopTypeGuard.ensureArray(record.filters, BopFilter.validateCompatibility);
     BebopTypeGuard.ensureInt32(record.limit)
-    LimitField.validateCompatibility(record.limitField);
+    BopLimitField.validateCompatibility(record.limitField);
     BebopTypeGuard.ensureArray(record.level, BebopTypeGuard.ensureUint16);
     BebopTypeGuard.ensureBoolean(record.discard)
     BebopTypeGuard.ensureBoolean(record.bottom)
@@ -536,47 +522,47 @@ export class Match implements IMatch {
   }
 
   /**
-   * Unsafely creates an instance of {@link Match} from the specified dynamic object. No type checking is performed.
+   * Unsafely creates an instance of {@link BopMatch} from the specified dynamic object. No type checking is performed.
    */
-  public static unsafeCast(record: any): IMatch {
-      record.limitField = LimitField.unsafeCast(record.limitField);
-      return new Match(record);
+  public static unsafeCast(record: any): IBopMatch {
+      record.limitField = BopLimitField.unsafeCast(record.limitField);
+      return new BopMatch(record);
   }
 
   /**
-   * Creates a new {@link Match} instance from a JSON-Over-Bebop string. Type checking is performed.
+   * Creates a new {@link BopMatch} instance from a JSON-Over-Bebop string. Type checking is performed.
    */
-  public static fromJSON(json: string): IMatch {
+  public static fromJSON(json: string): IBopMatch {
     if (typeof json !== 'string' || json.trim().length === 0) {
-      throw new BebopRuntimeError(`Match.fromJSON: expected string`);
+      throw new BebopRuntimeError(`BopMatch.fromJSON: expected string`);
     }
     const parsed = JSON.parse(json, BebopJson.reviver);
-    Match.validateCompatibility(parsed);
-    return Match.unsafeCast(parsed);
+    BopMatch.validateCompatibility(parsed);
+    return BopMatch.unsafeCast(parsed);
   }
   public encode(): Uint8Array {
-    return Match.encode(this);
+    return BopMatch.encode(this);
   }
 
-  public static encode(record: IMatch): Uint8Array {
+  public static encode(record: IBopMatch): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    Match.encodeInto(record, view);
+    BopMatch.encodeInto(record, view);
     return view.toArray();
   }
 
-  public static encodeInto(record: IMatch, view: BebopView): number {
+  public static encodeInto(record: IBopMatch, view: BebopView): number {
     const before = view.length;
     view.writeBytes(record.nodeType);
     {
       const length0 = record.filters.length;
       view.writeUint32(length0);
       for (let i0 = 0; i0 < length0; i0++) {
-        Filter.encodeInto(record.filters[i0], view)
+        BopFilter.encodeInto(record.filters[i0], view)
       }
     }
     view.writeInt32(record.limit);
-    LimitField.encodeInto(record.limitField, view)
+    BopLimitField.encodeInto(record.limitField, view)
     {
       const length0 = record.level.length;
       view.writeUint32(length0);
@@ -593,29 +579,29 @@ export class Match implements IMatch {
     return after - before;
   }
 
-  public static decode(buffer: Uint8Array): IMatch {
+  public static decode(buffer: Uint8Array): IBopMatch {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return Match.readFrom(view);
+    return BopMatch.readFrom(view);
   }
 
-  public static readFrom(view: BebopView): IMatch {
+  public static readFrom(view: BebopView): IBopMatch {
     let field0: Uint8Array;
     field0 = view.readBytes();
-    let field1: Array<IFilter>;
+    let field1: Array<IBopFilter>;
     {
       let length0 = view.readUint32();
-      field1 = new Array<IFilter>(length0);
+      field1 = new Array<IBopFilter>(length0);
       for (let i0 = 0; i0 < length0; i0++) {
-        let x0: IFilter;
-        x0 = Filter.readFrom(view);
+        let x0: IBopFilter;
+        x0 = BopFilter.readFrom(view);
         field1[i0] = x0;
       }
     }
     let field2: number;
     field2 = view.readInt32();
-    let field3: ILimitField;
-    field3 = LimitField.readFrom(view);
+    let field3: IBopLimitField;
+    field3 = BopLimitField.readFrom(view);
     let field4: Array<number>;
     {
       let length0 = view.readUint32();
@@ -636,7 +622,7 @@ export class Match implements IMatch {
     field8 = view.readByte();
     let field9: Uint8Array;
     field9 = view.readBytes();
-    let message: IMatch = {
+    let message: IBopMatch = {
       nodeType: field0,
       filters: field1,
       limit: field2,
@@ -648,23 +634,23 @@ export class Match implements IMatch {
       requireId: field8,
       cursorId1: field9,
     };
-    return new Match(message);
+    return new BopMatch(message);
   }
 }
 
 
-export interface IAllowEmbed extends BebopRecord {
+export interface IBopAllowEmbed extends BebopRecord {
 
   readonly nodeType: Uint8Array;
 
-  readonly filters: Array<IFilter>;
+  readonly filters: Array<IBopFilter>;
 }
 
-export class AllowEmbed implements IAllowEmbed {
+export class BopAllowEmbed implements IBopAllowEmbed {
   public readonly nodeType: Uint8Array;
-  public readonly filters: Array<IFilter>;
+  public readonly filters: Array<IBopFilter>;
 
-  constructor(record: IAllowEmbed) {
+  constructor(record: IBopAllowEmbed) {
     this.nodeType = record.nodeType;
     this.filters = record.filters;
   }
@@ -673,13 +659,13 @@ export class AllowEmbed implements IAllowEmbed {
    * Serializes the current instance into a JSON-Over-Bebop string
    */
   public stringify(): string {
-    return AllowEmbed.encodeToJSON(this);
+    return BopAllowEmbed.encodeToJSON(this);
   }
 
   /**
    * Serializes the specified object into a JSON-Over-Bebop string
    */
-  public static encodeToJSON(record: IAllowEmbed): string {
+  public static encodeToJSON(record: IBopAllowEmbed): string {
     return JSON.stringify(record, BebopJson.replacer);
   }
 
@@ -687,89 +673,89 @@ export class AllowEmbed implements IAllowEmbed {
    * Validates that the runtime types of members in the current instance are correct.
    */
   public validateTypes(): void {
-    AllowEmbed.validateCompatibility(this);
+    BopAllowEmbed.validateCompatibility(this);
   }
 
   /**
-   * Validates that the specified dynamic object can become an instance of {@link AllowEmbed}.
+   * Validates that the specified dynamic object can become an instance of {@link BopAllowEmbed}.
    */
-  public static validateCompatibility(record: IAllowEmbed): void {
+  public static validateCompatibility(record: IBopAllowEmbed): void {
     BebopTypeGuard.ensureArray(record.nodeType, BebopTypeGuard.ensureUint8);
-    BebopTypeGuard.ensureArray(record.filters, Filter.validateCompatibility);
+    BebopTypeGuard.ensureArray(record.filters, BopFilter.validateCompatibility);
   }
 
   /**
-   * Unsafely creates an instance of {@link AllowEmbed} from the specified dynamic object. No type checking is performed.
+   * Unsafely creates an instance of {@link BopAllowEmbed} from the specified dynamic object. No type checking is performed.
    */
-  public static unsafeCast(record: any): IAllowEmbed {
-      return new AllowEmbed(record);
+  public static unsafeCast(record: any): IBopAllowEmbed {
+      return new BopAllowEmbed(record);
   }
 
   /**
-   * Creates a new {@link AllowEmbed} instance from a JSON-Over-Bebop string. Type checking is performed.
+   * Creates a new {@link BopAllowEmbed} instance from a JSON-Over-Bebop string. Type checking is performed.
    */
-  public static fromJSON(json: string): IAllowEmbed {
+  public static fromJSON(json: string): IBopAllowEmbed {
     if (typeof json !== 'string' || json.trim().length === 0) {
-      throw new BebopRuntimeError(`AllowEmbed.fromJSON: expected string`);
+      throw new BebopRuntimeError(`BopAllowEmbed.fromJSON: expected string`);
     }
     const parsed = JSON.parse(json, BebopJson.reviver);
-    AllowEmbed.validateCompatibility(parsed);
-    return AllowEmbed.unsafeCast(parsed);
+    BopAllowEmbed.validateCompatibility(parsed);
+    return BopAllowEmbed.unsafeCast(parsed);
   }
   public encode(): Uint8Array {
-    return AllowEmbed.encode(this);
+    return BopAllowEmbed.encode(this);
   }
 
-  public static encode(record: IAllowEmbed): Uint8Array {
+  public static encode(record: IBopAllowEmbed): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    AllowEmbed.encodeInto(record, view);
+    BopAllowEmbed.encodeInto(record, view);
     return view.toArray();
   }
 
-  public static encodeInto(record: IAllowEmbed, view: BebopView): number {
+  public static encodeInto(record: IBopAllowEmbed, view: BebopView): number {
     const before = view.length;
     view.writeBytes(record.nodeType);
     {
       const length0 = record.filters.length;
       view.writeUint32(length0);
       for (let i0 = 0; i0 < length0; i0++) {
-        Filter.encodeInto(record.filters[i0], view)
+        BopFilter.encodeInto(record.filters[i0], view)
       }
     }
     const after = view.length;
     return after - before;
   }
 
-  public static decode(buffer: Uint8Array): IAllowEmbed {
+  public static decode(buffer: Uint8Array): IBopAllowEmbed {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return AllowEmbed.readFrom(view);
+    return BopAllowEmbed.readFrom(view);
   }
 
-  public static readFrom(view: BebopView): IAllowEmbed {
+  public static readFrom(view: BebopView): IBopAllowEmbed {
     let field0: Uint8Array;
     field0 = view.readBytes();
-    let field1: Array<IFilter>;
+    let field1: Array<IBopFilter>;
     {
       let length0 = view.readUint32();
-      field1 = new Array<IFilter>(length0);
+      field1 = new Array<IBopFilter>(length0);
       for (let i0 = 0; i0 < length0; i0++) {
-        let x0: IFilter;
-        x0 = Filter.readFrom(view);
+        let x0: IBopFilter;
+        x0 = BopFilter.readFrom(view);
         field1[i0] = x0;
       }
     }
-    let message: IAllowEmbed = {
+    let message: IBopAllowEmbed = {
       nodeType: field0,
       filters: field1,
     };
-    return new AllowEmbed(message);
+    return new BopAllowEmbed(message);
   }
 }
 
 
-export interface IFetchQuery extends BebopRecord {
+export interface IBopFetchQuery extends BebopRecord {
 
   readonly depth: number;
 
@@ -787,9 +773,9 @@ export interface IFetchQuery extends BebopRecord {
 
   readonly sourcePublicKey: Uint8Array;
 
-  readonly match: Array<IMatch>;
+  readonly match: Array<IBopMatch>;
 
-  readonly embed: Array<IAllowEmbed>;
+  readonly embed: Array<IBopAllowEmbed>;
 
   readonly triggerNodeId: Uint8Array;
 
@@ -814,7 +800,7 @@ export interface IFetchQuery extends BebopRecord {
   readonly includeLicenses: string;
 }
 
-export class FetchQuery implements IFetchQuery {
+export class BopFetchQuery implements IBopFetchQuery {
   public readonly depth: number;
   public readonly limit: number;
   public readonly cutoffTime: bigint;
@@ -823,8 +809,8 @@ export class FetchQuery implements IFetchQuery {
   public readonly parentId: Uint8Array;
   public readonly targetPublicKey: Uint8Array;
   public readonly sourcePublicKey: Uint8Array;
-  public readonly match: Array<IMatch>;
-  public readonly embed: Array<IAllowEmbed>;
+  public readonly match: Array<IBopMatch>;
+  public readonly embed: Array<IBopAllowEmbed>;
   public readonly triggerNodeId: Uint8Array;
   public readonly triggerInterval: number;
   public readonly onlyTrigger: boolean;
@@ -837,7 +823,7 @@ export class FetchQuery implements IFetchQuery {
   public readonly jurisdiction: string;
   public readonly includeLicenses: string;
 
-  constructor(record: IFetchQuery) {
+  constructor(record: IBopFetchQuery) {
     this.depth = record.depth;
     this.limit = record.limit;
     this.cutoffTime = record.cutoffTime;
@@ -865,13 +851,13 @@ export class FetchQuery implements IFetchQuery {
    * Serializes the current instance into a JSON-Over-Bebop string
    */
   public stringify(): string {
-    return FetchQuery.encodeToJSON(this);
+    return BopFetchQuery.encodeToJSON(this);
   }
 
   /**
    * Serializes the specified object into a JSON-Over-Bebop string
    */
-  public static encodeToJSON(record: IFetchQuery): string {
+  public static encodeToJSON(record: IBopFetchQuery): string {
     return JSON.stringify(record, BebopJson.replacer);
   }
 
@@ -879,13 +865,13 @@ export class FetchQuery implements IFetchQuery {
    * Validates that the runtime types of members in the current instance are correct.
    */
   public validateTypes(): void {
-    FetchQuery.validateCompatibility(this);
+    BopFetchQuery.validateCompatibility(this);
   }
 
   /**
-   * Validates that the specified dynamic object can become an instance of {@link FetchQuery}.
+   * Validates that the specified dynamic object can become an instance of {@link BopFetchQuery}.
    */
-  public static validateCompatibility(record: IFetchQuery): void {
+  public static validateCompatibility(record: IBopFetchQuery): void {
     BebopTypeGuard.ensureInt32(record.depth)
     BebopTypeGuard.ensureInt32(record.limit)
     BebopTypeGuard.ensureInt64(record.cutoffTime)
@@ -894,8 +880,8 @@ export class FetchQuery implements IFetchQuery {
     BebopTypeGuard.ensureArray(record.parentId, BebopTypeGuard.ensureUint8);
     BebopTypeGuard.ensureArray(record.targetPublicKey, BebopTypeGuard.ensureUint8);
     BebopTypeGuard.ensureArray(record.sourcePublicKey, BebopTypeGuard.ensureUint8);
-    BebopTypeGuard.ensureArray(record.match, Match.validateCompatibility);
-    BebopTypeGuard.ensureArray(record.embed, AllowEmbed.validateCompatibility);
+    BebopTypeGuard.ensureArray(record.match, BopMatch.validateCompatibility);
+    BebopTypeGuard.ensureArray(record.embed, BopAllowEmbed.validateCompatibility);
     BebopTypeGuard.ensureArray(record.triggerNodeId, BebopTypeGuard.ensureUint8);
     BebopTypeGuard.ensureUint16(record.triggerInterval)
     BebopTypeGuard.ensureBoolean(record.onlyTrigger)
@@ -910,35 +896,35 @@ export class FetchQuery implements IFetchQuery {
   }
 
   /**
-   * Unsafely creates an instance of {@link FetchQuery} from the specified dynamic object. No type checking is performed.
+   * Unsafely creates an instance of {@link BopFetchQuery} from the specified dynamic object. No type checking is performed.
    */
-  public static unsafeCast(record: any): IFetchQuery {
-      return new FetchQuery(record);
+  public static unsafeCast(record: any): IBopFetchQuery {
+      return new BopFetchQuery(record);
   }
 
   /**
-   * Creates a new {@link FetchQuery} instance from a JSON-Over-Bebop string. Type checking is performed.
+   * Creates a new {@link BopFetchQuery} instance from a JSON-Over-Bebop string. Type checking is performed.
    */
-  public static fromJSON(json: string): IFetchQuery {
+  public static fromJSON(json: string): IBopFetchQuery {
     if (typeof json !== 'string' || json.trim().length === 0) {
-      throw new BebopRuntimeError(`FetchQuery.fromJSON: expected string`);
+      throw new BebopRuntimeError(`BopFetchQuery.fromJSON: expected string`);
     }
     const parsed = JSON.parse(json, BebopJson.reviver);
-    FetchQuery.validateCompatibility(parsed);
-    return FetchQuery.unsafeCast(parsed);
+    BopFetchQuery.validateCompatibility(parsed);
+    return BopFetchQuery.unsafeCast(parsed);
   }
   public encode(): Uint8Array {
-    return FetchQuery.encode(this);
+    return BopFetchQuery.encode(this);
   }
 
-  public static encode(record: IFetchQuery): Uint8Array {
+  public static encode(record: IBopFetchQuery): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    FetchQuery.encodeInto(record, view);
+    BopFetchQuery.encodeInto(record, view);
     return view.toArray();
   }
 
-  public static encodeInto(record: IFetchQuery, view: BebopView): number {
+  public static encodeInto(record: IBopFetchQuery, view: BebopView): number {
     const before = view.length;
     view.writeInt32(record.depth);
     view.writeInt32(record.limit);
@@ -952,14 +938,14 @@ export class FetchQuery implements IFetchQuery {
       const length0 = record.match.length;
       view.writeUint32(length0);
       for (let i0 = 0; i0 < length0; i0++) {
-        Match.encodeInto(record.match[i0], view)
+        BopMatch.encodeInto(record.match[i0], view)
       }
     }
     {
       const length0 = record.embed.length;
       view.writeUint32(length0);
       for (let i0 = 0; i0 < length0; i0++) {
-        AllowEmbed.encodeInto(record.embed[i0], view)
+        BopAllowEmbed.encodeInto(record.embed[i0], view)
       }
     }
     view.writeBytes(record.triggerNodeId);
@@ -977,13 +963,13 @@ export class FetchQuery implements IFetchQuery {
     return after - before;
   }
 
-  public static decode(buffer: Uint8Array): IFetchQuery {
+  public static decode(buffer: Uint8Array): IBopFetchQuery {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return FetchQuery.readFrom(view);
+    return BopFetchQuery.readFrom(view);
   }
 
-  public static readFrom(view: BebopView): IFetchQuery {
+  public static readFrom(view: BebopView): IBopFetchQuery {
     let field0: number;
     field0 = view.readInt32();
     let field1: number;
@@ -1000,23 +986,23 @@ export class FetchQuery implements IFetchQuery {
     field6 = view.readBytes();
     let field7: Uint8Array;
     field7 = view.readBytes();
-    let field8: Array<IMatch>;
+    let field8: Array<IBopMatch>;
     {
       let length0 = view.readUint32();
-      field8 = new Array<IMatch>(length0);
+      field8 = new Array<IBopMatch>(length0);
       for (let i0 = 0; i0 < length0; i0++) {
-        let x0: IMatch;
-        x0 = Match.readFrom(view);
+        let x0: IBopMatch;
+        x0 = BopMatch.readFrom(view);
         field8[i0] = x0;
       }
     }
-    let field9: Array<IAllowEmbed>;
+    let field9: Array<IBopAllowEmbed>;
     {
       let length0 = view.readUint32();
-      field9 = new Array<IAllowEmbed>(length0);
+      field9 = new Array<IBopAllowEmbed>(length0);
       for (let i0 = 0; i0 < length0; i0++) {
-        let x0: IAllowEmbed;
-        x0 = AllowEmbed.readFrom(view);
+        let x0: IBopAllowEmbed;
+        x0 = BopAllowEmbed.readFrom(view);
         field9[i0] = x0;
       }
     }
@@ -1042,7 +1028,7 @@ export class FetchQuery implements IFetchQuery {
     field19 = view.readString();
     let field20: string;
     field20 = view.readString();
-    let message: IFetchQuery = {
+    let message: IBopFetchQuery = {
       depth: field0,
       limit: field1,
       cutoffTime: field2,
@@ -1065,12 +1051,12 @@ export class FetchQuery implements IFetchQuery {
       jurisdiction: field19,
       includeLicenses: field20,
     };
-    return new FetchQuery(message);
+    return new BopFetchQuery(message);
   }
 }
 
 
-export interface IFetchCRDT extends BebopRecord {
+export interface IBopFetchCRDT extends BebopRecord {
 
   readonly algo: string;
 
@@ -1089,7 +1075,7 @@ export interface IFetchCRDT extends BebopRecord {
   readonly cursorIndex: number;
 }
 
-export class FetchCRDT implements IFetchCRDT {
+export class BopFetchCRDT implements IBopFetchCRDT {
   public readonly algo: string;
   public readonly conf: string;
   public readonly msgId: Uint8Array;
@@ -1099,7 +1085,7 @@ export class FetchCRDT implements IFetchCRDT {
   public readonly cursorId1: Uint8Array;
   public readonly cursorIndex: number;
 
-  constructor(record: IFetchCRDT) {
+  constructor(record: IBopFetchCRDT) {
     this.algo = record.algo;
     this.conf = record.conf;
     this.msgId = record.msgId;
@@ -1114,13 +1100,13 @@ export class FetchCRDT implements IFetchCRDT {
    * Serializes the current instance into a JSON-Over-Bebop string
    */
   public stringify(): string {
-    return FetchCRDT.encodeToJSON(this);
+    return BopFetchCRDT.encodeToJSON(this);
   }
 
   /**
    * Serializes the specified object into a JSON-Over-Bebop string
    */
-  public static encodeToJSON(record: IFetchCRDT): string {
+  public static encodeToJSON(record: IBopFetchCRDT): string {
     return JSON.stringify(record, BebopJson.replacer);
   }
 
@@ -1128,13 +1114,13 @@ export class FetchCRDT implements IFetchCRDT {
    * Validates that the runtime types of members in the current instance are correct.
    */
   public validateTypes(): void {
-    FetchCRDT.validateCompatibility(this);
+    BopFetchCRDT.validateCompatibility(this);
   }
 
   /**
-   * Validates that the specified dynamic object can become an instance of {@link FetchCRDT}.
+   * Validates that the specified dynamic object can become an instance of {@link BopFetchCRDT}.
    */
-  public static validateCompatibility(record: IFetchCRDT): void {
+  public static validateCompatibility(record: IBopFetchCRDT): void {
     BebopTypeGuard.ensureString(record.algo)
     BebopTypeGuard.ensureString(record.conf)
     BebopTypeGuard.ensureArray(record.msgId, BebopTypeGuard.ensureUint8);
@@ -1146,35 +1132,35 @@ export class FetchCRDT implements IFetchCRDT {
   }
 
   /**
-   * Unsafely creates an instance of {@link FetchCRDT} from the specified dynamic object. No type checking is performed.
+   * Unsafely creates an instance of {@link BopFetchCRDT} from the specified dynamic object. No type checking is performed.
    */
-  public static unsafeCast(record: any): IFetchCRDT {
-      return new FetchCRDT(record);
+  public static unsafeCast(record: any): IBopFetchCRDT {
+      return new BopFetchCRDT(record);
   }
 
   /**
-   * Creates a new {@link FetchCRDT} instance from a JSON-Over-Bebop string. Type checking is performed.
+   * Creates a new {@link BopFetchCRDT} instance from a JSON-Over-Bebop string. Type checking is performed.
    */
-  public static fromJSON(json: string): IFetchCRDT {
+  public static fromJSON(json: string): IBopFetchCRDT {
     if (typeof json !== 'string' || json.trim().length === 0) {
-      throw new BebopRuntimeError(`FetchCRDT.fromJSON: expected string`);
+      throw new BebopRuntimeError(`BopFetchCRDT.fromJSON: expected string`);
     }
     const parsed = JSON.parse(json, BebopJson.reviver);
-    FetchCRDT.validateCompatibility(parsed);
-    return FetchCRDT.unsafeCast(parsed);
+    BopFetchCRDT.validateCompatibility(parsed);
+    return BopFetchCRDT.unsafeCast(parsed);
   }
   public encode(): Uint8Array {
-    return FetchCRDT.encode(this);
+    return BopFetchCRDT.encode(this);
   }
 
-  public static encode(record: IFetchCRDT): Uint8Array {
+  public static encode(record: IBopFetchCRDT): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    FetchCRDT.encodeInto(record, view);
+    BopFetchCRDT.encodeInto(record, view);
     return view.toArray();
   }
 
-  public static encodeInto(record: IFetchCRDT, view: BebopView): number {
+  public static encodeInto(record: IBopFetchCRDT, view: BebopView): number {
     const before = view.length;
     view.writeString(record.algo);
     view.writeString(record.conf);
@@ -1188,13 +1174,13 @@ export class FetchCRDT implements IFetchCRDT {
     return after - before;
   }
 
-  public static decode(buffer: Uint8Array): IFetchCRDT {
+  public static decode(buffer: Uint8Array): IBopFetchCRDT {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return FetchCRDT.readFrom(view);
+    return BopFetchCRDT.readFrom(view);
   }
 
-  public static readFrom(view: BebopView): IFetchCRDT {
+  public static readFrom(view: BebopView): IBopFetchCRDT {
     let field0: string;
     field0 = view.readString();
     let field1: string;
@@ -1211,7 +1197,7 @@ export class FetchCRDT implements IFetchCRDT {
     field6 = view.readBytes();
     let field7: number;
     field7 = view.readInt32();
-    let message: IFetchCRDT = {
+    let message: IBopFetchCRDT = {
       algo: field0,
       conf: field1,
       msgId: field2,
@@ -1221,40 +1207,12 @@ export class FetchCRDT implements IFetchCRDT {
       cursorId1: field6,
       cursorIndex: field7,
     };
-    return new FetchCRDT(message);
+    return new BopFetchCRDT(message);
   }
 }
 
 
-export enum Status {
-
-  Result = 1,
-
-  Malformed = 2,
-
-  Error = 3,
-
-  StoreFailed = 4,
-
-  FetchFailed = 5,
-
-  MissingRootnode = 6,
-
-  RootnodeLicensed = 7,
-
-  NotAllowed = 8,
-
-  Mismatch = 9,
-
-  Exists = 10,
-
-  MissingCursor = 11,
-
-  DroppedTrigger = 12,
-}
-
-
-export interface IFetchResult extends BebopRecord {
+export interface IBopFetchResult extends BebopRecord {
 
   readonly nodes: Array<Uint8Array>;
 
@@ -1263,12 +1221,12 @@ export interface IFetchResult extends BebopRecord {
   readonly cutoffTime: bigint;
 }
 
-export class FetchResult implements IFetchResult {
+export class BopFetchResult implements IBopFetchResult {
   public readonly nodes: Array<Uint8Array>;
   public readonly embed: Array<Uint8Array>;
   public readonly cutoffTime: bigint;
 
-  constructor(record: IFetchResult) {
+  constructor(record: IBopFetchResult) {
     this.nodes = record.nodes;
     this.embed = record.embed;
     this.cutoffTime = record.cutoffTime;
@@ -1278,13 +1236,13 @@ export class FetchResult implements IFetchResult {
    * Serializes the current instance into a JSON-Over-Bebop string
    */
   public stringify(): string {
-    return FetchResult.encodeToJSON(this);
+    return BopFetchResult.encodeToJSON(this);
   }
 
   /**
    * Serializes the specified object into a JSON-Over-Bebop string
    */
-  public static encodeToJSON(record: IFetchResult): string {
+  public static encodeToJSON(record: IBopFetchResult): string {
     return JSON.stringify(record, BebopJson.replacer);
   }
 
@@ -1292,48 +1250,48 @@ export class FetchResult implements IFetchResult {
    * Validates that the runtime types of members in the current instance are correct.
    */
   public validateTypes(): void {
-    FetchResult.validateCompatibility(this);
+    BopFetchResult.validateCompatibility(this);
   }
 
   /**
-   * Validates that the specified dynamic object can become an instance of {@link FetchResult}.
+   * Validates that the specified dynamic object can become an instance of {@link BopFetchResult}.
    */
-  public static validateCompatibility(record: IFetchResult): void {
+  public static validateCompatibility(record: IBopFetchResult): void {
     BebopTypeGuard.ensureArray(record.nodes, (element) => BebopTypeGuard.ensureArray(element, BebopTypeGuard.ensureUint8));
     BebopTypeGuard.ensureArray(record.embed, (element) => BebopTypeGuard.ensureArray(element, BebopTypeGuard.ensureUint8));
     BebopTypeGuard.ensureInt64(record.cutoffTime)
   }
 
   /**
-   * Unsafely creates an instance of {@link FetchResult} from the specified dynamic object. No type checking is performed.
+   * Unsafely creates an instance of {@link BopFetchResult} from the specified dynamic object. No type checking is performed.
    */
-  public static unsafeCast(record: any): IFetchResult {
-      return new FetchResult(record);
+  public static unsafeCast(record: any): IBopFetchResult {
+      return new BopFetchResult(record);
   }
 
   /**
-   * Creates a new {@link FetchResult} instance from a JSON-Over-Bebop string. Type checking is performed.
+   * Creates a new {@link BopFetchResult} instance from a JSON-Over-Bebop string. Type checking is performed.
    */
-  public static fromJSON(json: string): IFetchResult {
+  public static fromJSON(json: string): IBopFetchResult {
     if (typeof json !== 'string' || json.trim().length === 0) {
-      throw new BebopRuntimeError(`FetchResult.fromJSON: expected string`);
+      throw new BebopRuntimeError(`BopFetchResult.fromJSON: expected string`);
     }
     const parsed = JSON.parse(json, BebopJson.reviver);
-    FetchResult.validateCompatibility(parsed);
-    return FetchResult.unsafeCast(parsed);
+    BopFetchResult.validateCompatibility(parsed);
+    return BopFetchResult.unsafeCast(parsed);
   }
   public encode(): Uint8Array {
-    return FetchResult.encode(this);
+    return BopFetchResult.encode(this);
   }
 
-  public static encode(record: IFetchResult): Uint8Array {
+  public static encode(record: IBopFetchResult): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    FetchResult.encodeInto(record, view);
+    BopFetchResult.encodeInto(record, view);
     return view.toArray();
   }
 
-  public static encodeInto(record: IFetchResult, view: BebopView): number {
+  public static encodeInto(record: IBopFetchResult, view: BebopView): number {
     const before = view.length;
     {
       const length0 = record.nodes.length;
@@ -1354,13 +1312,13 @@ export class FetchResult implements IFetchResult {
     return after - before;
   }
 
-  public static decode(buffer: Uint8Array): IFetchResult {
+  public static decode(buffer: Uint8Array): IBopFetchResult {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return FetchResult.readFrom(view);
+    return BopFetchResult.readFrom(view);
   }
 
-  public static readFrom(view: BebopView): IFetchResult {
+  public static readFrom(view: BebopView): IBopFetchResult {
     let field0: Array<Uint8Array>;
     {
       let length0 = view.readUint32();
@@ -1383,17 +1341,17 @@ export class FetchResult implements IFetchResult {
     }
     let field2: bigint;
     field2 = view.readInt64();
-    let message: IFetchResult = {
+    let message: IBopFetchResult = {
       nodes: field0,
       embed: field1,
       cutoffTime: field2,
     };
-    return new FetchResult(message);
+    return new BopFetchResult(message);
   }
 }
 
 
-export interface ICRDTResult extends BebopRecord {
+export interface IBopCRDTResult extends BebopRecord {
 
   readonly delta: Uint8Array;
 
@@ -1402,12 +1360,12 @@ export interface ICRDTResult extends BebopRecord {
   readonly length: number;
 }
 
-export class CRDTResult implements ICRDTResult {
+export class BopCRDTResult implements IBopCRDTResult {
   public readonly delta: Uint8Array;
   public readonly cursorIndex: number;
   public readonly length: number;
 
-  constructor(record: ICRDTResult) {
+  constructor(record: IBopCRDTResult) {
     this.delta = record.delta;
     this.cursorIndex = record.cursorIndex;
     this.length = record.length;
@@ -1417,13 +1375,13 @@ export class CRDTResult implements ICRDTResult {
    * Serializes the current instance into a JSON-Over-Bebop string
    */
   public stringify(): string {
-    return CRDTResult.encodeToJSON(this);
+    return BopCRDTResult.encodeToJSON(this);
   }
 
   /**
    * Serializes the specified object into a JSON-Over-Bebop string
    */
-  public static encodeToJSON(record: ICRDTResult): string {
+  public static encodeToJSON(record: IBopCRDTResult): string {
     return JSON.stringify(record, BebopJson.replacer);
   }
 
@@ -1431,48 +1389,48 @@ export class CRDTResult implements ICRDTResult {
    * Validates that the runtime types of members in the current instance are correct.
    */
   public validateTypes(): void {
-    CRDTResult.validateCompatibility(this);
+    BopCRDTResult.validateCompatibility(this);
   }
 
   /**
-   * Validates that the specified dynamic object can become an instance of {@link CRDTResult}.
+   * Validates that the specified dynamic object can become an instance of {@link BopCRDTResult}.
    */
-  public static validateCompatibility(record: ICRDTResult): void {
+  public static validateCompatibility(record: IBopCRDTResult): void {
     BebopTypeGuard.ensureArray(record.delta, BebopTypeGuard.ensureUint8);
     BebopTypeGuard.ensureInt32(record.cursorIndex)
     BebopTypeGuard.ensureUint32(record.length)
   }
 
   /**
-   * Unsafely creates an instance of {@link CRDTResult} from the specified dynamic object. No type checking is performed.
+   * Unsafely creates an instance of {@link BopCRDTResult} from the specified dynamic object. No type checking is performed.
    */
-  public static unsafeCast(record: any): ICRDTResult {
-      return new CRDTResult(record);
+  public static unsafeCast(record: any): IBopCRDTResult {
+      return new BopCRDTResult(record);
   }
 
   /**
-   * Creates a new {@link CRDTResult} instance from a JSON-Over-Bebop string. Type checking is performed.
+   * Creates a new {@link BopCRDTResult} instance from a JSON-Over-Bebop string. Type checking is performed.
    */
-  public static fromJSON(json: string): ICRDTResult {
+  public static fromJSON(json: string): IBopCRDTResult {
     if (typeof json !== 'string' || json.trim().length === 0) {
-      throw new BebopRuntimeError(`CRDTResult.fromJSON: expected string`);
+      throw new BebopRuntimeError(`BopCRDTResult.fromJSON: expected string`);
     }
     const parsed = JSON.parse(json, BebopJson.reviver);
-    CRDTResult.validateCompatibility(parsed);
-    return CRDTResult.unsafeCast(parsed);
+    BopCRDTResult.validateCompatibility(parsed);
+    return BopCRDTResult.unsafeCast(parsed);
   }
   public encode(): Uint8Array {
-    return CRDTResult.encode(this);
+    return BopCRDTResult.encode(this);
   }
 
-  public static encode(record: ICRDTResult): Uint8Array {
+  public static encode(record: IBopCRDTResult): Uint8Array {
     const view = BebopView.getInstance();
     view.startWriting();
-    CRDTResult.encodeInto(record, view);
+    BopCRDTResult.encodeInto(record, view);
     return view.toArray();
   }
 
-  public static encodeInto(record: ICRDTResult, view: BebopView): number {
+  public static encodeInto(record: IBopCRDTResult, view: BebopView): number {
     const before = view.length;
     view.writeBytes(record.delta);
     view.writeInt32(record.cursorIndex);
@@ -1481,40 +1439,40 @@ export class CRDTResult implements ICRDTResult {
     return after - before;
   }
 
-  public static decode(buffer: Uint8Array): ICRDTResult {
+  public static decode(buffer: Uint8Array): IBopCRDTResult {
     const view = BebopView.getInstance();
     view.startReading(buffer);
-    return CRDTResult.readFrom(view);
+    return BopCRDTResult.readFrom(view);
   }
 
-  public static readFrom(view: BebopView): ICRDTResult {
+  public static readFrom(view: BebopView): IBopCRDTResult {
     let field0: Uint8Array;
     field0 = view.readBytes();
     let field1: number;
     field1 = view.readInt32();
     let field2: number;
     field2 = view.readUint32();
-    let message: ICRDTResult = {
+    let message: IBopCRDTResult = {
       delta: field0,
       cursorIndex: field1,
       length: field2,
     };
-    return new CRDTResult(message);
+    return new BopCRDTResult(message);
   }
 }
 
 
 export interface IBopFetchRequest extends BebopRecord {
 
-  readonly query: IFetchQuery;
+  readonly query: IBopFetchQuery;
 
-  readonly crdt: IFetchCRDT;
+  readonly crdt: IBopFetchCRDT;
 }
 
 export class BopFetchRequest implements IBopFetchRequest {
   public static readonly opcode: number = 0x1 as 0x1;
-  public readonly query: IFetchQuery;
-  public readonly crdt: IFetchCRDT;
+  public readonly query: IBopFetchQuery;
+  public readonly crdt: IBopFetchCRDT;
 
   constructor(record: IBopFetchRequest) {
     this.query = record.query;
@@ -1546,16 +1504,16 @@ export class BopFetchRequest implements IBopFetchRequest {
    * Validates that the specified dynamic object can become an instance of {@link BopFetchRequest}.
    */
   public static validateCompatibility(record: IBopFetchRequest): void {
-    FetchQuery.validateCompatibility(record.query);
-    FetchCRDT.validateCompatibility(record.crdt);
+    BopFetchQuery.validateCompatibility(record.query);
+    BopFetchCRDT.validateCompatibility(record.crdt);
   }
 
   /**
    * Unsafely creates an instance of {@link BopFetchRequest} from the specified dynamic object. No type checking is performed.
    */
   public static unsafeCast(record: any): IBopFetchRequest {
-      record.query = FetchQuery.unsafeCast(record.query);
-      record.crdt = FetchCRDT.unsafeCast(record.crdt);
+      record.query = BopFetchQuery.unsafeCast(record.query);
+      record.crdt = BopFetchCRDT.unsafeCast(record.crdt);
       return new BopFetchRequest(record);
   }
 
@@ -1583,8 +1541,8 @@ export class BopFetchRequest implements IBopFetchRequest {
 
   public static encodeInto(record: IBopFetchRequest, view: BebopView): number {
     const before = view.length;
-    FetchQuery.encodeInto(record.query, view)
-    FetchCRDT.encodeInto(record.crdt, view)
+    BopFetchQuery.encodeInto(record.query, view)
+    BopFetchCRDT.encodeInto(record.crdt, view)
     const after = view.length;
     return after - before;
   }
@@ -1596,10 +1554,10 @@ export class BopFetchRequest implements IBopFetchRequest {
   }
 
   public static readFrom(view: BebopView): IBopFetchRequest {
-    let field0: IFetchQuery;
-    field0 = FetchQuery.readFrom(view);
-    let field1: IFetchCRDT;
-    field1 = FetchCRDT.readFrom(view);
+    let field0: IBopFetchQuery;
+    field0 = BopFetchQuery.readFrom(view);
+    let field1: IBopFetchCRDT;
+    field1 = BopFetchCRDT.readFrom(view);
     let message: IBopFetchRequest = {
       query: field0,
       crdt: field1,
@@ -1611,11 +1569,11 @@ export class BopFetchRequest implements IBopFetchRequest {
 
 export interface IBopFetchResponse extends BebopRecord {
 
-  readonly status: Status;
+  readonly status: number;
 
-  readonly result: IFetchResult;
+  readonly result: IBopFetchResult;
 
-  readonly crdtResult: ICRDTResult;
+  readonly crdtResult: IBopCRDTResult;
 
   readonly seq: number;
 
@@ -1628,9 +1586,9 @@ export interface IBopFetchResponse extends BebopRecord {
 
 export class BopFetchResponse implements IBopFetchResponse {
   public static readonly opcode: number = 0x2 as 0x2;
-  public readonly status: Status;
-  public readonly result: IFetchResult;
-  public readonly crdtResult: ICRDTResult;
+  public readonly status: number;
+  public readonly result: IBopFetchResult;
+  public readonly crdtResult: IBopCRDTResult;
   public readonly seq: number;
   public readonly endSeq: number;
   public readonly rowCount: number;
@@ -1671,9 +1629,9 @@ export class BopFetchResponse implements IBopFetchResponse {
    * Validates that the specified dynamic object can become an instance of {@link BopFetchResponse}.
    */
   public static validateCompatibility(record: IBopFetchResponse): void {
-    BebopTypeGuard.ensureEnum(record.status, Status);
-    FetchResult.validateCompatibility(record.result);
-    CRDTResult.validateCompatibility(record.crdtResult);
+    BebopTypeGuard.ensureUint8(record.status)
+    BopFetchResult.validateCompatibility(record.result);
+    BopCRDTResult.validateCompatibility(record.crdtResult);
     BebopTypeGuard.ensureUint16(record.seq)
     BebopTypeGuard.ensureUint16(record.endSeq)
     BebopTypeGuard.ensureUint16(record.rowCount)
@@ -1684,8 +1642,8 @@ export class BopFetchResponse implements IBopFetchResponse {
    * Unsafely creates an instance of {@link BopFetchResponse} from the specified dynamic object. No type checking is performed.
    */
   public static unsafeCast(record: any): IBopFetchResponse {
-      record.result = FetchResult.unsafeCast(record.result);
-      record.crdtResult = CRDTResult.unsafeCast(record.crdtResult);
+      record.result = BopFetchResult.unsafeCast(record.result);
+      record.crdtResult = BopCRDTResult.unsafeCast(record.crdtResult);
       return new BopFetchResponse(record);
   }
 
@@ -1713,9 +1671,9 @@ export class BopFetchResponse implements IBopFetchResponse {
 
   public static encodeInto(record: IBopFetchResponse, view: BebopView): number {
     const before = view.length;
-    view.writeUint32(record.status);
-    FetchResult.encodeInto(record.result, view)
-    CRDTResult.encodeInto(record.crdtResult, view)
+    view.writeByte(record.status);
+    BopFetchResult.encodeInto(record.result, view)
+    BopCRDTResult.encodeInto(record.crdtResult, view)
     view.writeUint16(record.seq);
     view.writeUint16(record.endSeq);
     view.writeUint16(record.rowCount);
@@ -1731,12 +1689,12 @@ export class BopFetchResponse implements IBopFetchResponse {
   }
 
   public static readFrom(view: BebopView): IBopFetchResponse {
-    let field0: Status;
-    field0 = view.readUint32() as Status;
-    let field1: IFetchResult;
-    field1 = FetchResult.readFrom(view);
-    let field2: ICRDTResult;
-    field2 = CRDTResult.readFrom(view);
+    let field0: number;
+    field0 = view.readByte();
+    let field1: IBopFetchResult;
+    field1 = BopFetchResult.readFrom(view);
+    let field2: IBopCRDTResult;
+    field2 = BopCRDTResult.readFrom(view);
     let field3: number;
     field3 = view.readUint16();
     let field4: number;
@@ -1937,7 +1895,7 @@ export class BopStoreRequest implements IBopStoreRequest {
 
 export interface IBopStoreResponse extends BebopRecord {
 
-  readonly status: Status;
+  readonly status: number;
 
   readonly storedId1List: Array<Uint8Array>;
 
@@ -1950,7 +1908,7 @@ export interface IBopStoreResponse extends BebopRecord {
 
 export class BopStoreResponse implements IBopStoreResponse {
   public static readonly opcode: number = 0x4 as 0x4;
-  public readonly status: Status;
+  public readonly status: number;
   public readonly storedId1List: Array<Uint8Array>;
   public readonly missingBlobId1List: Array<Uint8Array>;
   public readonly missingBlobSizes: Array<bigint>;
@@ -1989,7 +1947,7 @@ export class BopStoreResponse implements IBopStoreResponse {
    * Validates that the specified dynamic object can become an instance of {@link BopStoreResponse}.
    */
   public static validateCompatibility(record: IBopStoreResponse): void {
-    BebopTypeGuard.ensureEnum(record.status, Status);
+    BebopTypeGuard.ensureUint8(record.status)
     BebopTypeGuard.ensureArray(record.storedId1List, (element) => BebopTypeGuard.ensureArray(element, BebopTypeGuard.ensureUint8));
     BebopTypeGuard.ensureArray(record.missingBlobId1List, (element) => BebopTypeGuard.ensureArray(element, BebopTypeGuard.ensureUint8));
     BebopTypeGuard.ensureArray(record.missingBlobSizes, BebopTypeGuard.ensureInt64);
@@ -2027,7 +1985,7 @@ export class BopStoreResponse implements IBopStoreResponse {
 
   public static encodeInto(record: IBopStoreResponse, view: BebopView): number {
     const before = view.length;
-    view.writeUint32(record.status);
+    view.writeByte(record.status);
     {
       const length0 = record.storedId1List.length;
       view.writeUint32(length0);
@@ -2061,8 +2019,8 @@ export class BopStoreResponse implements IBopStoreResponse {
   }
 
   public static readFrom(view: BebopView): IBopStoreResponse {
-    let field0: Status;
-    field0 = view.readUint32() as Status;
+    let field0: number;
+    field0 = view.readByte();
     let field1: Array<Uint8Array>;
     {
       let length0 = view.readUint32();
@@ -2212,14 +2170,14 @@ export class BopUnsubscribeRequest implements IBopUnsubscribeRequest {
 
 export interface IBopUnsubscribeResponse extends BebopRecord {
 
-  readonly status: Status;
+  readonly status: number;
 
   readonly error: string;
 }
 
 export class BopUnsubscribeResponse implements IBopUnsubscribeResponse {
   public static readonly opcode: number = 0x6 as 0x6;
-  public readonly status: Status;
+  public readonly status: number;
   public readonly error: string;
 
   constructor(record: IBopUnsubscribeResponse) {
@@ -2252,7 +2210,7 @@ export class BopUnsubscribeResponse implements IBopUnsubscribeResponse {
    * Validates that the specified dynamic object can become an instance of {@link BopUnsubscribeResponse}.
    */
   public static validateCompatibility(record: IBopUnsubscribeResponse): void {
-    BebopTypeGuard.ensureEnum(record.status, Status);
+    BebopTypeGuard.ensureUint8(record.status)
     BebopTypeGuard.ensureString(record.error)
   }
 
@@ -2287,7 +2245,7 @@ export class BopUnsubscribeResponse implements IBopUnsubscribeResponse {
 
   public static encodeInto(record: IBopUnsubscribeResponse, view: BebopView): number {
     const before = view.length;
-    view.writeUint32(record.status);
+    view.writeByte(record.status);
     view.writeString(record.error);
     const after = view.length;
     return after - before;
@@ -2300,8 +2258,8 @@ export class BopUnsubscribeResponse implements IBopUnsubscribeResponse {
   }
 
   public static readFrom(view: BebopView): IBopUnsubscribeResponse {
-    let field0: Status;
-    field0 = view.readUint32() as Status;
+    let field0: number;
+    field0 = view.readByte();
     let field1: string;
     field1 = view.readString();
     let message: IBopUnsubscribeResponse = {
@@ -2468,7 +2426,7 @@ export class BopWriteBlobRequest implements IBopWriteBlobRequest {
 
 export interface IBopWriteBlobResponse extends BebopRecord {
 
-  readonly status: Status;
+  readonly status: number;
 
   readonly currentLength: bigint;
 
@@ -2477,7 +2435,7 @@ export interface IBopWriteBlobResponse extends BebopRecord {
 
 export class BopWriteBlobResponse implements IBopWriteBlobResponse {
   public static readonly opcode: number = 0x8 as 0x8;
-  public readonly status: Status;
+  public readonly status: number;
   public readonly currentLength: bigint;
   public readonly error: string;
 
@@ -2512,7 +2470,7 @@ export class BopWriteBlobResponse implements IBopWriteBlobResponse {
    * Validates that the specified dynamic object can become an instance of {@link BopWriteBlobResponse}.
    */
   public static validateCompatibility(record: IBopWriteBlobResponse): void {
-    BebopTypeGuard.ensureEnum(record.status, Status);
+    BebopTypeGuard.ensureUint8(record.status)
     BebopTypeGuard.ensureUint64(record.currentLength)
     BebopTypeGuard.ensureString(record.error)
   }
@@ -2548,7 +2506,7 @@ export class BopWriteBlobResponse implements IBopWriteBlobResponse {
 
   public static encodeInto(record: IBopWriteBlobResponse, view: BebopView): number {
     const before = view.length;
-    view.writeUint32(record.status);
+    view.writeByte(record.status);
     view.writeUint64(record.currentLength);
     view.writeString(record.error);
     const after = view.length;
@@ -2562,8 +2520,8 @@ export class BopWriteBlobResponse implements IBopWriteBlobResponse {
   }
 
   public static readFrom(view: BebopView): IBopWriteBlobResponse {
-    let field0: Status;
-    field0 = view.readUint32() as Status;
+    let field0: number;
+    field0 = view.readByte();
     let field1: bigint;
     field1 = view.readUint64();
     let field2: string;
@@ -2710,7 +2668,7 @@ export class BopReadBlobRequest implements IBopReadBlobRequest {
 
 export interface IBopReadBlobResponse extends BebopRecord {
 
-  readonly status: Status;
+  readonly status: number;
 
   readonly data: Uint8Array;
 
@@ -2725,7 +2683,7 @@ export interface IBopReadBlobResponse extends BebopRecord {
 
 export class BopReadBlobResponse implements IBopReadBlobResponse {
   public static readonly opcode: number = 0xA as 0xA;
-  public readonly status: Status;
+  public readonly status: number;
   public readonly data: Uint8Array;
   public readonly seq: number;
   public readonly endSeq: number;
@@ -2766,7 +2724,7 @@ export class BopReadBlobResponse implements IBopReadBlobResponse {
    * Validates that the specified dynamic object can become an instance of {@link BopReadBlobResponse}.
    */
   public static validateCompatibility(record: IBopReadBlobResponse): void {
-    BebopTypeGuard.ensureEnum(record.status, Status);
+    BebopTypeGuard.ensureUint8(record.status)
     BebopTypeGuard.ensureArray(record.data, BebopTypeGuard.ensureUint8);
     BebopTypeGuard.ensureUint16(record.seq)
     BebopTypeGuard.ensureUint16(record.endSeq)
@@ -2805,7 +2763,7 @@ export class BopReadBlobResponse implements IBopReadBlobResponse {
 
   public static encodeInto(record: IBopReadBlobResponse, view: BebopView): number {
     const before = view.length;
-    view.writeUint32(record.status);
+    view.writeByte(record.status);
     view.writeBytes(record.data);
     view.writeUint16(record.seq);
     view.writeUint16(record.endSeq);
@@ -2822,8 +2780,8 @@ export class BopReadBlobResponse implements IBopReadBlobResponse {
   }
 
   public static readFrom(view: BebopView): IBopReadBlobResponse {
-    let field0: Status;
-    field0 = view.readUint32() as Status;
+    let field0: number;
+    field0 = view.readByte();
     let field1: Uint8Array;
     field1 = view.readBytes();
     let field2: number;
@@ -2961,7 +2919,7 @@ export class BopGenericMessageRequest implements IBopGenericMessageRequest {
 
 export interface IBopGenericMessageResponse extends BebopRecord {
 
-  readonly status: Status;
+  readonly status: number;
 
   readonly data: Uint8Array;
 
@@ -2970,7 +2928,7 @@ export interface IBopGenericMessageResponse extends BebopRecord {
 
 export class BopGenericMessageResponse implements IBopGenericMessageResponse {
   public static readonly opcode: number = 0xC as 0xC;
-  public readonly status: Status;
+  public readonly status: number;
   public readonly data: Uint8Array;
   public readonly error: string;
 
@@ -3005,7 +2963,7 @@ export class BopGenericMessageResponse implements IBopGenericMessageResponse {
    * Validates that the specified dynamic object can become an instance of {@link BopGenericMessageResponse}.
    */
   public static validateCompatibility(record: IBopGenericMessageResponse): void {
-    BebopTypeGuard.ensureEnum(record.status, Status);
+    BebopTypeGuard.ensureUint8(record.status)
     BebopTypeGuard.ensureArray(record.data, BebopTypeGuard.ensureUint8);
     BebopTypeGuard.ensureString(record.error)
   }
@@ -3041,7 +2999,7 @@ export class BopGenericMessageResponse implements IBopGenericMessageResponse {
 
   public static encodeInto(record: IBopGenericMessageResponse, view: BebopView): number {
     const before = view.length;
-    view.writeUint32(record.status);
+    view.writeByte(record.status);
     view.writeBytes(record.data);
     view.writeString(record.error);
     const after = view.length;
@@ -3055,8 +3013,8 @@ export class BopGenericMessageResponse implements IBopGenericMessageResponse {
   }
 
   public static readFrom(view: BebopView): IBopGenericMessageResponse {
-    let field0: Status;
-    field0 = view.readUint32() as Status;
+    let field0: number;
+    field0 = view.readByte();
     let field1: Uint8Array;
     field1 = view.readBytes();
     let field2: string;

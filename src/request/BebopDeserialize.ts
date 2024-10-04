@@ -26,6 +26,7 @@ import {
     FetchResponse,
     UnsubscribeResponse,
     GenericMessageResponse,
+    Status,
 } from "./types";
 
 import {
@@ -118,7 +119,13 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize FetchResponse, wrong opcode");
         }
 
-        return DeepCopy(BopFetchResponse.decode(data.slice(4)), true);
+        const fetchResponse = DeepCopy(BopFetchResponse.decode(data.slice(4)), true) as FetchResponse;
+
+        if (!Object.values(Status).includes(fetchResponse.status)) {
+            throw new Error("Could not deserialize FetchResponse, unknown status");
+        }
+
+        return fetchResponse;
     }
 
     /**
@@ -146,7 +153,13 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize StoreResponse, wrong opcode");
         }
 
-        return DeepCopy(BopStoreResponse.decode(data.slice(4)), true);
+        const storeResponse = DeepCopy(BopStoreResponse.decode(data.slice(4)), true) as StoreResponse;
+
+        if (!Object.values(Status).includes(storeResponse.status)) {
+            throw new Error("Could not deserialize StoreResponse, unknown status");
+        }
+
+        return storeResponse;
     }
 
     /**
@@ -174,7 +187,14 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize UnsubscribeResponse, wrong opcode");
         }
 
-        return DeepCopy(BopUnsubscribeResponse.decode(data.slice(4)), true);
+        const unsubscribeResponse =
+            DeepCopy(BopUnsubscribeResponse.decode(data.slice(4)), true) as UnsubscribeResponse;
+
+        if (!Object.values(Status).includes(unsubscribeResponse.status)) {
+            throw new Error("Could not deserialize UnsubscribeResponse, unknown status");
+        }
+
+        return unsubscribeResponse;
     }
 
     /**
@@ -202,7 +222,14 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize WriteBlobResponse, wrong opcode");
         }
 
-        return DeepCopy(BopWriteBlobResponse.decode(data.slice(4)), true);
+        const writeBlobResponse =
+            DeepCopy(BopWriteBlobResponse.decode(data.slice(4)), true) as WriteBlobResponse;
+
+        if (!Object.values(Status).includes(writeBlobResponse.status)) {
+            throw new Error("Could not deserialize WriteBlobResponse, unknown status");
+        }
+
+        return writeBlobResponse;
     }
 
     /**
@@ -230,7 +257,14 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize ReadBlobReResponse, wrong opcode");
         }
 
-        return DeepCopy(BopReadBlobResponse.decode(data.slice(4)), true);
+        const readBlobResponse =
+            DeepCopy(BopReadBlobResponse.decode(data.slice(4)), true) as ReadBlobResponse;
+
+        if (!Object.values(Status).includes(readBlobResponse.status)) {
+            throw new Error("Could not deserialize ReadBlobResponse, unknown status");
+        }
+
+        return readBlobResponse;
     }
 
     /**
@@ -258,6 +292,13 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize GenericMessageResponse, wrong opcode");
         }
 
-        return DeepCopy(BopGenericMessageResponse.decode(data.slice(4)), true);
+        const genericMessageResponse =
+            DeepCopy(BopGenericMessageResponse.decode(data.slice(4)), true) as GenericMessageResponse;
+
+        if (!Object.values(Status).includes(genericMessageResponse.status)) {
+            throw new Error("Could not deserialize GenericMessageResponse, unknown status");
+        }
+
+        return genericMessageResponse;
     }
 }
