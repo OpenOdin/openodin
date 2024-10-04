@@ -64,7 +64,7 @@ export const FetchQuerySchema = {
     "targetPublicKey?": new Uint8Array(0),
     "sourcePublicKey?": new Uint8Array(0),
     "match?": [{
-        "nodeType": parseNodeType,
+        nodeType: parseNodeType,
         "filters?": [Filter],
         "limit?": -1,
         "limitField?": {
@@ -79,7 +79,7 @@ export const FetchQuerySchema = {
         "cursorId1?": new Uint8Array(0),
     }],
     "embed?": [{
-        "nodeType": parseNodeType,
+        nodeType: parseNodeType,
         "filters?": [Filter],
     }],
     "triggerNodeId?": new Uint8Array(0),
@@ -93,7 +93,7 @@ export const FetchQuerySchema = {
     "region?": "",
     "jurisdiction?": "",
     "includeLicenses?": "",
-};
+} as const;
 
 export const FetchCRDTSchema = {
     "algo?": "",
@@ -104,9 +104,47 @@ export const FetchCRDTSchema = {
     "tail?": 0,
     "cursorId1?": new Uint8Array(0),
     "cursorIndex?": -1,
-};
+} as const;
 
 export const FetchRequestSchema = {
     query: FetchQuerySchema,
     "crdt?": FetchCRDTSchema,
-};
+} as const;
+
+export const StoreRequestSchema = {
+    nodes: [new Uint8Array(0)],
+    "sourcePublicKey?": new Uint8Array(0),
+    "targetPublicKey?": new Uint8Array(0),
+    "muteMsgIds?": [new Uint8Array(0)],
+    "preserveTransient?": false,
+    "batchId?": 0,
+    "hasMore?": false,
+} as const;
+
+export const UnsubscribeRequestSchema = {
+    originalMsgId: new Uint8Array(0),
+    "targetPublicKey?": new Uint8Array(0),
+} as const;
+
+export const WriteBlobRequestSchema = {
+    nodeId1: new Uint8Array(0),
+    data: new Uint8Array(0),
+    "pos?": 0n,
+    "sourcePublicKey?": new Uint8Array(0),
+    "targetPublicKey?": new Uint8Array(0),
+    "muteMsgIds?": [new Uint8Array(0)],
+} as const;
+
+export const ReadBlobRequestSchema = {
+    nodeId1: new Uint8Array(0),
+    "pos?": 0n,
+    length: 0,
+    "sourcePublicKey?": new Uint8Array(0),
+    "targetPublicKey?": new Uint8Array(0),
+} as const;
+
+export const GenericMessageRequestSchema = {
+    action: "",
+    "sourcePublicKey?": new Uint8Array(0),
+    data: new Uint8Array(0),
+} as const;
