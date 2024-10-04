@@ -34,7 +34,8 @@ export type JSONObject = Record<string, any>;
  *  //
  *  "confirmed": false,
  *
- *  // If type is string and passed in value is object then the value is JSON.stringified to a string.
+ *  // If type is string or buffer and the passed in value is object then the value
+ *  // is JSON.stringified to a string (and further to a Buffer if type is Buffer/Uint8Array).
  *  //
  *  "conf?": "",
  *
@@ -128,6 +129,9 @@ export function ParseSchema(obj: any, schema: any, pKey: string = ""): any {
             else {
                 return Buffer.from(obj, "hex");
             }
+        }
+        else if (typeof obj === "object" && obj.constructor === Object) {
+            return Buffer.from(JSON.stringify(obj), "utf8");
         }
         else {
             return Buffer.from(obj);
