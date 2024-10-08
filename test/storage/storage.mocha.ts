@@ -28,7 +28,6 @@ import {
     FetchRequest,
     FetchResponse,
     Trigger,
-    StorageUtil,
     Data,
     Status,
     sleep,

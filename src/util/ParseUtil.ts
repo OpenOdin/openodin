@@ -296,9 +296,9 @@ export class ParseUtil {
 
         const keyPairs = (conf.keyPairs ?? []).map( (keyPair: any) => ParseUtil.ParseKeyPair(keyPair) );
 
-        const authCert = conf.authCert ? ParseUtil.ParseConfigAuthCert(conf.authCert) : undefined;
+        //const authCert = conf.authCert ? ParseUtil.ParseConfigAuthCert(conf.authCert) : undefined;
 
-        const nodeCerts = ParseUtil.ParseConfigNodeCerts(conf.nodeCerts ?? []);
+        //const nodeCerts = ParseUtil.ParseConfigNodeCerts(conf.nodeCerts ?? []);
 
         const storage: StorageConf = {};
 
@@ -310,9 +310,10 @@ export class ParseUtil {
         }
 
         return {
+            format: 1,
             keyPairs,
-            authCert,
-            nodeCerts,
+            authCert: Buffer.alloc(0),
+            nodeCerts: [],
             storage,
         };
     }

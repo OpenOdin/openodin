@@ -6,17 +6,17 @@ import {
 
 import {
     CertUtil,
-    ParseUtil,
     ModelTypeToNameMap,
 } from "../../../util";
 
 import {
-    ToJSONObject,
-} from "../../../util/SchemaUtil";
-
-import {
     JSONUtil,
 } from "../../../util/JSONUtil";
+
+import {
+    ParseSchema,
+    ToJSONObject,
+} from "../../../util/SchemaUtil";
 
 import {
     AuthCert,
@@ -30,10 +30,21 @@ import {
     DataCertConstraintValues,
     LicenseCert,
     LicenseCertConstraintValues,
+    AuthCertSchema,
+    ChainCertSchema,
+    FriendCertSchema,
+    DataCertSchema,
+    LicenseCertSchema,
+    AuthCertConstraintSchema,
+    ChainCertConstraintSchema,
+    DataCertConstraintSchema,
+    FriendCertConstraintSchema,
+    LicenseCertConstraintSchema,
 } from "../../../datamodel/cert";
 
 import {
     KeyPair,
+    KeyPairSchema,
 } from "../../../datamodel/types";
 
 import {
@@ -153,46 +164,46 @@ export class CertCLI {
             let constraints: Buffer | undefined;
 
             if (modelType.equals(AuthCert.GetType())) {
-                const authCertParams = ParseUtil.ParseAuthCertParams(paramsObject);
+                const authCertParams = ParseSchema(AuthCertSchema, paramsObject);
                 console.debug("Parsed AuthCertParams", authCertParams);
 
-                const authCertConstraintValues = ParseUtil.ParseAuthCertConstraintValues(constraintParamsObject);
+                const authCertConstraintValues = ParseSchema(AuthCertConstraintSchema, constraintParamsObject);
                 console.debug("Parsed AuthCertConstraintValues", authCertConstraintValues);
 
                 constraints = certUtil.calcAuthCertConstraintValues(authCertParams, authCertConstraintValues);
             }
             else if (modelType.equals(ChainCert.GetType())) {
-                const chainCertParams = ParseUtil.ParseChainCertParams(paramsObject);
+                const chainCertParams = ParseSchema(ChainCertSchema, paramsObject);
                 console.debug("Parsed ChainCertParams", chainCertParams);
 
-                const chainCertConstraintValues = ParseUtil.ParseChainCertConstraintValues(constraintParamsObject);
+                const chainCertConstraintValues = ParseSchema(ChainCertConstraintSchema, constraintParamsObject);
                 console.debug("Parsed ChainCertConstraintValues", chainCertConstraintValues);
 
                 constraints = certUtil.calcChainCertConstraintValues(chainCertParams, chainCertConstraintValues);
             }
             else if (modelType.equals(FriendCert.GetType())) {
-                const friendCertParams = ParseUtil.ParseFriendCertParams(paramsObject);
+                const friendCertParams = ParseSchema(FriendCertSchema, paramsObject);
                 console.debug("Parsed FriendCertParams", friendCertParams);
 
-                const friendCertConstraintValues = ParseUtil.ParseFriendCertConstraintValues(constraintParamsObject);
+                const friendCertConstraintValues = ParseSchema(FriendCertConstraintSchema, constraintParamsObject);
                 console.debug("Parsed FriendCertConstraintValues", friendCertConstraintValues);
 
                 constraints = certUtil.calcFriendCertConstraintValues(friendCertParams, friendCertConstraintValues);
             }
             else if (modelType.equals(DataCert.GetType())) {
-                const dataCertParams = ParseUtil.ParseDataCertParams(paramsObject);
+                const dataCertParams = ParseSchema(DataCertSchema, paramsObject);
                 console.debug("Parsed DataCertParams", dataCertParams);
 
-                const dataCertConstraintValues = ParseUtil.ParseDataCertConstraintValues(constraintParamsObject);
+                const dataCertConstraintValues = ParseSchema(DataCertConstraintSchema, constraintParamsObject);
                 console.debug("Parsed DataCertConstraintValues", dataCertConstraintValues);
 
                 constraints = certUtil.calcDataCertConstraintValues(dataCertParams, dataCertConstraintValues);
             }
             else if (modelType.equals(LicenseCert.GetType())) {
-                const licenseCertParams = ParseUtil.ParseLicenseCertParams(paramsObject);
+                const licenseCertParams = ParseSchema(LicenseCertSchema, paramsObject);
                 console.debug("Parsed LicenseCertParams", licenseCertParams);
 
-                const licenseCertConstraintValues = ParseUtil.ParseLicenseCertConstraintValues(constraintParamsObject);
+                const licenseCertConstraintValues = ParseSchema(LicenseCertConstraintSchema, constraintParamsObject);
                 console.debug("Parsed LicenseCertConstraintValues", licenseCertConstraintValues);
 
                 constraints = certUtil.calcLicenseCertConstraintValues(licenseCertParams, licenseCertConstraintValues);
@@ -202,7 +213,7 @@ export class CertCLI {
             }
 
             const result = {
-                [`#${className}ConstraintValues-created`]: `${date}`,
+                [` ## ${className}ConstraintValues-created`]: `${date}`,
                 timestamp,
                 constraints: constraints ? constraints.toString("hex") : null,
             };
@@ -230,7 +241,8 @@ export class CertCLI {
                 if (!keyPairHolder.keyPair) {
                     throw new Error("Wrong format for keyPair.");
                 }
-                keyPair = ParseUtil.ParseKeyPair(keyPairHolder.keyPair);
+
+                keyPair = ParseSchema(KeyPairSchema, keyPairHolder.keyPair);
             }
 
             const modelTypeHex = paramsObject.modelType;
@@ -250,27 +262,27 @@ export class CertCLI {
 
             let cert: BaseCert;
             if (modelType.equals(AuthCert.GetType())) {
-                const authCertParams = ParseUtil.ParseAuthCertParams(paramsObject);
+                const authCertParams = ParseSchema(AuthCertSchema, paramsObject);
                 console.debug("Parsed AuthCertParams", authCertParams);
                 cert = await certUtil.createAuthCert(authCertParams, keyPair?.publicKey, keyPair?.secretKey);
             }
             else if (modelType.equals(ChainCert.GetType())) {
-                const chainCertParams = ParseUtil.ParseChainCertParams(paramsObject);
+                const chainCertParams = ParseSchema(ChainCertSchema, paramsObject);
                 console.debug("Parsed ChainCertParams", chainCertParams);
                 cert = await certUtil.createChainCert(chainCertParams, keyPair?.publicKey, keyPair?.secretKey);
             }
             else if (modelType.equals(FriendCert.GetType())) {
-                const friendCertParams = ParseUtil.ParseFriendCertParams(paramsObject);
+                const friendCertParams = ParseSchema(FriendCertSchema, paramsObject);
                 console.debug("Parsed FriendCertParams", friendCertParams);
                 cert = await certUtil.createFriendCert(friendCertParams, keyPair?.publicKey, keyPair?.secretKey);
             }
             else if (modelType.equals(DataCert.GetType())) {
-                const dataCertParams = ParseUtil.ParseDataCertParams(paramsObject);
+                const dataCertParams = ParseSchema(DataCertSchema, paramsObject);
                 console.debug("Parsed DataCertParams", dataCertParams);
                 cert = await certUtil.createDataCert(dataCertParams, keyPair?.publicKey, keyPair?.secretKey);
             }
             else if (modelType.equals(LicenseCert.GetType())) {
-                const licenseCertParams = ParseUtil.ParseLicenseCertParams(paramsObject);
+                const licenseCertParams = ParseSchema(LicenseCertSchema, paramsObject);
                 console.debug("Parsed LicenseCertParams", licenseCertParams);
                 cert = await certUtil.createLicenseCert(licenseCertParams, keyPair?.publicKey, keyPair?.secretKey);
             }
@@ -309,7 +321,7 @@ export class CertCLI {
             }
 
             const result = {
-                [`#${className}-created`]: `${date}`,
+                [` ## ${className}-created`]: `${date}`,
                 timestamp,
                 cert: cert.export().toString("hex"),
             };
@@ -355,7 +367,7 @@ export class CertCLI {
                 console.info(`Certificate detected as AuthCert: ${modelTypeHex}`);
                 let authCertConstraintValues: AuthCertConstraintValues | undefined;
                 if (constraintParamsObject) {
-                    authCertConstraintValues = ParseUtil.ParseAuthCertConstraintValues(constraintParamsObject);
+                    authCertConstraintValues = ParseSchema(AuthCertConstraintSchema, constraintParamsObject);
                     console.debug("Parsed AuthCertConstraintValues", authCertConstraintValues);
                 }
                 cert = await certUtil.verifyAuthCert(image, authCertConstraintValues);
@@ -364,7 +376,7 @@ export class CertCLI {
                 console.info(`Certificate detected as ChainCert: ${modelTypeHex}`);
                 let chainCertConstraintValues: ChainCertConstraintValues | undefined;
                 if (constraintParamsObject) {
-                    chainCertConstraintValues = ParseUtil.ParseChainCertConstraintValues(constraintParamsObject);
+                    chainCertConstraintValues = ParseSchema(ChainCertConstraintSchema, constraintParamsObject);
                     console.debug("Parsed ChainCertConstraintValues", chainCertConstraintValues);
                 }
                 cert = await certUtil.verifyChainCert(image, chainCertConstraintValues);
@@ -373,7 +385,7 @@ export class CertCLI {
                 console.info(`Certificate detected as FriendCert: ${modelTypeHex}`);
                 let friendCertConstraintValues: FriendCertConstraintValues | undefined;
                 if (constraintParamsObject) {
-                    friendCertConstraintValues = ParseUtil.ParseFriendCertConstraintValues(constraintParamsObject);
+                    friendCertConstraintValues = ParseSchema(FriendCertConstraintSchema, constraintParamsObject);
                     console.debug("Parsed FriendCertConstraintValues", friendCertConstraintValues);
                 }
                 cert = await certUtil.verifyFriendCert(image, friendCertConstraintValues);
@@ -382,7 +394,7 @@ export class CertCLI {
                 console.info(`Certificate detected as DataCert: ${modelTypeHex}`);
                 let dataCertConstraintValues: DataCertConstraintValues | undefined;
                 if (constraintParamsObject) {
-                    dataCertConstraintValues = ParseUtil.ParseDataCertConstraintValues(constraintParamsObject);
+                    dataCertConstraintValues = ParseSchema(DataCertConstraintSchema, constraintParamsObject);
                     console.debug("Parsed DataCertConstraintValues", dataCertConstraintValues);
                 }
                 cert = await certUtil.verifyDataCert(image, dataCertConstraintValues);
@@ -391,7 +403,7 @@ export class CertCLI {
                 console.info(`Certificate detected as LicenseCert: ${modelTypeHex}`);
                 let licenseCertConstraintValues: LicenseCertConstraintValues | undefined;
                 if (constraintParamsObject) {
-                    licenseCertConstraintValues = ParseUtil.ParseLicenseCertConstraintValues(constraintParamsObject);
+                    licenseCertConstraintValues = ParseSchema(LicenseCertConstraintSchema, constraintParamsObject);
                     console.debug("Parsed LicenseCertConstraintValues", licenseCertConstraintValues);
                 }
                 cert = await certUtil.verifyLicenseCert(image, licenseCertConstraintValues);
@@ -544,7 +556,7 @@ export class CertCLI {
         let constraintParamsObject;
         if (constraintParamsFile) {
             try {
-                constraintParamsObject = JSONUtil.LoadJSON(constraintParamsFile, [".creationTime", ".expireTime", ".publicKey"]);
+                constraintParamsObject = JSONUtil.LoadJSON(constraintParamsFile, [".creationTime", ".expireTime", ".publicKey", ".otherIssuerPublicKey", ".otherConstraints", ".intermediaryPublicKey"]);
             }
             catch(e) {
                 console.error("Could not load JSON", (e as any as Error).message);

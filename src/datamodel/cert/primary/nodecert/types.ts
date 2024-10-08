@@ -1,5 +1,6 @@
 import {
     BaseCertParams,
+    BaseCertSchema,
 } from "../../base/types";
 
 export type PrimaryNodeCertParams = BaseCertParams & {
@@ -19,6 +20,25 @@ export type PrimaryNodeCertParams = BaseCertParams & {
     isLockedOnCopiedParentId?: boolean,
     isLockedOnCopiedId1?: boolean,
 };
+
+export const PrimaryNodeCertSchema = {
+    ...BaseCertSchema,
+    "isLockedOnId2??": false,
+    "isLockedOnParentId??": false,
+    "isLockedOnConfig??": false,
+    "isLockedOnNetwork??": false,
+    "isLockedOnDifficulty??": false,
+    "isLockedOnRefId??": false,
+    "isLockedOnEmbedded??": false,
+    "isLockedOnLicenseMinDistance??": false,
+    "isLockedOnLicenseMaxDistance??": false,
+    "isLockedOnRegion??": false,
+    "isLockedOnJurisdiction??": false,
+    "isLockedOnChildMinDifficulty??": false,
+    "isLockedOnBlobHash??": false,
+    "isLockedOnCopiedParentId??": false,
+    "isLockedOnCopiedId1??": false,
+} as const;
 
 /**
  * Extended locked config bits for the primary node cert class.

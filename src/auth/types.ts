@@ -115,10 +115,6 @@ export type APIRequest = {
     /**
      * Optional in parsing for "_ping/_pong", but all other targets require this to be set.
      * Parsed as JSON string.
-     * All binary (Buffer) fields of every request and response must are encoded into text,
-     *  the rule is that every fixed length binary field is encoded as hex string and every
-     *  variable binary field is encoded using base64.
-     *  See for each parse method in ParseUtil the exact format for each request and response type.
      */
     data: FetchRequest | FetchResponse | StoreRequest | StoreResponse | UnsubscribeRequest |
         UnsubscribeResponse | WriteBlobRequest | WriteBlobResponse | ReadBlobRequest |

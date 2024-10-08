@@ -254,6 +254,8 @@ export class Service {
 
     protected applicationConf: ApplicationConf;
 
+    protected walletConf: WalletConf;
+
     /**
      * After class has been constructed call init() then call start().
      *
@@ -264,7 +266,7 @@ export class Service {
      * must be provided in the walletConf.
      * @param authFactory
      */
-    constructor(applicationConf: ApplicationConf, protected walletConf: WalletConf,
+    constructor(applicationConf: ApplicationConf, walletConf: WalletConf,
         protected signatureOffloader: SignatureOffloaderInterface,
         protected authFactory: AuthFactoryInterface)
     {
@@ -277,6 +279,7 @@ export class Service {
         }
 
         this.applicationConf   = DeepCopy(applicationConf) as ApplicationConf;
+        this.walletConf        = DeepCopy(walletConf) as WalletConf;
 
         this.nodeUtil = new NodeUtil(this.signatureOffloader);
 
@@ -532,7 +535,7 @@ export class Service {
      * @returns same WalletConf object as provided in constructor.
      */
     public getWalletConf(): WalletConf {
-        return this.walletConf;
+        return DeepCopy(this.walletConf);
     }
 
     public getApplicationConf(): ApplicationConf {
@@ -541,20 +544,33 @@ export class Service {
 
     /**
      * Set or remove auth cert.
-     * Auth cert will be cryptographically verified, but
+     *
+     * Auth cert will be decoded, cryptographically verified, but
      * the auth cert will not be online verified at this point.
      * The receiving side of a auth cert always validates it online.
-     * @param authCert
+     *
+     * @param image
      * @throws
      */
-    public async setAuthCert(authCert?: AuthCertInterface) {
+    public async setAuthCert(image?: Buffer | undefined) {
+
         if (this._isRunning) {
             throw new Error("Cannot set auth cert while running.");
         }
-        if (authCert && (await this.signatureOffloader.verify([authCert])).length === 0) {
-            throw new Error("Invalid AuthCert provided, cert could not be verified.");
+
+
+        if (image) {
+            const authCert = Decoder.DecodeAuthCert(image);
+
+            if (authCert && (await this.signatureOffloader.verify([authCert])).length === 0) {
+                throw new Error("Invalid AuthCert provided, cert could not be verified.");
+            }
+
+            this.config.authCert = authCert;
         }
-        this.config.authCert = authCert;
+        else {
+            this.config.authCert = undefined;
+        }
     }
 
     /**
@@ -577,12 +593,15 @@ export class Service {
 
     /**
      * Add NodeCert.
-     * The cert will get cryptographically verified, but not online verified.
+     *
+     * The cert will get decoded and cryptographically verified, but not online verified.
      * The receiving storage will always online verify certificates (if applicable).
-     * @param nodeCert
+     * @param image
      * @throws
      */
-    public async addNodeCert(nodeCert: PrimaryNodeCertInterface) {
+    public async addNodeCert(image: Buffer) {
+        const nodeCert = Decoder.DecodeNodeCert(image);
+
         if (this.config.nodeCerts.some( (nodeCert2: PrimaryNodeCertInterface) => nodeCert2.calcId1().equals(nodeCert.calcId1()) )) {
             // Already exists.
             return;
@@ -746,7 +765,7 @@ export class Service {
                 // CRDTs are not allowed to be used when auto syncing.
                 fetchRequest.crdt.algo = "";
 
-                if (syncThread.direction === "pull" || syncThread.direction === "both") {
+                if (syncThread.direction === "Pull" || syncThread.direction === "PushPull") {
                     autoFetchers.push({
                         remotePublicKey,
                         fetchRequest,
@@ -755,7 +774,7 @@ export class Service {
                     });
                 }
 
-                if (syncThread.direction === "push" || syncThread.direction === "both") {
+                if (syncThread.direction === "Push" || syncThread.direction === "PushPull") {
                     autoFetchers.push({
                         remotePublicKey,
                         fetchRequest,

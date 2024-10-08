@@ -9,6 +9,15 @@ import {
     AlgoSortedRefId,
 } from "../storage/crdt";
 
+import {
+    EmbedSchema,
+} from "../request/jsonSchema";
+
+import {
+    ParseEnum,
+    ParseArrayWithDefault,
+} from "../util/SchemaUtil";
+
 export enum RouteAction {
     STORE       = "store",
     FETCH       = "fetch",
@@ -202,6 +211,27 @@ export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     }
 };
 
+export const P2PClientPermissionsUncheckedPermissiveSchema = {
+    "allowUncheckedAccess?": true,
+    "fetchPermissions?": {
+        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], ["0004"]),
+        "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""],
+            "IncludeExtend"),
+        "allowTrigger?": true,
+        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "0004", filters: []}]),
+        "allowAlgos?": ParseArrayWithDefault([""], [
+            AlgoSorted.GetId(),
+            AlgoRefId.GetId(),
+            AlgoSortedRefId.GetId(),
+        ]),
+        "allowReadBlob?": true,
+    },
+    "storePermissions?": {
+        "allowStore?": true,
+        "allowWriteBlob?": true,
+    },
+} as const;
+
 export const DEFAULT_PEER_PERMISSIONS: P2PClientPermissions = {
     allowUncheckedAccess: false,
     fetchPermissions: {
@@ -222,6 +252,23 @@ export const DEFAULT_PEER_PERMISSIONS: P2PClientPermissions = {
         allowWriteBlob: false,
     }
 };
+
+export const P2PClientPermissionsDefaultSchema = {
+    "allowUncheckedAccess?": false,
+    "fetchPermissions?": {
+        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], ["0004"]),
+        "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""],
+            "IncludeExtend"),
+        "allowTrigger?": true,
+        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "0004", filters: []}]),
+        "allowAlgos?": [""],
+        "allowReadBlob?": true,
+    },
+    "storePermissions?": {
+        "allowStore?": false,
+        "allowWriteBlob?": false,
+    },
+} as const;
 
 export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     allowUncheckedAccess: false,
@@ -248,6 +295,27 @@ export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     }
 };
 
+export const P2PClientPermissionsPermissiveSchema = {
+    "allowUncheckedAccess?": false,
+    "fetchPermissions?": {
+        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], ["0004"]),
+        "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""],
+            "IncludeExtend"),
+        "allowTrigger?": true,
+        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "0004", filters: []}]),
+        "allowAlgos?": ParseArrayWithDefault([""], [
+            AlgoSorted.GetId(),
+            AlgoRefId.GetId(),
+            AlgoSortedRefId.GetId(),
+        ]),
+        "allowReadBlob?": true,
+    },
+    "storePermissions?": {
+        "allowStore?": true,
+        "allowWriteBlob?": true,
+    },
+} as const;
+
 export const LOCKED_PERMISSIONS: P2PClientPermissions = {
     allowUncheckedAccess: false,
     fetchPermissions: {
@@ -263,6 +331,22 @@ export const LOCKED_PERMISSIONS: P2PClientPermissions = {
         allowWriteBlob: false,
     }
 };
+
+export const P2PClientPermissionsLockedSchema = {
+    "allowUncheckedAccess?": false,
+    "fetchPermissions?": {
+        "allowNodeTypes?": [new Uint8Array(0)],
+        "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""], ""),
+        "allowTrigger?": false,
+        "allowEmbed?": [EmbedSchema],
+        "allowAlgos?": [""],
+        "allowReadBlob?": false,
+    },
+    "storePermissions?": {
+        "allowStore?": false,
+        "allowWriteBlob?": false,
+    },
+} as const;
 
 export type PeerDataParams = {
     version: string,

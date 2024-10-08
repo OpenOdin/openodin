@@ -9,20 +9,19 @@ import {
 } from "../../util/NodeUtil";
 
 import {
-    ParseUtil,
-} from "../../util/ParseUtil";
-
-import {
     P2PClient,
     AutoFetch,
 } from "../../p2pclient";
 
 import {
     ParseSchema,
+    ToJSONObject,
 } from "../../util/SchemaUtil";
 
 import {
     StoreRequestSchema,
+    FetchQuerySchema,
+    FetchCRDTSchema,
 } from "../../request/jsonSchema";
 
 import {
@@ -43,6 +42,8 @@ import {
     SPECIAL_NODES,
     Hash,
     DataConfig,
+    DataNodeSchema,
+    LicenseNodeSchema,
 } from "../../datamodel";
 
 import {
@@ -471,11 +472,11 @@ export class Thread {
             throw new Error("parentId/rootNodeId1 is missing in thread query");
         }
 
-        const query = ParseUtil.ParseQuery(queryParams);
+        const query = ParseSchema(FetchQuerySchema, queryParams);
 
         const crdtParams = TemplateSubstitute(threadTemplate.crdt ?? {}, threadVariables);
 
-        const crdt = ParseUtil.ParseCRDT(crdtParams);
+        const crdt = ParseSchema(FetchCRDTSchema, crdtParams);
 
         if (stream) {
             if (query.triggerNodeId.length === 0 && query.triggerInterval === 0) {
@@ -820,7 +821,7 @@ export class Thread {
 
         licenseParams.nodeId1 = nodeId1;
 
-        const licenseParams2 = ParseUtil.ParseLicenseParams(licenseParams);
+        const licenseParams2 = ParseSchema(LicenseNodeSchema, licenseParams);
 
         if (licenseParams2.expireTime === undefined) {
             licenseParams2.expireTime = Date.now() + 30 * 24 * 3600 * 1000;
@@ -859,7 +860,7 @@ export class Thread {
             dataParams.parentId = fetchRequest.query.parentId;
         }
 
-        return ParseUtil.ParseDataParams(dataParams);
+        return ParseSchema(DataNodeSchema, dataParams);
     }
 
     /**

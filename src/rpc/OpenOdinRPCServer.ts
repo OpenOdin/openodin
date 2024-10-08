@@ -20,8 +20,12 @@ import {
 } from "../util/RPC";
 
 import {
-    ParseUtil,
-} from "../util/ParseUtil";
+    ParseSchema,
+} from "../util/SchemaUtil";
+
+import {
+    WalletConfSchema,
+} from "../service/types";
 
 import {
     AuthResponse,
@@ -164,7 +168,11 @@ export class OpenOdinRPCServer {
 
         const applicationConf = authRequest.applicationConf;
 
-        const walletConf = ParseUtil.ParseWalletConf({});
+        // Return basic wallet config without keys and default sqlite storage configuration.
+        // Available public keys can be retrieved from the SignatureOffloader.
+        // TODO: add authCert?
+        //
+        const walletConf = ParseSchema(WalletConfSchema, {});
 
         return {
             settingsManagerRPCId,

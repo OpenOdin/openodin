@@ -19,6 +19,7 @@
 import {
     Service,
     DatabaseConfig,
+    DatabaseConfigSchema,
 } from "../../../service";
 
 import {
@@ -26,8 +27,8 @@ import {
 } from "../../../util/JSONUtil";
 
 import {
-    ParseUtil,
-} from "../../../util/ParseUtil";
+    ParseSchema,
+} from "../../../util/SchemaUtil";
 
 import {
     sleep,
@@ -116,7 +117,7 @@ if (typeof(databaseConfigPath) !== "string") {
 let databaseConf: DatabaseConfig;
 
 try {
-    databaseConf = ParseUtil.ParseConfigDatabase(
+    databaseConf = ParseSchema(DatabaseConfigSchema,
         JSONUtil.LoadJSON(databaseConfigPath, ['.']));
 }
 catch(e) {

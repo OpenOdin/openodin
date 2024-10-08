@@ -11,6 +11,7 @@ import {
 
 import {
     NodeParams,
+    NodeSchema,
 } from "../../primary/node/types";
 
 /**
@@ -32,6 +33,15 @@ export type DataParams = NodeParams & {
     data?: Buffer,
     isSpecial?: boolean,
 };
+
+export const DataNodeSchema = {
+    ...NodeSchema,
+    "dataConfig??": 0,
+    "userConfig??": 0,
+    "contentType??": "",
+    "data??": new Uint8Array(0),
+    "isSpecial??": false,
+} as const;
 
 /**
  * A data node which is flagged as isSpecial is expected to have its

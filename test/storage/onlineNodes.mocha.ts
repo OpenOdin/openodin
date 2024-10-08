@@ -33,7 +33,6 @@ import {
     Crypto,
     StoreRequest,
     Status,
-    StorageUtil,
     Data,
     FetchRequest,
     NodeInterface,

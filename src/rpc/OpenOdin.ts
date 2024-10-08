@@ -31,6 +31,7 @@ import {
 import {
     WalletConf,
     ApplicationConf,
+    ApplicationConfSchema,
 } from "../service/types";
 
 import {
@@ -38,8 +39,8 @@ import {
 } from "./types";
 
 import {
-    ParseUtil,
-} from "../util";
+    ParseSchema,
+} from "../util/SchemaUtil";
 
 import {
     Version,
@@ -83,7 +84,6 @@ export class OpenOdin {
     protected authFactory?: AuthFactoryInterface;
     protected settingsManager?: SettingsManagerRPCClient;
     protected service?: Service;
-    protected walletConf?: WalletConf;
 
     /**
      * @param nrOfSignatureVerifiers is set > 0 (default 2) then instantiate local threaded
@@ -163,14 +163,14 @@ export class OpenOdin {
     /**
      * Helper function to parse an ApplicationConf JSON file.
      *
-     * This is a wrapper function over ParseUtil.ParseApplicationConf().
+     * This is a wrapper function over ParseSchema(ApplicationConfSchema).
      *
      * @returns ApplicationConf
      *
      * @throws on error
      */
     public static ParseAppConf(appJSON: Record<string, any>): ApplicationConf {
-        return ParseUtil.ParseApplicationConf(appJSON);
+        return ParseSchema(ApplicationConfSchema, appJSON);
     }
 
     /**

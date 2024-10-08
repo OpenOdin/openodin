@@ -19,7 +19,6 @@ import {
     TABLES,
     sleep,
     SPECIAL_NODES,
-    StorageUtil,
     FetchQuery,
     FetchReplyData,
     Data,

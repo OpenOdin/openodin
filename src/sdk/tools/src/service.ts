@@ -21,8 +21,13 @@ import {
 } from "../../../util/JSONUtil";
 
 import {
-    ParseUtil,
-} from "../../../util/ParseUtil";
+    ParseSchema,
+} from "../../../util/SchemaUtil";
+
+import {
+    ApplicationConfSchema,
+    WalletConfSchema,
+} from "../../../service/types";
 
 import {
     SignatureOffloader,
@@ -133,10 +138,10 @@ let applicationConf: ApplicationConf;
 let walletConf: WalletConf;
 
 try {
-    applicationConf = ParseUtil.ParseApplicationConf(
+    applicationConf = ParseSchema(ApplicationConfSchema,
         JSONUtil.LoadJSON(applicationConfigPath, ['.']));
 
-    walletConf = ParseUtil.ParseWalletConf(
+    walletConf = ParseSchema(WalletConfSchema,
         JSONUtil.LoadJSON(walletConfigPath, ['.']));
 }
 catch(e) {

@@ -6,6 +6,8 @@ import {
     FetchRequestSchema,
     LICENSE0_NODE_TYPE,
     DeepEquals,
+    ApplicationConfSchema,
+    WalletConfSchema,
 } from "../../src";
 
 import {
@@ -45,5 +47,34 @@ describe("SchemaUtil", function() {
         const parsed4 = ParseSchema(FetchRequestSchema, obj3);
 
         assert(DeepEquals(parsed, parsed4));
+    });
+
+    it("should apply FetchRequestSchema", function() {
+        const obj = {
+            name: "Testing",
+            version: "1.2.3",
+            peers: [
+                {
+                    connection: {
+                        factory: "native",
+                        client: {
+                            socketType: "WebSocket",
+                            port: 1010,
+                            serverPublicKey: "abba",
+                        },
+                    }
+                },
+            ],
+        };
+
+        const parsed = ParseSchema(ApplicationConfSchema, obj);
+
+        //console.log(JSON.stringify(ToJSONObject(parsed), null, 4));
+    });
+
+    it("should apply WalletConfSchema", function() {
+        const walletConf = ParseSchema(WalletConfSchema, {});
+
+        //console.log(walletConf);
     });
 });

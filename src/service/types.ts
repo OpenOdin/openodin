@@ -1,6 +1,13 @@
 import {
     HandshakeFactoryInterface,
+    HandshakeFactoryConfig,
 } from "pocket-messaging";
+
+import {
+    SOCKET_WEBSOCKET,
+    SOCKET_TCP,
+    SocketFactoryConfig,
+} from "pocket-sockets";
 
 import {
     P2PClientPermissions,
@@ -11,19 +18,32 @@ import {
 } from "../p2pclient/P2PClient";
 
 import {
+    P2PClientPermissionsLockedSchema,
+    P2PClientPermissionsDefaultSchema,
+    P2PClientPermissionsPermissiveSchema,
+    P2PClientPermissionsUncheckedPermissiveSchema,
+} from "../p2pclient/types";
+
+import {
     KeyPair,
     AuthCertInterface,
     PrimaryNodeCertInterface,
+    KeyPairSchema,
 } from "../datamodel";
 
 import {
     ThreadTemplate,
+    ThreadTemplateSchema,
     ThreadVariables,
 } from "../storage/thread";
 
 import {
     AuthFactoryConfig,
 } from "../auth/types";
+
+import {
+    ParseEnum,
+} from "../util/SchemaUtil";
 
 export type ConnectionConfig = {
     authFactoryConfig: AuthFactoryConfig,
@@ -43,6 +63,128 @@ export type ConnectionConfig = {
      */
     serializeFormat: number,
 };
+
+export const HandshakeFactoryConfigSchemaPost = function(obj: any): AuthFactoryConfig {
+    const keyPair = {
+        publicKey: Buffer.alloc(0),
+        secretKey: Buffer.alloc(0),
+    };
+
+    const client = !obj.client ? undefined : {
+        socketType: obj.client.socketType,
+        reconnectDelay: obj.client.reconnectDelay,
+        clientOptions: {
+            host: obj.client.host,
+            port: obj.client.port,
+            secure: obj.client.secure,
+            rejectUnauthorized: obj.client.rejectUnauthorized,
+            cert: obj.client.cert,
+            key: obj.client.key,
+            ca: obj.client.ca,
+        },
+    };
+
+    const server = !obj.server ? undefined : {
+        socketType: obj.server.socketType,
+        deniedIPs: obj.server.deniedIPs,
+        allowedIPs: obj.server.allowedIPs,
+        serverOptions: {
+            host: obj.server.host,
+            port: obj.server.port,
+            ipv6Only: obj.server.ipv6Only,
+            requestCert: obj.server.requestCert,
+            rejectUnauthorized: obj.server.rejectUnauthorized,
+            cert: obj.server.cert,
+            key: obj.server.key,
+            ca: obj.server.ca,
+        },
+    };
+
+    const socketFactoryConfig: SocketFactoryConfig = {
+        client,
+        server,
+        maxConnections: obj.maxConnections,
+        maxConnectionsPerIp: obj.maxConnectionsPerIp,
+    };
+
+    return {
+        factory: obj.factory,
+        keyPair,
+        discriminator: obj.discriminator,
+        socketFactoryConfig,
+        serverPublicKey: obj.client?.serverPublicKey,
+        allowedClients: obj.server?.allowedClients,
+        maxConnectionsPerClient: obj.maxConnectionsPerClient,
+        maxConnectionsPerClientPair: obj.maxConnectionsPerClientPair,
+        pingInterval: obj.pingInterval,
+    } as AuthFactoryConfig;
+    // TODO:
+};
+
+export const HandshakeFactoryConfigSchema = {
+    "factory?": ParseEnum(["native", "api"], "native"),
+    "discriminator?": new Uint8Array(0),
+    "maxConnections??": 0,
+    "maxConnectionsPerIp??": 0,
+    "maxConnectionsPerClient??": 0,
+    "maxConnectionsPerClientPair??": 0,
+    "pingInterval??": 0,
+    "client??": {
+        "auth??": {
+            method: "",
+            "config??": {},
+        },
+        socketType: ParseEnum([SOCKET_WEBSOCKET, SOCKET_TCP]),
+        serverPublicKey: new Uint8Array(0),
+        "reconnectDelay??": 0,
+        "host??": "",
+        port: 0,
+        "secure??": false,
+        "rejectUnauthorized??": false,
+        "cert??": [""], // PEM formatted strings
+        "key??": "",    // PEM formatted client private key, required if cert is set
+        "ca??": [""],
+    },
+    "server??": {
+        "auth??": {
+            "method": {
+                "": {},
+            }
+        },
+        socketType: ParseEnum([SOCKET_WEBSOCKET, SOCKET_TCP]),
+        "allowedClients??": [new Uint8Array(0)],
+        "deniedIPs?": [""],
+        "allowedIPs??": [""],
+        "host??": "",
+        port: 0,
+        "ipv6Only??": false,
+        "requestCert??": false,
+        "rejectUnauthorized??": false,
+        "cert??": [""],
+        "key??": "",
+        "ca??": [""],
+    },
+    _postFn: HandshakeFactoryConfigSchemaPost,
+};
+
+export const ConnectionConfigSchema = {
+    connection: HandshakeFactoryConfigSchema,
+    "permissions?": P2PClientPermissionsLockedSchema,
+    "region??": "",
+    "jurisdiction??": "",
+    "serializeFormat?": 0,
+    _postFn: function(obj: any): ConnectionConfig {
+        const obj2: any = {};
+
+        Object.keys(obj).forEach(key => obj2[key] = obj[key]);
+
+        obj2.authFactoryConfig = obj.connection;
+
+        delete obj2.connection;
+
+        return obj2;
+    },
+} as const;
 
 export type ExposeStorageToApp = {
     permissions?: P2PClientPermissions,
@@ -95,6 +237,32 @@ export type DatabaseConfig = {
     blobDriver?: DriverConfig,
 };
 
+const DriverConfigSchemaPost = function(obj: DriverConfig): DriverConfig {
+    if (obj.sqlite && obj.pg) {
+        delete obj.sqlite;
+    }
+
+    if (!obj.sqlite && !obj.pg) {
+        throw new Error("DriverConfig must have either sqlite or pg set");
+    }
+
+    return obj;
+};
+
+const DriverConfigSchema = {
+    "sqlite?": ":memory:",
+    "pg??": "",
+    "reconnectDelay?": 0,
+    _postFn: DriverConfigSchemaPost,
+} as const;
+
+export const DatabaseConfigSchema = {
+    "permissions?": P2PClientPermissionsUncheckedPermissiveSchema,
+    "appPermissions?": P2PClientPermissionsPermissiveSchema,
+    "driver?": DriverConfigSchema,
+    "blobDriver?": DriverConfigSchema,
+} as const;
+
 export type StorageConf = {
     peer?:      ConnectionConfig,
     database?:  DatabaseConfig,
@@ -124,13 +292,25 @@ export type SyncConf = {
         stream: boolean,
 
         /**
-         * defaults to "pull".
+         * defaults to "Pull".
          */
-        direction: "pull" | "push" | "both",
+        direction: "Pull" | "Push" | "PushPull",
 
         threadVariables: ThreadVariables,
     }[],
 };
+
+export const SyncConfSchema = {
+    peerPublicKeys: [new Uint8Array(0)],
+    "blobSizeMaxLimit?": -1,
+    threads: [{
+        name: "",
+        "stream?": false,
+        "direction?": ParseEnum(["Push", "Pull", "PushPull"], "Pull"),
+        "threadVariables?": {},
+    }
+    ],
+} as const;
 
 export type ApplicationConf = {
     format:         1,
@@ -147,12 +327,79 @@ export type ApplicationConf = {
     sync:           SyncConf[],
 };
 
-export type WalletConf = {
-    keyPairs:       KeyPair[],
-    authCert?:      AuthCertInterface,
-    nodeCerts:      PrimaryNodeCertInterface[],
-    storage:        StorageConf,
+const ApplicationConfSchemaPost = function(obj: ApplicationConf): ApplicationConf {
+    const [major, minor, patch] = obj.version.split(".").map((i: string) => parseInt(i));
+
+    if(obj.format !== 1) {
+        throw new Error("ApplicationConf format expected to be 1");
+    }
+
+    if (`${major}.${minor}.${patch}` !== obj.version) {
+        throw new Error(`ApplicationConf expecting version in semver format major.minor.patch, got: ${obj.version}`);
+    }
+
+    if(!obj.name) {
+        throw new Error("ApplicationConf expecting name to be set");
+    }
+
+    return obj;
 };
+
+export const ApplicationConfSchema = {
+    "format?": 1,
+    name: "",
+    version: "",
+    "title?": "",
+    "description?": "",
+    "homepage?": "",
+    "author?": "",
+    "repository?": "",
+    "custom?": {},
+    "threads?": {
+        "": ThreadTemplateSchema,
+    },
+    "peers?": [
+        {...ConnectionConfigSchema, "permissions?": P2PClientPermissionsDefaultSchema},
+    ],
+    "sync?": [
+        SyncConfSchema,
+    ],
+    _postFn: ApplicationConfSchemaPost,
+} as const;
+
+export type WalletConf = {
+    format:     1,
+    keyPairs:   KeyPair[],
+    authCert?:  Buffer,
+    nodeCerts:  Buffer[],
+    storage:    StorageConf,
+};
+
+export const StorageConfSchema = {
+    "peer??": ConnectionConfigSchema,
+    "database?": DatabaseConfigSchema,
+} as const;
+
+export const WalletConfSchema = {
+    "format?":  1,
+    "keyPairs?": [KeyPairSchema],
+    "authCert??": new Uint8Array(0),
+    "nodeCerts?": [new Uint8Array(0)],
+    "storage?": StorageConfSchema,
+    _postFn: function(obj: WalletConf): WalletConf {
+        if(obj.format !== 1) {
+            throw new Error("WalletConf format expected to be 1");
+        }
+
+        const storage = obj.storage;
+
+        if (storage.peer) {
+            delete storage.database;
+        }
+
+        return obj;
+    }
+} as const;
 
 /** Event emitted when user calls start(). */
 export type ServiceStartCallback = () => void;

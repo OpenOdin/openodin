@@ -13,18 +13,25 @@ import {
     LICENSE0_NODE_TYPE_ALIAS,
 } from "../datamodel";
 
-const Filter = {
-    field: "",
-    "operator?": "",
-    cmp: "",
-    value: "",
-};
+import {
+    ParseEnum,
+} from "../util/SchemaUtil";
+
+import {
+    Status,
+} from "./types";
+
+import {
+    AlgoSorted,
+    AlgoRefId,
+    AlgoSortedRefId,
+} from "../storage/crdt";
 
 /**
  * Parse given nodetype to check for node aliases.
  * @param v string as alias or hexadecimal node type, or buffer as node type
  */
-const parseNodeType = function(v: string | Buffer | Uint8Array): Buffer {
+export const ParseNodeType = function(v: string | Buffer | Uint8Array): Buffer {
     const nodeAliases: {[alias: string]: Buffer} = {
         [DATA0_NODE_TYPE_ALIAS]: CopyBuffer(DATA0_NODE_TYPE),
         [LICENSE0_NODE_TYPE_ALIAS]: CopyBuffer(LICENSE0_NODE_TYPE),
@@ -38,7 +45,7 @@ const parseNodeType = function(v: string | Buffer | Uint8Array): Buffer {
     }
 
     if (typeof v !== "string") {
-        throw new Error("parseNodeType requires string, Buffer or Uint8Array as argument");
+        throw new Error("ParseNodeType requires string, Buffer or Uint8Array as argument");
     }
 
     if (nodeAliases[v]) {
@@ -54,6 +61,18 @@ const parseNodeType = function(v: string | Buffer | Uint8Array): Buffer {
     return b;
 }
 
+export const FilterSchema = {
+    field: "",
+    "operator?": "",
+    cmp: "",
+    value: "",
+} as const;
+
+export const EmbedSchema = {
+    nodeType: ParseNodeType,
+    "filters?": [FilterSchema],
+} as const;
+
 export const FetchQuerySchema = {
     "depth?": -1,
     "limit?": -1,
@@ -64,8 +83,8 @@ export const FetchQuerySchema = {
     "targetPublicKey?": new Uint8Array(0),
     "sourcePublicKey?": new Uint8Array(0),
     "match?": [{
-        nodeType: parseNodeType,
-        "filters?": [Filter],
+        nodeType: ParseNodeType,
+        "filters?": [FilterSchema],
         "limit?": -1,
         "limitField?": {
             "name?": "",
@@ -78,10 +97,7 @@ export const FetchQuerySchema = {
         "requireId?": 0,
         "cursorId1?": new Uint8Array(0),
     }],
-    "embed?": [{
-        nodeType: parseNodeType,
-        "filters?": [Filter],
-    }],
+    "embed?": [EmbedSchema],
     "triggerNodeId?": new Uint8Array(0),
     "triggerInterval?": 0,
     "onlyTrigger?": false,
@@ -96,7 +112,7 @@ export const FetchQuerySchema = {
 } as const;
 
 export const FetchCRDTSchema = {
-    "algo?": "",
+    "algo?": ParseEnum([AlgoSorted.GetId(), AlgoRefId.GetId(), AlgoSortedRefId.GetId()], ""),
     "conf?": "",
     "msgId?": new Uint8Array(0),
     "reverse?": false,
@@ -147,4 +163,60 @@ export const GenericMessageRequestSchema = {
     action: "",
     "sourcePublicKey?": new Uint8Array(0),
     data: new Uint8Array(0),
+} as const;
+
+export const FetchResultSchema = {
+    nodes: [new Uint8Array(0)],
+    "embed?": [new Uint8Array(0)],
+    cutoffTime: 0n,
+} as const;
+
+export const CRDTResultSchema = {
+    delta: new Uint8Array(0),
+    cursorIndex: 0,
+    length: 0,
+} as const;
+
+export const FetchResponseSchema = {
+    status: ParseEnum(Object.values(Status)),
+    result: FetchResultSchema,
+    crdtResult: CRDTResultSchema,
+    seq: 0,
+    endSeq: 0,
+    rowCount: 0,
+    "error?": "",
+} as const;
+
+export const StoreResponseSchema = {
+    status: ParseEnum(Object.values(Status)),
+    storedId1List: [new Uint8Array(0)],
+    missingBlobId1List: [new Uint8Array(0)],
+    missingBlobSizes: [0n],
+    "error?": "",
+} as const;
+
+export const WriteBlobResponseSchema = {
+    status: ParseEnum(Object.values(Status)),
+    currentLength: 0n,
+    "error?": "",
+} as const;
+
+export const ReadBlobResponseSchema = {
+    status: ParseEnum(Object.values(Status)),
+    data: new Uint8Array(0),
+    seq: 0,
+    endSeq: 0,
+    blobLength: 0n,
+    "error?": "",
+} as const;
+
+export const GenericMessageResponseSchema = {
+    status: ParseEnum(Object.values(Status)),
+    data: new Uint8Array(0),
+    "error?": "",
+} as const;
+
+export const UnsubscribeResponseSchema = {
+    status: ParseEnum(Object.values(Status)),
+    "error?": "",
 } as const;

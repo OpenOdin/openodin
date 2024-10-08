@@ -10,6 +10,11 @@ export type KeyPair = {
     secretKey: Buffer
 };
 
+export const KeyPairSchema = {
+    publicKey: new Uint8Array(0),
+    secretKey: new Uint8Array(0),
+} as const;
+
 export type CryptoSchema = {
     /**
      * Length of public key in bytes.

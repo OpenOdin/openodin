@@ -134,7 +134,7 @@ export class FriendCert extends PrimaryDefaultCert implements FriendCertInterfac
         const targetType = this.getTargetType();
         if (targetType) {
             const modelType = friendCertConstraintValues.modelType;
-            if (!targetType.equals(modelType.slice(0, targetType.length))) {
+            if (!modelType || !targetType.equals(modelType.slice(0, targetType.length))) {
                 return [false, `Target type from cert does not match target model type: ${targetType.toString("hex")} to ${modelType.slice(0, targetType.length).toString("hex")}`];
             }
         }

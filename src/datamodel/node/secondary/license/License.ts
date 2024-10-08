@@ -167,7 +167,7 @@ const FIELDS: Fields = {
         index: 1,
         hash: false,
     },
-    network: {
+    onlineIdNetwork: {
         name: "onlineIdNetwork",
         type: FieldType.NONE,
         index: 4,

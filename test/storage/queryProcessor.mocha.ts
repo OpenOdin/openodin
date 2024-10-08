@@ -9,7 +9,6 @@ import {
     NodeUtil,
     DBClient,
     TABLES,
-    StorageUtil,
     FetchRequest,
     FetchReplyData,
     Data,

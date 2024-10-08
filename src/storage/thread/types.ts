@@ -16,14 +16,9 @@ export type FetchRequestTemplate = {
 
 /**
  * The JSON parsed structure of the Thread template.
- * At this point not verified for validity but will
- * be when parsed as typed structures as it is used by Thread.
- *
- * Data set here will pass through ParseUtil functions before used,
- * meaning that types are allowed to be more loose and for example instead of Buffer
- * hexadecimal strings are tolerated.
- * This is because ThreadTemplate is often parsed from JSON, but we still want
- * to set the expected types here as it helps understanding.
+ * 
+ * These structures are tempaltes and will be variable substituted
+ * before use, and then also parsed into proper typed objects.
  */
 export type ThreadTemplate = {
     /**
@@ -47,6 +42,16 @@ export type ThreadTemplate = {
      */
     postLicense?: {[name: string]: LicenseParamsTemplate},
 };
+
+// The schema is very loosely defined as it is a template
+// and still not ready to be properly parsed.
+//
+export const ThreadTemplateSchema = {
+    query: {},
+    "crdt?": {},
+    "post?": {},
+    "postLicense?": {},
+} as const;
 
 export type ThreadTemplates = {[name: string]: ThreadTemplate};
 
