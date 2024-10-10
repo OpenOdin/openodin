@@ -16,7 +16,7 @@ import {
     APIAuthFactoryConfigSchema,
 } from "../../src";
 
-describe.only("AuthProcessHandshake", function() {
+describe("AuthProcessHandshake", function() {
 
     const keyPair1 = Crypto.GenKeyPair();
     const keyPair2 = Crypto.GenKeyPair();
