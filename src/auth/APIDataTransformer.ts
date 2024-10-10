@@ -8,13 +8,47 @@ import {
 } from "pocket-messaging"
 
 import {
-    ParseUtil,
-} from "../util/ParseUtil";
+    ParseSchema,
+    ToJSONObject,
+} from "../util/SchemaUtil";
+
+import {
+    FetchRequestSchema,
+    FetchResponseSchema,
+    StoreRequestSchema,
+    StoreResponseSchema,
+    UnsubscribeRequestSchema,
+    WriteBlobRequestSchema,
+    WriteBlobResponseSchema,
+    ReadBlobRequestSchema,
+    ReadBlobResponseSchema,
+    GenericMessageRequestSchema,
+    GenericMessageResponseSchema,
+    UnsubscribeResponseSchema,
+} from "../request/jsonSchema";
 
 import {
     BebopSerialize,
+} from "../request/BebopSerialize";
+
+import {
     BebopDeserialize,
-} from "../p2pclient/bebop";
+} from "../request/BebopDeserialize";
+
+import {
+    FetchRequest,
+    FetchResponse, 
+    StoreRequest,
+    StoreResponse,
+    UnsubscribeRequest,
+    UnsubscribeResponse,
+    WriteBlobRequest,
+    GenericMessageRequest,
+    WriteBlobResponse,
+    ReadBlobRequest,
+    ReadBlobResponse,
+    GenericMessageResponse,
+} from "../request/types";
 
 import {
     APIRequest,
@@ -123,9 +157,9 @@ export class APIDataTransformer {
             throw new Error("Bad request, bad msgId");
         }
 
-        const data = (targetStr.toLowerCase() ===  PING_ROUTE.toLowerCase() ||
-            targetStr.toLowerCase() ===  PONG_ROUTE.toLowerCase()) ? undefined :
-            ParseUtil.ParseRequestType(request.data);
+        const data = (targetStr.toLowerCase() === PING_ROUTE.toLowerCase() ||
+            targetStr.toLowerCase() === PONG_ROUTE.toLowerCase()) ? undefined :
+            this.ParseRequestBody(request.data);
 
         return {
             sessionToken: request.sessionToken,
@@ -134,6 +168,57 @@ export class APIDataTransformer {
             expectingReply: request.expectingReply,
             data,
         };
+    }
+
+    protected ParseRequestBody(body: string): FetchRequest | FetchResponse | StoreRequest |
+        StoreResponse | UnsubscribeRequest | UnsubscribeResponse | WriteBlobRequest |
+        WriteBlobResponse | ReadBlobRequest | ReadBlobResponse | GenericMessageResponse |
+        GenericMessageRequest
+    {
+        const obj = JSON.parse(body);
+
+        if (typeof(obj) !== "object" || obj.constructor !== Object) {
+            throw new Error("Could not parse request/response type");
+        }
+
+        if (obj.query) {
+            return ParseSchema(FetchRequestSchema, obj);
+        }
+        else if (obj.result) {
+            return ParseSchema(FetchResponseSchema, obj);
+        }
+        else if (obj.nodes) {
+            return ParseSchema(StoreRequestSchema, obj);
+        }
+        else if (obj.storedId1List) {
+            return ParseSchema(StoreResponseSchema, obj);
+        }
+        else if (obj.originalMsgId) {
+            return ParseSchema(UnsubscribeRequestSchema, obj);
+        }
+        else if (obj.nodeId1 && obj.data) {
+            return ParseSchema(WriteBlobRequestSchema, obj);
+        }
+        else if (obj.currentLength !== undefined) {
+            return ParseSchema(WriteBlobResponseSchema, obj);
+        }
+        else if (obj.nodeId1 && obj.length!== undefined) {
+            return ParseSchema(ReadBlobRequestSchema, obj);
+        }
+        else if (obj.blobLength !== undefined) {
+            return ParseSchema(ReadBlobResponseSchema, obj);
+        }
+        else if (obj.action !== undefined) {
+            return ParseSchema(GenericMessageRequestSchema, obj);
+        }
+        else if (obj.status !== undefined && obj.data !== undefined) {
+            return ParseSchema(GenericMessageResponseSchema, obj);
+        }
+        else if (obj.status !== undefined && obj.error !== undefined) {
+            return ParseSchema(UnsubscribeResponseSchema, obj);
+        }
+
+        throw new Error("Could not parse request/response type");
     }
 
     public stringifyAPIRequest(request: APIRequest): string {
@@ -148,7 +233,7 @@ export class APIDataTransformer {
             target,
             msgId,
             expectingReply: request.expectingReply,
-            data: ParseUtil.StringifyRequestType(request.data ?? {}),
+            data: JSON.stringify(ToJSONObject(request.data ?? {}, true)),
         };
 
         return JSON.stringify(obj);

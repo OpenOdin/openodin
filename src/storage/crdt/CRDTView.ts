@@ -10,6 +10,10 @@ import {
 } from "../../datamodel";
 
 import {
+    Decoder,
+} from "../../decoder/Decoder";
+
+import {
     FetchResponse,
 } from "../../types";
 
@@ -22,10 +26,6 @@ import {
     CRDTCustomData,
     CRDTEvent,
 } from "./types";
-
-import {
-    StorageUtil,
-} from "../../util/StorageUtil";
 
 import * as fossilDelta from "fossil-delta";
 
@@ -60,7 +60,7 @@ export class CRDTView {
      * Will only use data nodes which are not flagged as special, other nodes are ignored.
      */
     public handleResponse(fetchResponse: FetchResponse) {
-        const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse,
+        const nodes = Decoder.DecodeNodes(fetchResponse.result.nodes,
             this.preserveTransient, Data.GetType(4));
 
         // Apply nodes to model.

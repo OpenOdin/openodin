@@ -7,10 +7,8 @@ import {
     sleep,
     Hash,
     BlobEvent,
-    ParseUtil,
     Service,
     Thread,
-    StorageUtil,
     ApplicationConf,
     WalletConf,
     BufferStreamWriter,
@@ -19,6 +17,9 @@ import {
     RPC,
     JSONUtil,
     P2PClient,
+    ParseSchema,
+    ApplicationConfSchema,
+    WalletConfSchema,
 } from "../../../";
 
 import {
@@ -37,16 +38,16 @@ async function main() {
     let serverWallet: WalletConf;
     let clientWallet: WalletConf;
     try {
-        serverConfig = ParseUtil.ParseApplicationConf(
+        serverConfig = ParseSchema(ApplicationConfSchema,
             JSONUtil.LoadJSON(`${__dirname}/server-conf.json`, ['.']));
 
-        clientConfig = ParseUtil.ParseApplicationConf(
+        clientConfig = ParseSchema(ApplicationConfSchema,
             JSONUtil.LoadJSON(`${__dirname}/client-conf.json`, ['.']));
 
-        serverWallet = ParseUtil.ParseWalletConf(
+        serverWallet = ParseSchema(WalletConfSchema,
             JSONUtil.LoadJSON(`${__dirname}/server-wallet.json`, ['.']));
 
-        clientWallet = ParseUtil.ParseWalletConf(
+        clientWallet = ParseSchema(WalletConfSchema,
             JSONUtil.LoadJSON(`${__dirname}/client-wallet.json`, ['.']));
     }
     catch(e) {

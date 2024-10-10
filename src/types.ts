@@ -1,4 +1,4 @@
-export * from "./requestTypes";
+export * from "./request/types";
 
 import {
     MESSAGE_MAX_BYTES,

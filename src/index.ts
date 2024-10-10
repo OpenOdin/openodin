@@ -4,6 +4,7 @@ export * from "./util";
 export * from "./datastreamer";
 export * from "./storage";
 export * from "./decoder";
+export * from "./request";
 export * from "./signatureoffloader";
 export * from "./p2pclient";
 export * from "./datamodel";

@@ -4,6 +4,7 @@ import {
 
 import {
     LicenseParams,
+    LicenseNodeSchema,
 } from "../../../node/secondary/license/types";
 
 import {
@@ -13,6 +14,10 @@ import {
 export const SECONDARY_INTERFACE_LICENSECERT_ID = 2;
 
 export type LicenseCertConstraintValues = LicenseParams;
+
+export const LicenseCertConstraintSchema = {
+    ...LicenseNodeSchema,
+} as const;
 
 /**
  * A secondary interface for LicenseCerts.

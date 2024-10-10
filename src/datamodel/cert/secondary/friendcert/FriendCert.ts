@@ -28,8 +28,8 @@ import {
 } from "../../../hash";
 
 import {
-    StripObject,
-} from "../../../../util/common";
+    ToJSONObject,
+} from "../../../../util/SchemaUtil";
 
 /** The added fields for FriendCert. */
 const FIELDS: Fields = {
@@ -134,7 +134,7 @@ export class FriendCert extends PrimaryDefaultCert implements FriendCertInterfac
         const targetType = this.getTargetType();
         if (targetType) {
             const modelType = friendCertConstraintValues.modelType;
-            if (!targetType.equals(modelType.slice(0, targetType.length))) {
+            if (!modelType || !targetType.equals(modelType.slice(0, targetType.length))) {
                 return [false, `Target type from cert does not match target model type: ${targetType.toString("hex")} to ${modelType.slice(0, targetType.length).toString("hex")}`];
             }
         }
@@ -313,6 +313,6 @@ export class FriendCert extends PrimaryDefaultCert implements FriendCertInterfac
             o[fieldName] = this.model.getAny(fieldName);
         });
 
-        return JSON.stringify(StripObject(o), null, 4);
+        return JSON.stringify(ToJSONObject(o), null, 4);
     }
 }

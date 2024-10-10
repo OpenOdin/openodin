@@ -16,7 +16,6 @@ import {
     LicenseCertInterface,
     DataParams,
     LicenseParams,
-    PRIMARY_INTERFACE_NODE_ID,
 } from "../datamodel";
 
 import {
@@ -33,20 +32,6 @@ export class NodeUtil {
 
     public setNodeCerts(nodeCerts: PrimaryNodeCertInterface[]) {
         this.nodeCerts = nodeCerts.slice();
-    }
-
-    /**
-    * Check in the image header data if it looks like a node.
-    * @param image the node image
-    * @returns true if the image header is recognized as being of primary interface node.
-    */
-    public static IsNode(image: Buffer): boolean {
-        const nodePrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_NODE_ID]);
-        if (image.slice(0, 2).equals(nodePrimaryInterface)) {
-            return true;
-        }
-
-        return false;
     }
 
     /**

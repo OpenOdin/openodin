@@ -4,7 +4,7 @@ import {
 } from "../datamodel";
 
 import {
-    Status,
+    StatusValues,
     FetchRequest,
     FetchQuery,
 } from "../types";
@@ -271,7 +271,7 @@ export const BLOB_TABLES: {[table: string]: any} = {
 };
 
 export type FetchReplyData = {
-    status?: Status,
+    status?: StatusValues,
     error?: string,
     nodes?: NodeInterface[],
     embed?: NodeInterface[],

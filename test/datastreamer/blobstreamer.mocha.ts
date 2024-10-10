@@ -194,7 +194,7 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
 
         let reply = await getResponse.onceAny();
         assert(reply.type === "reply");
-        assert(reply.response?.status === Status.RESULT);
+        assert(reply.response?.status === Status.Result);
 
         // Try writing blob again
         //
@@ -245,7 +245,7 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
 
         reply = await getResponse.onceAny();
         assert(reply.type === "reply");
-        assert(reply.response?.status === Status.RESULT);
+        assert(reply.response?.status === Status.Result);
 
 
 

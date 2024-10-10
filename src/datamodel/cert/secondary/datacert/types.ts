@@ -12,6 +12,7 @@ import {
 
 import {
     PrimaryNodeCertParams,
+    PrimaryNodeCertSchema,
 } from "../../primary/nodecert/types";
 
 export const DATACERT_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_NODECERT_ID, 0, SECONDARY_INTERFACE_DATACERT_ID, 0, 0]);
@@ -21,6 +22,13 @@ export type DataCertParams = PrimaryNodeCertParams & {
     isLockedOnContentType?: boolean,
     isLockedOnUserBits?: boolean,
 };
+
+export const DataCertSchema = {
+    PrimaryNodeCertSchema,
+    "isLockedOnDataConfig??": false,
+    "isLockedOnContentType??": false,
+    "isLockedOnUserBits??": false,
+} as const;
 
 /**
  * Extends Node cert locked config.

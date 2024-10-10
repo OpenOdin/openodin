@@ -20,8 +20,8 @@ import {
 } from "../interface/ChainCertInterface";
 
 import {
-    StripObject,
-} from "../../../../util/common";
+    ToJSONObject,
+} from "../../../../util/SchemaUtil";
 
 
 /**
@@ -214,6 +214,6 @@ export class ChainCert extends PrimaryChainCert implements ChainCertInterface {
             o[fieldName] = this.model.getAny(fieldName);
         });
 
-        return JSON.stringify(StripObject(o), null, 4);
+        return JSON.stringify(ToJSONObject(o), null, 4);
     }
 }

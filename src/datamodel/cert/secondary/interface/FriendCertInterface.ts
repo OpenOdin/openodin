@@ -58,7 +58,20 @@ export type FriendCertConstraintValues = {
 
     /** This is part of the constraints. This value comes from the license getting embedded. */
     friendLevel: number,
-}
+};
+
+export const FriendCertConstraintSchema = {
+    creationTime: 0,
+    "expireTime??": 0,
+    modelType: new Uint8Array(0),
+    otherConstraints: new Uint8Array(0),
+    publicKey: new Uint8Array(0),
+    otherIssuerPublicKey: new Uint8Array(0),
+    key: new Uint8Array(0),
+    otherKey: new Uint8Array(0),
+    intermediaryPublicKey: new Uint8Array(0),
+    friendLevel: 0,
+} as const;
 
 /**
  * A secondary interface for FriendCerts.

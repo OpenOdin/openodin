@@ -20,8 +20,12 @@ import {
 } from "../util/RPC";
 
 import {
-    ParseUtil,
-} from "../util/ParseUtil";
+    ParseSchema,
+} from "../util/SchemaUtil";
+
+import {
+    WalletConfSchema,
+} from "../service/types";
 
 import {
     AuthResponse,
@@ -31,8 +35,8 @@ import {
 } from "./types";
 
 import {
-    AuthFactoryConfig,
-} from "../auth/types";
+    ConnectionConfig,
+} from "../service/types";
 
 import {
     Version,
@@ -40,7 +44,7 @@ import {
 
 export class OpenOdinRPCServer {
     protected triggerOnAuth?: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>;
-    protected triggerOnCreate?: (authFactoryConfig: AuthFactoryConfig) => Promise<boolean>;
+    protected triggerOnCreate?: (connection: ConnectionConfig["connection"]) => Promise<boolean>;
     protected triggerOnSign?: (dataModels: DataModelInterface[]) => Promise<boolean>;
     protected signatureOffloaderRPCServer?: SignatureOffloaderRPCServer;
     protected authFactoryRPCCserver?: AuthFactoryRPCServer;
@@ -76,7 +80,7 @@ export class OpenOdinRPCServer {
      * The function to trigger to confirm connections parameters on the event of
      * creating the handshake factory.
      */
-    public onAuthFactoryCreate(fn: (authFactoryConfig: AuthFactoryConfig) => Promise<boolean>) {
+    public onAuthFactoryCreate(fn: (connection: ConnectionConfig["connection"]) => Promise<boolean>) {
         this.triggerOnCreate = fn;
     }
 
@@ -164,7 +168,11 @@ export class OpenOdinRPCServer {
 
         const applicationConf = authRequest.applicationConf;
 
-        const walletConf = ParseUtil.ParseWalletConf({});
+        // Return basic wallet config without keys and default sqlite storage configuration.
+        // Available public keys can be retrieved from the SignatureOffloader.
+        // TODO: add authCert?
+        //
+        const walletConf = ParseSchema(WalletConfSchema, {});
 
         return {
             settingsManagerRPCId,

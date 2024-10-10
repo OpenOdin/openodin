@@ -9,23 +9,28 @@ import {
 } from "../../util/NodeUtil";
 
 import {
-    ParseUtil,
-} from "../../util/ParseUtil";
-
-import {
     P2PClient,
     AutoFetch,
 } from "../../p2pclient";
 
 import {
-    StorageUtil,
-} from "../../util/StorageUtil";
+    ParseSchema,
+} from "../../util/SchemaUtil";
+
+import {
+    StoreRequestSchema,
+    FetchQuerySchema,
+    FetchCRDTSchema,
+} from "../../request/jsonSchema";
 
 import {
     CopyBuffer,
     DeepCopy,
-    TemplateSubstitute,
 } from "../../util/common";
+
+import {
+    TemplateSubstitute,
+} from "../../util/TemplateUtil";
 
 import {
     DataParams,
@@ -36,6 +41,8 @@ import {
     SPECIAL_NODES,
     Hash,
     DataConfig,
+    DataNodeSchema,
+    LicenseNodeSchema,
 } from "../../datamodel";
 
 import {
@@ -195,15 +202,15 @@ export class Thread {
         protected purgeInterval: number = 60_000,
         protected service?: Service)
     {
-        this.threadTemplate = DeepCopy(threadTemplate);
+        this.threadTemplate = DeepCopy(threadTemplate) as ThreadTemplate;
 
-        this.threadVariables = DeepCopy(threadVariables);
+        this.threadVariables = DeepCopy(threadVariables) as ThreadVariables;
 
-        this.publicKey = DeepCopy(publicKey);
+        this.publicKey = DeepCopy(publicKey) as Buffer;
 
-        this.signerPublicKey = DeepCopy(signerPublicKey);
+        this.signerPublicKey = DeepCopy(signerPublicKey) as Buffer;
 
-        this.secretKey = DeepCopy(secretKey);
+        this.secretKey = DeepCopy(secretKey) as Buffer;
 
         storageClient.onClose(this.close);
 
@@ -289,13 +296,13 @@ export class Thread {
         const fetchRequest = Thread.GetFetchRequest(this.threadTemplate, {...this.threadVariables,
             ...threadVariables}, true);
 
-        // Note that when we set includeLicenses=3 the Storage will automatically
+        // Note that when we set includeLicenses="IncludeExtend" the Storage will automatically
         // add relevent licenses to the response and also automatically request licenses
         // to be extended for data matched.
         // This is a more fine grained approach in requesting licenses than using
         // query.embed and query.match on licenses.
         //
-        fetchRequest.query.includeLicenses = 3;
+        fetchRequest.query.includeLicenses = "IncludeExtend";
 
         // We cancel any discard because we need the whole structure when syncing.
         //
@@ -304,7 +311,7 @@ export class Thread {
         // Not relevant/allowed for auto fetch.
         //
         fetchRequest.query.preserveTransient = false;
-        fetchRequest.crdt.algo = 0;
+        fetchRequest.crdt.algo = "";
 
         const autoFetch: AutoFetch = {
             fetchRequest,
@@ -326,9 +333,9 @@ export class Thread {
         //
         reverseFetchRequest.query.match.forEach( match => match.discard = false );
 
-        reverseFetchRequest.query.includeLicenses = 3;
+        reverseFetchRequest.query.includeLicenses = "IncludeExtend";
         reverseFetchRequest.query.preserveTransient = false;
-        reverseFetchRequest.crdt.algo = 0;
+        reverseFetchRequest.crdt.algo = "";
 
         const autoFetchReverse: AutoFetch = {
             fetchRequest: reverseFetchRequest,
@@ -464,11 +471,11 @@ export class Thread {
             throw new Error("parentId/rootNodeId1 is missing in thread query");
         }
 
-        const query = ParseUtil.ParseQuery(queryParams);
+        const query = ParseSchema(FetchQuerySchema, queryParams);
 
         const crdtParams = TemplateSubstitute(threadTemplate.crdt ?? {}, threadVariables);
 
-        const crdt = ParseUtil.ParseCRDT(crdtParams);
+        const crdt = ParseSchema(FetchCRDTSchema, crdtParams);
 
         if (stream) {
             if (query.triggerNodeId.length === 0 && query.triggerInterval === 0) {
@@ -536,9 +543,9 @@ export class Thread {
         const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
             this.secretKey);
 
-        const storedId1s = await this.storeNodes([dataNode]);
+        const storedId1List = await this.storeNodes([dataNode]);
 
-        if (storedId1s.length > 0) {
+        if (storedId1List.length > 0) {
             return dataNode;
         }
 
@@ -572,9 +579,9 @@ export class Thread {
         const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
             this.secretKey);
 
-        const storedId1s = await this.storeNodes([dataNode]);
+        const storedId1List = await this.storeNodes([dataNode]);
 
-        if (storedId1s.length > 0) {
+        if (storedId1List.length > 0) {
             return dataNode;
         }
 
@@ -605,9 +612,9 @@ export class Thread {
         const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
             this.secretKey);
 
-        const storedId1s = await this.storeNodes([dataNode]);
+        const storedId1List = await this.storeNodes([dataNode]);
 
-        if (storedId1s.length > 0) {
+        if (storedId1List.length > 0) {
             return dataNode;
         }
 
@@ -699,10 +706,10 @@ export class Thread {
             throw new Error("Cannot delete node");
         }
 
-        const storedId1s = await this.storeNodes(destroyNodes);
+        const storedId1List = await this.storeNodes(destroyNodes);
 
         return destroyNodes.filter( node =>
-            storedId1s.findIndex( id1 => node.getId1()?.equals(id1) ) > -1 );
+            storedId1List.findIndex( id1 => node.getId1()?.equals(id1) ) > -1 );
     }
 
     /**
@@ -750,11 +757,11 @@ export class Thread {
             }
         }
 
-        const storedId1s = await this.storeNodes(licenseNodes);
+        const storedId1List = await this.storeNodes(licenseNodes);
 
         return licenseNodes.filter( license => {
             const id1 = license.getId1()!;
-            return storedId1s.findIndex( id1b => id1b.equals(id1) ) > -1;
+            return storedId1List.findIndex( id1b => id1b.equals(id1) ) > -1;
         });
     }
 
@@ -813,7 +820,7 @@ export class Thread {
 
         licenseParams.nodeId1 = nodeId1;
 
-        const licenseParams2 = ParseUtil.ParseLicenseParams(licenseParams);
+        const licenseParams2 = ParseSchema(LicenseNodeSchema, licenseParams);
 
         if (licenseParams2.expireTime === undefined) {
             licenseParams2.expireTime = Date.now() + 30 * 24 * 3600 * 1000;
@@ -852,7 +859,7 @@ export class Thread {
             dataParams.parentId = fetchRequest.query.parentId;
         }
 
-        return ParseUtil.ParseDataParams(dataParams);
+        return ParseSchema(DataNodeSchema, dataParams);
     }
 
     /**
@@ -861,7 +868,8 @@ export class Thread {
      * @throws on error
      */
     protected async storeNodes(nodes: NodeInterface[]): Promise<Buffer[]> {
-        const storeRequest = StorageUtil.CreateStoreRequest({nodes: nodes.map( node => node.export() )});
+        const storeRequest = ParseSchema(StoreRequestSchema,
+            {nodes: nodes.map( node => node.export())});
 
         const {getResponse} = this.storageClient.store(storeRequest);
 
@@ -874,11 +882,11 @@ export class Thread {
         if (anyData.type === EventType.REPLY) {
             const storeResponse = anyData.response;
 
-            if (!storeResponse || storeResponse.status !== Status.RESULT) {
+            if (!storeResponse || storeResponse.status !== Status.Result) {
                 throw new Error(`Could not store nodes, status=${storeResponse?.status} error=${storeResponse?.error}`);
             }
 
-            return storeResponse.storedId1s;
+            return storeResponse.storedId1List;
         }
         else {
             throw new Error(`Could not store nodes, type=${anyData.type}, error=${anyData.error}`);

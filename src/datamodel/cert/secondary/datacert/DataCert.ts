@@ -23,8 +23,8 @@ import {
 } from "../../../hash";
 
 import {
-    StripObject,
-} from "../../../../util/common";
+    ToJSONObject,
+} from "../../../../util/SchemaUtil";
 
 /**
  * A data cert is used to sign Data nodes using a different key than the owner key.
@@ -155,6 +155,6 @@ export class DataCert extends PrimaryNodeCert implements DataCertInterface {
             o[fieldName] = this.model.getAny(fieldName);
         });
 
-        return JSON.stringify(StripObject(o), null, 4);
+        return JSON.stringify(ToJSONObject(o), null, 4);
     }
 }

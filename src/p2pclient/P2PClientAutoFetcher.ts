@@ -109,7 +109,7 @@ export class P2PClientAutoFetcher {
         // Copy autoFetch because we will set
         // query.sourcePublicKey and query.targetPublicKey
         //
-        autoFetch = DeepCopy(autoFetch);
+        autoFetch = DeepCopy(autoFetch) as AutoFetch;
 
         const fetchRequest = autoFetch.fetchRequest;
 
@@ -150,7 +150,7 @@ export class P2PClientAutoFetcher {
 
         getResponse.onReply( (fetchResponse: FetchResponse) => {
             // Data is incoming from server peer, put it to storage.
-            if (fetchResponse.status === Status.RESULT) {
+            if (fetchResponse.status === Status.Result) {
                 // If we requested transient values to be kept on the nodes when fetching from peer,
                 // we try to preserve them into the Storage
                 // (this requires that the Storage is OK with that).
@@ -255,7 +255,7 @@ export class P2PClientAutoFetcher {
             }
 
             getResponse.onceAny().then( anyData => {
-                if (anyData.type !== EventType.REPLY || anyData.response?.status !== Status.RESULT) {
+                if (anyData.type !== EventType.REPLY || anyData.response?.status !== Status.Result) {
                     const reverse = this.reverse ? " (reverse store) " : "";
 
                     console.error(`Could not store the incoming fetched data to Storage${reverse}. Store response type: ${anyData.type}. Response status: ${anyData.response?.status}. Error: ${anyData.response?.error}`);
@@ -267,10 +267,10 @@ export class P2PClientAutoFetcher {
                     return;
                 }
 
-                const len = anyData.response.missingBlobId1s.length;
+                const len = anyData.response.missingBlobId1List.length;
 
                 for (let i=0; i<len; i++) {
-                    const id1: Buffer = anyData.response.missingBlobId1s[i];
+                    const id1: Buffer = anyData.response.missingBlobId1List[i];
 
                     const id1Str = id1.toString("hex");
 
@@ -385,7 +385,7 @@ export class P2PClientAutoFetcher {
         // Copy autoFetch because we will set
         // query.sourcePublicKey and query.targetPublicKey
         //
-        autoFetch = DeepCopy(autoFetch);
+        autoFetch = DeepCopy(autoFetch) as AutoFetch;
 
         const targetPublicKey = this.reverse ?
             // If reverse then this is the publicKey of where we are storing to.

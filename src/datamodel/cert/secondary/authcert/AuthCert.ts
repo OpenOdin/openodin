@@ -23,8 +23,8 @@ import {
 } from "../../../hash";
 
 import {
-    StripObject,
-} from "../../../../util/common";
+    ToJSONObject,
+} from "../../../../util/SchemaUtil";
 
 
 /**
@@ -235,6 +235,6 @@ export class AuthCert extends PrimaryDefaultCert implements AuthCertInterface {
             o[fieldName] = this.model.getAny(fieldName);
         });
 
-        return JSON.stringify(StripObject(o), null, 4);
+        return JSON.stringify(ToJSONObject(o), null, 4);
     }
 }

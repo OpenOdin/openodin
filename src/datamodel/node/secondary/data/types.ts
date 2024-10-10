@@ -11,6 +11,7 @@ import {
 
 import {
     NodeParams,
+    NodeSchema,
 } from "../../primary/node/types";
 
 /**
@@ -23,7 +24,7 @@ import {
  */
 export const DATA0_NODE_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_ID, 0, SECONDARY_INTERFACE_ID, NODE_CLASS, CLASS_MAJOR_VERSION]);
 
-export const DATA0_NODE_TYPE_ALIAS = "Data0";
+export const DATA0_NODE_TYPE_ALIAS = "DataNode";
 
 export type DataParams = NodeParams & {
     dataConfig?: number,
@@ -32,6 +33,15 @@ export type DataParams = NodeParams & {
     data?: Buffer,
     isSpecial?: boolean,
 };
+
+export const DataNodeSchema = {
+    ...NodeSchema,
+    "dataConfig??": 0,
+    "userConfig??": 0,
+    "contentType??": "",
+    "data??": new Uint8Array(0),
+    "isSpecial??": false,
+} as const;
 
 /**
  * A data node which is flagged as isSpecial is expected to have its

@@ -1,17 +1,5 @@
 import blake2b from "blake2b"
 
-import {
-    PRIMARY_INTERFACE_CHAINCERT_ID,
-} from "../datamodel/cert/primary/interface/PrimaryChainCertInterface";
-
-import {
-    PRIMARY_INTERFACE_DEFAULTCERT_ID,
-} from "../datamodel/cert/primary/interface/PrimaryDefaultCertInterface";
-
-import {
-    PRIMARY_INTERFACE_NODECERT_ID,
-} from "../datamodel/cert/primary/interface/PrimaryNodeCertInterface";
-
 /**
  * Compares A and B on creationTime and if equal then compare also on ID.
  *
@@ -89,13 +77,15 @@ export function DeepEquals(o1: any, o2: any): boolean {
  * Return deep copy of an object.
  *
  * Function cannot be copied.
- * Class instances  must have a clone() function, which is called and the result is saved.
+ * Class instances have their properties copied and they are returned as objects.
  *
  * @param o object to copy.
+ * @param keepBuffer if set then do not copy buffers byte-per-byte but use the same object
+ * Uin8Arrays are returned wrapped in Buffer.
  * @returns copied object.
- * @throws on unknown or uncopyable data types.
+ * @throws on unknown or uncopyable data types such as functios.
  */
-export function DeepCopy(o: any): any {
+export function DeepCopy(o: any, keepBuffer: boolean = false): any {
     const type = GetType(o);
 
     // Scalar types are directly returned.
@@ -103,24 +93,55 @@ export function DeepCopy(o: any): any {
         return o;
     }
     else if (type === "array") {
-        return o.map( (value: any) => DeepCopy(value) );
+        return o.map( (value: any) => DeepCopy(value, keepBuffer) );
     }
-    else if (type === "object") {
+    else if (type === "object" || type === "classInstance") {
         const o2: any = {};
         const keys = Object.keys(o);
-        keys.forEach( (key: string) => o2[key] = DeepCopy(o[key]) );
+        keys.forEach( (key: string) => o2[key] = DeepCopy(o[key], keepBuffer) );
         return o2;
     }
     else if (type === "buffer" || type === "arraybuffer") {
+        if (keepBuffer) {
+            // This reuses the underlying data, and in the case of arraybuffer
+            // wraps it in a Buffer object.
+            return Buffer.from(o);
+        }
+
         const l = o.length;
+
         const o2 = Buffer.alloc(l);
+
         for (let i=0; i<l; i++) {
             o2[i] = o[i];
         }
+
         return o2;
     }
 
     throw new Error(`Type not recognized for ${o}`);
+}
+
+/**
+ * Shallow copy first level object, array or pick properties from class instance.
+ */
+export function ShallowCopy(o: any): any {
+    const type = GetType(o);
+
+    if (type === "array") {
+        return o.map( (value: any) => value );
+    }
+    else if (type === "object" || type === "classInstance") {
+        const o2: any = {};
+
+        const keys = Object.keys(o);
+
+        keys.forEach( (key: string) => o2[key] = o[key] );
+
+        return o2;
+    }
+
+    return o;
 }
 
 /**
@@ -129,7 +150,7 @@ export function DeepCopy(o: any): any {
  * @returns type as string or undefined if type could not be recognized.
  */
 export function GetType(o: any): "undefined" | "null" | "string" | "number" | "boolean" | "bigint" |
-    "array" | "object" | "buffer" | "arraybuffer" | "class" | "function" | undefined
+    "array" | "object" | "buffer" | "arraybuffer" | "classInstance" | "function" | undefined
 {
     if (o === undefined) {
         return "undefined";
@@ -161,14 +182,14 @@ export function GetType(o: any): "undefined" | "null" | "string" | "number" | "b
     else if (Buffer.isBuffer(o)) {
         return "buffer";
     }
-    else if (ArrayBuffer.isView(o)) {
-        return "arraybuffer";
-    }
     else if (type === "object" && o.constructor === Object) {
         return type;
     }
+    else if (o instanceof Uint8Array) {
+        return "arraybuffer";
+    }
     else if (type === "object") {
-        return "class";
+        return "classInstance";
     }
 
     return undefined;
@@ -202,46 +223,57 @@ export function CopyBuffer(...buffers: (Buffer | Uint8Array)[]): Buffer {
 }
 
 export function DeepHash(o: any): Buffer {
+    const type = GetType(o);
+
     let b: Buffer | undefined;
-    if (Array.isArray(o)) {
+    if (type === "array") {
         const h = blake2b(32);
-        o.forEach( (o2, index) => {
+        o.forEach( (o2: any, index: number) => {
             const indexBuf = Buffer.alloc(4);
             indexBuf.writeUInt32BE(index);
             h.update(indexBuf);
             h.update(DeepHash(o2));
             h.update(indexBuf);
         });
-        return Buffer.from(h.digest());
+
+        // Prepend 0x06 to not mix this up
+        return Buffer.concat([Buffer.from([6]), Buffer.from(h.digest())]);
     }
-    else if (typeof o === "object" && o.constructor === Object) {
+    else if (type === "object" || type === "classInstance") {
         const keys = Object.keys(o);
         keys.sort();
-        const values = keys.map( (key, index) => [index, key, o[key], index] );
-        return DeepHash(values);
+        const values = keys.map( (key, index) => [keys.length, index, key, o[key], index] );
+
+        // Prepend 0x05 to not mix this up
+        return Buffer.concat([Buffer.from([5]), DeepHash(values)]);
     }
     else if (o === undefined || o === null) {
         b = Buffer.alloc(0);
     }
-    else if (typeof o === "string") {
-        b = Buffer.from(o, "utf8");
+    else if (type === "string") {
+        // Prepend 0x00 to not mix this up
+        b = Buffer.concat([Buffer.from([0]), Buffer.from(o, "utf8")]);
     }
-    else if (typeof o === "number") {
+    else if (type === "number") {
         if (isNaN(o)) {
             throw new Error("NaN is not supported");
         }
+        // Prepend 0x01 to not mix this up
+        b = Buffer.concat([Buffer.from([1]), Buffer.from(o.toString(), "ascii")]);
         b = Buffer.alloc(4);
         b.writeInt32BE(o);
     }
-    else if (typeof o === "boolean") {
-        b = Buffer.alloc(4);
-        b.writeInt32BE(Number(o));
+    else if (type === "boolean") {
+        // Prepend 0x02 to not mix this up
+        b = Buffer.concat([Buffer.from([2]), Buffer.from(o.toString())]);
     }
-    else if (typeof o === "bigint") {
-        b = Buffer.from(o.toString(), "utf8");
+    else if (type === "bigint") {
+        // Prepend 0x03 to not mix this up
+        b = Buffer.concat([Buffer.from([3]), Buffer.from(o.toString(), "ascii")]);
     }
     else if (Buffer.isBuffer(o)) {
-        b = o;
+        // Prepend 0x04 to not mix this up
+        b = Buffer.concat([Buffer.from([4]), o]);
     }
     else {
         throw new Error(`Cannot hash type of ${o}`);
@@ -250,40 +282,6 @@ export function DeepHash(o: any): Buffer {
     const h = blake2b(32);
     h.update(b);
     return Buffer.from(h.digest());
-}
-
-/**
- * Clean and prepare object for output.
- * Transform buffers to hex strings in object,
- * remove instances and functions.
- */
-export function StripObject(obj: any): any {
-    if (Buffer.isBuffer(obj)) {
-        return obj.toString("hex");
-    }
-    else if (typeof(obj) === "bigint") {
-        return Number(obj);
-    }
-    else if (Array.isArray(obj)) {
-        return obj.map( (elm: any) => {
-            return StripObject(elm);
-        });
-    }
-    else if (obj && typeof obj === "object" && obj.constructor === Object) {
-        const keys = Object.keys(obj);
-        const obj2: any = {};
-        keys.forEach( (key: string) => {
-            obj2[key] = StripObject(obj[key]);
-        });
-        return obj2;
-    }
-    else if (obj && typeof obj === "object" && obj.constructor !== Object) {
-        return undefined;
-    }
-    else if (obj && typeof obj === "function") {
-        return undefined;
-    }
-    return obj;
 }
 
 type fn<ReturnType> = (res: ReturnType | undefined) => void;
@@ -314,178 +312,4 @@ export function PromiseCallback<ReturnType>(): {promise: Promise<ReturnType>, cb
         promise,
         cb,
     };
-}
-
-/**
-* Check in the image header data if it looks like a cert.
-* @param image the cert image
-* @returns true if the image header is recognized as being of primary interface cert.
-*/
-export function IsCert(image: Buffer): boolean {
-    const chainCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_CHAINCERT_ID]);
-    if (image.slice(0, 2).equals(chainCertPrimaryInterface)) {
-        return true;
-    }
-
-    const defaultCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_DEFAULTCERT_ID]);
-    if (image.slice(0, 2).equals(defaultCertPrimaryInterface)) {
-        return true;
-    }
-
-    const nodeCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_NODECERT_ID]);
-    if (image.slice(0, 2).equals(nodeCertPrimaryInterface)) {
-        return true;
-    }
-
-    return false;
-}
-
-/**
- * Substitute variables in template object for given values in variables map.
- * Any string value anywhere in the template object is substituted by provided value
- * in variables mapping. If variable not provided in variables mapping then use
- * given default value in template, if default value not defined then remove element.
- * If element is inside array the array will become shorter as the element is removed.
- *
- * template =
- * {
- *  name: "${nameOfPerson:string:John Doe}",
- *  age: "${:number:99}",  // Note that leaving out varName will default to key name (age).
- *  hair: "${hairStyle}",
- *  pets: ["${pet}"],  // Note that array elements cannot do: ${:string:xyz} because there is not key.
- * }
- *
- * variables =
- * {
- *  nameOfPerson: "Jane Doe",
- *  hairStyle: "Curly",
- *  pet: "Turtle",
- * }
- *
- * Output =
- * {
- *  name: "Jane Doe",
- *  age: 99,
- *  hair: "Curly",
- *  pets: ["Turtle"],
- * }
- *
- * In case "hairStyle" is left out in "variables" that element will not be present in output as it has no default value.
- * In case "pet" is left out in "variables" then pets array will be an empty array.
- *
- * @param template object (typically coming from JSON.parse)
- * @param variables map of {varName: value}
- */
-export function TemplateSubstitute(obj: any, variables: Record<string, any>, keyName?: string): any {
-    if (typeof obj === "string") {
-        // Check if to substitute
-        //
-        let varName: string | undefined;
-        let varType: string | undefined;
-        let varDefault: string | undefined;
-
-        let match = obj.match(/^\${([a-zA-Z0-9]*):([^:]+):(.*)}$/);
-
-        if (match) {
-            varName = match[1] || keyName;
-            varType = match[2];
-            varDefault = match[3];
-        }
-
-        if (!match) {
-            match = obj.match(/^\${([a-zA-Z0-9]+)}$/);
-
-            if (match) {
-                varName = match[1];
-            }
-        }
-
-        if (varName || varDefault) {
-            const v = varName ? variables[varName] : undefined;
-
-            if (v === null) {
-                // null from JSON parsing indicates to not use default value,
-                // but to remove it completely.
-                //
-                return undefined;
-            }
-
-            if (v !== undefined) {
-                if (varType === "bigint") {
-                    return BigInt(v);
-                }
-
-                return DeepCopy(v);
-            }
-
-            // Check if to use default
-            //
-            if (varDefault !== undefined) {
-                if (varType === "string") {
-                    return varDefault;
-                }
-                else if (varType === "number") {
-                    return Number(varDefault);
-                }
-                else if (varType === "bigint") {
-                    return BigInt(varDefault);
-                }
-                else if (varType === "boolean") {
-                    return varDefault === "true";
-                }
-            }
-
-            return undefined;
-        }
-
-        return obj;
-    }
-    else if (Array.isArray(obj)) {
-        const outArray: any[] = [];
-
-        const l = obj.length;
-
-        for (let i=0; i<l; i++) {
-            const innerObj = obj[i];
-
-            const innerObj2 = TemplateSubstitute(innerObj, variables);
-
-            if (innerObj2 === undefined && innerObj !== innerObj2) {
-                // Skip this element
-                //
-                continue;
-            }
-
-            outArray.push(innerObj2);
-        }
-
-        return outArray;
-    }
-    else if (obj && typeof obj === "object" && obj.constructor === Object) {
-        const outObj: any = {};
-
-        const keys = Object.keys(obj);
-
-        const l = keys.length;
-
-        for (let i=0; i<l; i++) {
-            const key = keys[i];
-
-            const innerObj = obj[key];
-
-            const innerObj2 = TemplateSubstitute(innerObj, variables, key);
-
-            if (innerObj2 === undefined && innerObj !== innerObj2) {
-                // Skip this element
-                //
-                continue;
-            }
-
-            outObj[key] = innerObj2;
-        }
-
-        return outObj;
-    }
-
-    return DeepCopy(obj);
 }

@@ -12,6 +12,7 @@ import {
 
 import {
     BaseCertParams,
+    BaseCertSchema,
 } from "../../base/types";
 
 export const FRIENDCERT_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_DEFAULTCERT_ID, 0, SECONDARY_INTERFACE_FRIENDCERT_ID, 0, 0]);
@@ -21,6 +22,13 @@ export type FriendCertParams = BaseCertParams & {
     isLockedOnIntermediary?: boolean,
     isLockedOnLevel?: boolean,
 };
+
+export const FriendCertSchema = {
+    ...BaseCertSchema,
+    "key??": new Uint8Array(0),
+    "isLockedOnIntermediary??": false,
+    "isLockedOnLevel??": false,
+} as const;
 
 /**
  * Extends the general cert config.

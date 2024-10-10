@@ -103,7 +103,7 @@ export class JSONUtil {
                     return value;
                 }
                 else {
-                    console.debug(`External loading does not allow field name: ${varName}`);
+                    console.debug(`External loading does not allow field name: ${varName}, for file: ${file}`);
                     return undefined;
                 }
             }

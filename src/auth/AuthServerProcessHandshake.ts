@@ -37,9 +37,6 @@ export class AuthServerProcessHandshake implements AuthServerProcessInterface {
     protected phase = 1;
 
     constructor(protected apiAuthFactoryConfig: APIAuthFactoryConfig) {
-        //const config = (apiAuthFactoryConfig.serverAuth?.methods ?? {})
-            //[AuthServerProcessHandshake.NAME] ?? {};
-
         const [socket1, socket2] = CreatePair();
 
         this.socket1 = socket1;

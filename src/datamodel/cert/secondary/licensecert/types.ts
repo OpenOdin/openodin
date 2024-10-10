@@ -12,6 +12,7 @@ import {
 
 import {
     PrimaryNodeCertParams,
+    PrimaryNodeCertSchema,
 } from "../../primary/nodecert/types";
 
 export const LICENSECERT_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_NODECERT_ID, 0, SECONDARY_INTERFACE_LICENSECERT_ID, 0, 0]);
@@ -25,6 +26,17 @@ export type LicenseCertParams = PrimaryNodeCertParams & {
     isLockedOnFriendLevel?: boolean,
     isLockedOnMaxExtensions?: boolean,
 };
+
+export const LicenseCertSchema = {
+    ...PrimaryNodeCertSchema,
+    "maxExtensions??": 0,
+    "isLockedOnLicenseTargetPublicKey??": false,
+    "isLockedOnLicenseConfig??": false,
+    "isLockedOnTerms??": false,
+    "isLockedOnExtensions??": false,
+    "isLockedOnFriendLevel??": false,
+    "isLockedOnMaxExtensions??": false,
+} as const;
 
 /**
  * Extends Node cert locked config.

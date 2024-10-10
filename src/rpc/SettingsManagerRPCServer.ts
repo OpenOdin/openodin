@@ -24,7 +24,6 @@ export class SettingsManagerRPCServer {
 
     /**
      * Get a number of values from a specific namespace.
-     * It is cheaper getting values in a batch due to encryption being used.
      *
      * @param namespace namespace within app (bound to url), no whitespace allowed in name
      * @param keys array of keys for which to get values
@@ -46,7 +45,6 @@ export class SettingsManagerRPCServer {
 
     /**
      * Set a number of values to a specific namespace.
-     * It is cheaper setting values in a batch due to encryption being used.
      *
      * @param namespace namespace within app (bound to url), no whitespace allowed in name
      * @param values object of key-value to be stored in namespace
@@ -68,12 +66,8 @@ export class SettingsManagerRPCServer {
     };
 
     protected async getNamespace(fullNamespace: string): Promise<Record<string, any>> {
-        const blob =
+        const json =
             (await this.browserHandle.storage.local.get([fullNamespace]))[fullNamespace];
-
-        // TODO decrypt blob to json
-        //
-        const json = blob;
 
         const namespaceObj = JSON.parse(json ?? "{}");
 
@@ -83,11 +77,7 @@ export class SettingsManagerRPCServer {
     protected async setNamespace(fullNamespace: string, namespaceObj: Record<string, any>) {
         const json = JSON.stringify(namespaceObj);
 
-        // TODO: encrypt json to blob
-        //
-        const blob = json;
-
-        await this.browserHandle.storage.local.set({[fullNamespace]: blob});
+        await this.browserHandle.storage.local.set({[fullNamespace]: json});
     }
 
     public close = async () => {

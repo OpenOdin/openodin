@@ -12,6 +12,7 @@ import {
 
 import {
     BaseCertParams,
+    BaseCertSchema,
 } from "../../base/types";
 
 export const AUTHCERT_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_DEFAULTCERT_ID, 0, SECONDARY_INTERFACE_AUTHCERT_ID, 0, 0]);
@@ -22,6 +23,16 @@ export type AuthCertParams = Omit<BaseCertParams & {
     isLockedOnRegion?: boolean,
     isLockedOnJurisdiction?: boolean,
 }, "targetMaxExpireTime" | "targetType" | "multiSigThreshold">;
+
+export const AuthCertSchema = {
+    ...BaseCertSchema,
+    targetMaxExpireTime: undefined,
+    targetType: undefined,
+    multiSigThreshold: undefined,
+    "isLockedOnPublicKey??": false,
+    "isLockedOnRegion??": false,
+    "isLockedOnJurisdiction??": false,
+} as const;
 
 /**
  * Extend config bits from general cert.

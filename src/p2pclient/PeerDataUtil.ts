@@ -39,13 +39,7 @@ export class PeerDataUtil {
         peerData.setAuthCert(params.authCert);
         peerData.setAuthCertPublicKey(params.authCertPublicKey);
 
-        let clockDiff = params.clockDiff ?? 0;
-        if (clockDiff < -2147483648) {
-            clockDiff = -2147483648;
-        }
-        else if (clockDiff > 2147483647) {
-            clockDiff = 2147483647;
-        }
+        const clockDiff = params.clockDiff ?? 0;
         peerData.setClockDiff(clockDiff);
 
         peerData.setRegion(params.region);
@@ -78,13 +72,7 @@ export class PeerDataUtil {
         // the given clockDiff is for the local side, so we negate it
         // and use it for the remote side.
         //
-        let clockDiff = handshakeResult.clockDiff;
-        if (clockDiff < -2147483648) {
-            clockDiff = -2147483648;
-        }
-        else if (clockDiff > 2147483647) {
-            clockDiff = 2147483647;
-        }
+        const clockDiff = handshakeResult.clockDiff;
         peerData.setClockDiff(-clockDiff);
 
         if (!version || serializeFormat === undefined) {

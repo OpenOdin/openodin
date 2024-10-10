@@ -9,6 +9,15 @@ import {
     AlgoSortedRefId,
 } from "../storage/crdt";
 
+import {
+    EmbedSchema,
+} from "../request/jsonSchema";
+
+import {
+    ParseEnum,
+    ParseArrayWithDefault,
+} from "../util/SchemaUtil";
+
 export enum RouteAction {
     STORE       = "store",
     FETCH       = "fetch",
@@ -130,22 +139,23 @@ export type P2PClientFetchPermissions = {
     allowEmbed: AllowEmbed[],
 
     /**
-     * For FetchRequests having includeLicenses set this value is bit masked against the
-     * desired setting in the FetchQuery.
+     * For FetchRequests having includeLicenses set this value is matched against the
+     * desired setting in the FetchQuery deciding if the FetchRequest is allowed to
+     * use includeLicenses.
      *
      * This configuration is separate from allowEmbed and can be used
      * even if allowEmbed is set empty ([]).
      *
      * This setting is also seperate from Match against licenses.
      *
-     * 0 = do not allow.
-     * 1 = allow auto include of all licenses needed to license a matched node.
+     * "" = do not allow.
+     * "Include" = allow auto include of all licenses needed to license a matched node.
      *      Both read and write licenses are included.
-     * 2 = allow auto include of licenses which can be embedded to give permissions to matched nodes.
+     * "Extend" = allow auto include of licenses which can be embedded to give permissions to matched nodes.
      *      Both read and write licenses are included.
-     * 3 = allow both 1 and 2.
+     * "IncludeExtend" = allow both "Include", "Extend", and "IncludeExtend".
      */
-    allowIncludeLicenses: number,
+    allowIncludeLicenses: "" | "Include" | "Extend" | "IncludeExtend",
 
     /** Set if to allow fetch requests using triggers. */
     allowTrigger: boolean,
@@ -154,7 +164,7 @@ export type P2PClientFetchPermissions = {
     allowNodeTypes: Buffer[],
 
     /** Algo IDs supported for CRDT requests. */
-    allowAlgos: number[],
+    allowAlgos: string[],
 
     /** Is the peer allowed to read blob data? The peer must also have access to the node it self. */
     allowReadBlob: boolean,
@@ -185,7 +195,7 @@ export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
                 filters: []
             }
         ],
-        allowIncludeLicenses: 3,
+        allowIncludeLicenses: "IncludeExtend",
         allowTrigger: true,
         allowNodeTypes: [Buffer.from("0004", "hex")],
         allowAlgos: [
@@ -200,6 +210,27 @@ export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
         allowWriteBlob: true,
     }
 };
+
+export const P2PClientPermissionsUncheckedPermissiveSchema = {
+    "allowUncheckedAccess?": true,
+    "fetchPermissions?": {
+        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], ["0004"]),
+        "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""],
+            "IncludeExtend"),
+        "allowTrigger?": true,
+        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "0004", filters: []}]),
+        "allowAlgos?": ParseArrayWithDefault([""], [
+            AlgoSorted.GetId(),
+            AlgoRefId.GetId(),
+            AlgoSortedRefId.GetId(),
+        ]),
+        "allowReadBlob?": true,
+    },
+    "storePermissions?": {
+        "allowStore?": true,
+        "allowWriteBlob?": true,
+    },
+} as const;
 
 export const DEFAULT_PEER_PERMISSIONS: P2PClientPermissions = {
     allowUncheckedAccess: false,
@@ -210,7 +241,7 @@ export const DEFAULT_PEER_PERMISSIONS: P2PClientPermissions = {
                 "filters": []
             }
         ],
-        allowIncludeLicenses: 3,
+        allowIncludeLicenses: "IncludeExtend",
         allowTrigger: true,
         allowNodeTypes: [Buffer.from("0004", "hex")],
         allowAlgos: [],
@@ -222,6 +253,23 @@ export const DEFAULT_PEER_PERMISSIONS: P2PClientPermissions = {
     }
 };
 
+export const P2PClientPermissionsDefaultSchema = {
+    "allowUncheckedAccess?": false,
+    "fetchPermissions?": {
+        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], ["0004"]),
+        "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""],
+            "IncludeExtend"),
+        "allowTrigger?": true,
+        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "0004", filters: []}]),
+        "allowAlgos?": [""],
+        "allowReadBlob?": true,
+    },
+    "storePermissions?": {
+        "allowStore?": false,
+        "allowWriteBlob?": false,
+    },
+} as const;
+
 export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     allowUncheckedAccess: false,
     fetchPermissions: {
@@ -231,7 +279,7 @@ export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
                 "filters": []
             }
         ],
-        allowIncludeLicenses: 3,
+        allowIncludeLicenses: "IncludeExtend",
         allowTrigger: true,
         allowNodeTypes: [Buffer.from("0004", "hex")],
         allowAlgos: [
@@ -247,11 +295,32 @@ export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     }
 };
 
+export const P2PClientPermissionsPermissiveSchema = {
+    "allowUncheckedAccess?": false,
+    "fetchPermissions?": {
+        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], ["0004"]),
+        "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""],
+            "IncludeExtend"),
+        "allowTrigger?": true,
+        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "0004", filters: []}]),
+        "allowAlgos?": ParseArrayWithDefault([""], [
+            AlgoSorted.GetId(),
+            AlgoRefId.GetId(),
+            AlgoSortedRefId.GetId(),
+        ]),
+        "allowReadBlob?": true,
+    },
+    "storePermissions?": {
+        "allowStore?": true,
+        "allowWriteBlob?": true,
+    },
+} as const;
+
 export const LOCKED_PERMISSIONS: P2PClientPermissions = {
     allowUncheckedAccess: false,
     fetchPermissions: {
         allowEmbed: [],
-        allowIncludeLicenses: 0,
+        allowIncludeLicenses: "",
         allowTrigger: false,
         allowNodeTypes: [],
         allowAlgos: [],
@@ -262,6 +331,22 @@ export const LOCKED_PERMISSIONS: P2PClientPermissions = {
         allowWriteBlob: false,
     }
 };
+
+export const P2PClientPermissionsLockedSchema = {
+    "allowUncheckedAccess?": false,
+    "fetchPermissions?": {
+        "allowNodeTypes?": [new Uint8Array(0)],
+        "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""], ""),
+        "allowTrigger?": false,
+        "allowEmbed?": [EmbedSchema],
+        "allowAlgos?": [""],
+        "allowReadBlob?": false,
+    },
+    "storePermissions?": {
+        "allowStore?": false,
+        "allowWriteBlob?": false,
+    },
+} as const;
 
 export type PeerDataParams = {
     version: string,

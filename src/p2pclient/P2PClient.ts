@@ -9,8 +9,11 @@ import {
 
 import {
     BebopSerialize,
+} from "../request/BebopSerialize";
+
+import {
     BebopDeserialize,
-} from "./bebop";
+} from "../request/BebopDeserialize";
 
 import {
     Status,
@@ -228,7 +231,7 @@ export class P2PClient {
         }
 
         // Default permissions are locked down.
-        this.permissions = DeepCopy(permissions ?? LOCKED_PERMISSIONS);
+        this.permissions = DeepCopy(permissions ?? LOCKED_PERMISSIONS) as P2PClientPermissions;
 
         const eventEmitter = this.messaging.getEventEmitter();
         eventEmitter.on(EventType.CLOSE, this.close);
@@ -324,22 +327,22 @@ export class P2PClient {
         try {
             switch(routeEvent.target) {
                 case RouteAction.STORE:
-                    this.route<StoreRequest, StoreResponse>(RouteAction.STORE, routeEvent, this.handlerStore, this.limitStoreRequest, this.deserialize.StoreRequest, this.serialize.StoreResponse, this.deserialize.StoreResponse, {storedId1s: [], missingBlobId1s: [], missingBlobSizes: [], status: Status.ERROR, error: ""});
+                    this.route<StoreRequest, StoreResponse>(RouteAction.STORE, routeEvent, this.handlerStore, this.limitStoreRequest, this.deserialize.StoreRequest, this.serialize.StoreResponse, this.deserialize.StoreResponse, {storedId1List: [], missingBlobId1List: [], missingBlobSizes: [], status: Status.Error, error: ""});
                     break;
                 case RouteAction.FETCH:
-                    this.route<FetchRequest, FetchResponse>(RouteAction.FETCH, routeEvent, this.handlerFetch, this.limitFetchRequest, this.deserialize.FetchRequest, this.serialize.FetchResponse, this.deserialize.FetchResponse, {seq: 0, endSeq: 0, result: {nodes: [], embed: [], cutoffTime: 0n}, crdtResult: {delta: Buffer.alloc(0), length: 0, cursorIndex: -1}, status: Status.ERROR, error: "", rowCount: 0});
+                    this.route<FetchRequest, FetchResponse>(RouteAction.FETCH, routeEvent, this.handlerFetch, this.limitFetchRequest, this.deserialize.FetchRequest, this.serialize.FetchResponse, this.deserialize.FetchResponse, {seq: 0, endSeq: 0, result: {nodes: [], embed: [], cutoffTime: 0n}, crdtResult: {delta: Buffer.alloc(0), length: 0, cursorIndex: -1}, status: Status.Error, error: "", rowCount: 0});
                     break;
                 case RouteAction.UNSUBSCRIBE:
-                    this.route<UnsubscribeRequest, UnsubscribeResponse>(RouteAction.UNSUBSCRIBE, routeEvent, this.handlerUnsubscribe, this.limitUnsubscribeRequest, this.deserialize.UnsubscribeRequest, this.serialize.UnsubscribeResponse, this.deserialize.UnsubscribeResponse, {status: Status.ERROR, error: ""});
+                    this.route<UnsubscribeRequest, UnsubscribeResponse>(RouteAction.UNSUBSCRIBE, routeEvent, this.handlerUnsubscribe, this.limitUnsubscribeRequest, this.deserialize.UnsubscribeRequest, this.serialize.UnsubscribeResponse, this.deserialize.UnsubscribeResponse, {status: Status.Error, error: ""});
                     break;
                 case RouteAction.WRITE_BLOB:
-                    this.route<WriteBlobRequest, WriteBlobResponse>(RouteAction.WRITE_BLOB, routeEvent, this.handlerWriteBlob, this.limitWriteBlobRequest, this.deserialize.WriteBlobRequest, this.serialize.WriteBlobResponse, this.deserialize.WriteBlobResponse, {status: Status.ERROR, error: "", currentLength: 0n});
+                    this.route<WriteBlobRequest, WriteBlobResponse>(RouteAction.WRITE_BLOB, routeEvent, this.handlerWriteBlob, this.limitWriteBlobRequest, this.deserialize.WriteBlobRequest, this.serialize.WriteBlobResponse, this.deserialize.WriteBlobResponse, {status: Status.Error, error: "", currentLength: 0n});
                     break;
                 case RouteAction.READ_BLOB:
-                    this.route<ReadBlobRequest, ReadBlobResponse>(RouteAction.READ_BLOB, routeEvent, this.handlerReadBlob, this.limitReadBlobRequest, this.deserialize.ReadBlobRequest, this.serialize.ReadBlobResponse, this.deserialize.ReadBlobResponse, {data: Buffer.alloc(0), seq: 0, endSeq: 0, blobLength: 0n, status: Status.ERROR, error: ""});
+                    this.route<ReadBlobRequest, ReadBlobResponse>(RouteAction.READ_BLOB, routeEvent, this.handlerReadBlob, this.limitReadBlobRequest, this.deserialize.ReadBlobRequest, this.serialize.ReadBlobResponse, this.deserialize.ReadBlobResponse, {data: Buffer.alloc(0), seq: 0, endSeq: 0, blobLength: 0n, status: Status.Error, error: ""});
                     break;
                 case RouteAction.MESSAGE:
-                    this.route<GenericMessageRequest, GenericMessageResponse>(RouteAction.MESSAGE, routeEvent, this.handlerGenericMessage, this.limitGenericMessageRequest, this.deserialize.GenericMessageRequest, this.serialize.GenericMessageResponse, this.deserialize.GenericMessageResponse, {data: Buffer.alloc(0), status: Status.ERROR, error: ""});
+                    this.route<GenericMessageRequest, GenericMessageResponse>(RouteAction.MESSAGE, routeEvent, this.handlerGenericMessage, this.limitGenericMessageRequest, this.deserialize.GenericMessageRequest, this.serialize.GenericMessageResponse, this.deserialize.GenericMessageResponse, {data: Buffer.alloc(0), status: Status.Error, error: ""});
                     break;
                 default:
                     // This is either a request for an unknown action on this side, or
@@ -487,7 +490,7 @@ export class P2PClient {
     protected limitWriteBlobRequest = (writeBlobRequest: WriteBlobRequest, sendResponse: SendResponseFn<WriteBlobResponse> | undefined): WriteBlobRequest | undefined => {
         if (!this.permissions.storePermissions.allowWriteBlob) {
             const writeBlobResponse: WriteBlobResponse = {
-                status: Status.NOT_ALLOWED,
+                status: Status.NotAllowed,
                 error: "Write blob is not allowed",
                 currentLength: 0n,
             };
@@ -539,7 +542,7 @@ export class P2PClient {
     protected limitReadBlobRequest = (readBlobRequest: ReadBlobRequest, sendResponse: SendResponseFn<ReadBlobResponse> | undefined): ReadBlobRequest | undefined => {
         if (!this.permissions.fetchPermissions.allowReadBlob) {
             const readBlobResponse: ReadBlobResponse = {
-                status: Status.NOT_ALLOWED,
+                status: Status.NotAllowed,
                 error: "Read blob is not allowed",
                 data: Buffer.alloc(0),
                 blobLength: 0n,
@@ -621,9 +624,9 @@ export class P2PClient {
         if (!this.permissions.storePermissions.allowStore) {
             if (sendResponse) {
                 const storeResponse: StoreResponse = {
-                    status: Status.ERROR,
-                    storedId1s: [],
-                    missingBlobId1s: [],
+                    status: Status.Error,
+                    storedId1List: [],
+                    missingBlobId1List: [],
                     missingBlobSizes: [],
                     error: "Store not allowed",
                 };
@@ -697,15 +700,15 @@ export class P2PClient {
         if (allowed) {
             const algoId = fetchRequest.crdt.algo;
 
-            if (algoId > 0 && this.permissions.fetchPermissions.allowAlgos.indexOf(algoId) === -1) {
-                errorMsg = `CRDT algo ${algoId} requested is not supported`;
+            if (algoId.length > 0 && this.permissions.fetchPermissions.allowAlgos.indexOf(algoId) === -1) {
+                errorMsg = `CRDT algo ${algoId} requested is not supported. Allowed algos: ${this.permissions.fetchPermissions.allowAlgos.join(", ")}`;
                 allowed = false;
             }
         }
 
         if (!allowed) {
             const fetchResponseNotAllowed: FetchResponse = {
-                status: Status.NOT_ALLOWED,
+                status: Status.NotAllowed,
                 error: `Fetch/Subscription request as stated is not allowed: ${errorMsg}.`,
                 result: {
                     nodes: [],
@@ -730,13 +733,32 @@ export class P2PClient {
         // Intersect what the client wants to embed and what we allow to be embedded.
         const allowEmbed = this.intersectAllowedEmbed(fetchRequest.query.embed, this.permissions.fetchPermissions.allowEmbed);
 
+        let includeLicenses: typeof fetchRequest.query.includeLicenses = "";
+
+        if (this.permissions.fetchPermissions.allowIncludeLicenses === "IncludeExtend") {
+            includeLicenses = fetchRequest.query.includeLicenses;
+        }
+        else if (this.permissions.fetchPermissions.allowIncludeLicenses === "Include") {
+            if (fetchRequest.query.includeLicenses === "IncludeExtend" ||
+                fetchRequest.query.includeLicenses === "Include") {
+
+                includeLicenses = "Include";
+            }
+        }
+        else if (this.permissions.fetchPermissions.allowIncludeLicenses === "Extend") {
+            if (fetchRequest.query.includeLicenses === "IncludeExtend" ||
+                fetchRequest.query.includeLicenses === "Extend") {
+
+                includeLicenses = "Extend";
+            }
+        }
 
         // Copy fetchRequest with some changes to forward it to our storage.
         const fetchRequest2: FetchRequest = {
             query: {
                 ...fetchRequest.query,
                 embed: allowEmbed,
-                includeLicenses: fetchRequest.query.includeLicenses & this.permissions.fetchPermissions.allowIncludeLicenses,
+                includeLicenses,
             },
             crdt: fetchRequest.crdt,
         };

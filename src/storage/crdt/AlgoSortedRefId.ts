@@ -51,12 +51,12 @@ export class AlgoSortedRefId implements AlgoInterface {
         this.targetPublicKey = targetPublicKey;
     }
 
-    public static GetId(): number {
-        return 3;
+    public static GetId(): string {
+        return "SortedRefId";
     }
 
-    public getId(): number {
-        return 3;
+    public getId(): string {
+        return AlgoSortedRefId.GetId();
     }
 
     public getLength(): number {
