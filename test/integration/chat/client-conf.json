@@ -35,12 +35,14 @@
     "peers": [
         {
             "connection": {
-                "client": {
-                    "socketType": "WebSocket",
-                    "host": "127.0.0.1",
-                    "port": 8181,
-                    "serverPublicKey": "!serverKeyfile.json:.keyPair.publicKey",
-                    "reconnectDelay": 0
+                "handshake": {
+                    "client": {
+                        "socketType": "TCP",
+                        "host": "127.0.0.1",
+                        "port": 8181,
+                        "serverPublicKey": "!serverKeyfile.json:.keyPair.publicKey",
+                        "reconnectDelay": 0
+                    }
                 }
             }
         }

@@ -49,19 +49,20 @@ describe("SchemaUtil", function() {
         assert(DeepEquals(parsed, parsed4));
     });
 
-    it("should apply FetchRequestSchema", function() {
+    it("should apply ApplicationConfSchema", function() {
         const obj = {
             name: "Testing",
             version: "1.2.3",
             peers: [
                 {
                     connection: {
-                        factory: "native",
-                        client: {
-                            socketType: "WebSocket",
-                            port: 1010,
-                            serverPublicKey: "abba",
-                        },
+                        handshake: {
+                            client: {
+                                socketType: "WebSocket",
+                                port: 1010,
+                                serverPublicKey: Buffer.alloc(32),
+                            },
+                        }
                     }
                 },
             ],

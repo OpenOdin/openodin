@@ -33,15 +33,17 @@
     "peers": [
         {
             "connection": {
-                "maxConnectionsPerIp": 1,
-                "maxConnections": 10,
-                "server": {
-                    "socketType": "WebSocket",
-                    "host": "0.0.0.0",
-                    "port": 8181,
-                    "allowedClients": ["!clientKeyfile.json:.keyPair.publicKey"],
-                    "deniedIPs": [],
-                    "allowedIPs": null
+                "handshake": {
+                    "maxConnectionsPerIp": 1,
+                    "maxConnections": 10,
+                    "server": {
+                        "socketType": "TCP",
+                        "host": "0.0.0.0",
+                        "port": 8181,
+                        "allowedClients": ["!clientKeyfile.json:.keyPair.publicKey"],
+                        "deniedIPs": [],
+                        "allowedIPs": null
+                    }
                 }
             }
         }

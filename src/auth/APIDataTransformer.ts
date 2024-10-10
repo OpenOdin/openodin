@@ -233,7 +233,7 @@ export class APIDataTransformer {
             target,
             msgId,
             expectingReply: request.expectingReply,
-            data: ToJSONObject(request.data ?? {}, true),
+            data: JSON.stringify(ToJSONObject(request.data ?? {}, true)),
         };
 
         return JSON.stringify(obj);

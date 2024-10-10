@@ -16,7 +16,6 @@ import {
     LicenseCertInterface,
     DataParams,
     LicenseParams,
-    PRIMARY_INTERFACE_NODE_ID,
 } from "../datamodel";
 
 import {

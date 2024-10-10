@@ -98,7 +98,7 @@ import {
 
 import {
     APIAuthFactoryConfig,
-    NativeAuthFactoryConfig,
+    //NativeAuthFactoryConfig,
 } from "../auth/types";
 
 const NodeTypes: {[alias: string]: Buffer} = {
@@ -468,45 +468,46 @@ export class ParseUtil {
      * @throws if malconfigured
      */
     public static ParseConfigConnectionConfig(connectionConfig: any): ConnectionConfig {
-        let authFactoryConfig;
+        throw new Error();
+        //let authFactoryConfig;
 
-        if (connectionConfig.connection?.factory === "api") {
-            authFactoryConfig = ParseUtil.ParseAPIAuthFactory(connectionConfig.connection);
-        }
-        else if (connectionConfig.connection?.factory === "native" || !connectionConfig.connection?.factory) {
-            authFactoryConfig = ParseUtil.ParseNativeAuthFactory(connectionConfig.connection);
-        }
-        else {
-            throw new Error("Uknkown factory, use native or api");
-        }
+        //if (connectionConfig.connection?.factory === "api") {
+            //authFactoryConfig = ParseUtil.ParseAPIAuthFactory(connectionConfig.connection);
+        //}
+        ////else if (connectionConfig.connection?.factory === "native" || !connectionConfig.connection?.factory) {
+            ////authFactoryConfig = ParseUtil.ParseNativeAuthFactory(connectionConfig.connection);
+        ////}
+        //else {
+            //throw new Error("Uknkown factory, use native or api");
+        //}
 
-        let region: string | undefined;
-        let jurisdiction: string | undefined;
-        let serializeFormat: number = 0;
+        //let region: string | undefined;
+        //let jurisdiction: string | undefined;
+        //let serializeFormat: number = 0;
 
-        if (connectionConfig !== undefined) {
-            region = ParseUtil.ParseVariable("connectionConfig.region must be string, if set", connectionConfig.region, "string", true);
-            jurisdiction = ParseUtil.ParseVariable("connectionConfig.jurisdiction must be string, if set", connectionConfig.jurisdiction, "string", true);
-            serializeFormat = ParseUtil.ParseVariable("connectionConfig.serializeFormat must be number between 0 and 255, if set", connectionConfig.serializeFormat, "number", true) ?? 0;
-        }
+        //if (connectionConfig !== undefined) {
+            //region = ParseUtil.ParseVariable("connectionConfig.region must be string, if set", connectionConfig.region, "string", true);
+            //jurisdiction = ParseUtil.ParseVariable("connectionConfig.jurisdiction must be string, if set", connectionConfig.jurisdiction, "string", true);
+            //serializeFormat = ParseUtil.ParseVariable("connectionConfig.serializeFormat must be number between 0 and 255, if set", connectionConfig.serializeFormat, "number", true) ?? 0;
+        //}
 
-        if (connectionConfig.permissions === undefined) {
-            throw new Error("permissions need to be set on connection config");
-        }
+        //if (connectionConfig.permissions === undefined) {
+            //throw new Error("permissions need to be set on connection config");
+        //}
 
-        if (connectionConfig.serializeFormat < 0 || connectionConfig.serializeFormat > 255) {
-            throw new Error("serializeFormat must be number between 0 and 255, if set");
-        }
+        //if (connectionConfig.serializeFormat < 0 || connectionConfig.serializeFormat > 255) {
+            //throw new Error("serializeFormat must be number between 0 and 255, if set");
+        //}
 
-        const permissions = ParseUtil.ParseP2PClientPermissions(connectionConfig.permissions);
+        //const permissions = ParseUtil.ParseP2PClientPermissions(connectionConfig.permissions);
 
-        return {
-            authFactoryConfig,
-            region,
-            jurisdiction,
-            permissions,
-            serializeFormat,
-        };
+        //return {
+            //authFactoryConfig,
+            //region,
+            //jurisdiction,
+            //permissions,
+            //serializeFormat,
+        //};
     }
 
 
@@ -530,7 +531,7 @@ export class ParseUtil {
      * }
      */
     public static ParseAPIAuthFactory(obj: any): APIAuthFactoryConfig {
-        const handshakeFactoryConfig = ParseUtil.ParseHandshakeFactory(obj);
+        const handshakeFactoryConfig = 1 as any;//ParseUtil.ParseHandshakeFactory(obj);
 
         let clientAuth;
         let serverAuth;
@@ -573,14 +574,14 @@ export class ParseUtil {
      *  ...HandshakeFactoryConfig,
      * }
      */
-    public static ParseNativeAuthFactory(obj: any): NativeAuthFactoryConfig {
-        const handshakeFactoryConfig = ParseUtil.ParseHandshakeFactory(obj);
+    //public static ParseNativeAuthFactory(obj: any): NativeAuthFactoryConfig {
+        //const handshakeFactoryConfig = ParseUtil.ParseHandshakeFactory(obj);
 
-        return {
-            factory: "native",
-            ...handshakeFactoryConfig,
-        };
-    }
+        //return {
+            //factory: "native",
+            //...handshakeFactoryConfig,
+        //};
+    //}
 
     /**
      * @param obj object with the following properties:

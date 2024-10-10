@@ -15,7 +15,6 @@ import {
 
 import {
     ParseSchema,
-    ToJSONObject,
 } from "../../util/SchemaUtil";
 
 import {

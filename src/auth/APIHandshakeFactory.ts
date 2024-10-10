@@ -20,6 +20,8 @@ import {
     ClientInterface,
     WSClient,
     WrappedClient,
+    SOCKET_WEBSOCKET,
+    SOCKET_TCP,
 } from "pocket-sockets"
 
 import {
@@ -136,7 +138,9 @@ export class APIHandshakeFactory implements HandshakeFactoryInterface {
         const {socketFactoryConfig, socketFactoryStats} = this.apiAuthFactoryConfig;
 
         if (socketFactoryConfig.server) {
-            if (socketFactoryConfig.server.socketType !== "TCP") {
+            if (socketFactoryConfig.server.socketType !== SOCKET_TCP) {
+                console.error("APIHandshakeFactory server socketType must be TCP (it will be turned into a WebSocket upon client request)");
+                // TODO: don't throw from construtor.
                 throw new Error("APIHandshakeFactory server socketType must be TCP (it will be turned into a WebSocket upon client request)");
             }
 
@@ -150,6 +154,12 @@ export class APIHandshakeFactory implements HandshakeFactoryInterface {
         }
 
         if (socketFactoryConfig.client) {
+            if (socketFactoryConfig.client.socketType !== SOCKET_WEBSOCKET) {
+                console.error("APIHandshakeFactory client socketType must be WebSocket");
+                // TODO: don't throw from construtor.
+                throw new Error("APIHandshakeFactory client socketType must be WebSocket");
+            }
+
             if (!socketFactoryConfig.client.clientOptions?.secure) {
                 console.warn("APIHandshakeFactory client should really be run with TLS as traffic is not encrypted!");
             }
@@ -696,6 +706,7 @@ export class APIHandshakeFactory implements HandshakeFactoryInterface {
             this.aggregatedData = Buffer.from(this.aggregatedData.slice(length));
 
             const apiRequest = this.apiDataTransformer.deserialize(data2);
+
 
             if (apiRequest.target.length === 0) {
                 return;

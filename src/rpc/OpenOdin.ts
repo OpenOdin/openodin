@@ -29,7 +29,6 @@ import {
 } from "../auth/types";
 
 import {
-    WalletConf,
     ApplicationConf,
     ApplicationConfSchema,
 } from "../service/types";

@@ -52,6 +52,10 @@ export const ParseNodeType = function(v: string | Buffer | Uint8Array): Buffer {
         return CopyBuffer(nodeAliases[v]);
     }
 
+    if (v.startsWith("base64:")) {
+        return Buffer.from(v.slice(7), "base64");
+    }
+
     const b = Buffer.from(v, "hex");
 
     if (b.length === 0 || b.toString("hex").toLowerCase() !== v.toLowerCase()) {

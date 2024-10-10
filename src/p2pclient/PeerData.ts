@@ -260,6 +260,13 @@ export class PeerData {
     }
 
     public setClockDiff(clockDiff: number) {
+        if (clockDiff < -2147483648) {
+            clockDiff = -2147483648;
+        }
+        else if (clockDiff > 2147483647) {
+            clockDiff = 2147483647;
+        }
+
         this.model.setNumber("clockDiff", clockDiff);
     }
 

@@ -52,15 +52,6 @@ import {
 } from "../datamodel/cert/secondary/chaincert/ChainCert";
 
 import {
-    PRIMARY_INTERFACE_CHAINCERT_ID,
-} from "../datamodel/cert/primary/interface/PrimaryChainCertInterface";
-
-import {
-    PRIMARY_INTERFACE_DEFAULTCERT_ID,
-} from "../datamodel/cert/primary/interface/PrimaryDefaultCertInterface";
-
-import {
-    PRIMARY_INTERFACE_NODECERT_ID,
     PrimaryNodeCertInterface,
 } from "../datamodel/cert/primary/interface/PrimaryNodeCertInterface";
 

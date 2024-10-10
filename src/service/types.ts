@@ -4,12 +4,6 @@ import {
 } from "pocket-messaging";
 
 import {
-    SOCKET_WEBSOCKET,
-    SOCKET_TCP,
-    SocketFactoryConfig,
-} from "pocket-sockets";
-
-import {
     P2PClientPermissions,
 } from "../p2pclient/types";
 
@@ -26,8 +20,6 @@ import {
 
 import {
     KeyPair,
-    AuthCertInterface,
-    PrimaryNodeCertInterface,
     KeyPairSchema,
 } from "../datamodel";
 
@@ -38,7 +30,9 @@ import {
 } from "../storage/thread";
 
 import {
-    AuthFactoryConfig,
+    APIAuthFactoryConfig,
+    APIAuthFactoryConfigSchema,
+    HandshakeFactoryConfigSchema,
 } from "../auth/types";
 
 import {
@@ -46,7 +40,11 @@ import {
 } from "../util/SchemaUtil";
 
 export type ConnectionConfig = {
-    authFactoryConfig: AuthFactoryConfig,
+    //authFactoryConfig: AuthFactoryConfig,
+    connection: {
+        handshake?: HandshakeFactoryConfig,
+        api?: APIAuthFactoryConfig,
+    },
     permissions: P2PClientPermissions,
     region?: string,
     jurisdiction?: string,
@@ -64,125 +62,21 @@ export type ConnectionConfig = {
     serializeFormat: number,
 };
 
-export const HandshakeFactoryConfigSchemaPost = function(obj: any): AuthFactoryConfig {
-    const keyPair = {
-        publicKey: Buffer.alloc(0),
-        secretKey: Buffer.alloc(0),
-    };
-
-    const client = !obj.client ? undefined : {
-        socketType: obj.client.socketType,
-        reconnectDelay: obj.client.reconnectDelay,
-        clientOptions: {
-            host: obj.client.host,
-            port: obj.client.port,
-            secure: obj.client.secure,
-            rejectUnauthorized: obj.client.rejectUnauthorized,
-            cert: obj.client.cert,
-            key: obj.client.key,
-            ca: obj.client.ca,
-        },
-    };
-
-    const server = !obj.server ? undefined : {
-        socketType: obj.server.socketType,
-        deniedIPs: obj.server.deniedIPs,
-        allowedIPs: obj.server.allowedIPs,
-        serverOptions: {
-            host: obj.server.host,
-            port: obj.server.port,
-            ipv6Only: obj.server.ipv6Only,
-            requestCert: obj.server.requestCert,
-            rejectUnauthorized: obj.server.rejectUnauthorized,
-            cert: obj.server.cert,
-            key: obj.server.key,
-            ca: obj.server.ca,
-        },
-    };
-
-    const socketFactoryConfig: SocketFactoryConfig = {
-        client,
-        server,
-        maxConnections: obj.maxConnections,
-        maxConnectionsPerIp: obj.maxConnectionsPerIp,
-    };
-
-    return {
-        factory: obj.factory,
-        keyPair,
-        discriminator: obj.discriminator,
-        socketFactoryConfig,
-        serverPublicKey: obj.client?.serverPublicKey,
-        allowedClients: obj.server?.allowedClients,
-        maxConnectionsPerClient: obj.maxConnectionsPerClient,
-        maxConnectionsPerClientPair: obj.maxConnectionsPerClientPair,
-        pingInterval: obj.pingInterval,
-    } as AuthFactoryConfig;
-    // TODO:
-};
-
-export const HandshakeFactoryConfigSchema = {
-    "factory?": ParseEnum(["native", "api"], "native"),
-    "discriminator?": new Uint8Array(0),
-    "maxConnections??": 0,
-    "maxConnectionsPerIp??": 0,
-    "maxConnectionsPerClient??": 0,
-    "maxConnectionsPerClientPair??": 0,
-    "pingInterval??": 0,
-    "client??": {
-        "auth??": {
-            method: "",
-            "config??": {},
-        },
-        socketType: ParseEnum([SOCKET_WEBSOCKET, SOCKET_TCP]),
-        serverPublicKey: new Uint8Array(0),
-        "reconnectDelay??": 0,
-        "host??": "",
-        port: 0,
-        "secure??": false,
-        "rejectUnauthorized??": false,
-        "cert??": [""], // PEM formatted strings
-        "key??": "",    // PEM formatted client private key, required if cert is set
-        "ca??": [""],
-    },
-    "server??": {
-        "auth??": {
-            "method": {
-                "": {},
-            }
-        },
-        socketType: ParseEnum([SOCKET_WEBSOCKET, SOCKET_TCP]),
-        "allowedClients??": [new Uint8Array(0)],
-        "deniedIPs?": [""],
-        "allowedIPs??": [""],
-        "host??": "",
-        port: 0,
-        "ipv6Only??": false,
-        "requestCert??": false,
-        "rejectUnauthorized??": false,
-        "cert??": [""],
-        "key??": "",
-        "ca??": [""],
-    },
-    _postFn: HandshakeFactoryConfigSchemaPost,
-};
-
 export const ConnectionConfigSchema = {
-    connection: HandshakeFactoryConfigSchema,
+    connection: {
+        "handshake??": HandshakeFactoryConfigSchema,
+        "api??": APIAuthFactoryConfigSchema,
+    },
     "permissions?": P2PClientPermissionsLockedSchema,
     "region??": "",
     "jurisdiction??": "",
     "serializeFormat?": 0,
-    _postFn: function(obj: any): ConnectionConfig {
-        const obj2: any = {};
+    _postFn: function(obj: ConnectionConfig): ConnectionConfig {
+        if (Object.keys(obj.connection).length !== 1) {
+            throw new Error("ConnectionConfig expecting exactly one configuraton below connection field");
+        }
 
-        Object.keys(obj).forEach(key => obj2[key] = obj[key]);
-
-        obj2.authFactoryConfig = obj.connection;
-
-        delete obj2.connection;
-
-        return obj2;
+        return obj;
     },
 } as const;
 

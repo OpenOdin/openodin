@@ -13,11 +13,10 @@ import {
     APIAuthRequest,
     PromiseCallback,
     ParseSchema,
-    //APIAuthFactoryConfigSchema,
-    HandshakeFactoryConfigSchema,
+    APIAuthFactoryConfigSchema,
 } from "../../src";
 
-describe("AuthProcessHandshake", function() {
+describe.only("AuthProcessHandshake", function() {
 
     const keyPair1 = Crypto.GenKeyPair();
     const keyPair2 = Crypto.GenKeyPair();
@@ -31,11 +30,11 @@ describe("AuthProcessHandshake", function() {
             p[0].cb(undefined, data);
         });
 
-        const apiAuthFactoryConfigClient: APIAuthFactoryConfig = ParseSchema(HandshakeFactoryConfigSchema, {
+        const apiAuthFactoryConfigClient: APIAuthFactoryConfig = ParseSchema(APIAuthFactoryConfigSchema, {
+            clientAuth: {
+                method: "handshake",
+            },
             client: {
-                auth: {
-                    method: "handshake",
-                },
                 socketType: "WebSocket",
                 port: 8000,
                 serverPublicKey: keyPair2.publicKey,
@@ -62,7 +61,8 @@ describe("AuthProcessHandshake", function() {
         // and read msg2 from server handshake
         //
 
-        const apiAuthFactoryConfigServer: APIAuthFactoryConfig = ParseSchema(HandshakeFactoryConfigSchema, {});
+        const apiAuthFactoryConfigServer: APIAuthFactoryConfig = ParseSchema(APIAuthFactoryConfigSchema, {
+            serverAuth: {methods: {handshake: {}}}});
 
         apiAuthFactoryConfigServer.keyPair = keyPair2;
 

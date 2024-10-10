@@ -1,5 +1,4 @@
 import {
-    HandshakeFactoryConfig,
     HandshakeFactoryInterface,
 } from "pocket-messaging";
 
@@ -25,173 +24,99 @@ import {
 } from "../util/common";
 
 import {
-    AuthFactoryConfig,
-    APIAuthFactoryConfig,
-    NativeAuthFactoryConfig,
-} from "../auth/types";
+    ConnectionConfig,
+} from "../service/types";
 
 export class AuthFactoryRPCServer {
     protected rpc: RPC;
     protected keyPairs: KeyPair[];
     protected handshakeFactories: HandshakeFactoryInterface[] = [];
-    protected triggerOnCreate?: (authFactoryConfig: AuthFactoryConfig) => Promise<boolean>;
+    protected triggerOnCreate?: (connection: ConnectionConfig["connection"]) => Promise<boolean>;
 
-    constructor(rpc: RPC, keyPairs: KeyPair[], triggerOnCreate?: (authFactoryConfig: AuthFactoryConfig) => Promise<boolean>) {
+    constructor(rpc: RPC, keyPairs: KeyPair[], triggerOnCreate?: (connection: ConnectionConfig["connection"]) => Promise<boolean>) {
         this.rpc = rpc;
         this.keyPairs = keyPairs;
         this.triggerOnCreate = triggerOnCreate;
 
-        this.rpc.onCall("create", async (authFactoryConfig: AuthFactoryConfig) => {
-            // User must confirm connection parameters of authFactoryConfig.
+        this.rpc.onCall("create", async (connection: ConnectionConfig["connection"]) => {
+            // User must confirm connection parameters of connection.
             //
-            if (this.triggerOnCreate && ! (await this.triggerOnCreate(authFactoryConfig))) {
+            if (this.triggerOnCreate && ! (await this.triggerOnCreate(connection))) {
                 return undefined;
             }
 
-            if (this.isNativeHandshake(authFactoryConfig)) {
-                return this.createNativeHandshakeFactory(authFactoryConfig as unknown as
-                    NativeAuthFactoryConfig);
-            }
+            const authFactoryConfig = connection.handshake ?? connection.api;
 
-            if (this.isAPIHandshake(authFactoryConfig)) {
-                return this.createAPIHandshakeFactory(authFactoryConfig as unknown as
-                    APIAuthFactoryConfig);
+            if (authFactoryConfig) {
+                const rpc2 = this.rpc.fork();
+
+                const rpcId2 = rpc2.getId();
+
+                // Override given nativeAuthFactoryConfig with the rpc server values.
+                //
+                let keyPair: KeyPair | undefined;
+
+                if (authFactoryConfig.keyPair.publicKey.equals(Buffer.alloc(0)) ||
+                    authFactoryConfig.keyPair.publicKey.equals(Buffer.alloc(32))) {
+
+                    keyPair = this.keyPairs[0];
+                }
+                else {
+                    keyPair = this.keyPairs.find( keyPair2 => keyPair2.publicKey.
+                        equals(authFactoryConfig.keyPair.publicKey));
+                }
+
+                if (!keyPair) {
+                    throw new Error("No KeyPair configured");
+                }
+
+                if (!Crypto.IsEd25519(keyPair.publicKey)) {
+                    throw new Error("Auth must be done with an Ed25519 keypair.");
+                }
+
+                authFactoryConfig.keyPair = DeepCopy(keyPair) as KeyPair;
+
+                const serverPublicKey = authFactoryConfig.serverPublicKey;
+
+                if (serverPublicKey) {
+                    if (!Crypto.IsEd25519(serverPublicKey)) {
+                        throw new Error("Auth must be done with serverPublicKey being an Ed25519 public key.");
+                    }
+                }
+
+                const allowedClients = authFactoryConfig.allowedClients;
+
+                if (Array.isArray(allowedClients)) {
+                    // We need to check every public key so it is Ed25519.
+                    //
+                    allowedClients.forEach( publicKey => {
+                        if (!Crypto.IsEd25519(publicKey)) {
+                            throw new Error("Auth must be done with native Ed25519 keypairs, also all public keys in allowedClients must be Ed25519 public keys.");
+                        }
+                    });
+                }
+
+                if (connection.handshake) {
+                    const handshakeFactoryRPCServer = new HandshakeFactoryRPCServer(rpc2,
+                        authFactoryConfig);
+
+                    this.handshakeFactories.push(handshakeFactoryRPCServer);
+                }
+                else if (connection.api) {
+                    const apiHandshakeFactoryRPCServer = new APIHandshakeFactoryRPCServer(rpc2,
+                        authFactoryConfig);
+
+                    this.handshakeFactories.push(apiHandshakeFactoryRPCServer);
+                }
+                else {
+                    throw new Error("Unknown handshake factory config");
+                }
+
+                return rpcId2;
             }
 
             throw new Error("Unknown handshake factory config");
         });
-    }
-
-    public isNativeHandshake(authFactoryConfig: AuthFactoryConfig): boolean {
-        return authFactoryConfig.factory === "native";
-    }
-
-    public isAPIHandshake(authFactoryConfig: AuthFactoryConfig): boolean {
-        return authFactoryConfig.factory === "api";
-    }
-
-    protected async createAPIHandshakeFactory(apiAuthFactoryConfig: APIAuthFactoryConfig):
-        Promise<string | undefined>
-    {
-        const rpc2 = this.rpc.fork();
-
-        const rpcId2 = rpc2.getId();
-
-        const apiAuthFactoryConfig2 =
-            DeepCopy(apiAuthFactoryConfig) as APIAuthFactoryConfig;
-
-        // Override given apiAuthFactoryConfig with the rpc server values.
-        //
-        let keyPair: KeyPair | undefined;
-
-        if (apiAuthFactoryConfig2.keyPair.publicKey.equals(Buffer.alloc(0)) ||
-            apiAuthFactoryConfig2.keyPair.publicKey.equals(Buffer.alloc(32))) {
-
-            keyPair = this.keyPairs[0];
-        }
-        else {
-            keyPair = this.keyPairs.find( keyPair2 => keyPair2.publicKey.
-                equals(apiAuthFactoryConfig2.keyPair.publicKey));
-        }
-
-        if (!keyPair) {
-            return undefined;
-        }
-
-        if (!Crypto.IsEd25519(keyPair.publicKey)) {
-            throw new Error("Auth must be done with an Ed25519 keypair.");
-        }
-
-        apiAuthFactoryConfig2.keyPair = DeepCopy(keyPair) as KeyPair;
-
-        const serverPublicKey = apiAuthFactoryConfig2.serverPublicKey;
-
-        if (serverPublicKey) {
-            if (!Crypto.IsEd25519(serverPublicKey)) {
-                throw new Error("Auth must be done with serverPublicKey being an Ed25519 public key.");
-            }
-        }
-
-        const allowedClients = apiAuthFactoryConfig2.allowedClients;
-
-        if (Array.isArray(allowedClients)) {
-            // We need to check every public key so it is Ed25519.
-            //
-            allowedClients.forEach( publicKey => {
-                if (!Crypto.IsEd25519(publicKey)) {
-                    throw new Error("Auth must be done with native Ed25519 keypairs, also all public keys in allowedClients must be Ed25519 public keys.");
-                }
-            });
-        }
-
-        const apiHandshakeFactoryRPCServer = new APIHandshakeFactoryRPCServer(rpc2,
-            apiAuthFactoryConfig2);
-
-        this.handshakeFactories.push(apiHandshakeFactoryRPCServer);
-
-        return rpcId2;
-    }
-
-    protected async createNativeHandshakeFactory(nativeAuthFactoryConfig: NativeAuthFactoryConfig):
-        Promise<string | undefined>
-    {
-        const rpc2 = this.rpc.fork();
-
-        const rpcId2 = rpc2.getId();
-
-        const userHandshakeFactoryConfig2 =
-            DeepCopy(nativeAuthFactoryConfig) as HandshakeFactoryConfig;
-
-        // Override given nativeAuthFactoryConfig with the rpc server values.
-        //
-        let keyPair: KeyPair | undefined;
-
-        if (userHandshakeFactoryConfig2.keyPair.publicKey.equals(Buffer.alloc(0)) ||
-            userHandshakeFactoryConfig2.keyPair.publicKey.equals(Buffer.alloc(32))) {
-
-            keyPair = this.keyPairs[0];
-        }
-        else {
-            keyPair = this.keyPairs.find( keyPair2 => keyPair2.publicKey.
-                equals(userHandshakeFactoryConfig2.keyPair.publicKey));
-        }
-
-        if (!keyPair) {
-            return undefined;
-        }
-
-        if (!Crypto.IsEd25519(keyPair.publicKey)) {
-            throw new Error("Auth must be done with an Ed25519 keypair.");
-        }
-
-        userHandshakeFactoryConfig2.keyPair = DeepCopy(keyPair) as KeyPair;
-
-        const serverPublicKey = userHandshakeFactoryConfig2.serverPublicKey;
-
-        if (serverPublicKey) {
-            if (!Crypto.IsEd25519(serverPublicKey)) {
-                throw new Error("Auth must be done with serverPublicKey being an Ed25519 public key.");
-            }
-        }
-
-        const allowedClients = userHandshakeFactoryConfig2.allowedClients;
-
-        if (Array.isArray(allowedClients)) {
-            // We need to check every public key so it is Ed25519.
-            //
-            allowedClients.forEach( publicKey => {
-                if (!Crypto.IsEd25519(publicKey)) {
-                    throw new Error("Auth must be done with native Ed25519 keypairs, also all public keys in allowedClients must be Ed25519 public keys.");
-                }
-            });
-        }
-
-        const handshakeFactoryRPCServer = new HandshakeFactoryRPCServer(rpc2,
-            userHandshakeFactoryConfig2);
-
-        this.handshakeFactories.push(handshakeFactoryRPCServer);
-
-        return rpcId2;
     }
 
     public close() {
