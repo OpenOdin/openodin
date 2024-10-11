@@ -27,19 +27,19 @@ import {
     DBClient,
     P2PClient,
     DatabaseUtil,
-    PeerData,
-    PeerDataUtil,
     NodeUtil,
     Crypto,
     StoreRequest,
     Status,
-    StorageUtil,
     Data,
     FetchRequest,
     NodeInterface,
     Decoder,
     sleep,
     Version,
+    ParseSchema,
+    FetchRequestSchema,
+    PeerInfo,
 } from "../../src";
 
 type StorageInstance = {
@@ -112,7 +112,7 @@ describe("Storage: disallow storing persistent values", function() {
             sendResponse);
 
         assert(response);
-        assert(response.status === Status.MALFORMED);
+        assert(response.status === Status.Malformed);
         assert(response.error === "StoreRequest not allowed to use preserveTransient for this connection.");
 
         storeRequest.preserveTransient = false;
@@ -121,8 +121,8 @@ describe("Storage: disallow storing persistent values", function() {
             sendResponse);
 
         assert(response);
-        assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 1);
+        assert(response.status === Status.Result);
+        assert(response.storedId1List.length === 1);
     });
 });
 
@@ -213,8 +213,8 @@ describe("Storage: update transient values on nodes", function() {
             sendResponse);
 
         assert(response);
-        assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 3);
+        assert(response.status === Status.Result);
+        assert(response.storedId1List.length === 3);
 
         const node1Ab = await driver.getNodeById1(node1A.getId1()!, now);
         assert(node1Ab);
@@ -233,7 +233,7 @@ describe("Storage: update transient values on nodes", function() {
         assert(!node2b.hasOnlineId());
 
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey,
             targetPublicKey,
@@ -266,8 +266,8 @@ describe("Storage: update transient values on nodes", function() {
             sendResponse);
 
         assert(response);
-        assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 2);
+        assert(response.status === Status.Result);
+        assert(response.storedId1List.length === 2);
 
         const node1Ac = await driver.getNodeById1(node1A.getId1()!, now);
 
@@ -293,8 +293,8 @@ describe("Storage: update transient values on nodes", function() {
             sendResponse);
 
         assert(response);
-        assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 1);
+        assert(response.status === Status.Result);
+        assert(response.storedId1List.length === 1);
 
         nodes = await runFetch(fetchRequest, storageInstance);
 
@@ -412,10 +412,10 @@ describe("Concensus: test streaming updates", async function() {
             sendResponse);
 
         assert(response);
-        assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 5);
+        assert(response.status === Status.Result);
+        assert(response.storedId1List.length === 5);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey,
             targetPublicKey,
@@ -457,8 +457,8 @@ describe("Concensus: test streaming updates", async function() {
             sendResponse);
 
         assert(response);
-        assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 1);
+        assert(response.status === Status.Result);
+        assert(response.storedId1List.length === 1);
 
         await sleep(100);
 
@@ -488,8 +488,8 @@ describe("Concensus: test streaming updates", async function() {
             sendResponse);
 
         assert(response);
-        assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 1);
+        assert(response.status === Status.Result);
+        assert(response.storedId1List.length === 1);
 
         await sleep(100);
 
@@ -527,9 +527,9 @@ async function initStorageInstance(allowPreserveTransient: boolean = false): Pro
     const [socket1, socket2] = CreatePair();
     const messaging1 = new Messaging(socket1, 0);
 
-    const clientProps = makePeerData();
+    const clientProps = makePeerInfo();
 
-    const serverProps = makePeerData();
+    const serverProps = makePeerInfo();
 
     const p2pClient = new P2PClient(messaging1, serverProps, clientProps);
 
@@ -561,17 +561,18 @@ function closeStorageInstance(s: StorageInstance) {
     s.messaging1?.close();
 }
 
-function makePeerData(): PeerData {
-    return PeerDataUtil.create({
+function makePeerInfo(): PeerInfo {
+    return {
         version: Version,
         serializeFormat: 0,
+        handshakePublicKey: Buffer.alloc(0),
         authCert: undefined,
         authCertPublicKey: undefined,
-        clockDiff: 0,
         region: undefined,
         jurisdiction: undefined,
-        appVersion: undefined,
-    });
+        appVersion: "0.0.0",
+        sessionTimeout: 0,
+    };
 }
 
 async function runFetch(fetchRequest: FetchRequest, storageInstance: StorageInstance):

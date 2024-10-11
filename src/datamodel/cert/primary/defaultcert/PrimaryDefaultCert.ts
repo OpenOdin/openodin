@@ -10,5 +10,4 @@ import {
 /**
  * A standard default primary cert interface.
  */
-export abstract class PrimaryDefaultCert extends BaseTopCert implements PrimaryDefaultCertInterface {
-}
+export abstract class PrimaryDefaultCert extends BaseTopCert implements PrimaryDefaultCertInterface {}

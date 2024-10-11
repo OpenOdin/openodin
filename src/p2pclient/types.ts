@@ -9,6 +9,15 @@ import {
     AlgoSortedRefId,
 } from "../storage/crdt";
 
+import {
+    EmbedSchema,
+} from "../request/jsonSchema";
+
+import {
+    ParseEnum,
+    ParseArrayWithDefault,
+} from "../util/SchemaUtil";
+
 export enum RouteAction {
     STORE       = "store",
     FETCH       = "fetch",
@@ -38,7 +47,11 @@ export type Format = {
     /** In which OpenOdin version was this format added */
     fromVersion: string,
 
-    /** UNIX time (in seconds) for when this format expires and no longer can be used, if ever */
+    /**
+     * UNIX time (in seconds) for when this format expires and no longer can be used, if ever.
+     * If a peer is aware of an expire time set then it should preferrably not suggest that format
+     * to be used.
+     */
     expires?: number,
 };
 
@@ -51,7 +64,7 @@ export const Formats: {[id: string]: Format} = {
         id: 0,
         name: "bebop",
         description: "Standard Bebop binary serialization",
-        fromVersion: "0.8.9",
+        fromVersion: "0.9.2",
     },
 };
 
@@ -130,22 +143,23 @@ export type P2PClientFetchPermissions = {
     allowEmbed: AllowEmbed[],
 
     /**
-     * For FetchRequests having includeLicenses set this value is bit masked against the
-     * desired setting in the FetchQuery.
+     * For FetchRequests having includeLicenses set this value is matched against the
+     * desired setting in the FetchQuery deciding if the FetchRequest is allowed to
+     * use includeLicenses.
      *
      * This configuration is separate from allowEmbed and can be used
      * even if allowEmbed is set empty ([]).
      *
      * This setting is also seperate from Match against licenses.
      *
-     * 0 = do not allow.
-     * 1 = allow auto include of all licenses needed to license a matched node.
+     * "" = do not allow.
+     * "Include" = allow auto include of all licenses needed to license a matched node.
      *      Both read and write licenses are included.
-     * 2 = allow auto include of licenses which can be embedded to give permissions to matched nodes.
+     * "Extend" = allow auto include of licenses which can be embedded to give permissions to matched nodes.
      *      Both read and write licenses are included.
-     * 3 = allow both 1 and 2.
+     * "IncludeExtend" = allow both "Include", "Extend", and "IncludeExtend".
      */
-    allowIncludeLicenses: number,
+    allowIncludeLicenses: "" | "Include" | "Extend" | "IncludeExtend",
 
     /** Set if to allow fetch requests using triggers. */
     allowTrigger: boolean,
@@ -154,7 +168,7 @@ export type P2PClientFetchPermissions = {
     allowNodeTypes: Buffer[],
 
     /** Algo IDs supported for CRDT requests. */
-    allowAlgos: number[],
+    allowAlgos: string[],
 
     /** Is the peer allowed to read blob data? The peer must also have access to the node it self. */
     allowReadBlob: boolean,
@@ -185,7 +199,7 @@ export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
                 filters: []
             }
         ],
-        allowIncludeLicenses: 3,
+        allowIncludeLicenses: "IncludeExtend",
         allowTrigger: true,
         allowNodeTypes: [Buffer.from("0004", "hex")],
         allowAlgos: [
@@ -201,6 +215,27 @@ export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     }
 };
 
+export const P2PClientPermissionsUncheckedPermissiveSchema = {
+    "allowUncheckedAccess?": true,
+    "fetchPermissions?": {
+        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], ["0004"]),
+        "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""],
+            "IncludeExtend"),
+        "allowTrigger?": true,
+        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "0004", filters: []}]),
+        "allowAlgos?": ParseArrayWithDefault([""], [
+            AlgoSorted.GetId(),
+            AlgoRefId.GetId(),
+            AlgoSortedRefId.GetId(),
+        ]),
+        "allowReadBlob?": true,
+    },
+    "storePermissions?": {
+        "allowStore?": true,
+        "allowWriteBlob?": true,
+    },
+} as const;
+
 export const DEFAULT_PEER_PERMISSIONS: P2PClientPermissions = {
     allowUncheckedAccess: false,
     fetchPermissions: {
@@ -210,7 +245,7 @@ export const DEFAULT_PEER_PERMISSIONS: P2PClientPermissions = {
                 "filters": []
             }
         ],
-        allowIncludeLicenses: 3,
+        allowIncludeLicenses: "IncludeExtend",
         allowTrigger: true,
         allowNodeTypes: [Buffer.from("0004", "hex")],
         allowAlgos: [],
@@ -222,6 +257,23 @@ export const DEFAULT_PEER_PERMISSIONS: P2PClientPermissions = {
     }
 };
 
+export const P2PClientPermissionsDefaultSchema = {
+    "allowUncheckedAccess?": false,
+    "fetchPermissions?": {
+        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], ["0004"]),
+        "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""],
+            "IncludeExtend"),
+        "allowTrigger?": true,
+        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "0004", filters: []}]),
+        "allowAlgos?": [""],
+        "allowReadBlob?": true,
+    },
+    "storePermissions?": {
+        "allowStore?": false,
+        "allowWriteBlob?": false,
+    },
+} as const;
+
 export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     allowUncheckedAccess: false,
     fetchPermissions: {
@@ -231,7 +283,7 @@ export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
                 "filters": []
             }
         ],
-        allowIncludeLicenses: 3,
+        allowIncludeLicenses: "IncludeExtend",
         allowTrigger: true,
         allowNodeTypes: [Buffer.from("0004", "hex")],
         allowAlgos: [
@@ -247,11 +299,32 @@ export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     }
 };
 
+export const P2PClientPermissionsPermissiveSchema = {
+    "allowUncheckedAccess?": false,
+    "fetchPermissions?": {
+        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], ["0004"]),
+        "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""],
+            "IncludeExtend"),
+        "allowTrigger?": true,
+        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "0004", filters: []}]),
+        "allowAlgos?": ParseArrayWithDefault([""], [
+            AlgoSorted.GetId(),
+            AlgoRefId.GetId(),
+            AlgoSortedRefId.GetId(),
+        ]),
+        "allowReadBlob?": true,
+    },
+    "storePermissions?": {
+        "allowStore?": true,
+        "allowWriteBlob?": true,
+    },
+} as const;
+
 export const LOCKED_PERMISSIONS: P2PClientPermissions = {
     allowUncheckedAccess: false,
     fetchPermissions: {
         allowEmbed: [],
-        allowIncludeLicenses: 0,
+        allowIncludeLicenses: "",
         allowTrigger: false,
         allowNodeTypes: [],
         allowAlgos: [],
@@ -263,15 +336,80 @@ export const LOCKED_PERMISSIONS: P2PClientPermissions = {
     }
 };
 
-export type PeerDataParams = {
+export const P2PClientPermissionsLockedSchema = {
+    "allowUncheckedAccess?": false,
+    "fetchPermissions?": {
+        "allowNodeTypes?": [new Uint8Array(0)],
+        "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""], ""),
+        "allowTrigger?": false,
+        "allowEmbed?": [EmbedSchema],
+        "allowAlgos?": [""],
+        "allowReadBlob?": false,
+    },
+    "storePermissions?": {
+        "allowStore?": false,
+        "allowWriteBlob?": false,
+    },
+} as const;
+
+export type PeerInfo = {
+    /** The OpenOdin version the peer is running. */
     version: string,
+
+    /** From the ConnectionConfig. The chosen serializeFormat of the peer. */
     serializeFormat: number,
-    handshakePublicKey?: Buffer,
+
+    /** The public cryptographic handshake key of the peer. */
+    handshakePublicKey: Buffer,
+
+    /**
+     * Provided AuthCert brings another public key identity to the peer.
+     */
     authCert?: Buffer,
+
+    /**
+     * The official public key of the peer which is different from the handshakePublicKey,
+     * and is extracted from provided authCert.
+     */
     authCertPublicKey?: Buffer,
-    clockDiff?: number,
+
+    /** From the ConnectionConfig. The region of the peer. */
     region?: string,
+
+    /** From the ConnectionConfig. The jurisdiction of the peer. */
     jurisdiction?: string,
-    appVersion?: string,
-    expireTime?: number,
+
+    /** The version field from the peer's application conf. */
+    appVersion: string,
+
+    /** if >0 then depicts how many seconds the session is valid according to the peer. */
+    sessionTimeout: number,
 };
+
+const ParseVersion = function(version: string): string {
+    const a = version.split(".").map(n => parseInt(n));
+
+    const version2 = a.join(".");
+
+    if (a.length !== 3 || version2 !== version) {
+        throw new Error("Version has wrong format: ${version}. Expecting major.minor.patch");
+    }
+
+    return version2;
+};
+
+export const PeerInfoSchema = {
+    // This comes from the parses peer data and we need to actively ignore it.
+    //
+    peerDataFormat: undefined,
+
+    version: ParseVersion,
+    serializeFormat: 0,
+    handshakePublicKey: new Uint8Array(0),
+    "authCert??": new Uint8Array(0),
+    "authCertPublicKey??": new Uint8Array(0),
+    "region??": "",
+    "jurisdiction??": "",
+    appVersion: ParseVersion,
+    sessionTimeout: 0,
+} as const;

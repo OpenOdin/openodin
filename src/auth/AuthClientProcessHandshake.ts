@@ -34,8 +34,6 @@ export class AuthClientProcessHandshake implements AuthClientProcessInterface {
     constructor(protected webSocket: ClientInterface,
         protected apiAuthFactoryConfig: APIAuthFactoryConfig)
     {
-        //const config = apiAuthFactoryConfig.clientAuth?.config ?? {};
-
         const [socket1, socket2] = CreatePair();
 
         this.socket1 = socket1;

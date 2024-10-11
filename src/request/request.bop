@@ -1,0 +1,176 @@
+struct BopLimitField {
+    string name;
+    uint16 limit;
+}
+
+/** This struct matched Filter in datamodel/model/types.ts. */
+struct BopFilter {
+    string field;
+    string operator;
+    string cmp;
+    string value;
+}
+
+struct BopMatch {
+    byte[] nodeType;
+    BopFilter[] filters;
+    int32 limit;
+    BopLimitField limitField;
+    uint16[] level;
+    bool discard;
+    bool bottom;
+    uint8 id;
+    uint8 requireId;
+    byte[] cursorId1;
+}
+
+struct BopAllowEmbed {
+    byte[] nodeType;
+    BopFilter[] filters;
+}
+
+struct BopFetchQuery {
+    int32 depth;
+    int32 limit;
+    int64 cutoffTime;
+    byte[] rootNodeId1;
+    bool discardRoot;
+    byte[] parentId;
+    byte[] targetPublicKey;
+    byte[] sourcePublicKey;
+    BopMatch[] match;
+    BopAllowEmbed[] embed;
+    byte[] triggerNodeId;
+    uint16 triggerInterval;
+    bool onlyTrigger;
+    bool descending;
+    bool orderByStorageTime;
+    bool ignoreInactive;
+    bool ignoreOwn;
+    bool preserveTransient;
+    string region;
+    string jurisdiction;
+    string includeLicenses;
+}
+
+struct BopFetchCRDT {
+    string algo;
+    string conf;
+    byte[] msgId;
+    bool reverse;
+    int32 head;
+    int32 tail;
+    byte[] cursorId1;
+    int32 cursorIndex;
+}
+
+struct BopFetchResult {
+    byte[][] nodes;
+    byte[][] embed;
+    int64 cutoffTime;
+}
+
+struct BopCRDTResult {
+    byte[] delta;
+    int32 cursorIndex;
+    uint32 length;
+}
+
+@opcode(0x00000001)
+struct BopFetchRequest {
+    BopFetchQuery query;
+    BopFetchCRDT crdt;
+}
+
+@opcode(0x00000002)
+struct BopFetchResponse {
+    uint8 status;
+    BopFetchResult result;
+    BopCRDTResult crdtResult;
+    uint16 seq;
+    uint16 endSeq;
+    uint16 rowCount;
+    string error;
+}
+
+@opcode(0x00000003)
+struct BopStoreRequest {
+    byte[][] nodes;
+    byte[] sourcePublicKey;
+    byte[] targetPublicKey;
+    byte[][] muteMsgIds;
+    bool preserveTransient;
+    uint32 batchId;
+    bool hasMore;
+}
+
+@opcode(0x00000004)
+struct BopStoreResponse {
+    uint8 status;
+    byte[][] storedId1List;
+    byte[][] missingBlobId1List;
+    int64[] missingBlobSizes;
+    string error;
+}
+
+@opcode(0x00000005)
+struct BopUnsubscribeRequest {
+    byte[] originalMsgId;
+    byte[] targetPublicKey;
+}
+
+@opcode(0x00000006)
+struct BopUnsubscribeResponse {
+    uint8 status;
+    string error;
+}
+
+@opcode(0x00000007)
+struct BopWriteBlobRequest {
+    byte[] nodeId1;
+    uint64 pos;
+    byte[] data;
+    byte[] sourcePublicKey;
+    byte[] targetPublicKey;
+    byte[][] muteMsgIds;
+}
+
+@opcode(0x00000008)
+struct BopWriteBlobResponse {
+    uint8 status;
+    uint64 currentLength;
+    string error;
+}
+
+@opcode(0x00000009)
+struct BopReadBlobRequest {
+    byte[] nodeId1;
+    uint64 pos;
+    uint32 length;
+    byte[] targetPublicKey;
+    byte[] sourcePublicKey;
+}
+
+@opcode(0x0000000a)
+struct BopReadBlobResponse {
+    uint8 status;
+    byte[] data;
+    uint16 seq;
+    uint16 endSeq;
+    uint64 blobLength;
+    string error;
+}
+
+@opcode(0x0000000b)
+struct BopGenericMessageRequest {
+    string action;
+    byte[] sourcePublicKey;
+    byte[] data;
+}
+
+@opcode(0x0000000c)
+struct BopGenericMessageResponse {
+    uint8 status;
+    byte[] data;
+    string error;
+}

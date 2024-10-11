@@ -25,6 +25,39 @@ export type BaseCertParams = {
     isOnlineCertOnline?: boolean,
 };
 
+export const BaseCertSchema = {
+    "modelType??": new Uint8Array(0),
+    "id1??": new Uint8Array(0),
+    "owner??": new Uint8Array(0),
+    "targetPublicKeys??": [new Uint8Array(0)],
+    "config??": 0,
+    "lockedConfig??": 0,
+    "creationTime??": 0,
+    "expireTime??": 0,
+    "cert??": new Uint8Array(0),
+    "constraints??": new Uint8Array(0),
+    "targetType??": new Uint8Array(0),
+    "maxChainLength??": 0,
+    "signature??": new Uint8Array(0),
+    "signingPublicKeys??": [new Uint8Array(0)],
+    "multiSigThreshold??": 0,
+    "targetMaxExpireTime??": 0,
+    "transientConfig??": 0,
+    "hasOnlineValidation??": false,
+    "hasOnlineCert??": false,
+    "isIndestructible??": false,
+    "isOnlineValidated??": false,
+    "isOnlineRevoked??": false,
+    "isOnlineCertOnline??": false,
+    _postFn: function(baseCertParams: BaseCertParams): BaseCertParams {
+        if (typeof baseCertParams.expireTime === "number" && baseCertParams.expireTime < 0) {
+            baseCertParams.expireTime = Date.now() -baseCertParams.expireTime;
+        }
+
+        return baseCertParams;
+    }
+} as const;
+
 /**
  * Config bits for base cert class.
  */
@@ -55,6 +88,7 @@ export enum BaseCertConfig {
     IS_INDESTRUCTIBLE       = 2,
 }
 
+//eslint-disable-next-line @typescript-eslint/no-unused-vars
 enum BaseCertLockedConfig {}
 
 /**

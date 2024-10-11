@@ -50,7 +50,7 @@ export class StreamCRDT {
         protected unsetDataFn?: UnsetDataFn,
         protected purgeInterval: number = 60_000)
     {
-        this.fetchRequest = DeepCopy(fetchRequest);
+        this.fetchRequest = DeepCopy(fetchRequest) as FetchRequest;
 
         this.crdtView = new CRDTView(fetchRequest.query.preserveTransient, setDataFn, unsetDataFn);
 
@@ -63,10 +63,10 @@ export class StreamCRDT {
         this.getResponseObj = getResponse;
 
         this.getResponseObj.onReply( (fetchResponse: FetchResponse) => {
-            if (fetchResponse.status === Status.RESULT) {
+            if (fetchResponse.status === Status.Result) {
                 this.crdtView.handleResponse(fetchResponse);
             }
-            else if (fetchResponse.status === Status.DROPPED_TRIGGER) {
+            else if (fetchResponse.status === Status.DroppedTrigger) {
                 // Do nothing
             }
             else {

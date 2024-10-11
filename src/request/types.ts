@@ -3,20 +3,30 @@
  * @module
  */
 
-import {Filter} from "./datamodel";
+import {Filter} from "../datamodel";
 
 /**
- * This struct is part of Match and is used to limit how many times a Match matches on specific fields.
- * When processing a query having a match with limitField set then for each identical value of the field
- * identified by limitField.name a counter is increased and when the counter is greater then limitField.limit
- * the following nodes who match limitField are ignored and not part of the result set.
- * A match state is reset for each query below a node, meaning a limitField constraint is local to a set of sibling nodes.
- * The usage of this could be to limit the number of occurrences of nodes returned who have the field "name" set to the same value.
- * For example setting limitField to `{name: "Highlander", limit: 1}` will only allow one node having the field `name` set
- * to "Highlander" within the same set of sibling nodes.
- * Note that if the chosen node is later discarded due to its timestamp the matched node will not be returned in the result
- * set as will no other node who was constrained under the limitField. In these cases one could increase the `limit` or try
- * reversing (descending=true) the result set to pick from neweset nodes instead of oldest nodes first.
+ * This struct is part of Match and is used to limit how many times a Match matches on specific
+ * fields.
+ *
+ * When processing a query having a match with limitField set then for each identical value of the
+ * field  identified by limitField.name a counter is increased and when the counter is greater then
+ * limitField.limit the following nodes who match limitField are ignored and not part of the
+ * result set.
+ *
+ * A match state is reset for each query below a node, meaning a limitField constraint is local to a
+ * set of sibling nodes.
+ *
+ * The usage of this could be to limit the number of occurrences of nodes returned who have the field
+ * "name" set to the same value.
+ *
+ * For example setting limitField to `{name: "Highlander", limit: 1}` will only allow one node having
+ * the field `name` set to "Highlander" within the same set of sibling nodes.
+ *
+ * Note that if the chosen node is later discarded due to its timestamp the matched node will not be
+ * returned in the result set as will no other node who was constrained under the limitField.
+ * In these cases one could increase the `limit` or try reversing (descending=true) the result set
+ * to pick from neweset nodes instead of oldest nodes first.
  */
 export type LimitField = {
     /** Name of the field to count identical values on. */
@@ -64,7 +74,8 @@ export type Match = {
      * If set then the node will be discarded from the resultset.
      * But up til that last moment the node will be used for traversing just as if not discarded,
      * and also match state is managed as when not discarding.
-     * It is enough that a single Match object has discard=false for the node to be kept in the resultset.
+     * It is enough that a single Match object has discard=false for the node to be kept in the
+     * result set.
      */
     discard: boolean,
 
@@ -76,14 +87,17 @@ export type Match = {
     bottom: boolean,
 
     /**
-     * If set > 0 then the running query will note that a node was matched with this specific match ID.
-     * The use of matchId is for matches on the next level to requrie that a specific match was actively matching the parent node.
+     * If set > 0 then the running query will note that a node was matched with this specific match
+     * ID.
+     * The use of matchId is for matches on the next level to requrie that a specific match was
+     * actively matching the parent node.
      * Ids are not unique, many matches can have the same id.
      */
     id: number,
 
     /**
-     * If set > 0 then this match requires that at least one match matching the parent node had its matchId value set to this.
+     * If set > 0 then this match requires that at least one match matching the parent node had its
+     * matchId value set to this.
      */
     requireId: number,
 
@@ -98,7 +112,8 @@ export type Match = {
 };
 
 /**
- * This struct is used in queries for the client to restrict which nodes are passed along as embedded nodes.
+ * This struct is used in queries for the client to restrict which nodes are passed along as
+ * embedded nodes.
  * Typically a client would defined that is wants Licenses to be returned as embedded.
  */
 export type AllowEmbed = {
@@ -113,7 +128,9 @@ export type AllowEmbed = {
  * Each FetchRequest has one fetch query.
  */
 export type FetchQuery = {
-    /** max depth of request. Default is -1 meaning max limit. Max allowed depth is 100000 nodes deep. */
+    /**
+     * Max depth of request. Default is -1 meaning max limit. Max allowed depth is 100000 nodes deep.
+     */
     depth: number,
 
     /**
@@ -179,18 +196,6 @@ export type FetchQuery = {
     /**
      * Optional.
      *
-     * For whom this read is performed. Permissions are applied to this public key.
-     *
-     * Upon arrival this is by default set to the public key of the peer sending the message.
-     *
-     * It can be set differently by the sender if the receiving P2PClient is configured with
-     * allowUncheckedAccess.
-     */
-    targetPublicKey: Buffer,
-
-    /**
-     * Optional.
-     *
      * Who is the source of the data we are fetching.
      *
      * Upon arrival this is by default set to the public key of the peer receiving this message.
@@ -200,15 +205,32 @@ export type FetchQuery = {
      */
     sourcePublicKey: Buffer,
 
+    /**
+     * Optional.
+     *
+     * For whom this read is performed. Permissions are applied to this public key.
+     *
+     * Upon arrival this is by default set to the public key of the peer sending the message.
+     *
+     * It can be set differently by the sender if the receiving P2PClient is configured with
+     * allowUncheckedAccess.
+     */
+    targetPublicKey: Buffer,
+
     /** At least one Match must match for a node to be added to result set. */
     match: Match[],
 
     /**
-     * The node types and criterias which must match for the Database to send nodes-to-be-embedded back to the client.
-     * The client requests for example a License from an Intermediary who is proxying the request to the Storage and also has allowEmbed for License set in its permissions
-     * then Licenses will be embedded and subsequently returned in the result set.
-     * Note that nodes which get embedded when fetching will not be returned in the first result set, it will take a second fetch or
-     * that the first fetch also has a subscription for the embedded nodes to be returned.
+     * The node types and criterias which must match for the Database to send nodes-to-be-embedded
+     * back to the client.
+     *
+     * The client requests for example a License from an Intermediary who is proxying the request to
+     * the Storage and also has allowEmbed for License set in its permissions then Licenses will be
+     * embedded and subsequently returned in the result set.
+     *
+     * Note that nodes which get embedded when fetching will not be returned in the first result set,
+     * it will take a second fetch or that the first fetch also has a subscription for the embedded
+     * nodes to be returned.
      */
     embed: AllowEmbed[],
 
@@ -217,6 +239,7 @@ export type FetchQuery = {
      * added/changed below the triggerNodeId.
      * triggerNodeId is the parentId of the nodes to observe, it does not need to be related to
      * the parentId or the rootNodeId1 of the query.
+     *
      * The Storage is not required to support this feature and if it does not support this feature
      * then a malformed error is returned.
      */
@@ -267,7 +290,10 @@ export type FetchQuery = {
      */
     orderByStorageTime: boolean,
 
-    /** Set to true to not include not valid online nodes in result. Default is to include not valid nodes in resultset. */
+    /**
+     * Set to true to not include not valid online nodes in result. Default is to include not valid
+     * nodes in resultset.
+     */
     ignoreInactive: boolean,
 
     /**
@@ -280,10 +306,11 @@ export type FetchQuery = {
     /**
      * Set to true to preserve nodes transient values across serialization boundaries when fetching.
      *
-     * This is useful when a client wants to piggy-back on the peer's knowledge of the online transient
-     * properties of nodes, such as if it is validate and also for CRDT annotations.
+     * This is useful when a client wants to piggy-back on the peer's knowledge of the online
+     * transient properties of nodes, such as if it is validate and also for CRDT annotations.
      *
-     * Only use this if trusting the peer, also transient values are not guaranteed to be provided by the peer.
+     * Only use this if trusting the peer, also transient values are not guaranteed to be provided by
+     * the peer.
      */
     preserveTransient: boolean,
 
@@ -304,28 +331,29 @@ export type FetchQuery = {
     jurisdiction: string,
 
     /**
-     * The includeLicenses feature is a way of bundling applicable licenses in the response.
+     * The includeLicenses feature is a way of automatically bundling applicable licenses in
+     * the response.
      *
      * Compared to adding a Match for license and an Embed to be able to get new licenses,
      * the includeLicenses feature makes it even more to the point of only targeting licenses
      * needed for the particular nodes matched.
      *
-     * Fetching licenses using a Match and Embed sweeps very broadly and might return
-     * many licenses for nodes which are of no interest to the query request.
+     * Because fetching licenses using a Match and Embed sweeps very broadly it might return
+     * many licenses for nodes which are of no interest to the given fetch request.
      *
-     * If set to 0 this feature is not active.
+     * If set to "" this feature is not active.
      *
-     * If set to 1 then include all valid existing licenses for each specific node matched,
-     * including read and write licenses. Although only read licenses will result in the
-     * node being returned in the query response.
+     * If set to "include" then include all valid existing licenses for each specific node matched,
+     * including both read and write licenses (although only read licenses will result in the
+     * node actually being returned in the query response).
      *
-     * If set to 2 then automatically add proposed embeddings of licenses which will give
-     * rights to nodes matched. This also includes write licenses, although those do not give
-     * read access to the nodes.
+     * If set to "extend" then automatically add proposed embeddings of licenses which will give
+     * rights to nodes matched (this also includes write licenses, although those do not give
+     * read access to the nodes).
      *
-     * If set to 3 then do for 1 and 2.
+     * If set to "include-extend" then both include and extend licenses.
      */
-    includeLicenses: number,
+    includeLicenses: "" | "Include" | "Extend" | "IncludeExtend",
 };
 
 /**
@@ -335,9 +363,9 @@ export type FetchCRDT = {
     /**
      * The ID of the CRDT algo requested.
      * The server might not allow certain or any algos.
-     * A value of 0 means CRDT is not used.
+     * A value of "" means CRDT is not used.
      */
-    algo: number,
+    algo: string,
 
     /**
      * Algos can take configuration parameters in JSON format, provided here.
@@ -416,7 +444,7 @@ export type FetchCRDT = {
      * The index of the node with the id1 equal to cursorId1 is the previous element in the list
      * and the first returned element is the node after the cursor node.
      *
-     * If a cursor is given but not found then the fetch response status is MISSING_CURSOR.
+     * If a cursor is given but not found then the fetch response status is MissingCursor.
      *
      * This value can be changed for streaming requests to change the scope of the resultset.
      *
@@ -448,46 +476,46 @@ export type FetchCRDT = {
 /**
  * Each response has a Status property which states the completion status of the request.
  */
-export enum Status {
+export const Status = {
     /** This means a result was returned. Which is a success. */
-    RESULT              = 1,
+    Result:              1,
 
     /** This is returned if the incoming request was malformed and could not be parsed properly. */
-    MALFORMED           = 2,
+    Malformed:           2,
 
     /** Some error occoured while processing the request. */
-    ERROR               = 3,
+    Error:               3,
 
     /** If a storeRequest or writeBlobRequest could not succeed. */
-    STORE_FAILED        = 4,
+    StoreFailed:         4,
 
     /** If a readBlobRequest fails because blob data is not available. */
-    FETCH_FAILED        = 5,
+    FetchFailed:         5,
 
     /**
      * If a fetchRequest refers to a real root ID but the root node
      * was not found then this error code is returned.
      */
-    MISSING_ROOTNODE    = 6,
+    MissingRootnode:     6,
 
     /**
      * If a fetchRequest refers to a real root node but the root node is either licensed,
      * uses hasRightsByAssociation or is flagged as beginRestrictiveWriterMode then
      * the given root node cannot be used as a root node.
      */
-    ROOTNODE_LICENSED   = 7,
+    RootnodeLicensed:    7,
 
     /**
      * If access to root node is denied, or
      * when writing/reading a blob whos node we are not allowed to access,
      */
-    NOT_ALLOWED         = 8,
+    NotAllowed:          8,
 
     /** If content hash does not match expected hash when writing a blob. */
-    MISMATCH            = 9,
+    Mismatch:            9,
 
     /** When a blobWrite got finalized or if the blob already did exist when writing. */
-    EXISTS              = 10,
+    Exists:              10,
 
     /**
      * When a CRDT fetch is done using a cursor but the cursor does not exist, this return
@@ -496,15 +524,17 @@ export enum Status {
      * Note that this is not regarded as an error message and if the request is a trigger subscription
      * then it will not be automatically removed (as when sending any other error replies).
      */
-    MISSING_CURSOR      = 11,
+    MissingCursor:       11,
 
     /**
      * Sent from the Storage when a trigger has been dropped.
      * Message is sent with seq=0 so that message is cleared out and onCancel()
      * is triggered on the GetResponse object.
      */
-    DROPPED_TRIGGER     = 12,
-}
+    DroppedTrigger:      12,
+} as const;
+
+export type StatusValues = typeof Status[keyof typeof Status];
 
 /**
  *  A FetchResult is the result of a FetchQuery.
@@ -514,12 +544,17 @@ export type FetchResult = {
     nodes: Buffer[],
 
     /**
-     * The Storage can send this array of serialized nodes which are to be signed and sent back to storage for storing.
+     * The Storage can send this array of serialized nodes which are to be signed and sent back to
+     * storage for storing.
+     *
      * The serialized node is a proposal from the extender of the embedding node to be signed.
      */
     embed: Buffer[],
 
-    /** The next cutoff timestamp to use in any subsequent query to reduce the number of duplicate nodes in the result set. */
+    /**
+     * The next cutoff timestamp to use in any subsequent query to reduce the number of duplicate
+     * nodes in the result set.
+     */
     cutoffTime: bigint,
 };
 
@@ -574,15 +609,15 @@ export type FetchRequest = {
 export type FetchResponse = {
     /**
      * Expected status values:
-     * Status.RESULT
-     * Status.ERROR
-     * Status.NOT_ALLOWED
-     * Status.ROOTNODE_LICENSED
-     * Status.MISSING_ROOTNODE
-     * Status.MISSING_CURSOR
-     * Status.MALFORMED
+     * Status.Result
+     * Status.Error
+     * Status.NotAllowed
+     * Status.RootnodeLicensed
+     * Status.MissingRootnode
+     * Status.MissingCursor
+     * Status.Malformed
      */
-    status: Status,
+    status: StatusValues,
 
     result: FetchResult,
 
@@ -610,11 +645,6 @@ export type FetchResponse = {
     endSeq: number,
 
     /**
-     * If there was an error reported in Status an error message could be provided.
-     */
-    error: string,
-
-    /**
      * The number of rows in the database processed so far to return this resultset.
      * If this number is much higher than the expected length of the resulset (or hits the max limit)
      * then it is a good indicator that the query is not specific enough.
@@ -622,6 +652,11 @@ export type FetchResponse = {
      * meaning it is the aggregated value of all sequences prior for the current query result.
      */
     rowCount: number,
+
+    /**
+     * If there was an error reported in Status an error message could be provided.
+     */
+    error: string,
 };
 
 /** The struct used when sending store requests. */
@@ -662,17 +697,23 @@ export type StoreRequest = {
     targetPublicKey: Buffer,
 
     /**
-     * Could be populated with msg IDs which were the msg IDs of the fetchRequest message sent when creating a subscription.
-     * This is useful so that the same data is not bounced back to the peer which the data just was fetched from.
+     * Could be populated with msg IDs which were the msg IDs of the fetchRequest message sent when
+     * creating a subscription.
+     * This is useful so that the same data is not bounced back to the peer which the data just was
+     * fetched from.
      * Peer clients are not expected to set this.
      */
     muteMsgIds: Buffer[],
 
     /**
-     * Set to true to preserve nodes transient values across serialization boundaries when sending nodes to storage.
-     * One usage of this is when a client fetches from a peer using fetchQuery.preserveTransient and then wanting to store the transient values in its storage,
+     * Set to true to preserve nodes transient values across serialization boundaries when sending
+     * nodes to storage.
+     * One usage of this is when a client fetches from a peer using fetchQuery.preserveTransient and
+     * then wanting to store the transient values in its storage,
      * because the client's storage might not be capable of looking up transient values it self.
-     * The Storage must be configured to allow the preservation of transient values for them to be stored.
+     *
+     * The Storage must be configured to allow the preservation of transient values for them to be
+     * stored.
      */
     preserveTransient: boolean,
 
@@ -686,9 +727,13 @@ export type StoreRequest = {
     batchId: number,
 
     /**
-     * When using batchId this field should be set when more data will be sent in a subsequent request.
+     * When using batchId this field should be set when more data will be sent in a subsequent
+     * request.
+     *
      * When the last request of the batch is sent this should be false.
+     *
      * If batchId is not > 0 then this field is ignored.
+     *
      * Default is false.
      */
     hasMore: boolean,
@@ -698,26 +743,26 @@ export type StoreRequest = {
 export type StoreResponse = {
     /**
      * Expected status values:
-     * Status.RESULT
-     * Status.STORE_FAILED
-     * Status.MALFORMED
-     * Status.ERROR
+     * Status.Result
+     * Status.StoreFailed
+     * Status.Malformed
+     * Status.Error
      */
-    status: Status,
+    status: StatusValues,
 
     /**
      * Node ID1s of all nodes which got stored.
      */
-    storedId1s: Buffer[],
+    storedId1List: Buffer[],
 
     /**
      * Node ID1s of all nodes in StoreRequest which are missing blobs.
      * Use this to know what blobs to download from the peer.
      */
-    missingBlobId1s: Buffer[],
+    missingBlobId1List: Buffer[],
 
     /**
-     * Corresponds to missingBlobId1s and gives the size of the blob in bytes.
+     * Corresponds to missingBlobId1List and gives the size of the blob in bytes.
      */
     missingBlobSizes: bigint[],
 
@@ -753,9 +798,9 @@ export type UnsubscribeRequest = {
 export type UnsubscribeResponse = {
     /**
      * Expected status values:
-     * Status.RESULT
+     * Status.Result
      */
-    status: Status,
+    status: StatusValues,
 
     /**
      * If there was an error reported in Status an error message could be provided.
@@ -815,22 +860,23 @@ export type WriteBlobRequest = {
 export type WriteBlobResponse = {
     /**
      * Expected status values:
-     * Status.ERROR some error occurred
-     * Status.NOT_ALLOWED if access to node is not allowed, node not found or if allowWriteBlob is set to false.
-     * Status.MALFORMED if input values are wrong or if node is not configured for blob.
-     * Status.EXISTS if the blob already exists or if the blob just got finalized to exist from this write or copy action
-     * Status.STORE_FAILED if data could not be written or finalized. Database could be busy.
-     * Status.MISMATCH if hash does not compute after all data is written.
-     * Status.RESULT on successful write, currentLength is set to the size of the written data so far.
+     * Status.Error some error occurred
+     * Status.NotAllowed if access to node is not allowed, node not found or if allowWriteBlob is set to false.
+     * Status.Malformed if input values are wrong or if node is not configured for blob.
+     * Status.Exists if the blob already exists or if the blob just got finalized to exist from this write or copy action
+     * Status.StoreFailed if data could not be written or finalized. Database could be busy.
+     * Status.Mismatch if hash does not compute after all data is written.
+     * Status.Result on successful write, currentLength is set to the size of the written data so far.
      *      The length is the continuous length from start til first gap.
      *      This info can be used for resuming writes.
      */
-    status: Status,
+    status: StatusValues,
 
     /**
      * The current length of the blob data written.
      * If Status.EXISTS is returned currentLength is set to the full length of the blob.
-     * If Status.RESULT is returned currentLength is set to the current length of the total continuous blob data written.
+     * If Status.RESULT is returned currentLength is set to the current length of the total
+     * continuous blob data written.
      */
     currentLength: bigint,
 
@@ -862,18 +908,6 @@ export type ReadBlobRequest = {
     /**
      * Optional.
      *
-     * For whom this blob read is performed. Permissions are applied to this public key.
-     *
-     * Upon arrival this is by default set to the public key of the peer sending the message.
-     *
-     * It can be set differently by the sender if the receiving P2PClient is configured with
-     * allowUncheckedAccess.
-     */
-    targetPublicKey: Buffer,
-
-    /**
-     * Optional.
-     *
      * Who is the source of the blob data we are fetching.
      *
      * Upon arrival this is by default set to the public key of the peer receiving this message.
@@ -882,20 +916,33 @@ export type ReadBlobRequest = {
      * allowUncheckedAccess.
      */
     sourcePublicKey: Buffer,
+
+    /**
+     * Optional.
+     *
+     * For whom this blob read is performed. Permissions are applied to this public key.
+     *
+     * Upon arrival this is by default set to the public key of the peer sending the message.
+     *
+     * It can be set differently by the sender if the receiving P2PClient is configured with
+     * allowUncheckedAccess.
+     */
+    targetPublicKey: Buffer,
 };
 
 /** Struct used for responding to read blob requests. */
 export type ReadBlobResponse = {
     /**
      * Expected status values:
-     * Status.ERROR if some error or exception occurred.
-     * Status.NOT_ALLOWED if read permissions to the node is not allowed for the client,target combo or
+     * Status.Error if some error or exception occurred.
+     * Status.NotAllowed if read permissions to the node is not allowed for the client,target combo or
      *  if allowReadBlob is set to false, or if the node is not found.
-     * Status.FETCH_FAILED if blob data is not (yet) available.
-     * Status.MALFORMED if input values are wrong or if the node is fetched on id2, or if node is not configured for blob.
-     * Status.RESULT on successful read.
+     * Status.FetchFailed if blob data is not (yet) available.
+     * Status.Malformed if input values are wrong or if the node is fetched on id2, or if node is not
+     * configured for blob.
+     * Status.Result on successful read.
      */
-    status: Status,
+    status: StatusValues,
 
     /** The read data. */
     data: Buffer,
@@ -957,7 +1004,7 @@ export type GenericMessageResponse = {
     /**
      * Expected status values is all dependant on how the peers implement their messaging protocol.
      */
-    status: Status,
+    status: StatusValues,
 
     /** Whatever the peer responded with. */
     data: Buffer,

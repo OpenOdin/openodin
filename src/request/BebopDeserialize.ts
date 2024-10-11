@@ -11,7 +11,7 @@ import {
     BopWriteBlobResponse,
     BopReadBlobResponse,
     BopGenericMessageResponse,
-} from "./bebop";
+} from "../bebop";
 
 import {
     FetchRequest,
@@ -27,12 +27,11 @@ import {
     UnsubscribeResponse,
     GenericMessageResponse,
     Status,
-} from "../../types";
+} from "./types";
 
 import {
-    UnpackFilters,
-    MakeIntoBuffer,
-} from "./util";
+    DeepCopy,
+} from "../util/common";
 
 
 /**
@@ -106,36 +105,7 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize FetchRequest, wrong opcode");
         }
 
-        const obj = BopFetchRequest.decode(data.slice(4));
-
-        if (obj.query === undefined || obj.crdt === undefined) {
-            throw new Error("Could not deserialize FetchRequest");
-        }
-
-        obj.crdt.cursorId1 = MakeIntoBuffer(obj.crdt.cursorId1);
-        obj.crdt.msgId = MakeIntoBuffer(obj.crdt.msgId);
-        obj.query.rootNodeId1 = MakeIntoBuffer(obj.query.rootNodeId1);
-        obj.query.parentId = MakeIntoBuffer(obj.query.parentId);
-        obj.query.targetPublicKey = MakeIntoBuffer(obj.query.targetPublicKey);
-        obj.query.sourcePublicKey = MakeIntoBuffer(obj.query.sourcePublicKey);
-        obj.query.triggerNodeId = MakeIntoBuffer(obj.query.triggerNodeId);
-        obj.query.match = obj.query.match.map( match => {
-            return {
-                ...match,
-                nodeType: MakeIntoBuffer(match.nodeType),
-                filters: UnpackFilters(match.filters),
-                cursorId1: MakeIntoBuffer(match.cursorId1),
-            };
-        });
-        obj.query.embed = obj.query.embed.map( embed => {
-            return {
-                ...embed,
-                nodeType: MakeIntoBuffer(embed.nodeType),
-                filters: UnpackFilters(embed.filters),
-            };
-        });
-
-        return (obj as unknown) as FetchRequest;
+        return DeepCopy(BopFetchRequest.decode(data.slice(4)), true);
     }
 
     /**
@@ -149,20 +119,13 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize FetchResponse, wrong opcode");
         }
 
-        const obj = BopFetchResponse.decode(data.slice(4));
+        const fetchResponse = DeepCopy(BopFetchResponse.decode(data.slice(4)), true) as FetchResponse;
 
-        if (obj.result === undefined || obj.crdtResult === undefined ||
-            obj.status === undefined || obj.seq === undefined ||
-            obj.endSeq === undefined || obj.rowCount === undefined || obj.error === undefined)
-        {
-            throw new Error("Could not deserialize FetchResponse");
+        if (!Object.values(Status).includes(fetchResponse.status)) {
+            throw new Error("Could not deserialize FetchResponse, unknown status");
         }
 
-        obj.result.nodes = obj.result.nodes.map( MakeIntoBuffer );
-        obj.result.embed = obj.result.embed.map( MakeIntoBuffer );
-        obj.crdtResult.delta = MakeIntoBuffer(obj.crdtResult.delta);
-
-        return (obj as unknown) as FetchResponse;
+        return fetchResponse;
     }
 
     /**
@@ -176,22 +139,7 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize StoreRequest, wrong opcode");
         }
 
-        const obj = BopStoreRequest.decode(data.slice(4));
-
-        if (obj.nodes === undefined || obj.sourcePublicKey === undefined ||
-            obj.targetPublicKey === undefined || obj.muteMsgIds === undefined ||
-            obj.preserveTransient === undefined || obj.batchId === undefined ||
-            obj.hasMore === undefined)
-        {
-            throw new Error("Could not deserialize StoreRequest");
-        }
-
-        obj.nodes = obj.nodes.map( MakeIntoBuffer );
-        obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
-        obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
-        obj.muteMsgIds = obj.muteMsgIds.map( MakeIntoBuffer );
-
-        return obj as unknown as StoreRequest;
+        return DeepCopy(BopStoreRequest.decode(data.slice(4)), true);
     }
 
     /**
@@ -205,22 +153,11 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize StoreResponse, wrong opcode");
         }
 
-        const obj = BopStoreResponse.decode(data.slice(4));
+        const storeResponse = DeepCopy(BopStoreResponse.decode(data.slice(4)), true) as StoreResponse;
 
-        if (obj.status === undefined || obj.storedId1S === undefined ||
-            obj.missingBlobId1S === undefined || obj.missingBlobSizes === undefined ||
-            obj.error === undefined)
-        {
-            throw new Error("Could not deserialize StoreResponse");
+        if (!Object.values(Status).includes(storeResponse.status)) {
+            throw new Error("Could not deserialize StoreResponse, unknown status");
         }
-
-        const storeResponse: StoreResponse = {
-            error: obj.error as string,
-            status: obj.status as Status,
-            storedId1s: obj.storedId1S.map( MakeIntoBuffer ),
-            missingBlobId1s: obj.missingBlobId1S.map( MakeIntoBuffer ),
-            missingBlobSizes: obj.missingBlobSizes,
-        };
 
         return storeResponse;
     }
@@ -236,16 +173,7 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize UnsubscribeRequest, wrong opcode");
         }
 
-        const obj = BopUnsubscribeRequest.decode(data.slice(4));
-
-        if (obj.originalMsgId === undefined || obj.targetPublicKey === undefined) {
-            throw new Error("Could not deserialize UnsubscribeRequest");
-        }
-
-        obj.originalMsgId = MakeIntoBuffer(obj.originalMsgId);
-        obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
-
-        return obj as unknown as UnsubscribeRequest;
+        return DeepCopy(BopUnsubscribeRequest.decode(data.slice(4)), true);
     }
 
     /**
@@ -259,13 +187,14 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize UnsubscribeResponse, wrong opcode");
         }
 
-        const obj = BopUnsubscribeResponse.decode(data.slice(4));
+        const unsubscribeResponse =
+            DeepCopy(BopUnsubscribeResponse.decode(data.slice(4)), true) as UnsubscribeResponse;
 
-        if (obj.status === undefined || obj.error === undefined) {
-            throw new Error("Could not deserialize UnsubscribeResponse");
+        if (!Object.values(Status).includes(unsubscribeResponse.status)) {
+            throw new Error("Could not deserialize UnsubscribeResponse, unknown status");
         }
 
-        return obj as unknown as UnsubscribeResponse;
+        return unsubscribeResponse;
     }
 
     /**
@@ -279,22 +208,7 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize WriteBlobRequest, wrong opcode");
         }
 
-        const obj = BopWriteBlobRequest.decode(data.slice(4));
-
-        if (obj.nodeId1 === undefined || obj.sourcePublicKey === undefined ||
-            obj.targetPublicKey === undefined || obj.data === undefined ||
-            obj.pos === undefined || obj.muteMsgIds === undefined)
-        {
-            throw new Error("Could not deserialize WriteBlobRequest");
-        }
-
-        obj.nodeId1 = MakeIntoBuffer(obj.nodeId1);
-        obj.data = MakeIntoBuffer(obj.data);
-        obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
-        obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
-        obj.muteMsgIds = obj.muteMsgIds.map( MakeIntoBuffer );
-
-        return obj as unknown as WriteBlobRequest;
+        return DeepCopy(BopWriteBlobRequest.decode(data.slice(4)), true);
     }
 
     /**
@@ -308,13 +222,14 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize WriteBlobResponse, wrong opcode");
         }
 
-        const obj = BopWriteBlobResponse.decode(data.slice(4));
+        const writeBlobResponse =
+            DeepCopy(BopWriteBlobResponse.decode(data.slice(4)), true) as WriteBlobResponse;
 
-        if (obj.status === undefined || obj.currentLength === undefined || obj.error === undefined) {
-            throw new Error("Could not deserialize WriteBlobResponse");
+        if (!Object.values(Status).includes(writeBlobResponse.status)) {
+            throw new Error("Could not deserialize WriteBlobResponse, unknown status");
         }
 
-        return obj as unknown as WriteBlobResponse;
+        return writeBlobResponse;
     }
 
     /**
@@ -328,19 +243,7 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize ReadBlobRequest, wrong opcode");
         }
 
-        const obj = BopReadBlobRequest.decode(data.slice(4));
-
-        if (obj.nodeId1 === undefined || obj.sourcePublicKey === undefined ||
-            obj.targetPublicKey === undefined || obj.pos === undefined || obj.length === undefined)
-        {
-            throw new Error("Could not deserialize ReadBlobRequest");
-        }
-
-        obj.nodeId1 = MakeIntoBuffer(obj.nodeId1);
-        obj.targetPublicKey = MakeIntoBuffer(obj.targetPublicKey);
-        obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
-
-        return obj as unknown as ReadBlobRequest;
+        return DeepCopy(BopReadBlobRequest.decode(data.slice(4)), true);
     }
 
     /**
@@ -354,18 +257,14 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize ReadBlobReResponse, wrong opcode");
         }
 
-        const obj = BopReadBlobResponse.decode(data.slice(4));
+        const readBlobResponse =
+            DeepCopy(BopReadBlobResponse.decode(data.slice(4)), true) as ReadBlobResponse;
 
-        if (obj.status === undefined || obj.data === undefined ||
-            obj.seq === undefined || obj.endSeq === undefined ||
-            obj.blobLength === undefined || obj.error === undefined)
-        {
-            throw new Error("Could not deserialize WriteBlobRequest");
+        if (!Object.values(Status).includes(readBlobResponse.status)) {
+            throw new Error("Could not deserialize ReadBlobResponse, unknown status");
         }
 
-        obj.data = MakeIntoBuffer(obj.data);
-
-        return obj as unknown as ReadBlobResponse;
+        return readBlobResponse;
     }
 
     /**
@@ -379,16 +278,7 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize GenericMessageRequest, wrong opcode");
         }
 
-        const obj = BopGenericMessageRequest.decode(data.slice(4));
-
-        if (obj.action === undefined || obj.sourcePublicKey === undefined || obj.data === undefined) {
-            throw new Error("Could not deserialize GenericMessageRequest");
-        }
-
-        obj.data = MakeIntoBuffer(obj.data);
-        obj.sourcePublicKey = MakeIntoBuffer(obj.sourcePublicKey);
-
-        return obj as unknown as GenericMessageRequest;
+        return DeepCopy(BopGenericMessageRequest.decode(data.slice(4)), true);
     }
 
     /**
@@ -402,14 +292,13 @@ export class BebopDeserialize {
             throw new Error("Could not deserialize GenericMessageResponse, wrong opcode");
         }
 
-        const obj = BopGenericMessageResponse.decode(data.slice(4));
+        const genericMessageResponse =
+            DeepCopy(BopGenericMessageResponse.decode(data.slice(4)), true) as GenericMessageResponse;
 
-        if (obj.status === undefined || obj.error === undefined || obj.data === undefined) {
-            throw new Error("Could not deserialize GenericMessageResponse");
+        if (!Object.values(Status).includes(genericMessageResponse.status)) {
+            throw new Error("Could not deserialize GenericMessageResponse, unknown status");
         }
 
-        obj.data = MakeIntoBuffer(obj.data);
-
-        return obj as unknown as GenericMessageResponse;
+        return genericMessageResponse;
     }
 }

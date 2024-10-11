@@ -4,6 +4,7 @@ import {
 
 import {
     DataParams,
+    DataNodeSchema,
 } from "../../../node/secondary/data/types";
 
 import {
@@ -13,6 +14,10 @@ import {
 export const SECONDARY_INTERFACE_DATACERT_ID = 1;
 
 export type DataCertConstraintValues = DataParams;
+
+export const DataCertConstraintSchema = {
+    ...DataNodeSchema,
+} as const;
 
 /**
  * A secondary interface for DataCerts.

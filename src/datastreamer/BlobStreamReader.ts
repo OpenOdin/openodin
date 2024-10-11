@@ -151,7 +151,7 @@ export class BlobStreamReader extends AbstractStreamReader {
             }
 
             getResponse.onReply((readBlobResponse: ReadBlobResponse) => {
-                if (readBlobResponse.status === Status.RESULT) {
+                if (readBlobResponse.status === Status.Result) {
                     const data = readBlobResponse.data;
                     const blobLength = readBlobResponse.blobLength;
 
@@ -202,17 +202,17 @@ export class BlobStreamReader extends AbstractStreamReader {
                         }
                     }
                 }
-                else if (readBlobResponse.status === Status.ERROR) {
+                else if (readBlobResponse.status === Status.Error) {
                     // Try next peer
                     console.debug("Could not read blob from peer:", readBlobResponse);
                     resolve([StreamStatus.ERROR, readBlobResponse.error]);
                 }
-                else if (readBlobResponse.status === Status.NOT_ALLOWED) {
+                else if (readBlobResponse.status === Status.NotAllowed) {
                     // Try next peer
                     console.debug("Could not read blob from peer:", readBlobResponse);
                     resolve([StreamStatus.NOT_ALLOWED, readBlobResponse.error]);
                 }
-                else if (readBlobResponse.status === Status.FETCH_FAILED) {
+                else if (readBlobResponse.status === Status.FetchFailed) {
                     // Try next peer
                     // Do not output debug message here since it might spam.
                     resolve([StreamStatus.NOT_AVAILABLE, readBlobResponse.error]);

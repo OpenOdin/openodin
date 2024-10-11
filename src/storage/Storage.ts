@@ -33,6 +33,7 @@ import {
 
 import {
     Status,
+    StatusValues,
     StoreRequest,
     StoreResponse,
     FetchRequest,
@@ -80,7 +81,7 @@ const BUSY_ERRORS = ["SQLITE_BUSY: database is locked", "canceling statement due
 const console = PocketConsole({module: "Storage"});
 
 const EMPTY_FETCHRESPONSE: FetchResponse = {
-    status: Status.RESULT,
+    status: Status.Result,
     result: {
         nodes: [],
         embed: [],
@@ -260,9 +261,9 @@ export class Storage {
                 if (sendResponse) {
                     const error = "StoreRequest not allowed to use preserveTransient for this connection.";
                     const errorStoreResponse: StoreResponse = {
-                        status: Status.MALFORMED,
-                        storedId1s: [],
-                        missingBlobId1s: [],
+                        status: Status.Malformed,
+                        storedId1List: [],
+                        missingBlobId1List: [],
                         missingBlobSizes: [],
                         error,
                     };
@@ -354,9 +355,9 @@ export class Storage {
             let storeResponse: StoreResponse;
 
             if (result) {
-                const [storedId1s, parentIds, blobId1s] = result;
+                const [storedId1List, parentIds, blobId1s] = result;
 
-                const missingBlobId1s: Buffer[] = [];
+                const missingBlobId1List: Buffer[] = [];
                 const missingBlobSizes: bigint[] = [];
 
                 if (blobId1s.length > 0 && this.blobDriver) {
@@ -390,7 +391,7 @@ export class Storage {
                             const blobSize = node?.getBlobLength();
 
                             if (blobSize !== undefined) {
-                                missingBlobId1s.push(blobId1);
+                                missingBlobId1List.push(blobId1);
                                 missingBlobSizes.push(blobSize);
                             }
                         }
@@ -406,9 +407,9 @@ export class Storage {
                 }
 
                 storeResponse = {
-                    status: Status.RESULT,
-                    storedId1s,
-                    missingBlobId1s,
+                    status: Status.Result,
+                    storedId1List,
+                    missingBlobId1List,
                     missingBlobSizes,
                     error: "",
                 };
@@ -416,9 +417,9 @@ export class Storage {
             else {
                 console.debug("Database BUSY, all retries failed.");
                 storeResponse = {
-                    status: Status.STORE_FAILED,
-                    storedId1s: [],
-                    missingBlobId1s: [],
+                    status: Status.StoreFailed,
+                    storedId1List: [],
+                    missingBlobId1List: [],
                     missingBlobSizes: [],
                     error: "Failed storing nodes, database busy.",
                 };
@@ -435,9 +436,9 @@ export class Storage {
             if (sendResponse) {
                 const error = `store failed: ${e}`;
                 const errorStoreResponse: StoreResponse = {
-                    status: Status.ERROR,
-                    storedId1s: [],
-                    missingBlobId1s: [],
+                    status: Status.Error,
+                    storedId1List: [],
+                    missingBlobId1List: [],
                     missingBlobSizes: [],
                     error,
                 };
@@ -549,7 +550,7 @@ export class Storage {
             return;
         }
 
-        let status: Status | undefined;
+        let status: StatusValues | undefined;
 
         try {
             // Deep copy the fetch request object since we might update some properties.
@@ -560,19 +561,19 @@ export class Storage {
             //
 
             if (fetchRequestCopy.query.sourcePublicKey.length === 0) {
-                status = Status.MALFORMED;
+                status = Status.Malformed;
                 throw new Error("sourcePublicKey expected to be set");
             }
 
             if (fetchRequestCopy.query.targetPublicKey.length === 0) {
-                status = Status.MALFORMED;
+                status = Status.Malformed;
                 throw new Error("targetPublicKey expected to be set");
             }
 
             if (fetchRequestCopy.query.rootNodeId1.length > 0 &&
                 fetchRequestCopy.query.parentId.length > 0) {
 
-                status = Status.MALFORMED;
+                status = Status.Malformed;
                 throw new Error("rootNodeId1 and parentId are exclusive to each other, set only one");
             }
 
@@ -582,14 +583,14 @@ export class Storage {
                     Math.max(fetchRequestCopy.query.triggerInterval, 60);
             }
 
-            if (fetchRequestCopy.crdt.algo > 0) {
+            if (fetchRequestCopy.crdt.algo.length > 0) {
                 if (fetchRequestCopy.query.cutoffTime !== 0n) {
-                    status = Status.MALFORMED;
+                    status = Status.Malformed;
                     throw new Error("query.cutoffTime must be set to 0 when fetching with CRDT");
                 }
 
                 if (fetchRequestCopy.query.onlyTrigger) {
-                    status = Status.MALFORMED;
+                    status = Status.Malformed;
                     throw new Error("onlyTrigger cannot be true when fetching with CRDT");
                 }
 
@@ -599,7 +600,7 @@ export class Storage {
                     if (fetchRequestCopy.query.triggerNodeId.length > 0 &&
                         fetchRequestCopy.query.triggerInterval === 0) {
 
-                        status = Status.MALFORMED;
+                        status = Status.Malformed;
                         throw new Error("triggerInterval must be set when fetching with CRDT and triggerNodeId.");
                     }
                 }
@@ -609,7 +610,7 @@ export class Storage {
                         (fetchRequestCopy.query.triggerInterval < 60 ||
                         fetchRequestCopy.query.triggerInterval > 600)) {
 
-                        status = Status.MALFORMED;
+                        status = Status.Malformed;
                         throw new Error("triggerInterval must be set within 60 to 600 seconds when updating the CRDT fetch request.");
                     }
                 }
@@ -619,7 +620,7 @@ export class Storage {
             //
             // This is a request to update the underlying fetch request.
             //
-            if (fetchRequestCopy.crdt.algo > 0 &&
+            if (fetchRequestCopy.crdt.algo.length > 0 &&
                 fetchRequestCopy.crdt.msgId.length > 0) {
 
                 const key = CRDTManager.HashKey(fetchRequestCopy);
@@ -643,7 +644,7 @@ export class Storage {
 
                     trigger.fetchRequest.crdt.cursorIndex = fetchRequestCopy.crdt.cursorIndex;
 
-                    const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
+                    const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE) as FetchResponse;
 
                     sendResponse(fetchResponse);
 
@@ -651,8 +652,8 @@ export class Storage {
                     this.runTrigger(trigger);
                 }
                 else {
-                    const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
-                    fetchResponse.status = Status.MALFORMED;
+                    const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE) as FetchResponse;
+                    fetchResponse.status = Status.Malformed;
                     fetchResponse.error  = "Trigger does not exist";
                     sendResponse(fetchResponse);
                 }
@@ -696,8 +697,8 @@ export class Storage {
 
             // Note that this message has seq === 0 which will cancel the trigger.
             //
-            const errorFetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
-            errorFetchResponse.status = status ?? Status.ERROR;
+            const errorFetchResponse = DeepCopy(EMPTY_FETCHRESPONSE) as FetchResponse;
+            errorFetchResponse.status = status ?? Status.Error;
             errorFetchResponse.error  = error;
 
             sendResponse(errorFetchResponse);
@@ -712,7 +713,7 @@ export class Storage {
         try {
             const now = this.timeFreeze.read();
 
-            const usesCrdt = fetchRequest.crdt.algo > 0;
+            const usesCrdt = fetchRequest.crdt.algo.length > 0;
 
             if (usesCrdt) {
                 const key = CRDTManager.HashKey(fetchRequest);
@@ -788,7 +789,7 @@ export class Storage {
                 }
 
                 if (trigger.handleFetchReplyData) {
-                    trigger.handleFetchReplyData({status: Status.DROPPED_TRIGGER});
+                    trigger.handleFetchReplyData({status: Status.DroppedTrigger});
                 }
             }
         }
@@ -882,7 +883,7 @@ export class Storage {
                 if (interval > 0 && now - trigger.lastIntervalRun > interval) {
                     if (!trigger.isRunning) {
 
-                        if (trigger.fetchRequest.crdt.algo > 0) {
+                        if (trigger.fetchRequest.crdt.algo.length > 0) {
                             // Do full refetch when using CRDT and subscription.
                             trigger.fetchRequest.query.cutoffTime = 0n;
                         }
@@ -927,7 +928,7 @@ export class Storage {
     {
         const fetchResponses: FetchResponse[] = [];
 
-        const status                = fetchReplyData.status ?? Status.RESULT;
+        const status                = fetchReplyData.status ?? Status.Result;
         const error                 = fetchReplyData.error;
         const nodes                 = fetchReplyData.nodes ?? [];
         const embed                 = fetchReplyData.embed ?? [];
@@ -937,7 +938,7 @@ export class Storage {
         const length                = fetchReplyData.length ?? 0;
         const cursorIndex           = fetchReplyData.cursorIndex ?? -1;
 
-        if (status === Status.RESULT || status === Status.MISSING_CURSOR) {
+        if (status === Status.Result || status === Status.MissingCursor) {
             while (true) {
                 const images: Buffer[]          = [];
                 const imagesToEmbed: Buffer[]   = [];
@@ -984,7 +985,7 @@ export class Storage {
                 }
 
                 fetchResponses.push({
-                    status: Status.RESULT,
+                    status: Status.Result,
                     result: {
                         nodes: images,
                         embed: imagesToEmbed,
@@ -1009,7 +1010,7 @@ export class Storage {
         else {
             // Note that this message has seq === 0 which will cancel the trigger.
             //
-            const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE);
+            const fetchResponse = DeepCopy(EMPTY_FETCHRESPONSE) as FetchResponse;
             fetchResponse.status    = status;
             fetchResponse.error     = error ?? "";
 
@@ -1074,7 +1075,7 @@ export class Storage {
 
             if (sendResponse) {
                 const unsubscribeResponse: UnsubscribeResponse = {
-                    status: Status.RESULT,
+                    status: Status.Result,
                     error: "",
                 };
 
@@ -1086,7 +1087,7 @@ export class Storage {
             if (sendResponse) {
                 const error = `unsubscribe failed: ${e}`;
                 const errorUnsubscribeResponse: UnsubscribeResponse = {
-                    status: Status.ERROR,
+                    status: Status.Error,
                     error,
                 };
 
@@ -1099,7 +1100,7 @@ export class Storage {
         async (writeBlobRequest: WriteBlobRequest, peer: P2PClient, fromMsgId: Buffer,
             expectingReply: ExpectingReply, sendResponse?: SendResponseFn<WriteBlobResponse>) => {
 
-        let status: Status | undefined;
+        let status: StatusValues | undefined;
 
         // Collect all locks here in case finally needs to release all locks.
         const locks: Mutex[] = [];
@@ -1148,7 +1149,7 @@ export class Storage {
             let node = await this.driver.getNodeById1(nodeId1, now);
 
             if (!node) {
-                status = Status.NOT_ALLOWED;
+                status = Status.NotAllowed;
                 throw new Error("node not found or not allowed writing blob data");
             }
 
@@ -1167,7 +1168,7 @@ export class Storage {
 
 
             if (!node) {
-                status = Status.NOT_ALLOWED;
+                status = Status.NotAllowed;
                 throw new Error("node not found or not allowed writing blob data");
             }
 
@@ -1175,7 +1176,7 @@ export class Storage {
             const blobHash = node.getBlobHash();
 
             if (!node.hasBlob() || blobLengthn === undefined || blobHash === undefined) {
-                status = Status.MALFORMED;
+                status = Status.Malformed;
                 throw new Error("node not configured for blob");
             }
 
@@ -1186,14 +1187,14 @@ export class Storage {
             const blobLength = Number(blobLengthn);
 
             if (pos + data.length > blobLength) {
-                status = Status.MALFORMED;
+                status = Status.Malformed;
                 throw new Error("write blob out of bounds");
             }
 
             if (await this.blobDriver.getBlobDataId(nodeId1)) {
                 if (sendResponse) {
                     const writeBlobResponse = {
-                        status: Status.EXISTS,
+                        status: Status.Exists,
                         currentLength: blobLengthn,
                         error: "",
                     };
@@ -1228,7 +1229,7 @@ export class Storage {
 
             if (!done) {
                 console.debug("Database BUSY on writeBlob, all retries failed.");
-                status = Status.STORE_FAILED;
+                status = Status.StoreFailed;
                 throw new Error("Database BUSY, all retries failed.");
             }
 
@@ -1236,13 +1237,13 @@ export class Storage {
             const currentLength = await this.blobDriver.readBlobIntermediaryLength(dataId);
 
             if (currentLength === undefined) {
-                status = Status.ERROR;
+                status = Status.Error;
                 throw new Error("Could not read back blob length");
             }
 
             if (currentLength > blobLength) {
                 // Should not happen, checked already initially above.
-                status = Status.ERROR;
+                status = Status.Error;
                 throw new Error("Overflow");
             }
 
@@ -1271,13 +1272,13 @@ export class Storage {
 
                 if (!done) {
                     console.debug("Database BUSY on finalizeWriteBlob, all retries failed.");
-                    status = Status.STORE_FAILED;
+                    status = Status.StoreFailed;
                     throw new Error("Database BUSY, all retries failed.");
                 }
 
                 if (sendResponse) {
                     const writeBlobResponse = {
-                        status: Status.EXISTS,
+                        status: Status.Exists,
                         currentLength: blobLengthn,
                         error: "",
                     };
@@ -1312,7 +1313,7 @@ export class Storage {
 
             if (sendResponse) {
                 const writeBlobResponse = {
-                    status: Status.RESULT,
+                    status: Status.Result,
                     currentLength: BigInt(currentLength),
                     error: "",
                 };
@@ -1327,7 +1328,7 @@ export class Storage {
             if (sendResponse) {
                 const error = `write blob failed: ${e}`;
                 const errorWriteBlobResponse: WriteBlobResponse = {
-                    status: status ?? Status.ERROR,
+                    status: status ?? Status.Error,
                     currentLength: 0n,
                     error,
                 };
@@ -1350,7 +1351,7 @@ export class Storage {
             return;
         }
 
-        let status: Status | undefined;
+        let status: StatusValues | undefined;
 
         // Collect all locks here in case finally needs to release all locks.
         const locks: Mutex[] = [];
@@ -1402,14 +1403,14 @@ export class Storage {
             this.lock.release(mutex2);
 
             if (!node) {
-                status = Status.NOT_ALLOWED;
+                status = Status.NotAllowed;
                 throw new Error("node not found or not allowed");
             }
 
             const blobLengthn = node.getBlobLength();
 
             if (!node.hasBlob() || blobLengthn === undefined) {
-                status = Status.MALFORMED;
+                status = Status.Malformed;
                 throw new Error("node not configured for blob");
             }
 
@@ -1420,7 +1421,7 @@ export class Storage {
             const blobLength = Number(blobLengthn);
 
             if (pos > blobLength) {
-                status = Status.MALFORMED;
+                status = Status.Malformed;
                 throw new Error("position out of bounds");
             }
 
@@ -1434,7 +1435,7 @@ export class Storage {
             if (!data) {
                 // Blob data does not exist (in its finalized state).
                 const readBlobResponse = {
-                    status: Status.FETCH_FAILED,
+                    status: Status.FetchFailed,
                     data: Buffer.alloc(0),
                     seq: 0,
                     endSeq: 0,
@@ -1450,7 +1451,7 @@ export class Storage {
 
             if (data.length === 0) {
                 const readBlobResponse = {
-                    status: Status.RESULT,
+                    status: Status.Result,
                     data: Buffer.alloc(0),
                     seq: 1,
                     endSeq: 1,
@@ -1466,7 +1467,7 @@ export class Storage {
 
             for (let seq=1; seq<=endSeq; seq++) {
                 const readBlobResponse = {
-                    status: Status.RESULT,
+                    status: Status.Result,
                     data: data.slice((seq-1) * MESSAGE_SPLIT_BYTES, seq * MESSAGE_SPLIT_BYTES),
                     seq,
                     endSeq,
@@ -1481,7 +1482,7 @@ export class Storage {
             console.debug("Exception in handleReadblob", e);
             const error = `read blob failed: ${e}`;
             const errorReadBlobResponse: ReadBlobResponse = {
-                status: status ?? Status.ERROR,
+                status: status ?? Status.Error,
                 data: Buffer.alloc(0),
                 seq: 0,
                 endSeq: 0,
@@ -1510,9 +1511,9 @@ export class Storage {
         // The fetch drives through here.
         //
         const aggregateFn = (fetchReplyData: FetchReplyData) => {
-            const status = fetchReplyData.status ?? Status.RESULT;
+            const status = fetchReplyData.status ?? Status.Result;
 
-            if (status !== Status.RESULT) {
+            if (status !== Status.Result) {
                 handleFetchReplyData(fetchReplyData);
                 return;
             }
@@ -1556,7 +1557,7 @@ export class Storage {
 
             if (!result) {
                 const fetchReplyData: FetchReplyData = {
-                    status: Status.MISSING_CURSOR,
+                    status: Status.MissingCursor,
                     rowCount,
                     isLast: true,
                 };

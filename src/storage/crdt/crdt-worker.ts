@@ -42,7 +42,7 @@ import {
 export class CRDTManagerWorker {
     protected algos: {[key: string]: AlgoInterface} = {};
 
-    public async updateModel(key: string, algoId: number, conf: string, orderByStorageTime: boolean,
+    public async updateModel(key: string, algoId: string, conf: string, orderByStorageTime: boolean,
         images: Buffer[], targetPublicKey: Buffer)
     {
         targetPublicKey = Buffer.from(targetPublicKey);
@@ -156,7 +156,7 @@ function main(self?: any) {
 
     const rpc = new RPC(postMessageWrapped, listenMessage);
 
-    rpc.onCall("updateModel", (key: string, algoId: number, conf: string,
+    rpc.onCall("updateModel", (key: string, algoId: string, conf: string,
         orderByStorageTime: boolean, images: Buffer[], targetPublicKey: Buffer) => {
 
         crdtManagerWorker.updateModel(key, algoId, conf, orderByStorageTime, images,

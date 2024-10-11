@@ -52,21 +52,16 @@ import {
 } from "../datamodel/cert/secondary/chaincert/ChainCert";
 
 import {
-    PRIMARY_INTERFACE_CHAINCERT_ID,
-} from "../datamodel/cert/primary/interface/PrimaryChainCertInterface";
-
-import {
-    PRIMARY_INTERFACE_DEFAULTCERT_ID,
-} from "../datamodel/cert/primary/interface/PrimaryDefaultCertInterface";
-
-import {
-    PRIMARY_INTERFACE_NODECERT_ID,
     PrimaryNodeCertInterface,
 } from "../datamodel/cert/primary/interface/PrimaryNodeCertInterface";
 
 import {
     DataModelInterface,
 } from "../datamodel/interface/DataModelInterface";
+
+import {
+    IsCert,
+} from "../datamodel/node/primary/node/Node";
 
 /**
  * Specifies all the node classes we support for decoding.
@@ -343,7 +338,7 @@ export class Decoder {
                             // The node might know how to deal with this itself.
                         }
                     }
-                    else if (Decoder.IsCert(embeddedImage)) {
+                    else if (IsCert(embeddedImage)) {
                         try {
                             const embeddedCert = Decoder.DecodeAnyCert(embeddedImage);
                             node.setEmbeddedObject(embeddedCert as any);  // We force this "as any" to let the node decide if it wants this embedded object.
@@ -404,6 +399,42 @@ export class Decoder {
     }
 
     /**
+     * Decode list of nodes.
+     *
+     * Note that this function does not verify or validate nodes decoded.
+     *
+     * Any node which could not be decoded is not part of the result.
+     *
+     * @param nodes list of images to decode
+     * @param preserveTransient if true then load and preserve transient values
+     * @param nodeType if set then only return nodes matching the given nodeType.
+     * @returns array of decoded nodes.
+     */
+    public static DecodeNodes(images: Buffer[], preserveTransient: boolean = false,
+        nodeType?: Buffer): NodeInterface[]
+    {
+        const nodes: NodeInterface[] = [];
+
+        images.forEach( image => {
+            try {
+                const node = Decoder.DecodeNode(image, preserveTransient);
+
+                if (nodeType) {
+                    if (!node.getType(nodeType.length).equals(nodeType)) {
+                        return;
+                    }
+                }
+
+                nodes.push(node);
+            }
+            catch(e) {
+                // continue
+            }
+        });
+
+        return nodes;
+    }
+    /**
      * The point of this function is to find in a list of certificates a certificate which can be used to sign a node given the signers public key and the node owner.
      * @param node The node we want to sign.
      * @param signerPublicKey the public key of the keypair which will be used to sign the node.
@@ -440,30 +471,6 @@ export class Decoder {
     protected static IsNode(image: Buffer): boolean {
         const nodePrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_NODE_ID]);
         if (image.slice(0, 2).equals(nodePrimaryInterface)) {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-    * Check in the image header data if it looks like a cert.
-    * @param image the cert image
-    * @returns true if the image header is recognized as being of primary interface cert.
-    */
-    protected static IsCert(image: Buffer): boolean {
-        const chainCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_CHAINCERT_ID]);
-        if (image.slice(0, 2).equals(chainCertPrimaryInterface)) {
-            return true;
-        }
-
-        const defaultCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_DEFAULTCERT_ID]);
-        if (image.slice(0, 2).equals(defaultCertPrimaryInterface)) {
-            return true;
-        }
-
-        const nodeCertPrimaryInterface = Buffer.from([0, PRIMARY_INTERFACE_NODECERT_ID]);
-        if (image.slice(0, 2).equals(nodeCertPrimaryInterface)) {
             return true;
         }
 

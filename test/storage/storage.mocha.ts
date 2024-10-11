@@ -13,8 +13,7 @@ import {
 } from "pocket-messaging";
 
 import {
-    PeerData,
-    PeerDataUtil,
+    PeerInfo,
     DatabaseUtil,
     DBClient,
     TABLES,
@@ -28,7 +27,6 @@ import {
     FetchRequest,
     FetchResponse,
     Trigger,
-    StorageUtil,
     Data,
     Status,
     sleep,
@@ -55,6 +53,8 @@ import {
     SPECIAL_NODES,
     CRDTMessagesAnnotations,
     Version,
+    ParseSchema,
+    FetchRequestSchema,
 } from "../../src";
 
 export class StorageWrapper extends Storage {
@@ -132,9 +132,9 @@ describe("Storage: triggers", function() {
         [socket1, socket2] = CreatePair();
         messaging1 = new Messaging(socket1, 0);
 
-        const clientProps = makePeerData();
+        const clientProps = makePeerInfo();
 
-        const serverProps = makePeerData();
+        const serverProps = makePeerInfo();
 
         p2pClient = new P2PClient(messaging1, serverProps, clientProps);
 
@@ -162,7 +162,7 @@ describe("Storage: triggers", function() {
         let triggerNodeId = Buffer.alloc(32).fill(0x10);
         let msgId = Buffer.from([1,2,3,4,5]);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId: Buffer.alloc(32),
             sourcePublicKey,
             targetPublicKey,
@@ -205,7 +205,7 @@ describe("Storage: triggers", function() {
         assert(trigger.isCorked === false);
         assert(trigger.isPending === false);
         assert(i === 3);
-        assert(response?.status === Status.DROPPED_TRIGGER);
+        assert(response?.status === Status.DroppedTrigger);
 
         //@ts-ignore
         assert(storage.triggers[triggerNodeIdStr] === undefined);
@@ -231,7 +231,7 @@ describe("Storage: triggers", function() {
         let triggerNodeId = Buffer.alloc(32).fill(0x10);
         let msgId = Buffer.from([1,2,3,4,5]);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId: Buffer.alloc(32),
             sourcePublicKey,
             targetPublicKey,
@@ -274,7 +274,7 @@ describe("Storage: triggers", function() {
         assert(trigger.isPending === false);
         assert(trigger.isRunning === false);
         assert(i === 0);
-        assert(response?.status === Status.RESULT);
+        assert(response?.status === Status.Result);
 
         //@ts-ignore
         assert(storage.triggers[triggerNodeIdStr][0] === trigger);
@@ -300,7 +300,7 @@ describe("Storage: triggers", function() {
         let targetPublicKey = Buffer.alloc(32).fill(0x02);
         let msgId = Buffer.from([1,2,3,4,5]);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId: Buffer.alloc(32),
             sourcePublicKey,
             targetPublicKey,
@@ -345,7 +345,7 @@ describe("Storage: triggers", function() {
 
         await sleep(1000);
         assert(response);
-        assert(response.status === Status.DROPPED_TRIGGER);
+        assert(response.status === Status.DroppedTrigger);
     });
 
     // TODO: test handleFetchReplyDataFactory for trigger.closed
@@ -355,7 +355,7 @@ describe("Storage: triggers", function() {
         assert(storage);
 
         let fetchReplyData: FetchReplyData = {
-            status: Status.ERROR,
+            status: Status.Error,
             isLast: true,
             delta: Buffer.alloc(1024),
             error: "some error",
@@ -365,12 +365,12 @@ describe("Storage: triggers", function() {
 
         assert(fetchResponses.length === 1);
         assert(fetchResponses[0].seq === 0);
-        assert(fetchResponses[0].status === Status.ERROR);
+        assert(fetchResponses[0].status === Status.Error);
         assert(fetchResponses[0].error === "some error");
         assert(fetchResponses[0].crdtResult.delta.length === 0);
 
         fetchReplyData = {
-            status: Status.RESULT,
+            status: Status.Result,
             isLast: true,
             delta: Buffer.alloc(1024),
             error: "bla",
@@ -381,7 +381,7 @@ describe("Storage: triggers", function() {
         assert(fetchResponses.length === 1);
         assert(fetchResponses[0].seq === 10);
         assert(fetchResponses[0].endSeq === 10);
-        assert(fetchResponses[0].status === Status.RESULT);
+        assert(fetchResponses[0].status === Status.Result);
         assert(fetchResponses[0].error === "");
         assert(fetchResponses[0].crdtResult.delta.length === 1024);
 
@@ -427,7 +427,7 @@ describe("Storage: triggers", function() {
         }
 
         fetchReplyData = {
-            status: Status.RESULT,
+            status: Status.Result,
             isLast: true,
             delta: Buffer.alloc(124),
             nodes: nodes.slice(),
@@ -501,9 +501,9 @@ describe("Storage: SQLite WAL-mode", function() {
         messaging1.open();
         messaging2.open();
 
-        const clientProps = makePeerData();
+        const clientProps = makePeerInfo();
 
-        const serverProps = makePeerData();
+        const serverProps = makePeerInfo();
 
         p2pClient = new P2PClient(messaging1, serverProps, clientProps, PERMISSIVE_PERMISSIONS);
         p2pStorageClient = new P2PClient(messaging2, serverProps, clientProps);
@@ -585,9 +585,9 @@ describe.skip("Storage: SQLiteJS WAL-mode", function() {
         messaging1.open();
         messaging2.open();
 
-        const clientProps = makePeerData();
+        const clientProps = makePeerInfo();
 
-        const serverProps = makePeerData();
+        const serverProps = makePeerInfo();
 
         p2pClient = new P2PClient(messaging1, serverProps, clientProps, PERMISSIVE_PERMISSIONS);
         p2pStorageClient = new P2PClient(messaging2, serverProps, clientProps);
@@ -677,9 +677,9 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
         messaging1.open();
         messaging2.open();
 
-        const clientProps = makePeerData();
+        const clientProps = makePeerInfo();
 
-        const serverProps = makePeerData();
+        const serverProps = makePeerInfo();
 
         p2pClient = new P2PClient(messaging1, serverProps, clientProps, PERMISSIVE_PERMISSIONS);
         p2pStorageClient = new P2PClient(messaging2, serverProps, clientProps);
@@ -781,7 +781,7 @@ function setupTests(config: any) {
         await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.MALFORMED);
+        assert(response.status === Status.Malformed);
         assert(response.error === "StoreRequest not allowed to use preserveTransient for this connection.");
 
         response = undefined;;
@@ -789,13 +789,13 @@ function setupTests(config: any) {
 
         await storage.handleStoreWrapped(storeRequest, p2pClient, fromMsgId, expectingReply, sendResponse);
         assert(response);
-        assert(response.status === Status.RESULT);
-        assert(response.storedId1s.length === 2);
-        assert(response.storedId1s[0].equals(node1.getId1()));
-        assert(response.storedId1s[1].equals(node2c.getId1()));
+        assert(response.status === Status.Result);
+        assert(response.storedId1List.length === 2);
+        assert(response.storedId1List[0].equals(node1.getId1()));
+        assert(response.storedId1List[1].equals(node2c.getId1()));
 
         // see that what is stored is readable back
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey,
             targetPublicKey,
@@ -843,7 +843,7 @@ function setupTests(config: any) {
         let muteMsgIds: Buffer[] = [];
         let nodes: Buffer[] = [];
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey,
             targetPublicKey,
@@ -1098,7 +1098,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.ERROR);
+        assert(response.status === Status.Error);
         assert(response.error === "write blob failed: Error: position too large to handle");
 
         ///
@@ -1119,7 +1119,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.NOT_ALLOWED);
+        assert(response.status === Status.NotAllowed);
         assert(response.error === "write blob failed: Error: node not found or not allowed writing blob data");
 
 
@@ -1182,7 +1182,7 @@ function setupTests(config: any) {
         // the emitting is done in setImmediate.
         await sleep(1);
 
-        const fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        const fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId: node2.getParentId(),
             sourcePublicKey,
             targetPublicKey,
@@ -1218,7 +1218,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.MALFORMED);
+        assert(response.status === Status.Malformed);
         assert(response.error === "write blob failed: Error: node not configured for blob");
 
 
@@ -1236,7 +1236,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.RESULT);
+        assert(response.status === Status.Result);
         assert(response.error === "");
         assert(response.currentLength === 6n);
 
@@ -1254,7 +1254,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.FETCH_FAILED);
+        assert(response.status === Status.FetchFailed);
 
 
         writeBlobRequest = {
@@ -1273,7 +1273,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.EXISTS);
+        assert(response.status === Status.Exists);
         assert(response.error === "");
         assert(response.currentLength === blobLength);
 
@@ -1290,7 +1290,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.EXISTS);
+        assert(response.status === Status.Exists);
         assert(response.error === "");
         assert(response.currentLength === blobLength);
 
@@ -1320,7 +1320,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.RESULT);
+        assert(response.status === Status.Result);
         assert(response.error === "");
         assert(response.currentLength === 0n);
 
@@ -1348,7 +1348,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.RESULT);
+        assert(response.status === Status.Result);
         assert(response.error === "");
         assert(response.currentLength === 0n);
 
@@ -1376,7 +1376,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.EXISTS);
+        assert(response.status === Status.Exists);
         assert(response.error === "");
         assert(response.currentLength === blobLength);
 
@@ -1478,7 +1478,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.NOT_ALLOWED);
+        assert(response.status === Status.NotAllowed);
 
 
         writeBlobRequest = {
@@ -1494,7 +1494,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.EXISTS);
+        assert(response.status === Status.Exists);
         assert(response.error === "");
 
 
@@ -1512,7 +1512,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.NOT_ALLOWED);
+        assert(response.status === Status.NotAllowed);
 
 
 
@@ -1529,7 +1529,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.EXISTS);
+        assert(response.status === Status.Exists);
 
 
         // Store license 1
@@ -1553,7 +1553,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.EXISTS);
+        assert(response.status === Status.Exists);
 
         // Read node2's blob failing due to lacking license.
         //
@@ -1570,7 +1570,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.NOT_ALLOWED);
+        assert(response.status === Status.NotAllowed);
 
         // Store license 2
         //
@@ -1593,7 +1593,7 @@ function setupTests(config: any) {
             expectingReply, sendResponse);
 
         assert(response);
-        assert(response.status === Status.RESULT);
+        assert(response.status === Status.Result);
     });
 
     it("fetch with CRDT", async function() {
@@ -1621,7 +1621,7 @@ function setupTests(config: any) {
         let muteMsgIds: Buffer[] = [];
         let nodes: Buffer[] = [];
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({
+        let fetchRequest = ParseSchema(FetchRequestSchema, {
             query: {
                 parentId,
                 sourcePublicKey,
@@ -1636,7 +1636,7 @@ function setupTests(config: any) {
                 ]
             },
             crdt: {
-                algo: 1,
+                algo: "Sorted",
                 head: -1,
             }
         });
@@ -1859,14 +1859,14 @@ function setupTests(config: any) {
         let secretKey = keyPair1.secretKey;
 
         //@ts-ignore
-        p2pClient.remotePeerData.setHandshakePublicKey(publicKey);
+        p2pClient.remotePeerInfo.handshakePublicKey = publicKey;
 
         //@ts-ignore
-        p2pClient.localPeerData.setHandshakePublicKey(publicKey);
+        p2pClient.localPeerInfo.handshakePublicKey = publicKey;
 
         let parentId = Buffer.alloc(32);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({
+        let fetchRequest = ParseSchema(FetchRequestSchema, {
             query: {
                 parentId,
                 sourcePublicKey: publicKey,
@@ -1879,7 +1879,7 @@ function setupTests(config: any) {
                 ]
             },
             crdt: {
-                algo: 1,
+                algo: "Sorted",
                 head: -1,
             }
         });
@@ -1938,14 +1938,14 @@ function setupTests(config: any) {
         let secretKey = keyPair1.secretKey;
 
         //@ts-ignore
-        p2pClient.remotePeerData.setHandshakePublicKey(publicKey);
+        p2pClient.remotePeerInfo.handshakePublicKey = publicKey;
 
         //@ts-ignore
-        p2pClient.localPeerData.setHandshakePublicKey(publicKey);
+        p2pClient.localPeerInfo.handshakePublicKey = publicKey;
 
         let parentId = Buffer.alloc(32);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({
+        let fetchRequest = ParseSchema(FetchRequestSchema, {
             query: {
                 parentId,
                 sourcePublicKey: publicKey,
@@ -1960,7 +1960,7 @@ function setupTests(config: any) {
                 depth: 2,  // Important we have depth 2 since annotation nodes are child nodes.
             },
             crdt: {
-                algo: 1,
+                algo: "Sorted",
                 head: -1,
                 conf: {
                     annotations: {
@@ -2061,15 +2061,16 @@ function setupTests(config: any) {
     });
 }
 
-function makePeerData(): PeerData {
-    return PeerDataUtil.create({
+function makePeerInfo(): PeerInfo {
+    return {
         version: Version,
         serializeFormat: 0,
+        handshakePublicKey: Buffer.alloc(0),
         authCert: undefined,
         authCertPublicKey: undefined,
-        clockDiff: 0,
         region: undefined,
         jurisdiction: undefined,
-        appVersion: undefined,
-    });
+        appVersion: "0.0.0",
+        sessionTimeout: 0,
+    };
 }

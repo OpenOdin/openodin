@@ -19,7 +19,6 @@ import {
     TABLES,
     sleep,
     SPECIAL_NODES,
-    StorageUtil,
     FetchQuery,
     FetchReplyData,
     Data,
@@ -28,6 +27,8 @@ import {
     DatabaseUtil,
     Hash,
     NOW_TOLERANCE,
+    ParseSchema,
+    FetchRequestSchema,
 } from "../../src";
 
 /**
@@ -973,7 +974,7 @@ function setupDriverTests(config: any) {
 
         assert(node5.isPublic());
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             rootNodeId1: Buffer.alloc(0),
             sourcePublicKey: clientPublicKey,
             targetPublicKey,
@@ -1309,7 +1310,7 @@ function setupDriverTests(config: any) {
         assert(id1s.length === 8);
 
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,
@@ -1588,7 +1589,7 @@ function setupDriverTests(config: any) {
         let [id1s, parentIds] = await driver.store([nodeA, nodeB1, nodeB2, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], now);
         assert(id1s.length === 8);
 
-        let fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             sourcePublicKey: clientPublicKey,
             targetPublicKey: clientPublicKey,

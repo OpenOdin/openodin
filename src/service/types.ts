@@ -1,5 +1,6 @@
 import {
     HandshakeFactoryInterface,
+    HandshakeFactoryConfig,
 } from "pocket-messaging";
 
 import {
@@ -11,22 +12,38 @@ import {
 } from "../p2pclient/P2PClient";
 
 import {
+    P2PClientPermissionsLockedSchema,
+    P2PClientPermissionsDefaultSchema,
+    P2PClientPermissionsPermissiveSchema,
+    P2PClientPermissionsUncheckedPermissiveSchema,
+} from "../p2pclient/types";
+
+import {
     KeyPair,
-    AuthCertInterface,
-    PrimaryNodeCertInterface,
+    KeyPairSchema,
 } from "../datamodel";
 
 import {
     ThreadTemplate,
+    ThreadTemplateSchema,
     ThreadVariables,
 } from "../storage/thread";
 
 import {
-    AuthFactoryConfig,
+    APIAuthFactoryConfig,
+    APIAuthFactoryConfigSchema,
+    HandshakeFactoryConfigSchema,
 } from "../auth/types";
 
+import {
+    ParseEnum,
+} from "../util/SchemaUtil";
+
 export type ConnectionConfig = {
-    authFactoryConfig: AuthFactoryConfig,
+    connection: {
+        handshake?: HandshakeFactoryConfig,
+        api?: APIAuthFactoryConfig,
+    },
     permissions: P2PClientPermissions,
     region?: string,
     jurisdiction?: string,
@@ -43,6 +60,24 @@ export type ConnectionConfig = {
      */
     serializeFormat: number,
 };
+
+export const ConnectionConfigSchema = {
+    connection: {
+        "handshake??": HandshakeFactoryConfigSchema,
+        "api??": APIAuthFactoryConfigSchema,
+    },
+    "permissions?": P2PClientPermissionsLockedSchema,
+    "region??": "",
+    "jurisdiction??": "",
+    "serializeFormat?": 0,
+    _postFn: function(obj: ConnectionConfig): ConnectionConfig {
+        if (Object.keys(obj.connection).length !== 1) {
+            throw new Error("ConnectionConfig expecting exactly one configuraton below connection field");
+        }
+
+        return obj;
+    },
+} as const;
 
 export type ExposeStorageToApp = {
     permissions?: P2PClientPermissions,
@@ -95,6 +130,32 @@ export type DatabaseConfig = {
     blobDriver?: DriverConfig,
 };
 
+const DriverConfigSchemaPost = function(obj: DriverConfig): DriverConfig {
+    if (obj.sqlite && obj.pg) {
+        delete obj.sqlite;
+    }
+
+    if (!obj.sqlite && !obj.pg) {
+        throw new Error("DriverConfig must have either sqlite or pg set");
+    }
+
+    return obj;
+};
+
+const DriverConfigSchema = {
+    "sqlite?": ":memory:",
+    "pg??": "",
+    "reconnectDelay?": 0,
+    _postFn: DriverConfigSchemaPost,
+} as const;
+
+export const DatabaseConfigSchema = {
+    "permissions?": P2PClientPermissionsUncheckedPermissiveSchema,
+    "appPermissions?": P2PClientPermissionsPermissiveSchema,
+    "driver?": DriverConfigSchema,
+    "blobDriver?": DriverConfigSchema,
+} as const;
+
 export type StorageConf = {
     peer?:      ConnectionConfig,
     database?:  DatabaseConfig,
@@ -124,13 +185,25 @@ export type SyncConf = {
         stream: boolean,
 
         /**
-         * defaults to "pull".
+         * defaults to "Pull".
          */
-        direction: "pull" | "push" | "both",
+        direction: "Pull" | "Push" | "PushPull",
 
         threadVariables: ThreadVariables,
     }[],
 };
+
+export const SyncConfSchema = {
+    peerPublicKeys: [new Uint8Array(0)],
+    "blobSizeMaxLimit?": -1,
+    threads: [{
+        name: "",
+        "stream?": false,
+        "direction?": ParseEnum(["Push", "Pull", "PushPull"], "Pull"),
+        "threadVariables?": {},
+    }
+    ],
+} as const;
 
 export type ApplicationConf = {
     format:         1,
@@ -147,12 +220,79 @@ export type ApplicationConf = {
     sync:           SyncConf[],
 };
 
-export type WalletConf = {
-    keyPairs:       KeyPair[],
-    authCert?:      AuthCertInterface,
-    nodeCerts:      PrimaryNodeCertInterface[],
-    storage:        StorageConf,
+const ApplicationConfSchemaPost = function(obj: ApplicationConf): ApplicationConf {
+    const [major, minor, patch] = obj.version.split(".").map((i: string) => parseInt(i));
+
+    if(obj.format !== 1) {
+        throw new Error("ApplicationConf format expected to be 1");
+    }
+
+    if (`${major}.${minor}.${patch}` !== obj.version) {
+        throw new Error(`ApplicationConf expecting version in semver format major.minor.patch, got: ${obj.version}`);
+    }
+
+    if(!obj.name) {
+        throw new Error("ApplicationConf expecting name to be set");
+    }
+
+    return obj;
 };
+
+export const ApplicationConfSchema = {
+    "format?": 1,
+    name: "",
+    version: "",
+    "title?": "",
+    "description?": "",
+    "homepage?": "",
+    "author?": "",
+    "repository?": "",
+    "custom?": {},
+    "threads?": {
+        "": ThreadTemplateSchema,
+    },
+    "peers?": [
+        {...ConnectionConfigSchema, "permissions?": P2PClientPermissionsDefaultSchema},
+    ],
+    "sync?": [
+        SyncConfSchema,
+    ],
+    _postFn: ApplicationConfSchemaPost,
+} as const;
+
+export type WalletConf = {
+    format:     1,
+    keyPairs:   KeyPair[],
+    authCert?:  Buffer,
+    nodeCerts:  Buffer[],
+    storage:    StorageConf,
+};
+
+export const StorageConfSchema = {
+    "peer??": ConnectionConfigSchema,
+    "database?": DatabaseConfigSchema,
+} as const;
+
+export const WalletConfSchema = {
+    "format?":  1,
+    "keyPairs?": [KeyPairSchema],
+    "authCert??": new Uint8Array(0),
+    "nodeCerts?": [new Uint8Array(0)],
+    "storage?": StorageConfSchema,
+    _postFn: function(obj: WalletConf): WalletConf {
+        if(obj.format !== 1) {
+            throw new Error("WalletConf format expected to be 1");
+        }
+
+        const storage = obj.storage;
+
+        if (storage.peer) {
+            delete storage.database;
+        }
+
+        return obj;
+    }
+} as const;
 
 /** Event emitted when user calls start(). */
 export type ServiceStartCallback = () => void;

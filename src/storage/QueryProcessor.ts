@@ -6,9 +6,13 @@ import {
 
 import {
     RegionUtil,
-    StorageUtil,
     DeepCopy,
+    ParseSchema,
 } from "../util";
+
+import {
+    FetchRequestSchema,
+} from "../request/jsonSchema";
 
 import {
     NodeInterface,
@@ -253,7 +257,7 @@ export class QueryProcessor {
                 // Already processed
                 this.flushCount++;
                 this.handleFetchReplyData({
-                    status: Status.RESULT, rowCount: 0, now: this.now, isFirst: true, isLast: true});
+                    status: Status.Result, rowCount: 0, now: this.now, isFirst: true, isLast: true});
                 return;
             }
 
@@ -347,12 +351,12 @@ export class QueryProcessor {
 
         if (this.error()) {
             this.handleFetchReplyData({
-                status: Status.ERROR, error: "Error fetching from database", rowCount: this.rowCount, now: this.now, isFirst, isLast: true});
+                status: Status.Error, error: "Error fetching from database", rowCount: this.rowCount, now: this.now, isFirst, isLast: true});
             throw this._error;
         }
 
         this.handleFetchReplyData({
-            status: Status.RESULT, rowCount: this.rowCount, now: this.now, isFirst, isLast: true});
+            status: Status.Result, rowCount: this.rowCount, now: this.now, isFirst, isLast: true});
     }
 
     /**
@@ -804,7 +808,7 @@ export class QueryProcessor {
                 this.flushCount++;
 
                 this.handleFetchReplyData({
-                    status: Status.RESULT, nodes, embed, rowCount: this.rowCount, now: this.now, isFirst});
+                    status: Status.Result, nodes, embed, rowCount: this.rowCount, now: this.now, isFirst});
             }
 
             if (this.currentRows.length === 0) {
@@ -831,13 +835,13 @@ export class QueryProcessor {
         this.fetchQuery.match.forEach( match => {
             if (match.level.length === 0 || match.level.includes(level)) {
 
-                match = DeepCopy(match);
+                match = DeepCopy(match) as Match;
 
                 const filtersLength = match.filters.length;
                 for (let i=0; i<filtersLength; i++) {
                     const filter = match.filters[i];
-                    if (filter.field === "creationTime" && typeof filter.value === "number" && filter.value < 0) {
-                        filter.value = this.now + filter.value;
+                    if (filter.field === "creationTime" && Number(filter.value) < 0) {
+                        filter.value = String(this.now + Number(filter.value));
                     }
                 }
 
@@ -1188,12 +1192,14 @@ export class QueryProcessor {
     {
         const includedLicensesEmbedded: LicenseInterface[] = [];
 
-        const includeLicenses = (this.fetchQuery.includeLicenses & 1) > 0;
+        const includeLicenses = (this.fetchQuery.includeLicenses === "Include" ||
+            this.fetchQuery.includeLicenses === "IncludeExtend");
 
         const [allowedNodes, includedLicenses] = await this.filterLicensedNodes(allNodes,
             this.fetchQuery.targetPublicKey, includeLicenses);
 
-        const includeEmbeddableLicenses = (this.fetchQuery.includeLicenses & 2) > 0;
+        const includeEmbeddableLicenses = (this.fetchQuery.includeLicenses === "Extend" ||
+            this.fetchQuery.includeLicenses === "IncludeExtend");
 
         if (includeEmbeddableLicenses &&
             !this.fetchQuery.targetPublicKey.equals(this.fetchQuery.sourcePublicKey))
@@ -1552,7 +1558,7 @@ export class QueryProcessor {
         for (let i=0; i<parentIdsLength; i++) {
             const parentId = parentIds[i];
 
-            const fetchRequest = StorageUtil.CreateFetchRequest({query: {
+            const fetchRequest = ParseSchema(FetchRequestSchema, {query: {
                 parentId,
                 sourcePublicKey: this.fetchQuery.sourcePublicKey,
                 targetPublicKey: this.fetchQuery.sourcePublicKey,  // Yes, sourcePublicKey since it's the source who needs access to the nodes in this case.

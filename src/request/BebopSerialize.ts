@@ -11,7 +11,7 @@ import {
     BopWriteBlobResponse,
     BopReadBlobResponse,
     BopGenericMessageResponse,
-} from "./bebop";
+} from "../bebop";
 
 import {
     FetchRequest,
@@ -26,18 +26,7 @@ import {
     FetchResponse,
     UnsubscribeResponse,
     GenericMessageResponse,
-    Match,
-    AllowEmbed,
-} from "../../types";
-
-import {
-    PackFilters,
-} from "./util";
-
-import {
-    DeepCopy,
-    CopyBuffer,
-} from "../../util/common";
+} from "./types";
 
 /**
  * Class of functions used to serialize request structures into buffers using Bebop.
@@ -70,7 +59,7 @@ export class BebopSerialize {
         else if (obj.nodes) {
             return this.StoreRequest(obj as StoreRequest);
         }
-        else if (obj.storedId1s) {
+        else if (obj.storedId1List) {
             return this.StoreResponse(obj as StoreResponse);
         }
         else if (obj.originalMsgId) {
@@ -105,25 +94,9 @@ export class BebopSerialize {
      * @throws
      */
     public FetchRequest(fetchRequest: FetchRequest): Buffer {
-        const obj = DeepCopy(fetchRequest) as any;
-        if (!obj || !obj.query) {
-            throw new Error("Could not serialize FetchRequest");
-        }
-        obj.query.match = obj.query.match.map( (match: Match) => {
-            return {
-                ...match,
-                filters: PackFilters(match.filters),
-            };
-        });
-        obj.query.embed = obj.query.embed.map( (embed: AllowEmbed) => {
-            return {
-                ...embed,
-                filters: PackFilters(embed.filters),
-            };
-        });
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopFetchRequest.opcode);
-        return CopyBuffer(opcode, BopFetchRequest.encode(obj));
+        return Buffer.concat([opcode, BopFetchRequest.encode(fetchRequest)]);
     }
 
     /**
@@ -132,7 +105,7 @@ export class BebopSerialize {
     public StoreRequest(storeRequest: StoreRequest): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopStoreRequest.opcode);
-        return CopyBuffer(opcode, BopStoreRequest.encode(storeRequest));
+        return Buffer.concat([opcode, BopStoreRequest.encode(storeRequest)]);
     }
 
     /**
@@ -141,7 +114,7 @@ export class BebopSerialize {
     public UnsubscribeRequest(unsubscribeRequest: UnsubscribeRequest): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopUnsubscribeRequest.opcode);
-        return CopyBuffer(opcode, BopUnsubscribeRequest.encode(unsubscribeRequest));
+        return Buffer.concat([opcode, BopUnsubscribeRequest.encode(unsubscribeRequest)]);
     }
 
     /**
@@ -150,7 +123,7 @@ export class BebopSerialize {
     public WriteBlobRequest(writeBlobRequest: WriteBlobRequest): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopWriteBlobRequest.opcode);
-        return CopyBuffer(opcode, BopWriteBlobRequest.encode(writeBlobRequest));
+        return Buffer.concat([opcode, BopWriteBlobRequest.encode(writeBlobRequest)]);
     }
 
     /**
@@ -159,19 +132,19 @@ export class BebopSerialize {
     public ReadBlobRequest(readBlobRequest: ReadBlobRequest): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopReadBlobRequest.opcode);
-        return CopyBuffer(opcode, BopReadBlobRequest.encode(readBlobRequest));
+        return Buffer.concat([opcode, BopReadBlobRequest.encode(readBlobRequest)]);
     }
 
     public ReadBlobResponse(readBlobResponse: ReadBlobResponse): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopReadBlobResponse.opcode);
-        return CopyBuffer(opcode, BopReadBlobResponse.encode(readBlobResponse));
+        return Buffer.concat([opcode, BopReadBlobResponse.encode(readBlobResponse)]);
     }
 
     public WriteBlobResponse(writeBlobResponse: WriteBlobResponse): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopWriteBlobResponse.opcode);
-        return CopyBuffer(opcode, BopWriteBlobResponse.encode(writeBlobResponse));
+        return Buffer.concat([opcode, BopWriteBlobResponse.encode(writeBlobResponse)]);
     }
 
     /**
@@ -180,38 +153,30 @@ export class BebopSerialize {
     public GenericMessageRequest(genericMessageRequest: GenericMessageRequest): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopGenericMessageRequest.opcode);
-        return CopyBuffer(opcode, BopGenericMessageRequest.encode(genericMessageRequest));
+        return Buffer.concat([opcode, BopGenericMessageRequest.encode(genericMessageRequest)]);
     }
 
     public GenericMessageResponse(genericMessageResponse: GenericMessageResponse): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopGenericMessageResponse.opcode);
-        return CopyBuffer(opcode, BopGenericMessageResponse.encode(genericMessageResponse));
+        return Buffer.concat([opcode, BopGenericMessageResponse.encode(genericMessageResponse)]);
     }
 
     public FetchResponse(fetchResponse: FetchResponse): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopFetchResponse.opcode);
-        return CopyBuffer(opcode, BopFetchResponse.encode(fetchResponse));
+        return Buffer.concat([opcode, BopFetchResponse.encode(fetchResponse)]);
     }
 
     public StoreResponse(storeResponse: StoreResponse): Buffer {
-        const obj = {
-            status: storeResponse.status,
-            error: storeResponse.error,
-            storedId1S: storeResponse.storedId1s,
-            missingBlobId1S: storeResponse.missingBlobId1s,
-            missingBlobSizes: storeResponse.missingBlobSizes,
-        };
-
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopStoreResponse.opcode);
-        return CopyBuffer(opcode, BopStoreResponse.encode(obj));
+        return Buffer.concat([opcode, BopStoreResponse.encode(storeResponse)]);
     }
 
     public UnsubscribeResponse(unsubscribeResponse: UnsubscribeResponse): Buffer {
         const opcode = Buffer.alloc(4);
         opcode.writeUInt32BE(BopUnsubscribeResponse.opcode);
-        return CopyBuffer(opcode, BopUnsubscribeResponse.encode(unsubscribeResponse));
+        return Buffer.concat([opcode, BopUnsubscribeResponse.encode(unsubscribeResponse)]);
     }
 }

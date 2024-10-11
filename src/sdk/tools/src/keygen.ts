@@ -24,8 +24,8 @@ else {
 }
 
 const result = {
-    ["#KeyPairCreated"]: `${Date()}`,
-    ["#KeyPairType"]: `${keyTypeNote}`,
+    [" ## KeyPairCreated"]: `${Date()}`,
+    [" ## KeyPairType"]: `${keyTypeNote}`,
     keyPair: {
         publicKey: Buffer.from(keyPair.publicKey).toString("hex"),
         secretKey: Buffer.from(keyPair.secretKey).toString("hex")

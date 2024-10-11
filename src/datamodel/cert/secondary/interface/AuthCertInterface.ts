@@ -33,7 +33,14 @@ export type AuthCertConstraintValues = {
      * Lockable constraint.
      */
     region?: string,
-}
+};
+
+export const AuthCertConstraintSchema = {
+    publicKey: new Uint8Array(0),
+    creationTime: 0,
+    "jurisdiction??": "",
+    "region??": "",
+} as const;
 
 /**
  * A secondary interface for AuthCerts.

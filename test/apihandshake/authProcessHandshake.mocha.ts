@@ -10,9 +10,10 @@ import {
     sleep,
     APIAuthFactoryConfig,
     Crypto,
-    ParseUtil,
     APIAuthRequest,
     PromiseCallback,
+    ParseSchema,
+    APIAuthFactoryConfigSchema,
 } from "../../src";
 
 describe("AuthProcessHandshake", function() {
@@ -29,11 +30,11 @@ describe("AuthProcessHandshake", function() {
             p[0].cb(undefined, data);
         });
 
-        const apiAuthFactoryConfigClient: APIAuthFactoryConfig = ParseUtil.ParseAPIAuthFactory({
+        const apiAuthFactoryConfigClient: APIAuthFactoryConfig = ParseSchema(APIAuthFactoryConfigSchema, {
+            clientAuth: {
+                method: "handshake",
+            },
             client: {
-                auth: {
-                    method: "handshake",
-                },
                 socketType: "WebSocket",
                 port: 8000,
                 serverPublicKey: keyPair2.publicKey,
@@ -60,8 +61,8 @@ describe("AuthProcessHandshake", function() {
         // and read msg2 from server handshake
         //
 
-        const apiAuthFactoryConfigServer: APIAuthFactoryConfig = ParseUtil.ParseAPIAuthFactory({
-        });
+        const apiAuthFactoryConfigServer: APIAuthFactoryConfig = ParseSchema(APIAuthFactoryConfigSchema, {
+            serverAuth: {methods: {handshake: {}}}});
 
         apiAuthFactoryConfigServer.keyPair = keyPair2;
 

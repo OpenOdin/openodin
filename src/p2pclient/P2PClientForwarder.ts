@@ -31,7 +31,7 @@ import {
 } from "../types";
 
 import {
-    DeepCopy,
+    ShallowCopy,
     CopyBuffer,
 } from "../util/common";
 
@@ -146,7 +146,6 @@ export class P2PClientForwarder {
     }
 
     /**
-     *
      */
     protected handleStore(storeRequest: StoreRequest, senderClient: P2PClient, fromMsgId: Buffer, expectingReply: ExpectingReply, sendResponse?: SendResponseFn<StoreResponse>) {
 
@@ -162,8 +161,6 @@ export class P2PClientForwarder {
             return true;
         });
 
-        storeRequest = DeepCopy(storeRequest);
-
         // Add those the client specifically wants to mute events on.
         storeRequest.muteMsgIds.forEach( (msgId: Buffer) => {
             for (let i=0; i<this.subscriptionMaps.length; i++) {
@@ -174,9 +171,13 @@ export class P2PClientForwarder {
             }
         });
 
-        storeRequest.muteMsgIds = muteMsgIds;
+        // Copy shallow just so we can modify muteMsgIds field.
+        //
+        const storeRequest2 = ShallowCopy(storeRequest) as StoreRequest;
 
-        const {getResponse} = this.targetClient.store(storeRequest);
+        storeRequest2.muteMsgIds = muteMsgIds;
+
+        const {getResponse} = this.targetClient.store(storeRequest2);
 
         if (!getResponse) {
             return;
@@ -216,7 +217,7 @@ export class P2PClientForwarder {
         }
 
         const unsubscribeResponse: UnsubscribeResponse = {
-            status: Status.RESULT,
+            status: Status.Result,
             error: "",
         };
 

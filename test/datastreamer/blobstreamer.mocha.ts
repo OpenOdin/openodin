@@ -28,8 +28,7 @@ import {
     BlobDriver,
     DBClient,
     SignatureOffloader,
-    PeerData,
-    PeerDataUtil,
+    PeerInfo,
     DatabaseUtil,
     Hash,
     Crypto,
@@ -115,17 +114,17 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
         messaging1 = new Messaging(socket1, 0);
         messaging2 = new Messaging(socket2, 0);
 
-        const clientProps = makePeerData(keyPair1.publicKey);
+        const clientInfo = makePeerInfo(keyPair1.publicKey);
 
-        const serverProps = makePeerData(keyPairServer.publicKey);
+        const serverInfo = makePeerInfo(keyPairServer.publicKey);
 
-        serverP2pClient = new P2PClient(messaging1, serverProps, clientProps, PERMISSIVE_PERMISSIONS);
+        serverP2pClient = new P2PClient(messaging1, serverInfo, clientInfo, PERMISSIVE_PERMISSIONS);
 
         storage = new Storage(serverP2pClient, signatureOffloader, driver, blobDriver);
 
         await storage.init();
 
-        clientP2pClient = new P2PClient(messaging2, clientProps, serverProps);
+        clientP2pClient = new P2PClient(messaging2, clientInfo, serverInfo);
 
         messaging1.open();
         messaging2.open();
@@ -194,7 +193,7 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
 
         let reply = await getResponse.onceAny();
         assert(reply.type === "reply");
-        assert(reply.response?.status === Status.RESULT);
+        assert(reply.response?.status === Status.Result);
 
         // Try writing blob again
         //
@@ -245,7 +244,7 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
 
         reply = await getResponse.onceAny();
         assert(reply.type === "reply");
-        assert(reply.response?.status === Status.RESULT);
+        assert(reply.response?.status === Status.Result);
 
 
 
@@ -289,16 +288,16 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
     });
 });
 
-function makePeerData(publicKey: Buffer): PeerData {
-    return PeerDataUtil.create({
+function makePeerInfo(publicKey: Buffer): PeerInfo {
+    return {
         version: Version,
         serializeFormat: 0,
         handshakePublicKey: publicKey,
         authCert: undefined,
         authCertPublicKey: undefined,
-        clockDiff: 0,
         region: undefined,
         jurisdiction: undefined,
-        appVersion: undefined,
-    });
+        appVersion: "0.0.0",
+        sessionTimeout: 0,
+    };
 }

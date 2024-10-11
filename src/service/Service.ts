@@ -11,7 +11,6 @@ import {
     HandshakeFactoryInterface,
     HandshakeResult,
     EventType,
-    HandshakeFactoryConfig,
 } from "pocket-messaging";
 
 import {
@@ -24,14 +23,14 @@ import {
 
 import {
     P2PClient,
-    PeerDataUtil,
-    PeerData,
     AutoFetch,
     P2PClientForwarder,
     P2PClientExtender,
     P2PClientAutoFetcher,
     BlobEvent,
     Formats,
+    PeerInfo,
+    PeerInfoSchema,
 } from "../p2pclient";
 
 import {
@@ -52,6 +51,7 @@ import {
     DATA0_NODE_TYPE,
     KeyPair,
     Data,
+    AuthCertConstraintValues,
 } from "../datamodel";
 
 import {
@@ -62,6 +62,11 @@ import {
 import {
     RegionUtil,
 } from "../util/RegionUtil";
+
+import {
+    ParseSchema,
+    ToJSONObject,
+} from "../util/SchemaUtil";
 
 import {
     DatabaseConfig,
@@ -101,14 +106,11 @@ import {
 } from "./types";
 
 import {
-    AuthFactoryConfig,
     AuthFactoryInterface,
-    NativeAuthFactoryConfig,
 } from "../auth/types";
 
 import {
     DeepCopy,
-    DeepEquals,
     DeepHash,
     sleep,
     PromiseCallback,
@@ -116,8 +118,9 @@ import {
 } from "../util/common";
 
 import {
-    StorageUtil,
-} from "../util/StorageUtil";
+    FetchRequestSchema,
+    StoreRequestSchema,
+} from "../request/jsonSchema";
 
 import {
     NodeUtil,
@@ -136,10 +139,6 @@ import {
     ThreadTemplate,
     ThreadTemplates,
 } from "../storage/thread";
-
-import {
-    AuthFactory,
-} from "../auth/AuthFactory";
 
 declare const window: any;
 declare const process: any;
@@ -249,6 +248,8 @@ export class Service {
 
     protected applicationConf: ApplicationConf;
 
+    protected walletConf: WalletConf;
+
     /**
      * After class has been constructed call init() then call start().
      *
@@ -259,7 +260,7 @@ export class Service {
      * must be provided in the walletConf.
      * @param authFactory
      */
-    constructor(applicationConf: ApplicationConf, protected walletConf: WalletConf,
+    constructor(applicationConf: ApplicationConf, walletConf: WalletConf,
         protected signatureOffloader: SignatureOffloaderInterface,
         protected authFactory: AuthFactoryInterface)
     {
@@ -271,7 +272,8 @@ export class Service {
             throw new Error("When using an authCert also nodeCerts are required");
         }
 
-        this.applicationConf   = DeepCopy(applicationConf);
+        this.applicationConf   = DeepCopy(applicationConf) as ApplicationConf;
+        this.walletConf        = DeepCopy(walletConf) as WalletConf;
 
         this.nodeUtil = new NodeUtil(this.signatureOffloader);
 
@@ -527,7 +529,7 @@ export class Service {
      * @returns same WalletConf object as provided in constructor.
      */
     public getWalletConf(): WalletConf {
-        return this.walletConf;
+        return DeepCopy(this.walletConf);
     }
 
     public getApplicationConf(): ApplicationConf {
@@ -536,20 +538,33 @@ export class Service {
 
     /**
      * Set or remove auth cert.
-     * Auth cert will be cryptographically verified, but
+     *
+     * Auth cert will be decoded, cryptographically verified, but
      * the auth cert will not be online verified at this point.
      * The receiving side of a auth cert always validates it online.
-     * @param authCert
+     *
+     * @param image
      * @throws
      */
-    public async setAuthCert(authCert?: AuthCertInterface) {
+    public async setAuthCert(image?: Buffer | undefined) {
+
         if (this._isRunning) {
             throw new Error("Cannot set auth cert while running.");
         }
-        if (authCert && (await this.signatureOffloader.verify([authCert])).length === 0) {
-            throw new Error("Invalid AuthCert provided, cert could not be verified.");
+
+
+        if (image) {
+            const authCert = Decoder.DecodeAuthCert(image);
+
+            if (authCert && (await this.signatureOffloader.verify([authCert])).length === 0) {
+                throw new Error("Invalid AuthCert provided, cert could not be verified.");
+            }
+
+            this.config.authCert = authCert;
         }
-        this.config.authCert = authCert;
+        else {
+            this.config.authCert = undefined;
+        }
     }
 
     /**
@@ -560,7 +575,7 @@ export class Service {
     }
 
     public addThreadTemplate(name: string, threadTemplate: ThreadTemplate) {
-        this.threadTemplates[name] = DeepCopy(threadTemplate);
+        this.threadTemplates[name] = DeepCopy(threadTemplate) as ThreadTemplate;
     }
 
     /**
@@ -572,12 +587,15 @@ export class Service {
 
     /**
      * Add NodeCert.
-     * The cert will get cryptographically verified, but not online verified.
+     *
+     * The cert will get decoded and cryptographically verified, but not online verified.
      * The receiving storage will always online verify certificates (if applicable).
-     * @param nodeCert
+     * @param image
      * @throws
      */
-    public async addNodeCert(nodeCert: PrimaryNodeCertInterface) {
+    public async addNodeCert(image: Buffer) {
+        const nodeCert = Decoder.DecodeNodeCert(image);
+
         if (this.config.nodeCerts.some( (nodeCert2: PrimaryNodeCertInterface) => nodeCert2.calcId1().equals(nodeCert.calcId1()) )) {
             // Already exists.
             return;
@@ -641,83 +659,80 @@ export class Service {
     /**
      * Add connection configuration.
      *
-     * The NativeHandshakeFactoryConfig in the ConnectionConfig will be complemented with
-     * peerData upon connecting.
+     * The ConnectionConfig will be complemented with peerData.
      *
      * If existing storage client and service started then immediately init the connection factory.
      * @param connectionConfig object
      */
     public addPeerConnectionConfig(connectionConfig: ConnectionConfig) {
-        if (AuthFactory.IsNativeHandshake(connectionConfig.authFactoryConfig) ||
-            AuthFactory.IsAPIHandshake(connectionConfig.authFactoryConfig))
-        {
-            const handshakeFactoryConfig =
-                connectionConfig.authFactoryConfig as unknown as NativeAuthFactoryConfig;
+        const connectionConfig2 = DeepCopy(connectionConfig) as ConnectionConfig;
 
-            if (!handshakeFactoryConfig.socketFactoryStats) {
-                handshakeFactoryConfig.socketFactoryStats = this.sharedStorageFactoriesSocketFactoryStats;
+        const connection = connectionConfig2.connection;
+
+        const peerData = this.makePeerData(connectionConfig);
+
+        if (connection.handshake) {
+            connection.handshake.peerData = peerData;
+
+            if (!connection.handshake.socketFactoryStats) {
+                connection.handshake.socketFactoryStats =
+                    this.sharedStorageFactoriesSocketFactoryStats;
             }
         }
 
-        if (this.config.peerConnectionConfigs.some( (connectionConfig2: any) => DeepEquals(connectionConfig, connectionConfig2) )) {
-            // Already exists.
-            return;
+        if (connection.api) {
+            connection.api.peerData = peerData;
+
+            if (!connection.api.socketFactoryStats) {
+                connection.api.socketFactoryStats =
+                    this.sharedStorageFactoriesSocketFactoryStats;
+            }
         }
 
-        this.config.peerConnectionConfigs.push(connectionConfig);
+        this.config.peerConnectionConfigs.push(connectionConfig2);
 
         if (this._isRunning && this.state.storageClient) {
-            this.initPeerFactory(connectionConfig);
-        }
-    }
-
-    /**
-     * Remove connection config.
-     *
-     * @param index of the connection config to remove
-     */
-    public removePeerConnectionConfig(connectionConfig: ConnectionConfig) {
-        const index = this.config.peerConnectionConfigs.findIndex( config =>
-            DeepEquals(config, connectionConfig) );
-
-        if (index >= 0) {
-            this.config.peerConnectionConfigs.splice(index, 1);
+            this.initPeerFactory(connectionConfig2);
         }
     }
 
     /**
      * Add Remote Storage connection configuration.
      *
-     * The NativeAuthFactoryConfig in the ConnectionConfig will be complemented with peerData
-     * upon connecting.
+     * The ConnectionConfig will be complemented with peerData.
      *
      * If existing storage client and service is started then immediately init the connection factory.
      * @param connectionConfig object
      */
     public addStorageConnectionConfig(connectionConfig: ConnectionConfig) {
-        if (this.config.storageConnectionConfigs.some( (connectionConfig2: any) => DeepEquals(connectionConfig, connectionConfig2) )) {
-            // Already exists.
-            return;
+        const connectionConfig2 = DeepCopy(connectionConfig) as ConnectionConfig;
+
+        const connection = connectionConfig2.connection;
+
+        const peerData = this.makePeerData(connectionConfig);
+
+        if (connection.handshake) {
+            connection.handshake.peerData = peerData;
+
+            // Force this for storage connection factories using sockets
+            // to limit nr of connections to 1.
+            //
+            connection.handshake.socketFactoryConfig.maxConnections = 1;
         }
 
-        this.config.storageConnectionConfigs.push(connectionConfig);
+        if (connection.api) {
+            connection.api.peerData = peerData;
+
+            // Force this for storage connection factories using sockets
+            // to limit nr of connections to 1.
+            //
+            connection.api.socketFactoryConfig.maxConnections = 1;
+        }
+
+        this.config.storageConnectionConfigs.push(connectionConfig2);
 
         if (this._isRunning && !this.config.databaseConfig) {
-            this.initStorageFactory(connectionConfig);
-        }
-    }
-
-    /**
-     * Remove remote storage connection config.
-     *
-     * @param index of the connection config to remove
-     */
-    public removeStorageConnectionConfig(connectionConfig: ConnectionConfig) {
-        const index = this.config.storageConnectionConfigs.findIndex( config =>
-            DeepEquals(config, connectionConfig) );
-
-        if (index >= 0) {
-            this.config.storageConnectionConfigs.splice(index, 1);
+            this.initStorageFactory(connectionConfig2);
         }
     }
 
@@ -739,9 +754,9 @@ export class Service {
                     syncThread.stream);
 
                 // CRDTs are not allowed to be used when auto syncing.
-                fetchRequest.crdt.algo = 0;
+                fetchRequest.crdt.algo = "";
 
-                if (syncThread.direction === "pull" || syncThread.direction === "both") {
+                if (syncThread.direction === "Pull" || syncThread.direction === "PushPull") {
                     autoFetchers.push({
                         remotePublicKey,
                         fetchRequest,
@@ -750,7 +765,7 @@ export class Service {
                     });
                 }
 
-                if (syncThread.direction === "push" || syncThread.direction === "both") {
+                if (syncThread.direction === "Push" || syncThread.direction === "PushPull") {
                     autoFetchers.push({
                         remotePublicKey,
                         fetchRequest,
@@ -868,12 +883,14 @@ export class Service {
             handshakeFactory = await this.initPeerConnectionFactory(connectionConfig);
         }
         catch(error) {
+            console.error("Could not create peer connection factory", error);
+
             const peerCreateErrorEvent: Parameters<ServicePeerFactoryCreateErrorCallback> =
                 [error as Error];
 
             this.triggerEvent(EVENT_SERVICE_PEER_FACTORY_CREATE_ERROR, ...peerCreateErrorEvent);
 
-            return
+            return;
         }
 
         try {
@@ -893,19 +910,15 @@ export class Service {
      * Setup and initiate a peer connection factory.
      * @throws if factory cannot be created
      */
-    protected async initPeerConnectionFactory(config: ConnectionConfig):
+    protected async initPeerConnectionFactory(connectionConfig: ConnectionConfig):
         Promise<HandshakeFactoryInterface>
     {
-        const authFactoryConfig = DeepCopy(config.authFactoryConfig) as AuthFactoryConfig;
-
-        (authFactoryConfig as unknown as HandshakeFactoryConfig).peerData =
-            this.makePeerData(config).export(true);
-
-        let remotePeerData: PeerData | undefined;
-
         // Throws if refused
         //
-        const handshakeFactory = await this.authFactory.create(authFactoryConfig);
+        const handshakeFactory = await this.authFactory.create(connectionConfig.connection);
+
+        const pingInterval = connectionConfig.connection.handshake?.pingInterval ??
+            connectionConfig.connection.api?.pingInterval ?? 0;
 
         const peerFactoryCreateEvent: Parameters<ServicePeerFactoryCreateCallback> =
             [handshakeFactory];
@@ -923,45 +936,35 @@ export class Service {
                     return;
                 }
 
-                remotePeerData = await PeerDataUtil.HandshakeResultToPeerData(handshakeResult,
-                    this.signatureOffloader, config.region, config.jurisdiction);
+                const remotePeerInfo = await this.handshakeResultToPeerInfo(handshakeResult);
 
                 // Validate region and jurisdiction provided by the remote peer.
                 //
-                this.validateRemotePeerData(remotePeerData, wrappedClient.getRemoteAddress());
-
-                // We need a dedicated instance of PeerData to pass on to P2PClient.
-                // We negate the clockDiff to get it for our side.
-                //
-                const localPeerData = this.makePeerData(config);
-                localPeerData.setClockDiff(-remotePeerData.getClockDiff());
+                this.validateRemotePeerInfo(remotePeerInfo, wrappedClient.getRemoteAddress());
 
                 await wrappedClient.init();
 
-                const messaging = new Messaging(wrappedClient,
-                    (authFactoryConfig as unknown as HandshakeFactoryConfig).pingInterval);
+                const messaging = new Messaging(wrappedClient, pingInterval);
 
-                const p2pClient = new P2PClient(messaging, localPeerData, remotePeerData,
-                    config.permissions);
+                const p2pClient = new P2PClient(messaging, this.makeLocalPeerInfo(), remotePeerInfo,
+                    connectionConfig.permissions, handshakeResult.clockDiff);
 
-                // Note that the auth cert at this point is already cryptographically verified and
-                // validated against the target,
-                // here we also check so that it verifies online (if it has any such properties).
+                // Note that the auth cert at this point is already cryptographically verified.
                 //
-                const authCert = remotePeerData.getAuthCert();
+                const authCert = remotePeerInfo.authCert;
 
                 if (authCert) {
-                    const status = await this.validateAuthCert(authCert, this.state.storageClient);
+                    const [status, error] =
+                        await this.validateAuthCert(authCert, this.state.storageClient,
+                            remotePeerInfo.handshakePublicKey,
+                            connectionConfig.region,
+                            connectionConfig.jurisdiction);
 
                     if (status !== 0) {
-                        const reason = status === 1 ? "The auth cert could not be verified likely due to a destroy node destroying the cert" :
-                            "The auth cert could not validate within the timeout";
-
                         const peerAuthCertErrorEvent: Parameters<ServicePeerAuthCertErrorCallback> =
-                            [new Error(reason), authCert];
+                            [new Error(error), authCert];
 
                         this.triggerEvent(EVENT_SERVICE_PEER_AUTHCERT_ERROR, ...peerAuthCertErrorEvent);
-
                         wrappedClient.close();
 
                         return;
@@ -974,6 +977,8 @@ export class Service {
                 this.peerConnected(p2pClient);
             }
             catch (error) {
+                console.debug(error);
+
                 const peerParseErrorEvent: Parameters<ServicePeerParseErrorCallback> =
                     [error as Error];
 
@@ -1020,13 +1025,10 @@ export class Service {
      *
      */
     protected async connectDatabase(databaseConfig: DatabaseConfig) {
-        // The PeerData which the Storage sees as the this side.
-        // The publicKey set here is what dictatates the permissions we have in the Storage.
-        const localPeerData = this.makePeerData();
-
-        // The PeerData of the Storage "sent" to this side in the handshake.
-        // When using a database the storage uses the same keys for identity as the client side.
-        const remotePeerData = this.makePeerData();
+        // Use same PeerInfo for all needs below which is correct since we are not connecting
+        // to any other peer.
+        //
+        const peerInfo = this.makeLocalPeerInfo();
 
         while (true) {
             const [driver, blobDriver] = await Service.ConnectToDatabase(databaseConfig);
@@ -1037,10 +1039,12 @@ export class Service {
                 const messaging1 = new Messaging(socket1, 0);
                 const messaging2 = new Messaging(socket2, 0);
 
-                const p2pStorage = new P2PClient(messaging1, remotePeerData, localPeerData,
+                // Passing in permissions as this p2pClient is connected to the Storage.
+                //
+                const p2pStorage = new P2PClient(messaging1, peerInfo, peerInfo,
                     databaseConfig.permissions);
 
-                const storage = new Storage(p2pStorage, this.signatureOffloader, driver, blobDriver/*,false, databaseConfig.blindlyTrustedPeers*/);
+                const storage = new Storage(p2pStorage, this.signatureOffloader, driver, blobDriver);
 
                 storage.onClose( () => {
                     // We need to explicitly close the Driver instance.
@@ -1050,9 +1054,10 @@ export class Service {
 
                 await storage.init();
 
-                // This client only initiates requests and does not need any permissions to it.
-                const internalStorageClient = new P2PClient(messaging2, localPeerData,
-                    remotePeerData);
+                // This client only initiates requests and does not need any permissions to so,
+                // so we do not pass in any permissions object here.
+                //
+                const internalStorageClient = new P2PClient(messaging2, peerInfo, peerInfo);
 
                 messaging1.open();
                 messaging2.open();
@@ -1063,13 +1068,14 @@ export class Service {
                 const messaging4 = new Messaging(socket4, 0);
 
                 // Set permissions on this to limit the local app's access to the storage.
+                //
                 const intermediaryStorageClient =
-                    new P2PClient(messaging3, this.makePeerData(), this.makePeerData(),
-                        databaseConfig.appPermissions);
+                    new P2PClient(messaging3, peerInfo, peerInfo, databaseConfig.appPermissions);
 
                 // This client only initiates requests and does not need any permissions to it.
+                //
                 const externalStorageClient =
-                    new P2PClient(messaging4, this.makePeerData(), this.makePeerData());
+                    new P2PClient(messaging4, peerInfo, peerInfo);
 
                 // externalStorageClient (as client) (messaging4->messaging3) ->
                 //  intermediaryStorageClient (as server) ->
@@ -1195,6 +1201,8 @@ export class Service {
             handshakeFactory = await this.initStorageConnectionFactory(connectionConfig);
         }
         catch(error) {
+            console.error("Could not create storage connection factory", error);
+
             const storageCreateErrorEvent: Parameters<ServiceStorageFactoryCreateErrorCallback> =
                 [error as Error];
 
@@ -1219,103 +1227,84 @@ export class Service {
     /**
      * Init a handshake factory for connecting with remote storage.
      */
-    protected async initStorageConnectionFactory(config: ConnectionConfig):
-        Promise<HandshakeFactoryInterface>
-    {
-        const authFactoryConfig = DeepCopy(config.authFactoryConfig) as AuthFactoryConfig;
-
-        (authFactoryConfig as unknown as HandshakeFactoryConfig).peerData =
-            this.makePeerData(config).export(true);
-
-        let remotePeerData: PeerData | undefined;
-
-        if (AuthFactory.IsNativeHandshake(config.authFactoryConfig) ||
-            AuthFactory.IsAPIHandshake(config.authFactoryConfig))
+    protected async initStorageConnectionFactory(connectionConfig: ConnectionConfig):
+    Promise<HandshakeFactoryInterface>
         {
-            // Force this for storage connection factories using sockets
-            // to limit nr of connections to 1.
-            //
-            (config.authFactoryConfig as unknown as NativeAuthFactoryConfig).
-                socketFactoryConfig.maxConnections = 1;
-        }
+            const pingInterval = connectionConfig.connection.handshake?.pingInterval ??
+            connectionConfig.connection.api?.pingInterval ?? 0;
 
-        const handshakeFactory = await this.authFactory.create(authFactoryConfig);
+            const handshakeFactory = await this.authFactory.create(connectionConfig.connection);
 
-        const storageFactoryCreateEvent: Parameters<ServiceStorageFactoryCreateCallback> =
+            const storageFactoryCreateEvent: Parameters<ServiceStorageFactoryCreateCallback> =
             [handshakeFactory];
 
-        this.triggerEvent(EVENT_SERVICE_STORAGE_FACTORY_CREATE, ...storageFactoryCreateEvent);
+            this.triggerEvent(EVENT_SERVICE_STORAGE_FACTORY_CREATE, ...storageFactoryCreateEvent);
 
 
-        handshakeFactory.onHandshake( async (isServer: boolean, client: ClientInterface,
-            wrappedClient: ClientInterface, handshakeResult: HandshakeResult) =>
-        {
-            try {
-                if (this.state.storageClient) {
-                    // If there is a storage client already there is no point proceeding with this.
-                    console.debug("Storage client already present, closing newly opened.");
-                    wrappedClient.close();
-                    return;
-                }
-
-                remotePeerData = await PeerDataUtil.HandshakeResultToPeerData(handshakeResult,
-                    this.signatureOffloader, config.region, config.jurisdiction);
-
-                // Validate region and jurisdiction provided by the remote peer.
-                this.validateRemotePeerData(remotePeerData, wrappedClient.getRemoteAddress());
-
-                // We need a dedicated instance of PeerData to pass on to P2PClient.
-                // We negate the clockDiff to get it for our side.
-                //
-                const localPeerData = this.makePeerData(config);
-                localPeerData.setClockDiff(-remotePeerData.getClockDiff());
-
-                await wrappedClient.init();
-
-                const messaging = new Messaging(wrappedClient,
-                    (authFactoryConfig as unknown as HandshakeFactoryConfig).pingInterval);
-
-                const p2pClient = new P2PClient(messaging, localPeerData, remotePeerData);
-
-                // Note that the auth cert at this point is already cryptographically verified
-                // and validated against the target,
-                // here we also check so that it verifies online (if it has any such properties).
-                //
-                const authCert = remotePeerData.getAuthCert();
-
-                if (authCert) {
-                    const status = await this.validateAuthCert(authCert, p2pClient);
-
-                    if (status !== 0) {
-                        const reason = status === 1 ? "The auth cert could not be verified likely due to a destroy node destroying the cert" :
-                            "The auth cert could not validate within the timeout";
-
-                        const storageAuthCertErrorEvent: Parameters<ServiceStorageAuthCertErrorCallback> =
-                            [new Error(reason), authCert];
-
-                        this.triggerEvent(EVENT_SERVICE_STORAGE_AUTHCERT_ERROR,
-                            ...storageAuthCertErrorEvent);
-
+            handshakeFactory.onHandshake( async (isServer: boolean, client: ClientInterface,
+                wrappedClient: ClientInterface, handshakeResult: HandshakeResult) =>
+            {
+                try {
+                    if (this.state.storageClient) {
+                        // If there is a storage client already there is no point proceeding with this.
+                        console.debug("Storage client already present, closing newly opened.");
                         wrappedClient.close();
-
                         return;
                     }
+
+                    const remotePeerInfo = await this.handshakeResultToPeerInfo(handshakeResult);
+
+                    // Validate region and jurisdiction provided by the remote peer.
+                    this.validateRemotePeerInfo(remotePeerInfo, wrappedClient.getRemoteAddress());
+
+                    await wrappedClient.init();
+
+                    const messaging = new Messaging(wrappedClient, pingInterval);
+
+                    const p2pClient = new P2PClient(messaging, this.makeLocalPeerInfo(),
+                        remotePeerInfo, undefined, handshakeResult.clockDiff);
+
+                    // Note that the auth cert at this point is already cryptographically verified
+                    // and validated against the target,
+                    // here we also check so that it verifies online (if it has any such properties).
+                    //
+                    const authCert = remotePeerInfo.authCert;
+
+                    if (authCert) {
+                        const [status, error] = await this.validateAuthCert(authCert, p2pClient,
+                            remotePeerInfo.handshakePublicKey,
+                            connectionConfig.region,
+                            connectionConfig.jurisdiction);
+
+                        if (status !== 0) {
+                            const storageAuthCertErrorEvent: Parameters<ServiceStorageAuthCertErrorCallback> =
+                                [new Error(error), authCert];
+
+                            this.triggerEvent(EVENT_SERVICE_STORAGE_AUTHCERT_ERROR,
+                                ...storageAuthCertErrorEvent);
+
+                            wrappedClient.close();
+
+                            return;
+                        }
+                    }
+
+                    // Open after all hooks have been set.
+                    setImmediate( () => messaging.open() );
+
+                    await this.storageConnected(p2pClient, p2pClient);
                 }
+                catch (error) {
+                    console.debug(error);
 
-                // Open after all hooks have been set.
-                setImmediate( () => messaging.open() );
+                    const storageParseErrorEvent: Parameters<ServiceStorageParseErrorCallback> =
+                        [error as Error];
 
-                await this.storageConnected(p2pClient, p2pClient);
-            }
-            catch (error) {
-                const storageParseErrorEvent: Parameters<ServiceStorageParseErrorCallback> =
-                    [error as Error];
+                    this.triggerEvent(EVENT_SERVICE_STORAGE_PARSE_ERROR, ...storageParseErrorEvent);
 
-                this.triggerEvent(EVENT_SERVICE_STORAGE_PARSE_ERROR, ...storageParseErrorEvent);
-
-                wrappedClient.close();
-            }
-        });
+                    wrappedClient.close();
+                }
+            });
 
         return handshakeFactory;
     }
@@ -1323,52 +1312,86 @@ export class Service {
     /**
      * Validate region and jurisdiction set by the remote peer.
      *
-     * @param remotePeerData.
+     * @param remotePeerInfo.
      * @param ipAddress version 4 or 6.
      * @throws if not validated correctly or on lookup error.
      */
-    protected validateRemotePeerData(remotePeerData: PeerData, ipAddress: string | undefined) {
-        const region = remotePeerData.getRegion();
+    protected validateRemotePeerInfo(remotePeerInfo: PeerInfo, ipAddress: string | undefined) {
+        // TODO: we are not enforcing this as for now
+        //
+        const region = remotePeerInfo.region;
 
         if (region && region.length > 0) {
             const ipRegion = RegionUtil.GetRegionByIpAddress(ipAddress);
 
             if (!ipRegion) {
-                throw new Error(`Could not lookup region for IP address: ${ipAddress}`);
+                //throw new Error(`Could not lookup region for IP address: ${ipAddress}`);
             }
 
             if (ipRegion !== region) {
-                throw new Error(`Region ${region} does not match IP lookup of ${ipAddress}`);
+                //throw new Error(`Region ${region} does not match IP lookup of ${ipAddress}`);
             }
         }
 
-        const jurisdiction = remotePeerData.getJurisdiction();
+        const jurisdiction = remotePeerInfo.jurisdiction;
 
         if (jurisdiction && jurisdiction.length > 0) {
-            // TODO: FIXME: 0.9.8-beta1.
+            // TODO:
             // We currently have no possibility to enforce that the user belongs
-            // to a specific jurisdiction as remotePeerData.getJurisdiction() might state.
+            // to a specific jurisdiction as remotePeerInfo.jurisdiction might state.
         }
     }
 
     /**
-     * Validate the certificate in the storage and if applicable also online.
+     * Check constraints of auth cert and validate the certificate using the storage and also if
+     * applicable check it online.
+     *
      * A cert which is not marked as indestructible can have been destroyed by destroy-nodes,
      * this we must check in our connected storage.
      * Furthermore if the auth cert is online in it self then we need to see that the cert is marked as validated.
      * We assume that the auth cert is already cryptographically verified and validated against its intended target.
      *
+     * @param authCert the binary to decode and check
+     * @param storageP2PClient the storage to be leveraged for checking the certificate
+     * @param publicKey the publicKey to check auth cert constraints against
+     * @param region the region to check auth cert constraints against
+     * @param jurisdiction the jurisdiction to check auth cert constraints against
+     *
      * @returns 0 if auth cert successfully validates in the storage.
      * 1 if the auth cert cannot be verified likely due to a destroy node destroying the cert.
      * 2 if a online cert did not become validated within the timeout.
+     * 3 if the cert does not validate against its target.
+     *
+     * If status > 0 then return error string as second argument in array
      */
-    protected async validateAuthCert(authCert: Buffer, storageP2PClient: P2PClient): Promise<number> {
+    protected async validateAuthCert(authCert: Buffer, storageP2PClient: P2PClient,
+        publicKey: Buffer, region?: string, jurisdiction?: string): Promise<[number, string?]> {
+        // Validate auth cert against target
+        //
+        const authCertObj = Decoder.DecodeAuthCert(authCert);
+
+        const authConstraintvalues: AuthCertConstraintValues = {
+            publicKey,
+            creationTime: Date.now(),
+            region,
+            jurisdiction,
+        };
+
+        const val = authCertObj.validateAgainstTarget(authConstraintvalues);
+
+        if (!val[0]) {
+            console.debug(`Could not validate auth cert againt target: ${val[1]}`);
+
+            return [3, "The auth cert does not validate against the target constraints (wrong publicKey, region or jurisdiction)"];
+        }
+
+
         let wrappedAuthCertDataNode = await this.fetchAuthCertDataWrapper(authCert, storageP2PClient);
 
         if (!wrappedAuthCertDataNode) {
             // Attempt to store
             if (! await this.storeAuthCertDataWrapper(authCert, storageP2PClient)) {
-                return 1;
+                return [1, "The auth cert could not be verified likely due to a destroy node destroying the cert"];
             }
 
             // Read again
@@ -1378,12 +1401,12 @@ export class Service {
         if (!wrappedAuthCertDataNode) {
             // It seems as there are destroy nodes present for the auth cert,
             // since it cannot be read back even if stored again.
-            return 1;
+            return [1, "The auth cert could not be verified likely due to a destroy node destroying the cert"];
         }
 
         if (!wrappedAuthCertDataNode.hasOnline()) {
             // If the node is not online then we are all good already.
-            return 0;
+            return [0];
         }
 
         // Node is online but not marked as validated.
@@ -1398,19 +1421,19 @@ export class Service {
             // to support that feature. This way is rock solid.
             wrappedAuthCertDataNode = await this.fetchAuthCertDataWrapper(authCert, storageP2PClient, true);
             if (wrappedAuthCertDataNode) {
-                return 0;
+                return [0];
             }
 
         }
 
-        return 2;
+        return [2, "The auth cert could not validate within the timeout"];
     }
 
     protected async fetchAuthCertDataWrapper(authCert: Buffer, storageP2PClient: P2PClient, ignoreInactive: boolean = false): Promise<DataInterface | undefined> {
         const parentId = Hash(authCert);
 
         // A fetch request to query for data nodes wrapping the authcert.
-        const fetchRequest = StorageUtil.CreateFetchRequest({query: {
+        const fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             depth: 1,
             cutoffTime: 0n,
@@ -1424,11 +1447,13 @@ export class Service {
                     filters: [
                         {
                             field: "owner",
+                            operator: "",
                             cmp: CMP.EQ,
-                            value: this.publicKey,
+                            value: this.publicKey.toString("hex"),
                         },
                         {
                             field: "contentType",
+                            operator: "",
                             cmp: CMP.EQ,
                             value: "temporary/authCert",
                         },
@@ -1436,7 +1461,7 @@ export class Service {
                             field: "embedded",
                             operator: "hash",
                             cmp: CMP.EQ,
-                            value: Hash(authCert),
+                            value: Hash(authCert).toString("hex"),
                         },
                     ],
                 }
@@ -1454,8 +1479,9 @@ export class Service {
         if (anyData.type === EventType.REPLY) {
             const fetchResponse = anyData.response;
 
-            if (fetchResponse && fetchResponse.status === Status.RESULT) {
-                const nodes = StorageUtil.ExtractFetchResponseNodes(fetchResponse, false, Data.GetType(4)) as DataInterface[];
+            if (fetchResponse && fetchResponse.status === Status.Result) {
+                const nodes = Decoder.DecodeNodes(fetchResponse.result.nodes, false,
+                    Data.GetType(4)) as DataInterface[];
 
                 if (nodes.length > 0) {
                     return nodes[0];
@@ -1481,11 +1507,10 @@ export class Service {
                 expireTime: Date.now() + 3600 * 1000, // TODO use TimeFreeze
             }, this.publicKey);
 
-        const storeRequest = StorageUtil.CreateStoreRequest({
+        const storeRequest = ParseSchema(StoreRequestSchema, {
             sourcePublicKey: this.publicKey,
             targetPublicKey: this.publicKey,
             nodes: [dataNode.export()],
-
         });
 
         const {getResponse} = storageP2PClient.store(storeRequest);
@@ -1499,8 +1524,8 @@ export class Service {
         if (anyData.type === EventType.REPLY) {
             const storeResponse = anyData.response;
 
-            if (storeResponse?.status === Status.RESULT) {
-                if (storeResponse.storedId1s.length === 1) {
+            if (storeResponse?.status === Status.Result) {
+                if (storeResponse.storedId1List.length === 1) {
                     return true;
                 }
             }
@@ -1550,7 +1575,8 @@ export class Service {
         // If our permissions (as server) allow us to embed we spawn an extender server.
         //
         if (permissions.fetchPermissions.allowEmbed.length > 0 ||
-            (permissions.fetchPermissions.allowIncludeLicenses & 2) > 0)
+            (permissions.fetchPermissions.allowIncludeLicenses === "Extend" ||
+                permissions.fetchPermissions.allowIncludeLicenses === "IncludeExtend"))
         {
             const storageExtender = new P2PClientExtender(p2pClient, this.state.storageClient,
                 this.publicKey, this.config.nodeCerts, this.signatureOffloader, muteMsgIds);
@@ -1615,31 +1641,96 @@ export class Service {
     }
 
     /**
-     * Create a PeerData object for this peer.
+     * Create a peer data binary for this peer to exchange in the handhake.
      *
-     * @param connectionConfig set if applicable
+     * @param connectionConfig this peer's configuration
      *
-     * @returns localPeerData
+     * @returns peer data representing this peer
      */
-    protected makePeerData(connectionConfig?: ConnectionConfig): PeerData {
-        const serializeFormat = connectionConfig?.serializeFormat ?? 0;
+    protected makePeerData(connectionConfig: ConnectionConfig): Buffer {
+        const serializeFormat = connectionConfig.serializeFormat;
 
         if (!Formats[serializeFormat]) {
             throw new Error(`serializeFormat ${serializeFormat} is not supported`);
         }
 
-        return PeerDataUtil.create({
-            version: Version,
+        const peerData = {
+            peerDataFormat: 0,
             serializeFormat,
+            version:        Version,
+            appVersion:     this.applicationConf.version,
+            region:         connectionConfig.region,
+            jurisdiction:   connectionConfig.jurisdiction,
+            authCert:       this.config.authCert?.export(),
+            sessionTimeout: 0,
+        };
+
+        // TODO: we possibly would want this binary packed instead.
+        //
+        const peerDataJSONObj = ToJSONObject(peerData);
+
+        return Buffer.from(JSON.stringify(peerDataJSONObj));
+    }
+
+    /**
+     * Make PeerInfo to be used locally.
+     * @returns PeerInfo
+     */
+    protected makeLocalPeerInfo(): PeerInfo {
+        const serializeFormat =
+            Object.values(Formats).find(format => format.expires === undefined)?.id;
+
+        assert(serializeFormat !== undefined);
+
+        return {
+            serializeFormat,
+            version:            Version,
+            appVersion:         this.getAppVersion(),
+            sessionTimeout:     0,
             handshakePublicKey: this.publicKey,
-            authCert: this.config.authCert?.export(),
-            authCertPublicKey: this.config.authCert ? this.config.authCert.getIssuerPublicKey() : undefined,
-            clockDiff: 0,
-            region: connectionConfig?.region,
-            jurisdiction: connectionConfig?.jurisdiction,
-            appVersion: this.applicationConf.version,
-            expireTime: 0,
-        });
+            authCert:           this.config.authCert?.export(),
+            authCertPublicKey:  this.config.authCert?.getIssuerPublicKey(),
+        };
+    }
+
+    /**
+     * Convert HandshakeResult into PeerInfo for remote side.
+     *
+     * This function will cryptographically verify any auth cert given but will not check it
+     * for validity as this is done elsewhere.
+     *
+     * @param handshakeResult received upon successful handshake
+     *
+     * @throws if authCert does not verify or on data parsing error
+     */
+    protected async handshakeResultToPeerInfo(handshakeResult: HandshakeResult): Promise<PeerInfo>
+    {
+        const peerDataJSONObj = JSON.parse(handshakeResult.peerData.toString());
+
+        assert(peerDataJSONObj.peerDataFormat === 0, "Expected peerDataFormat to be 0");
+
+        peerDataJSONObj.handshakePublicKey = handshakeResult.peerLongtermPk;
+
+        const peerInfo = ParseSchema(PeerInfoSchema, peerDataJSONObj);
+
+        const authCert = peerInfo.authCert;
+
+        let authCertObj: AuthCertInterface | undefined;
+        let authCertPublicKey: Buffer | undefined;
+
+        if (authCert) {
+            authCertObj = Decoder.DecodeAuthCert(authCert);
+
+            if ((await this.signatureOffloader.verify([authCertObj])).length !== 1) {
+                throw new Error("Could not verify signatures in auth cert.");
+            }
+
+            authCertPublicKey = authCertObj.getIssuerPublicKey();
+        }
+
+        peerInfo.authCertPublicKey  = authCertPublicKey;
+
+        return peerInfo;
     }
 
     /**

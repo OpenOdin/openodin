@@ -80,6 +80,67 @@ export type NodeParams = {
     isOnlineRevoked?: boolean,
 };
 
+export const NodeSchema = {
+    "modelType??": new Uint8Array(0),
+    "id1??": new Uint8Array(0),
+    "copiedId1??": new Uint8Array(0),
+    "id2??": new Uint8Array(0),
+    "parentId??": new Uint8Array(0),
+    "copiedParentId??": new Uint8Array(0),
+    "config??": 0,
+    "onlineIdNetwork??": new Uint8Array(0),
+    "owner??": new Uint8Array(0),
+    "signature??": new Uint8Array(0),
+    "signingPublicKeys??": [new Uint8Array(0)],
+    "copiedSignature??": new Uint8Array(0),
+    "creationTime??": 0,
+    "expireTime??": 0,
+    "difficulty??": 0,
+    "childMinDifficulty??": 0,
+    "nonce??": new Uint8Array(0),
+    "refId??": new Uint8Array(0),
+    "cert??": new Uint8Array(0),
+    "embedded??": new Uint8Array(0),
+    "blobHash??": new Uint8Array(0),
+    "blobLength??": 0n,
+    "licenseMinDistance??": 0,
+    "licenseMaxDistance??": 0,
+    "transientConfig??": 0,
+    "transientStorageTime??": 0,
+    "isLeaf??": false,
+    "hasOnlineValidation??": false,
+    "hasOnlineCert??": false,
+    "hasOnlineEmbedding??": false,
+    "isPublic??": false,
+    "isLicensed??": false,
+    "isPrivate??": false,
+    "hasRightsByAssociation??": false,
+    "allowEmbed??": false,
+    "allowEmbedMove??": false,
+    "isUnique??": false,
+    "isBeginRestrictiveWriteMode??": false,
+    "isEndRestrictiveWriteMode??": false,
+    "isIndestructible??": false,
+    "region??": "",
+    "jurisdiction??": "",
+    "disallowParentLicensing??": false,
+    "onlyOwnChildren??": false,
+    "disallowPublicChildren??": false,
+    "bubbleTrigger??": false,
+    "isOnlineIdValidated??": false,
+    "isOnlineCertOnline??": false,
+    "isOnlineEmbeddingOnline??": false,
+    "isOnlineValidated??": false,
+    "isOnlineRevoked??": false,
+    _postFn: function(nodeParams: NodeParams): NodeParams {
+        if (typeof nodeParams.expireTime === "number" && nodeParams.expireTime < 0) {
+            nodeParams.expireTime = Date.now() -nodeParams.expireTime;
+        }
+
+        return nodeParams;
+    }
+} as const;
+
 // These are general configs on nodes, deriving nodes might not allow or require some of these bit to be set.
 // For example License requires IS_LEAF but does not allow IS_PUBLIC or IS_LICENSED to be set.
 export enum NodeConfig {

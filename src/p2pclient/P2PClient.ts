@@ -9,8 +9,11 @@ import {
 
 import {
     BebopSerialize,
+} from "../request/BebopSerialize";
+
+import {
     BebopDeserialize,
-} from "./bebop";
+} from "../request/BebopDeserialize";
 
 import {
     Status,
@@ -46,15 +49,12 @@ import {
     LOCKED_PERMISSIONS,
     RouteAction,
     Formats,
+    PeerInfo,
 } from "./types";
 
 import {
     MAX_QUERY_ROWS_LIMIT,
 } from "../storage/types";
-
-import {
-    PeerData,
-} from "./PeerData";
 
 import {
     CopyBuffer,
@@ -113,8 +113,9 @@ export class P2PClient {
     protected handlerReadBlob?: HandlerFn<ReadBlobRequest, ReadBlobResponse>;
     protected handlerWriteBlob?: HandlerFn<WriteBlobRequest, WriteBlobResponse>;
     protected handlerGenericMessage?: HandlerFn<GenericMessageRequest, GenericMessageResponse>;
-    protected localPeerData: PeerData;
-    protected remotePeerData: PeerData;
+    protected readonly localPeerInfo: PeerInfo;
+    protected readonly remotePeerInfo: PeerInfo;
+    protected readonly clockDiff: number;
     protected readonly permissions: P2PClientPermissions;
     protected serialize: BebopSerialize;      // Note this should become an interface if we have more than one type of serializer.
     protected deserialize: BebopDeserialize;  // Note this should become an interface if we have more than one type of deserializer.
@@ -126,21 +127,25 @@ export class P2PClient {
 
     /**
      * @param messaging is the handshaked Messaging instance.
-     * @param localPeerData the PeerData representing this side.
-     * @param remotePeerData the PeerData representing the remote side.
+     * @param localPeerInfo the PeerInfo representing this side.
+     * @param remotePeerInfo the PeerInfo representing the remote side.
      * @param permissions which this p2pclient will enforce on incoming requests. Default permissions are locked down for incoming requests.
+     * @param clockDiff the nr of milliseconds the peers are apart. A negative value means that this
+     * peers clock is behind the remote peers clock by that many milliseconds.
      * @param maxClockSkew milliseconds allowed between peer's clocks. No constraint if not set.
      */
-    constructor(messaging: Messaging, localPeerData: PeerData, remotePeerData: PeerData, permissions?: P2PClientPermissions, maxClockSkew?: number) {
+    constructor(messaging: Messaging, localPeerInfo: PeerInfo, remotePeerInfo: PeerInfo, permissions?: P2PClientPermissions, clockDiff: number = 0, maxClockSkew?: number) {
         this.messaging = messaging;
         this._isClosed = false;
         this.onCloseHandlers = [];
 
-        const remoteSerializeFormat = remotePeerData.getSerializeFormat();
-        const localSerializeFormat = localPeerData.getSerializeFormat();
+        this.clockDiff = clockDiff;
+
+        const remoteSerializeFormat = remotePeerInfo.serializeFormat;
+        const localSerializeFormat = localPeerInfo.serializeFormat;
 
         if (remoteSerializeFormat === undefined || localSerializeFormat === undefined) {
-            throw new Error("Missing serializeFormat in PeerData");
+            throw new Error("Missing serializeFormat in PeerInfo");
         }
 
         let serializeFormat: number | undefined;
@@ -170,7 +175,10 @@ export class P2PClient {
             //
             const format = Formats[localSerializeFormat];
 
-            if (remotePeerData.cmpVersion(format.fromVersion) < 0) {
+            const v1 = remotePeerInfo.version.split(".").map(n => parseInt(n));
+            const v2 = format.fromVersion.split(".").map(n => parseInt(n));
+
+            if (v1 < v2) {
                 console.debug(`Remote peer is suggesting lower serialization format (${remoteSerializeFormat}) which we downgrade to.`);
 
                 // Remote does not know local format so we adapt to remote's format instead.
@@ -178,12 +186,14 @@ export class P2PClient {
                 serializeFormat = remoteSerializeFormat;
             }
             else {
-                console.debug(`Remote peer suggesting a serialization format (${remoteSerializeFormat}) but expecting remote to adapt to our higher format (${localSerializeFormat}).`);
+                console.debug(`Remote peer suggesting a serialization format (${remoteSerializeFormat}) but we are expecting remote to adapt to our higher format (${localSerializeFormat}).`);
 
                 serializeFormat = localSerializeFormat;
             }
         }
         else {
+            // Both peers suggest the same format.
+            //
             serializeFormat = localSerializeFormat;
         }
 
@@ -207,28 +217,29 @@ export class P2PClient {
             throw new Error(`Given serialize format ${serializeFormat} is not supported by this P2PClient. Only these formats supported: ${Formats}`);
         }
 
-        if (maxClockSkew !== undefined && Math.abs(localPeerData.getClockDiff()) > maxClockSkew) {
-            throw new Error(`Peer clock is too much off relatively to our clock. diff is=${localPeerData.getClockDiff()} ms`);
+        if (maxClockSkew !== undefined && Math.abs(this.clockDiff) > maxClockSkew) {
+            throw new Error(`Peer clock is too much off relatively to our clock. diff is=${this.clockDiff} ms`);
         }
 
-        // Copy the PeerData objects, keeping transient values.
+        // Copy the PeerInfo objects, keeping transient values.
         //
-        this.localPeerData = new PeerData();
-        this.localPeerData.load(localPeerData.export(true), true);
-        this.remotePeerData = new PeerData();
-        this.remotePeerData.load(remotePeerData.export(true), true);
+        this.localPeerInfo  = DeepCopy(localPeerInfo);
+        this.remotePeerInfo = DeepCopy(remotePeerInfo);
 
-        const expireTime = localPeerData.getExpireTime() ?? 0;
-        if (expireTime > 0) {
-            console.debug(`Setting up session expiration in ${expireTime} seconds`);
+        // Setup expire based on our local settings,
+        // remote will do they same with their settings.
+        //
+        const sessionTimeout = localPeerInfo.sessionTimeout;
+        if (sessionTimeout > 0) {
+            console.debug(`Setting up session expiration in ${sessionTimeout} seconds`);
             this.sessionExpireTimeout = setTimeout(() => {
-                console.debug("Closing P2PClient session on expireTime");
+                console.debug("Closing P2PClient session on sessionTimeout");
                 this.close();
-            }, expireTime * 1000);
+            }, sessionTimeout * 1000);
         }
 
         // Default permissions are locked down.
-        this.permissions = DeepCopy(permissions ?? LOCKED_PERMISSIONS);
+        this.permissions = DeepCopy(permissions ?? LOCKED_PERMISSIONS) as P2PClientPermissions;
 
         const eventEmitter = this.messaging.getEventEmitter();
         eventEmitter.on(EventType.CLOSE, this.close);
@@ -276,10 +287,18 @@ export class P2PClient {
     }
 
     /**
-     * Get the PeerData describing this peer.
+     * @returns the clock diff if milliseconds between the connected peers. A negative value means
+     * that the local side's clock is behind the remote's side's clock.
      */
-    public getLocalPeerData(): PeerData {
-        return this.localPeerData;
+    public getClockDiff(): number {
+        return this.clockDiff;
+    }
+
+    /**
+     * Get the PeerInfo describing this peer.
+     */
+    public getLocalPeerInfo(): PeerInfo {
+        return DeepCopy(this.localPeerInfo);
     }
 
     /**
@@ -287,14 +306,14 @@ export class P2PClient {
      * by this local peer to handshake.
      */
     public getLocalPublicKey(): Buffer {
-        return CopyBuffer(this.localPeerData.getAuthCertPublicKey() ?? this.localPeerData.getHandshakePublicKey());
+        return CopyBuffer(this.localPeerInfo.authCertPublicKey ?? this.localPeerInfo.handshakePublicKey);
     }
 
     /**
-     * @returns the PeerData describing the remote peer.
+     * @returns the PeerInfo describing the remote peer.
      */
-    public getRemotePeerData(): PeerData {
-        return this.remotePeerData;
+    public getRemotePeerInfo(): PeerInfo {
+        return DeepCopy(this.remotePeerInfo);
     }
 
     /**
@@ -303,7 +322,7 @@ export class P2PClient {
      * by an auth cert on handshake.
      */
     public getRemotePublicKey(): Buffer {
-        return CopyBuffer(this.remotePeerData.getAuthCertPublicKey() ?? this.remotePeerData.getHandshakePublicKey());
+        return CopyBuffer(this.remotePeerInfo.authCertPublicKey ?? this.remotePeerInfo.handshakePublicKey);
     }
 
     public getPermissions(): P2PClientPermissions {
@@ -324,22 +343,22 @@ export class P2PClient {
         try {
             switch(routeEvent.target) {
                 case RouteAction.STORE:
-                    this.route<StoreRequest, StoreResponse>(RouteAction.STORE, routeEvent, this.handlerStore, this.limitStoreRequest, this.deserialize.StoreRequest, this.serialize.StoreResponse, this.deserialize.StoreResponse, {storedId1s: [], missingBlobId1s: [], missingBlobSizes: [], status: Status.ERROR, error: ""});
+                    this.route<StoreRequest, StoreResponse>(RouteAction.STORE, routeEvent, this.handlerStore, this.limitStoreRequest, this.deserialize.StoreRequest, this.serialize.StoreResponse, this.deserialize.StoreResponse, {storedId1List: [], missingBlobId1List: [], missingBlobSizes: [], status: Status.Error, error: ""});
                     break;
                 case RouteAction.FETCH:
-                    this.route<FetchRequest, FetchResponse>(RouteAction.FETCH, routeEvent, this.handlerFetch, this.limitFetchRequest, this.deserialize.FetchRequest, this.serialize.FetchResponse, this.deserialize.FetchResponse, {seq: 0, endSeq: 0, result: {nodes: [], embed: [], cutoffTime: 0n}, crdtResult: {delta: Buffer.alloc(0), length: 0, cursorIndex: -1}, status: Status.ERROR, error: "", rowCount: 0});
+                    this.route<FetchRequest, FetchResponse>(RouteAction.FETCH, routeEvent, this.handlerFetch, this.limitFetchRequest, this.deserialize.FetchRequest, this.serialize.FetchResponse, this.deserialize.FetchResponse, {seq: 0, endSeq: 0, result: {nodes: [], embed: [], cutoffTime: 0n}, crdtResult: {delta: Buffer.alloc(0), length: 0, cursorIndex: -1}, status: Status.Error, error: "", rowCount: 0});
                     break;
                 case RouteAction.UNSUBSCRIBE:
-                    this.route<UnsubscribeRequest, UnsubscribeResponse>(RouteAction.UNSUBSCRIBE, routeEvent, this.handlerUnsubscribe, this.limitUnsubscribeRequest, this.deserialize.UnsubscribeRequest, this.serialize.UnsubscribeResponse, this.deserialize.UnsubscribeResponse, {status: Status.ERROR, error: ""});
+                    this.route<UnsubscribeRequest, UnsubscribeResponse>(RouteAction.UNSUBSCRIBE, routeEvent, this.handlerUnsubscribe, this.limitUnsubscribeRequest, this.deserialize.UnsubscribeRequest, this.serialize.UnsubscribeResponse, this.deserialize.UnsubscribeResponse, {status: Status.Error, error: ""});
                     break;
                 case RouteAction.WRITE_BLOB:
-                    this.route<WriteBlobRequest, WriteBlobResponse>(RouteAction.WRITE_BLOB, routeEvent, this.handlerWriteBlob, this.limitWriteBlobRequest, this.deserialize.WriteBlobRequest, this.serialize.WriteBlobResponse, this.deserialize.WriteBlobResponse, {status: Status.ERROR, error: "", currentLength: 0n});
+                    this.route<WriteBlobRequest, WriteBlobResponse>(RouteAction.WRITE_BLOB, routeEvent, this.handlerWriteBlob, this.limitWriteBlobRequest, this.deserialize.WriteBlobRequest, this.serialize.WriteBlobResponse, this.deserialize.WriteBlobResponse, {status: Status.Error, error: "", currentLength: 0n});
                     break;
                 case RouteAction.READ_BLOB:
-                    this.route<ReadBlobRequest, ReadBlobResponse>(RouteAction.READ_BLOB, routeEvent, this.handlerReadBlob, this.limitReadBlobRequest, this.deserialize.ReadBlobRequest, this.serialize.ReadBlobResponse, this.deserialize.ReadBlobResponse, {data: Buffer.alloc(0), seq: 0, endSeq: 0, blobLength: 0n, status: Status.ERROR, error: ""});
+                    this.route<ReadBlobRequest, ReadBlobResponse>(RouteAction.READ_BLOB, routeEvent, this.handlerReadBlob, this.limitReadBlobRequest, this.deserialize.ReadBlobRequest, this.serialize.ReadBlobResponse, this.deserialize.ReadBlobResponse, {data: Buffer.alloc(0), seq: 0, endSeq: 0, blobLength: 0n, status: Status.Error, error: ""});
                     break;
                 case RouteAction.MESSAGE:
-                    this.route<GenericMessageRequest, GenericMessageResponse>(RouteAction.MESSAGE, routeEvent, this.handlerGenericMessage, this.limitGenericMessageRequest, this.deserialize.GenericMessageRequest, this.serialize.GenericMessageResponse, this.deserialize.GenericMessageResponse, {data: Buffer.alloc(0), status: Status.ERROR, error: ""});
+                    this.route<GenericMessageRequest, GenericMessageResponse>(RouteAction.MESSAGE, routeEvent, this.handlerGenericMessage, this.limitGenericMessageRequest, this.deserialize.GenericMessageRequest, this.serialize.GenericMessageResponse, this.deserialize.GenericMessageResponse, {data: Buffer.alloc(0), status: Status.Error, error: ""});
                     break;
                 default:
                     // This is either a request for an unknown action on this side, or
@@ -487,7 +506,7 @@ export class P2PClient {
     protected limitWriteBlobRequest = (writeBlobRequest: WriteBlobRequest, sendResponse: SendResponseFn<WriteBlobResponse> | undefined): WriteBlobRequest | undefined => {
         if (!this.permissions.storePermissions.allowWriteBlob) {
             const writeBlobResponse: WriteBlobResponse = {
-                status: Status.NOT_ALLOWED,
+                status: Status.NotAllowed,
                 error: "Write blob is not allowed",
                 currentLength: 0n,
             };
@@ -539,7 +558,7 @@ export class P2PClient {
     protected limitReadBlobRequest = (readBlobRequest: ReadBlobRequest, sendResponse: SendResponseFn<ReadBlobResponse> | undefined): ReadBlobRequest | undefined => {
         if (!this.permissions.fetchPermissions.allowReadBlob) {
             const readBlobResponse: ReadBlobResponse = {
-                status: Status.NOT_ALLOWED,
+                status: Status.NotAllowed,
                 error: "Read blob is not allowed",
                 data: Buffer.alloc(0),
                 blobLength: 0n,
@@ -621,9 +640,9 @@ export class P2PClient {
         if (!this.permissions.storePermissions.allowStore) {
             if (sendResponse) {
                 const storeResponse: StoreResponse = {
-                    status: Status.ERROR,
-                    storedId1s: [],
-                    missingBlobId1s: [],
+                    status: Status.Error,
+                    storedId1List: [],
+                    missingBlobId1List: [],
                     missingBlobSizes: [],
                     error: "Store not allowed",
                 };
@@ -697,15 +716,15 @@ export class P2PClient {
         if (allowed) {
             const algoId = fetchRequest.crdt.algo;
 
-            if (algoId > 0 && this.permissions.fetchPermissions.allowAlgos.indexOf(algoId) === -1) {
-                errorMsg = `CRDT algo ${algoId} requested is not supported`;
+            if (algoId.length > 0 && this.permissions.fetchPermissions.allowAlgos.indexOf(algoId) === -1) {
+                errorMsg = `CRDT algo ${algoId} requested is not supported. Allowed algos: ${this.permissions.fetchPermissions.allowAlgos.join(", ")}`;
                 allowed = false;
             }
         }
 
         if (!allowed) {
             const fetchResponseNotAllowed: FetchResponse = {
-                status: Status.NOT_ALLOWED,
+                status: Status.NotAllowed,
                 error: `Fetch/Subscription request as stated is not allowed: ${errorMsg}.`,
                 result: {
                     nodes: [],
@@ -730,20 +749,39 @@ export class P2PClient {
         // Intersect what the client wants to embed and what we allow to be embedded.
         const allowEmbed = this.intersectAllowedEmbed(fetchRequest.query.embed, this.permissions.fetchPermissions.allowEmbed);
 
+        let includeLicenses: typeof fetchRequest.query.includeLicenses = "";
+
+        if (this.permissions.fetchPermissions.allowIncludeLicenses === "IncludeExtend") {
+            includeLicenses = fetchRequest.query.includeLicenses;
+        }
+        else if (this.permissions.fetchPermissions.allowIncludeLicenses === "Include") {
+            if (fetchRequest.query.includeLicenses === "IncludeExtend" ||
+                fetchRequest.query.includeLicenses === "Include") {
+
+                includeLicenses = "Include";
+            }
+        }
+        else if (this.permissions.fetchPermissions.allowIncludeLicenses === "Extend") {
+            if (fetchRequest.query.includeLicenses === "IncludeExtend" ||
+                fetchRequest.query.includeLicenses === "Extend") {
+
+                includeLicenses = "Extend";
+            }
+        }
 
         // Copy fetchRequest with some changes to forward it to our storage.
         const fetchRequest2: FetchRequest = {
             query: {
                 ...fetchRequest.query,
                 embed: allowEmbed,
-                includeLicenses: fetchRequest.query.includeLicenses & this.permissions.fetchPermissions.allowIncludeLicenses,
+                includeLicenses,
             },
             crdt: fetchRequest.crdt,
         };
 
         // Forcefully set region and jurisdiction on the fetchQuery.
-        fetchRequest2.query.region = RegionUtil.IntersectRegions(this.remotePeerData.getRegion(), this.localPeerData.getRegion());
-        fetchRequest2.query.jurisdiction = RegionUtil.IntersectJurisdictions(this.remotePeerData.getJurisdiction(), this.localPeerData.getJurisdiction());
+        fetchRequest2.query.region = RegionUtil.IntersectRegions(this.remotePeerInfo.region, this.localPeerInfo.region);
+        fetchRequest2.query.jurisdiction = RegionUtil.IntersectJurisdictions(this.remotePeerInfo.jurisdiction, this.localPeerInfo.jurisdiction);
 
         if (this.permissions.allowUncheckedAccess) {
             if (fetchRequest2.query.sourcePublicKey.length === 0) {

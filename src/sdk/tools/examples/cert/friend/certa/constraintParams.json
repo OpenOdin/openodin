@@ -1,37 +1,37 @@
 {
-    "#--": "This file contains parameters used to calculate the constraints of a friendcert and also parameters used to validate a cert against its target.",
+    " ## ": "This file contains parameters used to calculate the constraints of a friendcert and also parameters used to validate a cert against its target.",
 
-    "#--": "The creation time of the license in UNIX time milliseconds. This must fall within the certs creation/expireTime.",
+    " ## ": "The creation time of the license in UNIX time milliseconds. This must fall within the certs creation/expireTime.",
     "creationTime": 1664316000000,
 
-    "#--": "The expire time of the license in UNIX time milliseconds. If the cert has targetMaxExpire set then this must be set.",
+    " ## ": "The expire time of the license in UNIX time milliseconds. If the cert has targetMaxExpire set then this must be set.",
     "expireTime": null,
 
-    "#--": "If set then the certs targetType must match this.",
-    "#--": "The certs targetType limits what friend license types the cert can be used for.",
-    "#--": "Generally set this to the embedding licenses's GetType value.",
+    " ## ": "If set then the certs targetType must match this.",
+    " ## ": "The certs targetType limits what friend license types the cert can be used for.",
+    " ## ": "Generally set this to the embedding licenses's GetType value.",
     "modelType": "000400020000",
 
-    "#--": "The matching certs constraints (which also matches this certs constraints).",
-    "#--": "This parameter is used when validating a cert against its target (license), and simply needs to match this certs (calculated) constraints.",
+    " ## ": "The matching certs constraints (which also matches this certs constraints).",
+    " ## ": "This parameter is used when validating a cert against its target (license), and simply needs to match this certs (calculated) constraints.",
     "otherConstraints": "!../certb/constraints.json:.constraints",
 
-    "#--": "Set this the same as the issuer of the cert.",
-    "#--": "This is part of the calculated constraints.",
+    " ## ": "Set this the same as the issuer of the cert.",
+    " ## ": "This is part of the calculated constraints.",
     "publicKey": "!keyFileIssuer.json:.keyPair.publicKey",
 
-    "#--": "The other cert's (issuer) publicKey. This is part of the calculated constraints.",
+    " ## ": "The other cert's (issuer) publicKey. This is part of the calculated constraints.",
     "otherIssuerPublicKey": "!../certb/keyFileIssuer.json:.keyPair.publicKey",
 
-    "#--": "The cert's targetPublicKeys[0] value which is the shared secret key. This is part of the calculated constraints.",
+    " ## ": "The cert's targetPublicKeys[0] value which is the shared secret key. This is part of the calculated constraints.",
     "key": "abba",
 
-    "#--": "The other cert's secret shared key. This is part of the calculated constraints.",
+    " ## ": "The other cert's secret shared key. This is part of the calculated constraints.",
     "otherKey": "beef",
 
-    "#--": "This is part of the constraints if cert.isLockedOnIntermediary is set. This value comes from the embedded licenses's targetPublicKeys[0].",
+    " ## ": "This is part of the constraints if cert.isLockedOnIntermediary is set. This value comes from the embedded licenses's targetPublicKeys[0].",
     "intermediaryPublicKey": "!keyFileIntermediary.json:.keyPair.publicKey",
 
-    "#--": "This is part of the constraints if cert.isLockedOnFriendLevel is set. This value comes from the license getting embedded.",
+    " ## ": "This is part of the constraints if cert.isLockedOnFriendLevel is set. This value comes from the license getting embedded.",
     "friendLevel": 1
 }

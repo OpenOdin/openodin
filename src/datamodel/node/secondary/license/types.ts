@@ -11,6 +11,7 @@ import {
 
 import {
     NodeParams,
+    NodeSchema,
 } from "../../primary/node/types";
 
 /**
@@ -23,9 +24,9 @@ import {
  */
 export const LICENSE0_NODE_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_ID, 0, SECONDARY_INTERFACE_ID, NODE_CLASS, CLASS_MAJOR_VERSION]);
 
-export const LICENSE0_NODE_TYPE_ALIAS = "License0";
+export const LICENSE0_NODE_TYPE_ALIAS = "LicenseNode";
 
-export type LicenseParams = Omit<NodeParams, "id2" | "network" | "licenseMaxDistance" |
+export type LicenseParams = Omit<NodeParams, "id2" | "onlineIdNetwork" | "licenseMaxDistance" |
     "childMinDifficulty" | "licenseMinDistance" | "copiedSignature" | "copiedParentId" | "copiedId1"> & {
     licenseConfig?: number,
     targetPublicKey?: Buffer,
@@ -46,6 +47,36 @@ export type LicenseParams = Omit<NodeParams, "id2" | "network" | "licenseMaxDist
     parentPathHash?: Buffer,
     maxDistance?: number,
 };
+
+export const LicenseNodeSchema = {
+    ...NodeSchema,
+    id2: undefined,
+    onlineIdNetwork: undefined,
+    licenseMaxDistance: undefined,
+    licenseMinDistance: undefined,
+    childMinDifficulty: undefined,
+    copiedSignature: undefined,
+    copiedParentId: undefined,
+    copiedId1: undefined,
+    "licenseConfig??": 0,
+    "targetPublicKey??": new Uint8Array(0),
+    "terms??": "",
+    "extensions??": 0,
+    "friendLevel??": 0,
+    "friendCertA??": new Uint8Array(0),
+    "friendCertB??": new Uint8Array(0),
+    "licenseTransientConfig??": 0,
+    "allowTargetSendPrivately??": false,
+    "disallowRetroLicensing??": false,
+    "isRestrictiveModeWriter??": false,
+    "isRestrictiveModeManager??": false,
+    "hasOnlineFriendCert??": false,
+    "isOnlineFriendCertsOnline??": false,
+    "nodeId1??": new Uint8Array(0),  // Overwrites refId if set.
+    "jumpPeerPublicKey??": new Uint8Array(0),
+    "parentPathHash??": new Uint8Array(0),
+    "maxDistance??": 0,
+} as const;
 
 /**
  * The license config number bits.
