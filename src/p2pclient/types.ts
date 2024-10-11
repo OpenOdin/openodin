@@ -47,7 +47,11 @@ export type Format = {
     /** In which OpenOdin version was this format added */
     fromVersion: string,
 
-    /** UNIX time (in seconds) for when this format expires and no longer can be used, if ever */
+    /**
+     * UNIX time (in seconds) for when this format expires and no longer can be used, if ever.
+     * If a peer is aware of an expire time set then it should preferrably not suggest that format
+     * to be used.
+     */
     expires?: number,
 };
 
@@ -60,7 +64,7 @@ export const Formats: {[id: string]: Format} = {
         id: 0,
         name: "bebop",
         description: "Standard Bebop binary serialization",
-        fromVersion: "0.8.9",
+        fromVersion: "0.9.2",
     },
 };
 
@@ -348,15 +352,64 @@ export const P2PClientPermissionsLockedSchema = {
     },
 } as const;
 
-export type PeerDataParams = {
+export type PeerInfo = {
+    /** The OpenOdin version the peer is running. */
     version: string,
+
+    /** From the ConnectionConfig. The chosen serializeFormat of the peer. */
     serializeFormat: number,
-    handshakePublicKey?: Buffer,
+
+    /** The public cryptographic handshake key of the peer. */
+    handshakePublicKey: Buffer,
+
+    /**
+     * Provided AuthCert brings another public key identity to the peer.
+     */
     authCert?: Buffer,
+
+    /**
+     * The official public key of the peer which is different from the handshakePublicKey,
+     * and is extracted from provided authCert.
+     */
     authCertPublicKey?: Buffer,
-    clockDiff?: number,
+
+    /** From the ConnectionConfig. The region of the peer. */
     region?: string,
+
+    /** From the ConnectionConfig. The jurisdiction of the peer. */
     jurisdiction?: string,
-    appVersion?: string,
-    expireTime?: number,
+
+    /** The version field from the peer's application conf. */
+    appVersion: string,
+
+    /** if >0 then depicts how many seconds the session is valid according to the peer. */
+    sessionTimeout: number,
 };
+
+const ParseVersion = function(version: string): string {
+    const a = version.split(".").map(n => parseInt(n));
+
+    const version2 = a.join(".");
+
+    if (a.length !== 3 || version2 !== version) {
+        throw new Error("Version has wrong format: ${version}. Expecting major.minor.patch");
+    }
+
+    return version2;
+};
+
+export const PeerInfoSchema = {
+    // This comes from the parses peer data and we need to actively ignore it.
+    //
+    peerDataFormat: undefined,
+
+    version: ParseVersion,
+    serializeFormat: 0,
+    handshakePublicKey: new Uint8Array(0),
+    "authCert??": new Uint8Array(0),
+    "authCertPublicKey??": new Uint8Array(0),
+    "region??": "",
+    "jurisdiction??": "",
+    appVersion: ParseVersion,
+    sessionTimeout: 0,
+} as const;

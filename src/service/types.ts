@@ -40,7 +40,6 @@ import {
 } from "../util/SchemaUtil";
 
 export type ConnectionConfig = {
-    //authFactoryConfig: AuthFactoryConfig,
     connection: {
         handshake?: HandshakeFactoryConfig,
         api?: APIAuthFactoryConfig,

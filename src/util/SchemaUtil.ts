@@ -81,6 +81,11 @@ export type JSONObject = Record<string, any>;
  * //
  * " ## ": "This is a comment, which is ignored in parsing and not part of the result",
  *
+ * // Tell the parser to allow this field in the object but still skip it and do not
+ * // return it.
+ * //
+ * someOption: undefined,
+ *
  * JSON parse schemas:
  *
  * Key names with "?" suffix are optional to have been set.
@@ -183,10 +188,6 @@ export function ParseSchema(schema: any, obj: any, pKey: string = ""): any {
             // Sort keys so we always have the default key "" at the top.
             //
             Object.keys(schema).sort().forEach( key => {
-                if (schema[key] === undefined) {
-                    return;
-                }
-
                 const a = key.split("?");
 
                 const name = a[0];
@@ -247,6 +248,14 @@ export function ParseSchema(schema: any, obj: any, pKey: string = ""): any {
                 }
 
                 const subSchema = schema[key];
+
+                if (subSchema === undefined) {
+                    // Ignore this field.
+                    // The point of this is to tolerate keys in the parsed object to exists even if we
+                    // do not parse them.
+                    //
+                    return;
+                }
 
                 let v = obj[name];
 
