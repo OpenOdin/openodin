@@ -12,7 +12,7 @@ import {
 
 import {
     KeyPair,
-    DataModelInterface,
+    BaseModelInterface,
 } from "../datamodel";
 
 import {
@@ -45,7 +45,7 @@ import {
 export class OpenOdinRPCServer {
     protected triggerOnAuth?: (rpcId1: string, rpcId2: string) => Promise<AuthResponse2>;
     protected triggerOnCreate?: (connection: ConnectionConfig["connection"]) => Promise<boolean>;
-    protected triggerOnSign?: (dataModels: DataModelInterface[]) => Promise<boolean>;
+    protected triggerOnSign?: (baseModels: BaseModelInterface[]) => Promise<boolean>;
     protected signatureOffloaderRPCServer?: SignatureOffloaderRPCServer;
     protected authFactoryRPCCserver?: AuthFactoryRPCServer;
     protected settingsManagerRPCServer?: SettingsManagerRPCServer;
@@ -87,7 +87,7 @@ export class OpenOdinRPCServer {
     /**
      * The function to trigger to confirm signing data.
      */
-    public onSign(fn: (dataModels: DataModelInterface[]) => Promise<boolean>) {
+    public onSign(fn: (baseModels: BaseModelInterface[]) => Promise<boolean>) {
         this.triggerOnSign = fn;
     }
 

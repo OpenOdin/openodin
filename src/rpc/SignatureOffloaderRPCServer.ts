@@ -1,14 +1,8 @@
 import {
     KeyPair,
-} from "../datamodel/types";
-
-import {
-    DataModelInterface,
-} from "../datamodel/interface/DataModelInterface";
-
-import {
-    Decoder,
-} from "../decoder";
+    BaseModelInterface,
+    UnpackModel,
+} from "../datamodel";
 
 import {
     ToBeSigned,
@@ -22,9 +16,9 @@ import {
 
 export class SignatureOffloaderRPCServer extends SignatureOffloader {
     protected rpc: RPC;
-    protected triggerOnSign?: (dataModels: DataModelInterface[]) => Promise<boolean>;
+    protected triggerOnSign?: (baseModels: BaseModelInterface[]) => Promise<boolean>;
 
-    constructor(rpc: RPC, nrOfWorkers?: number, singleThreaded: boolean = false, triggerOnSign?: (dataModels: DataModelInterface[]) => Promise<boolean>) {
+    constructor(rpc: RPC, nrOfWorkers?: number, singleThreaded: boolean = false, triggerOnSign?: (baseModels: BaseModelInterface[]) => Promise<boolean>) {
         super(nrOfWorkers, singleThreaded);
 
         this.triggerOnSign = triggerOnSign;
@@ -55,7 +49,7 @@ export class SignatureOffloaderRPCServer extends SignatureOffloader {
         });
 
         this.rpc.onCall("signer", async (toBeSigned: ToBeSigned[]) => {
-            const signRequests: DataModelInterface[] = [];
+            const signRequests: BaseModelInterface[] = [];
             const toBeSigned2: ToBeSigned[] = [];
 
             const toBeSignedLength = toBeSigned.length;
@@ -67,19 +61,17 @@ export class SignatureOffloaderRPCServer extends SignatureOffloader {
                 const message   = Buffer.isBuffer(toSign.message) ? toSign.message : Buffer.from(toSign.message);
                 const publicKey = Buffer.isBuffer(toSign.publicKey) ? toSign.publicKey : Buffer.from(toSign.publicKey);
 
-                const dataModel = Decoder.Decode(message);
+                const model = UnpackModel(message);
 
-                dataModel.enforceSigningKey(publicKey);
-
-                const val = dataModel.validate(2);
+                const val = model.validate(true);
 
                 if (!val[0]) {
                     throw new Error(`A datamodel did not validate prior to signing: ${val[1]}`);
                 }
 
-                signRequests.push(dataModel);
+                signRequests.push(model);
 
-                toBeSigned2.push({index: toSign.index, message: dataModel.hash(), publicKey});
+                toBeSigned2.push({index: toSign.index, message: model.hashToSign(), publicKey});
             }
 
             if (this.triggerOnSign) {

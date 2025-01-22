@@ -1,15 +1,6 @@
 #!/usr/bin/env node
 
 import {
-    Decoder,
-} from "../../../decoder";
-
-import {
-    CertUtil,
-    ModelTypeToNameMap,
-} from "../../../util";
-
-import {
     JSONUtil,
 } from "../../../util/JSONUtil";
 
@@ -20,32 +11,33 @@ import {
 
 import {
     AuthCert,
-    AuthCertConstraintValues,
-    ChainCert,
-    ChainCertConstraintValues,
-    BaseCert,
+    AuthCertType,
+    AuthCertTypeAlias,
+    AuthCertLockedConfig,
+    AuthCertInterface,
+    ParseAuthCertSchema,
     FriendCert,
-    FriendCertConstraintValues,
-    DataCert,
-    DataCertConstraintValues,
-    LicenseCert,
-    LicenseCertConstraintValues,
-    AuthCertSchema,
-    ChainCertSchema,
-    FriendCertSchema,
-    DataCertSchema,
-    LicenseCertSchema,
-    AuthCertConstraintSchema,
-    ChainCertConstraintSchema,
-    DataCertConstraintSchema,
-    FriendCertConstraintSchema,
-    LicenseCertConstraintSchema,
-} from "../../../datamodel/cert";
-
-import {
+    FriendCertType,
+    FriendCertTypeAlias,
+    FriendCertLockedConfig,
+    FriendCertInterface,
+    ParseFriendCertSchema,
+    SignCert,
+    SignCertType,
+    SignCertTypeAlias,
+    SignCertLockedConfig,
+    SignCertInterface,
+    ParseSignCertSchema,
     KeyPair,
-    KeyPairSchema,
-} from "../../../datamodel/types";
+    ParseKeyPairSchema,
+    UnpackCert,
+    BaseCertInterface,
+    GetModelType,
+    DataNodeType,
+    DataNodeTypeAlias,
+    LicenseNodeType,
+    LicenseNodeTypeAlias,
+} from "../../../datamodel";
 
 import {
     PocketConsole,
@@ -53,40 +45,50 @@ import {
 
 const console = PocketConsole({format: "%c[%L%l]%C "});
 
+/** Map of all supported certs. */
+const ModelToAlias: {[modelType: string]: string | undefined} = {
+    [Buffer.from(SignCertType).toString("hex")]: SignCertTypeAlias,
+    [Buffer.from(AuthCertType).toString("hex")]: AuthCertTypeAlias,
+    [Buffer.from(FriendCertType).toString("hex")]: FriendCertTypeAlias,
+    [Buffer.from(DataNodeType).toString("hex")]: DataNodeTypeAlias,
+    [Buffer.from(LicenseNodeType).toString("hex")]: LicenseNodeTypeAlias,
+};
+
+const AliasToModel: {[alias: string]: string | undefined} = {
+    [SignCertTypeAlias]: Buffer.from(SignCertType).toString("hex"),
+    [AuthCertTypeAlias]: Buffer.from(AuthCertType).toString("hex"),
+    [FriendCertTypeAlias]: Buffer.from(FriendCertType).toString("hex"),
+    [DataNodeTypeAlias]: Buffer.from(DataNodeType).toString("hex"),
+    [LicenseNodeTypeAlias]: Buffer.from(LicenseNodeType).toString("hex"),
+};
+
 const USAGE_TEXT=`
+
 Usage:
     cert help|-h|--help
         Show this help
 
-    The type of cert created is defined by the "modelType" field in the certParams.json file.
-
-    cert constraints <certParams.json> <constraintParams.json> [--logLevel=debug|info|error|none]
-        Calculate constraints for a proposed cert.
-        Allowed dynamic params in certParams.json are ".owner", ".targetPublicKeys",
-            ".creationTime" and ".expireTime".
-        Allowed dynamic params in constraintsParams.json are ".publicKey",
-            ".creationTime" and ".expireTime".
-
-    cert create <certParams.json> [--keyFile=<keyfile.json>] [--logLevel=debug|info|error|none]
+    cert create <certProps.json> [--keyFile=<keyfile.json>] [--logLevel=debug|info|error|none]
         Create a new packed cert.
-        --keyFile must be given if "signature" is not set in certParams so
+        --keyFile must be given if "signature" is not set in certProps so
             that the cert can be signed.
-        Allowed dynamic params in certParams.json are ".cert", ".constraints", ".owner",
-            ".targetPublicKeys", ".creationTime" and ".expireTime".
+        The type of cert created is defined by the "modelType" field in the certProps.json file.
 
-    cert verify <cert.json> [<constraintParams.json>]
+    cert verify <cert.json> [<constraintProps.json>]
+            [--modelType=hex]
             [--time=UNIXms] [--logLevel=debug|info|error|none]
         Verify a cert stack deep to see that it verifies cryptographically and is valid.
         Optionally calculate constraints and validate with cert.
         Optionally validate against given UNIX time in milliseconds, if no time is given
+        Optionally validates against a given modelType.
         then the cert(s) are not validated in time.
 
-    cert export <cert.json> [--logLevel=debug|info|error|none]
-        Export a packed and signed cert back into its cert params JSON format.
+    cert unpack <cert.json> [--logLevel=debug|info|error|none]
+        Unpack a packed cert back into its JSON properies.
+        The output could be fed back into the "create" command.
 
-    cert show <cert.json> [--logLevel=debug|info|error|none]
-        Dissect and show all details of a cert and any embedded certs.
-        json format: {"cert": "hexdata"}.
+    cert constraints <certProps.json> <lockedFields.json> [--logLevel=debug|info|error|none]
+        Hash constraints on a certtificate or node according to given locked fields.
 
     cert list
         List all known cert types.
@@ -102,228 +104,267 @@ export class CertCLI {
     /**
      * @returns non-zero on error.
      */
-    public async showCert(certObject: {cert: string}): Promise<number> {
+    public unpackCert(certObject: {cert: string}): number {
         try {
-            const image = Buffer.from(certObject.cert, "hex");
-            const certUtil = new CertUtil();
-            const info = await certUtil.unpackCert(image);
-            console.log(JSON.stringify(ToJSONObject(info), null, 4));
+            const packed = Buffer.from(certObject.cert, "hex");
+
+            const cert = UnpackCert(packed, false, true);
+
+            console.log(JSON.stringify(ToJSONObject(cert.getProps()), null, 4));
         }
         catch(e) {
             const message = (e as Error)?.message ? (e as Error).message : e;
+
             console.error("Failed unpacking cert", message);
+
             return 1;
         }
+        return 0;
+    }
+
+    public hashConstraints(certProps: any, lockedFields: {[field: string]: boolean}): number {
+        certProps.modelType = AliasToModel[certProps.modelType] ?? certProps.modelType;
+
+        if (certProps.targetType) {
+            certProps.targetType = AliasToModel[certProps.targetType] ?? certProps.targetType;
+        }
+
+        const modelTypeHex = certProps.modelType;
+
+        if (!modelTypeHex) {
+            console.error("modelType not defined");
+
+            return 1;
+        }
+
+        const modelTypeAlias = ModelToAlias[modelTypeHex] ?? "";
+
+        let cert: AuthCertInterface | SignCertInterface | FriendCertInterface;
+
+        let enumMappings;
+
+        if (modelTypeAlias === AuthCertTypeAlias) {
+            console.info(`Hash constraints for AuthCert (${modelTypeHex})`);
+
+            const props = ParseSchema(ParseAuthCertSchema, certProps);
+
+            cert = new AuthCert();
+
+            cert.mergeProps(props)
+
+            cert.storeFlags(props);
+
+            // Map the enum
+            //
+            enumMappings = {...AuthCertLockedConfig};
+        }
+        else if (modelTypeAlias === FriendCertTypeAlias) {
+            console.info(`Hash constraints for FriendCert (${modelTypeHex})`);
+
+            const props = ParseSchema(ParseFriendCertSchema, certProps);
+
+            cert = new FriendCert();
+
+            cert.mergeProps(props)
+
+            cert.storeFlags(props);
+
+            // Map the enum
+            //
+            enumMappings = {...FriendCertLockedConfig};
+        }
+        else if (modelTypeAlias === SignCertTypeAlias) {
+            console.info(`Hash constraints for SignCert (${modelTypeHex})`);
+
+            const props = ParseSchema(ParseSignCertSchema, certProps);
+
+            cert = new SignCert();
+
+            cert.mergeProps(props)
+
+            cert.storeFlags(props);
+
+            // Map the enum
+            //
+            enumMappings = {...SignCertLockedConfig};
+        }
+        else {
+            throw new Error(`Cannot handle cert of modelType ${modelTypeHex}.`);
+        }
+
+        const enumKeys: string[] = Object.keys(enumMappings).
+            filter( name => String(parseInt(name)) !== name );
+
+        cert.pack();
+
+        const fieldsList: string[] = [];
+
+        let lockedConfig = 0;
+
+        for (const field in lockedFields) {
+            if (enumKeys.indexOf(field) < 0) {
+                console.error(`Unknown field ${field} in locked config. These are available:`, enumKeys);
+                return 1;
+            }
+
+            if (typeof(lockedFields[field]) !== "boolean") {
+                console.error(`locked field ${field} value type must be boolean`);
+                return 1;
+            }
+
+            if (!lockedFields[field]) {
+                continue;
+            }
+
+            const bit = enumMappings[field as any];
+
+            if (typeof(bit) === "number") {
+                lockedConfig |= 2**bit;
+
+                fieldsList.push(field);
+            }
+        }
+
+        const constraints = cert.hashConstraints(lockedConfig);
+
+        const timestamp = Date.now();
+
+        const result = {
+            [` ## ${modelTypeAlias}-hash-constraints`]: `${new Date(timestamp)}`,
+            [" ## lockedFields"]: fieldsList,
+            timestamp,
+            constraints: constraints.toString("hex"),
+        };
+
+        console.log(JSON.stringify(result, null, 4));
+
         return 0;
     }
 
     /**
      * @returns non-zero on error.
      */
-    public async exportCert(certObject: {cert: string}): Promise<number> {
+    public createCert(certProps: any, keyPairHolder?: any): number {
         try {
-            const image = Buffer.from(certObject.cert, "hex");
-            const cert = Decoder.DecodeAnyCert(image);
-            const params = cert.getParams();
-            console.log(JSON.stringify(ToJSONObject(params), null, 4));
-        }
-        catch(e) {
-            const message = (e as Error)?.message ? (e as Error).message : e;
-            console.error("Failed exporting cert", message);
-            return 1;
-        }
-        return 0;
-    }
-
-    /**
-     * @returns non-zero on error.
-     */
-    public calcCertConstraintValues(paramsObject: any, constraintParamsObject: any): number {
-        try {
-            if (!constraintParamsObject) {
-                throw new Error("Missing constraintsParamsObject");
-            }
-
-            const certUtil = new CertUtil();
-
-            const modelTypeHex = paramsObject.modelType;
-
-            if (modelTypeHex === undefined) {
-                throw new Error("modelType must be set in cert params file");
-            }
-
-            const modelType = Buffer.from(modelTypeHex, "hex");
-
-            let timestamp = Date.now();
-            const date = `${new Date(timestamp)}`;
-            timestamp = timestamp * 1000;  // milliseconds
-
-            const className = ModelTypeToNameMap[modelTypeHex] ?? "<unknown>";
-            console.info(`Calculating constraints for cert type: ${className}, modelType: ${modelTypeHex}`);
-
-            let constraints: Buffer | undefined;
-
-            if (modelType.equals(AuthCert.GetType())) {
-                const authCertParams = ParseSchema(AuthCertSchema, paramsObject);
-                console.debug("Parsed AuthCertParams", authCertParams);
-
-                const authCertConstraintValues = ParseSchema(AuthCertConstraintSchema, constraintParamsObject);
-                console.debug("Parsed AuthCertConstraintValues", authCertConstraintValues);
-
-                constraints = certUtil.calcAuthCertConstraintValues(authCertParams, authCertConstraintValues);
-            }
-            else if (modelType.equals(ChainCert.GetType())) {
-                const chainCertParams = ParseSchema(ChainCertSchema, paramsObject);
-                console.debug("Parsed ChainCertParams", chainCertParams);
-
-                const chainCertConstraintValues = ParseSchema(ChainCertConstraintSchema, constraintParamsObject);
-                console.debug("Parsed ChainCertConstraintValues", chainCertConstraintValues);
-
-                constraints = certUtil.calcChainCertConstraintValues(chainCertParams, chainCertConstraintValues);
-            }
-            else if (modelType.equals(FriendCert.GetType())) {
-                const friendCertParams = ParseSchema(FriendCertSchema, paramsObject);
-                console.debug("Parsed FriendCertParams", friendCertParams);
-
-                const friendCertConstraintValues = ParseSchema(FriendCertConstraintSchema, constraintParamsObject);
-                console.debug("Parsed FriendCertConstraintValues", friendCertConstraintValues);
-
-                constraints = certUtil.calcFriendCertConstraintValues(friendCertParams, friendCertConstraintValues);
-            }
-            else if (modelType.equals(DataCert.GetType())) {
-                const dataCertParams = ParseSchema(DataCertSchema, paramsObject);
-                console.debug("Parsed DataCertParams", dataCertParams);
-
-                const dataCertConstraintValues = ParseSchema(DataCertConstraintSchema, constraintParamsObject);
-                console.debug("Parsed DataCertConstraintValues", dataCertConstraintValues);
-
-                constraints = certUtil.calcDataCertConstraintValues(dataCertParams, dataCertConstraintValues);
-            }
-            else if (modelType.equals(LicenseCert.GetType())) {
-                const licenseCertParams = ParseSchema(LicenseCertSchema, paramsObject);
-                console.debug("Parsed LicenseCertParams", licenseCertParams);
-
-                const licenseCertConstraintValues = ParseSchema(LicenseCertConstraintSchema, constraintParamsObject);
-                console.debug("Parsed LicenseCertConstraintValues", licenseCertConstraintValues);
-
-                constraints = certUtil.calcLicenseCertConstraintValues(licenseCertParams, licenseCertConstraintValues);
-            }
-            else {
-                throw new Error(`Cert modelType ${modelTypeHex} is not recognized.`);
-            }
-
-            const result = {
-                [` ## ${className}ConstraintValues-created`]: `${date}`,
-                timestamp,
-                constraints: constraints ? constraints.toString("hex") : null,
-            };
-
-            console.log(JSON.stringify(result, null, 4));
-
-            return 0;
-        }
-        catch(e) {
-            console.error("Failed calculating cert constraints", (e as any as Error).message);
-            console.debug(e);
-            return 1;
-        }
-    }
-
-    /**
-     * @returns non-zero on error.
-     */
-    public async createCert(paramsObject: any, keyPairHolder?: any): Promise<number> {
-        try {
-            const certUtil = new CertUtil();
-
             let keyPair: KeyPair | undefined;
+
             if (keyPairHolder) {
                 if (!keyPairHolder.keyPair) {
                     throw new Error("Wrong format for keyPair.");
                 }
 
-                keyPair = ParseSchema(KeyPairSchema, keyPairHolder.keyPair);
+                keyPair = ParseSchema(ParseKeyPairSchema, keyPairHolder.keyPair);
             }
 
-            const modelTypeHex = paramsObject.modelType;
+            certProps.modelType = AliasToModel[certProps.modelType] ?? certProps.modelType;
 
-            if (modelTypeHex === undefined) {
-                throw new Error("modelType must be set in cert params file");
+            if (certProps.targetType) {
+                certProps.targetType = AliasToModel[certProps.targetType] ?? certProps.targetType;
             }
 
-            const modelType = Buffer.from(modelTypeHex, "hex");
+            const modelTypeHex = certProps.modelType;
 
-            let timestamp = Date.now();
-            const date = `${new Date(timestamp)}`;
-            timestamp = timestamp * 1000;  // milliseconds
+            if (!modelTypeHex) {
+                console.error("modelType not defined");
 
-            const className = ModelTypeToNameMap[modelTypeHex] ?? "<unknown>";
-            console.info(`New cert request for ${className}, modelType: ${modelTypeHex}`);
+                return 1;
+            }
 
-            let cert: BaseCert;
-            if (modelType.equals(AuthCert.GetType())) {
-                const authCertParams = ParseSchema(AuthCertSchema, paramsObject);
-                console.debug("Parsed AuthCertParams", authCertParams);
-                cert = await certUtil.createAuthCert(authCertParams, keyPair?.publicKey, keyPair?.secretKey);
+            const modelTypeAlias = ModelToAlias[modelTypeHex] ?? "";
+
+            let cert: BaseCertInterface;
+
+            if (modelTypeAlias === AuthCertTypeAlias) {
+                console.info(`New cert request for AuthCert (${modelTypeHex})`);
+
+                const props = ParseSchema(ParseAuthCertSchema, certProps);
+
+                cert = new AuthCert();
+
+                cert.mergeProps(props)
+
+                cert.storeFlags(props);
             }
-            else if (modelType.equals(ChainCert.GetType())) {
-                const chainCertParams = ParseSchema(ChainCertSchema, paramsObject);
-                console.debug("Parsed ChainCertParams", chainCertParams);
-                cert = await certUtil.createChainCert(chainCertParams, keyPair?.publicKey, keyPair?.secretKey);
+            else if (modelTypeAlias === FriendCertTypeAlias) {
+                console.info(`New cert request for FriendCert (${modelTypeHex})`);
+
+                const props = ParseSchema(ParseFriendCertSchema, certProps);
+
+                cert = new FriendCert();
+
+                cert.mergeProps(props)
+
+                cert.storeFlags(props);
             }
-            else if (modelType.equals(FriendCert.GetType())) {
-                const friendCertParams = ParseSchema(FriendCertSchema, paramsObject);
-                console.debug("Parsed FriendCertParams", friendCertParams);
-                cert = await certUtil.createFriendCert(friendCertParams, keyPair?.publicKey, keyPair?.secretKey);
-            }
-            else if (modelType.equals(DataCert.GetType())) {
-                const dataCertParams = ParseSchema(DataCertSchema, paramsObject);
-                console.debug("Parsed DataCertParams", dataCertParams);
-                cert = await certUtil.createDataCert(dataCertParams, keyPair?.publicKey, keyPair?.secretKey);
-            }
-            else if (modelType.equals(LicenseCert.GetType())) {
-                const licenseCertParams = ParseSchema(LicenseCertSchema, paramsObject);
-                console.debug("Parsed LicenseCertParams", licenseCertParams);
-                cert = await certUtil.createLicenseCert(licenseCertParams, keyPair?.publicKey, keyPair?.secretKey);
+            else if (modelTypeAlias === SignCertTypeAlias) {
+                console.info(`New cert request for SignCert (${modelTypeHex})`);
+
+                const props = ParseSchema(ParseSignCertSchema, certProps);
+
+                cert = new SignCert();
+
+                cert.mergeProps(props)
+
+                cert.storeFlags(props);
             }
             else {
                 throw new Error(`Cannot handle cert of modelType ${modelTypeHex}.`);
             }
 
-            console.debug("Created cert:", cert);
+            console.debug("Created cert:", cert.getProps());
 
-            const val = cert.validate(2);
+            const val = cert.validate(true);
 
             if (!val[0]) {
                 console.error("Could not validate certificate.", val[1]);
                 return 3;
             }
 
-            if (cert.calcSignaturesNeeded() === 0) {
-                try {
-                    const image = cert.export();
-                    await certUtil.verifyCert(image);
-                    console.aced("Cert successfully created, deep validated and verified.");
+            cert.pack();
+
+            if (cert.missingSignatures() > 0) {
+                if (keyPair) {
+                    cert.sign(keyPair);
                 }
-                catch(e) {
-                    console.error("Failed verifying newly created cert:", (e as any as Error).message);
-                    console.debug(e);
-                    return 2;
+            }
+
+            try {
+                const cert2 = UnpackCert(cert.pack());
+
+                if (!cert2.verify({allowUnsigned: true})) {
+                    throw new Error("Could not repack and verify");
+                }
+            }
+            catch(e) {
+                console.error("Failed verifying newly created cert:", (e as any as Error).message);
+                console.debug(e);
+
+                return 2;
+            }
+
+            if (cert.missingSignatures() === 0) {
+                if (keyPair) {
+                    console.aced("Cert successfully created, signed, deep validated and verified.");
+                }
+                else {
+                    console.aced("Cert successfully created, deep validated and verified.");
                 }
             }
             else {
                 if (keyPair) {
-                    console.warn(`Cert created and signed, but still requiring ${cert.calcSignaturesNeeded()} more signature(s).`);
+                    console.warn(`Cert created and signed, but still requiring ${cert.missingSignatures()} more signature(s).`);
                 }
                 else {
-                    console.warn(`Cert created, but still requiring ${cert.calcSignaturesNeeded()} more signature(s).`);
+                    console.warn(`Cert created, but still requiring ${cert.missingSignatures()} more signature(s).`);
                 }
             }
 
+            const timestamp = Date.now();
+
             const result = {
-                [` ## ${className}-created`]: `${date}`,
+                [` ## ${modelTypeAlias}-created`]: `${new Date(timestamp)}`,
                 timestamp,
-                cert: cert.export().toString("hex"),
+                cert: cert.pack().toString("hex"),
             };
 
             console.log(JSON.stringify(result, null, 4));
@@ -341,93 +382,77 @@ export class CertCLI {
      * Deep verify any of our known certificates, with out witout target proprties.
      * @returns non-zero on error.
      */
-    public async verifyCert(certObject: {cert: string}, expectedModelType: string | undefined, timeMS: number | undefined, constraintParamsObject: object | undefined): Promise<number> {
-        const certUtil = new CertUtil();
-        let image;
+    public verifyCert(certObject: {cert: string}, expectedModelType: string | undefined, timeMS: number | undefined): number {
+        let packed;
+
         try {
-            image = Buffer.from(certObject.cert, "hex");
+            packed = Buffer.from(certObject.cert, "hex");
         }
         catch(e) {
-            console.error(`Bad file provided as cert file. Expecting JSON file with a "cert" property.`);
+            console.error(`Bad file provided as cert file. Expecting JSON file with a "cert" property of hexadecimal data.`);
+
             return 1;
         }
-        const modelType = image.slice(0, 6);
+
+        const modelType = GetModelType(packed);
+
         const modelTypeHex = modelType.toString("hex");
 
         if (expectedModelType) {
             if (expectedModelType !== modelTypeHex.slice(0, expectedModelType.length)) {
                 console.error(`Expecting modelType: ${expectedModelType}. Cert modelTypeHex: ${modelTypeHex.slice(0, expectedModelType.length)}`);
+
                 return 1;
             }
         }
 
-        let cert: BaseCert;
+        let cert: BaseCertInterface;
+
         try {
-            if (modelType.equals(AuthCert.GetType())) {
+            if (AuthCert.Is(modelType)) {
                 console.info(`Certificate detected as AuthCert: ${modelTypeHex}`);
-                let authCertConstraintValues: AuthCertConstraintValues | undefined;
-                if (constraintParamsObject) {
-                    authCertConstraintValues = ParseSchema(AuthCertConstraintSchema, constraintParamsObject);
-                    console.debug("Parsed AuthCertConstraintValues", authCertConstraintValues);
-                }
-                cert = await certUtil.verifyAuthCert(image, authCertConstraintValues);
+
+                cert = new AuthCert(packed);
             }
-            else if (modelType.equals(ChainCert.GetType())) {
-                console.info(`Certificate detected as ChainCert: ${modelTypeHex}`);
-                let chainCertConstraintValues: ChainCertConstraintValues | undefined;
-                if (constraintParamsObject) {
-                    chainCertConstraintValues = ParseSchema(ChainCertConstraintSchema, constraintParamsObject);
-                    console.debug("Parsed ChainCertConstraintValues", chainCertConstraintValues);
-                }
-                cert = await certUtil.verifyChainCert(image, chainCertConstraintValues);
-            }
-            else if (modelType.equals(FriendCert.GetType())) {
+            else if (FriendCert.Is(modelType)) {
                 console.info(`Certificate detected as FriendCert: ${modelTypeHex}`);
-                let friendCertConstraintValues: FriendCertConstraintValues | undefined;
-                if (constraintParamsObject) {
-                    friendCertConstraintValues = ParseSchema(FriendCertConstraintSchema, constraintParamsObject);
-                    console.debug("Parsed FriendCertConstraintValues", friendCertConstraintValues);
-                }
-                cert = await certUtil.verifyFriendCert(image, friendCertConstraintValues);
+
+                cert = new FriendCert(packed);
             }
-            else if (modelType.equals(DataCert.GetType())) {
-                console.info(`Certificate detected as DataCert: ${modelTypeHex}`);
-                let dataCertConstraintValues: DataCertConstraintValues | undefined;
-                if (constraintParamsObject) {
-                    dataCertConstraintValues = ParseSchema(DataCertConstraintSchema, constraintParamsObject);
-                    console.debug("Parsed DataCertConstraintValues", dataCertConstraintValues);
-                }
-                cert = await certUtil.verifyDataCert(image, dataCertConstraintValues);
-            }
-            else if (modelType.equals(LicenseCert.GetType())) {
-                console.info(`Certificate detected as LicenseCert: ${modelTypeHex}`);
-                let licenseCertConstraintValues: LicenseCertConstraintValues | undefined;
-                if (constraintParamsObject) {
-                    licenseCertConstraintValues = ParseSchema(LicenseCertConstraintSchema, constraintParamsObject);
-                    console.debug("Parsed LicenseCertConstraintValues", licenseCertConstraintValues);
-                }
-                cert = await certUtil.verifyLicenseCert(image, licenseCertConstraintValues);
+            else if (SignCert.Is(modelType)) {
+                console.info(`Certificate detected as SignCert: ${modelTypeHex}`);
+
+                cert = new SignCert(packed);
             }
             else {
-                console.error(`Unknown cert modelType: ${modelTypeHex}`);
+                console.warn(`Unknown cert modelType: ${modelTypeHex}`);
+
+                cert = UnpackCert(packed);
+            }
+
+            cert.unpack();
+
+            if (!cert.verify()) {
+                console.error("Could not verify certificate signatures.");
+
                 return 1;
             }
 
-            if (constraintParamsObject) {
-                console.aced("Cert successfully deep verified including against constraints.");
-            }
-            else {
-                console.aced("Cert successfully deep verified (without checking constraints).");
+            console.debug(cert.getProps());
+
+            const val = cert.validate(true, timeMS);
+
+            if (!val[0]) {
+                console.error("Could not deep validate certificate:", val[1]);
+
+                return 1;
             }
 
             if (timeMS !== undefined) {
-                const val = cert.validate(1, timeMS);
-                if (val[0]) {
-                    console.aced("Cert successfully deep validated against given timestamp.");
-                }
-                else {
-                    throw new Error("Cert could not deep validate against timestamp.");
-                }
+                console.aced("Certificate deep validatated. expireTime checked against given time.");
+            }
+            else {
+                console.aced("Certificate deep validatated (no expireTime checked).");
             }
 
             return 0;
@@ -478,11 +503,13 @@ export class CertCLI {
         return result;
     }
 
-    public async main() {
+    public main() {
         const args = this.parseArgs();
+
         if (args.logLevel) {
             console.setLevel(args.logLevel);
         }
+
         const action = args[0];
 
         if (action === "help") {
@@ -494,50 +521,48 @@ export class CertCLI {
                 this.showUsage("Too many args.");
                 process.exit(1);
             }
-            await this.handleConstraints(args[1], args[2]);
+
+            this.handleConstraints(args[1], args[2]);
         }
         else if (action === "create") {
             if (args[2] !== undefined) {
                 this.showUsage("Too many args.");
                 process.exit(1);
             }
-            await this.handleCreate(args[1], args.keyFile);
+
+            this.handleCreate(args[1], args.keyFile);
         }
         else if (action === "verify") {
             if (args[3] !== undefined) {
                 this.showUsage("Too many args.");
                 process.exit(1);
             }
-            await this.handleVerify(args[1], args[2], args.modelType, args.time !== undefined ? Number(args.time) : undefined);
+
+            this.handleVerify(args[1], args.modelType, args.time !== undefined ? Number(args.time) : undefined);
         }
-        else if (action === "show") {
+        else if (action === "unpack") {
             if (args[2] !== undefined) {
                 this.showUsage("Too many args.");
                 process.exit(1);
             }
-            await this.handleShow(args[1]);
-        }
-        else if (action === "export") {
-            if (args[2] !== undefined) {
-                this.showUsage("Too many args.");
-                process.exit(1);
-            }
-            await this.handleExport(args[1]);
+
+            this.handleUnpack(args[1]);
         }
         else if (action === "list") {
             if (args[1] !== undefined) {
                 this.showUsage("Too many args.");
                 process.exit(1);
             }
-            await this.handleList();
+            this.handleList();
         }
         else {
             this.showUsage(`Unknown command: ${action ?? ""}`);
+
             process.exit(1);
         }
     }
 
-    public async handleVerify(certFile: string | undefined, constraintParamsFile: string | undefined, expectedModelType: string | undefined, timeMS: number | undefined) {
+    public handleVerify(certFile: string | undefined, expectedModelType: string | undefined, timeMS: number | undefined) {
         if (!certFile) {
             this.showUsage("certFile must be given as first argument.");
             process.exit(1);
@@ -545,6 +570,8 @@ export class CertCLI {
 
         let certObject;
         try {
+            console.debug(`Load file ${certFile}`);
+
             certObject = JSONUtil.LoadJSON(certFile);
         }
         catch(e) {
@@ -553,29 +580,20 @@ export class CertCLI {
             process.exit(1);
         }
 
-        let constraintParamsObject;
-        if (constraintParamsFile) {
-            try {
-                constraintParamsObject = JSONUtil.LoadJSON(constraintParamsFile, [".creationTime", ".expireTime", ".publicKey", ".otherIssuerPublicKey", ".otherConstraints", ".intermediaryPublicKey"]);
-            }
-            catch(e) {
-                console.error("Could not load JSON", (e as any as Error).message);
-                console.debug(e);
-                process.exit(1);
-            }
-        }
+        const status = this.verifyCert(certObject, expectedModelType, timeMS);
 
-        const status = await this.verifyCert(certObject, expectedModelType, timeMS, constraintParamsObject);
         process.exit(status);
     }
 
-    public async handleShow(certFile: string | undefined) {
+    public handleUnpack(certFile: string | undefined) {
         if (!certFile) {
             this.showUsage("certFile must be given as argument.");
+
             process.exit(1);
         }
 
         let certObject;
+
         try {
             certObject = JSONUtil.LoadJSON(certFile);
         }
@@ -585,24 +603,33 @@ export class CertCLI {
             process.exit(1);
         }
 
-        const status = await this.showCert(certObject);
+        const status = this.unpackCert(certObject);
+
         process.exit(status);
     }
 
-    public async handleList() {
-        console.log(JSON.stringify(ModelTypeToNameMap, null, 4));
+    public handleList() {
+        console.log(JSON.stringify(ModelToAlias, null, 4));
+
         process.exit(0);
     }
 
-    public async handleExport(certFile: string | undefined) {
-        if (!certFile) {
-            this.showUsage("certFile must be given as argument.");
+    public handleConstraints(certPropsFile: string | undefined, lockedFieldsFile: string | undefined) {
+        if (!certPropsFile) {
+            this.showUsage("certProps.json must be given as argument when hashing constraints on target.");
             process.exit(1);
         }
 
-        let certObject;
+        if (!lockedFieldsFile) {
+            this.showUsage("lockedFields.json file must be given as argument when hashing constraints on target.");
+            process.exit(1);
+        }
+
+        let certProps;
+        let lockedFields;
         try {
-            certObject = JSONUtil.LoadJSON(certFile);
+            certProps = JSONUtil.LoadJSON(certPropsFile);
+            lockedFields = JSONUtil.LoadJSON(lockedFieldsFile);
         }
         catch(e) {
             console.error("Could not load JSON", (e as any as Error).message);
@@ -610,62 +637,38 @@ export class CertCLI {
             process.exit(1);
         }
 
-        const status = await this.exportCert(certObject);
+        const status = this.hashConstraints(certProps, lockedFields);
+
         process.exit(status);
     }
 
-    public async handleConstraints(certParamsFile: string | undefined, constraintParamsFile: string | undefined) {
-        if (!certParamsFile) {
-            this.showUsage("certParams.json must be given as argument when calculating constraints on target.");
-            process.exit(1);
-        }
-
-        if (!constraintParamsFile) {
-            this.showUsage("constraintParams file must be given as argument when calculating constraints on target.");
-            process.exit(1);
-        }
-
-        let paramsObject;
-        let constraintParamsObject;
-        try {
-            paramsObject = JSONUtil.LoadJSON(certParamsFile, [".targetPublicKeys", ".owner", ".creationTime", ".expireTime"]);
-            constraintParamsObject = JSONUtil.LoadJSON(constraintParamsFile, [".targetPublicKeys", ".owner", ".creationTime", ".expireTime", ".publicKey", ".constraints", ".otherIssuerPublicKey", ".otherConstraints", ".intermediaryPublicKey"]);
-        }
-        catch(e) {
-            console.error("Could not load JSON", (e as any as Error).message);
-            console.debug(e);
-            process.exit(1);
-        }
-
-        const status = this.calcCertConstraintValues(paramsObject, constraintParamsObject);
-        process.exit(status);
-    }
-
-    public async handleCreate(certParamsFile: string | undefined, keyPairFile: string | undefined) {
-        if (!certParamsFile) {
-            this.showUsage("certParams.json must be given as argument when creating a new cert.");
+    public handleCreate(certPropsFile: string | undefined, keyPairFile: string | undefined) {
+        if (!certPropsFile) {
+            this.showUsage("certProps.json must be given as argument when creating a new cert.");
             process.exit(1);
         }
 
         let keyPairHolder;
-        let paramsObject;
+        let certProps;
         try {
             if (keyPairFile) {
                 keyPairHolder = JSONUtil.LoadJSON(keyPairFile);
             }
-            paramsObject = JSONUtil.LoadJSON(certParamsFile, [".cert", ".constraints", ".targetPublicKeys", ".owner", ".creationTime", ".expireTime"]);
-            console.debug("Loaded JSON params object", paramsObject);
+            certProps = JSONUtil.LoadJSON(certPropsFile);
+            console.debug("Loaded JSON props object", certProps);
         }
         catch(e) {
-            console.error("Could not load JSON", (e as any as Error).message);
+            console.error(`Could not load JSON of file ${certPropsFile}`, (e as any as Error).message);
             console.debug(e);
             process.exit(1);
         }
 
-        const status = await this.createCert(paramsObject, keyPairHolder);
+        const status = this.createCert(certProps, keyPairHolder);
+
         process.exit(status);
     }
 }
 
 const certCLI = new CertCLI();
+
 certCLI.main();

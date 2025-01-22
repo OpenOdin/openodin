@@ -5,7 +5,7 @@ import {
 } from "../../util/RPC";
 
 import {
-    DataInterface,
+    DataNodeInterface
 } from "../../datamodel";
 
 import {
@@ -163,7 +163,7 @@ export class CRDTManager {
      *
      * @throws if CRDT model with specified algo cannot be created
      */
-    public async updateModel(fetchRequest: FetchRequest, nodes: DataInterface[]) {
+    public async updateModel(fetchRequest: FetchRequest, nodes: DataNodeInterface[]) {
         if (!this._isInited) {
             await this.init();
         }
@@ -174,7 +174,7 @@ export class CRDTManager {
 
         const conf = fetchRequest.crdt.conf;
 
-        const images: Buffer[] = nodes.map( node => node.export(true) );
+        const images: Buffer[] = nodes.map( node => node.pack(true) );
 
         const rpc = this.getRPC(key);
 

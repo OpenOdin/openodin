@@ -22,7 +22,7 @@ module.exports = {
             "tls": false,
             "https": false,
             "sqlite3": false,
-            "postgresql-client": false
+            "postgrejs": false
         },
         extensions: [".tsx", ".ts", ".js"],
         fallback: {

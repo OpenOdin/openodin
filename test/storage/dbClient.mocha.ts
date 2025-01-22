@@ -27,8 +27,8 @@ describe("DBClient: should work with SQLite", function() {
         await dbClient.all(`CREATE TABLE abc (a bytea NULL UNIQUE, b bigint NULL UNIQUE, c integer, d smallint)`);
     });
 
-    afterEach("Close database", function() {
-        dbClient?.close();
+    afterEach("Close database", async function() {
+        await dbClient?.close();
         dbClient = undefined;
         config.dbClient = undefined;
     });
@@ -65,8 +65,8 @@ describe("DBClient: should work with SQLiteJS", function() {
         await dbClient.all(`CREATE TABLE abc (a bytea NULL UNIQUE, b bigint NULL UNIQUE, c integer, d smallint)`);
     });
 
-    afterEach("Close database", function() {
-        dbClient?.close();
+    afterEach("Close database", async function() {
+        await dbClient?.close();
         dbClient = undefined;
         config.dbClient = undefined;
     });
@@ -128,8 +128,8 @@ describe("DBClient: should work with PostgreSQL", function() {
         await dbClient.all(`CREATE TABLE abc (a bytea NULL UNIQUE, b bigint NULL UNIQUE, c integer, d smallint)`);
     });
 
-    afterEach("Close database", function() {
-        dbClient?.close();
+    afterEach("Close database", async function() {
+        await dbClient?.close();
         dbClient = undefined;
         config.dbClient = undefined;
     });

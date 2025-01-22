@@ -99,7 +99,7 @@ export class AuthServerProcessLogin implements AuthServerProcessInterface {
                 //const randomId = Buffer.from(msg1.randomId, "hex");
                 const signature = Buffer.alloc(64).toString("hex");
 
-                this.clockDiff = timestamp - msg1.timestamp ?? 0;
+                this.clockDiff = timestamp - (msg1.timestamp ?? 0);
 
                 const apiAuthResponse: APIAuthResponse = {
                     sessionToken: session.sessionToken,

@@ -15,30 +15,31 @@ import {
 } from "../request/jsonSchema";
 
 import {
-    NodeInterface,
-    Hash,
-    Data,
-    LicenseInterface,
-    License,
+    BaseNodeInterface,
+    DataNode,
+    DataNodeInterface,
+    LicenseNodeInterface,
+    LicenseNode,
     FriendCertInterface,
+    FriendCert,
+    Filter,
+    Hash,
+    HashList,
+    MAX_LICENSE_DISTANCE,
+    UnpackNode,
 } from "../datamodel";
-
-import {
-    Decoder,
-} from "../decoder";
 
 import {
     FetchQuery,
     Status,
     Match,
-    MAX_LICENSE_DISTANCE,
 } from "../types";
 
 import {
     HandleFetchReplyData,
     MAX_QUERY_LEVEL_LIMIT,
     MAX_QUERY_ROWS_LIMIT,
-    SelectLicenseeHash,
+    SelectLicensingHash,
     LicenseNodeEntry,
     SelectFriendCertPair,
     MAX_BATCH_SIZE,
@@ -66,10 +67,10 @@ export type MatchState = {
 };
 
 type PermissionsResult = {
-    nodes: NodeInterface[],
-    embed: {originalNode: NodeInterface, embeddedNode: NodeInterface}[],
+    nodes: BaseNodeInterface[],
+    embed: {originalNode: BaseNodeInterface, embeddedNode: BaseNodeInterface}[],
     includedLicenses: {[nodeId1: string]: {[licenseId1: string]: Buffer}},
-    includedLicensesEmbedded: LicenseInterface[],
+    includedLicensesEmbedded: LicenseNodeInterface[],
 };
 
 type NodeRow = {
@@ -82,10 +83,9 @@ type NodeRow = {
     region?: string,
     jurisdiction?: string,
     owner: Buffer,
-    hasonline: number,
-    isonline: number,
+    isinactive: number,
     transienthash: Buffer,
-    sharedhash: Buffer,
+    uniquehash: Buffer,
     ispublic: number,
     difficulty: number,
     image: Buffer,
@@ -104,7 +104,7 @@ type Obj1 = {
     endRestrictiveWriterMode: boolean,
     flushed: boolean,
     passed: boolean,
-    restrictiveNodes: NodeInterface[],
+    restrictiveNodes: BaseNodeInterface[],
     restrictiveManager: {[id1: string]: boolean},
     trailUpdateTime: number,
     storageTime: number,
@@ -112,7 +112,7 @@ type Obj1 = {
     discard: boolean,
     bottom: boolean,
     matchIndexes: number[],
-    node: NodeInterface,
+    node: BaseNodeInterface,
 };
 
 export type AlreadyProcessedCache =
@@ -154,7 +154,7 @@ export class QueryProcessor {
      * The rows from the nodes table fetched and yet not flushed.
      * Nodes are all on the same current level.
      */
-    protected currentRows: NodeInterface[] = [];
+    protected currentRows: BaseNodeInterface[] = [];
 
     /**
      * The node IDs we use to fetch for the next level in the graph.
@@ -207,7 +207,7 @@ export class QueryProcessor {
     constructor(
         protected readonly db: DBClient,
         protected readonly fetchQuery: FetchQuery,
-        protected readonly rootNode: NodeInterface | undefined,
+        protected readonly rootNode: BaseNodeInterface | undefined,
         protected readonly now: number,
         protected readonly handleFetchReplyData: HandleFetchReplyData,
         protected reverseFetch: ReverseFetch = ReverseFetch.OFF,
@@ -223,10 +223,10 @@ export class QueryProcessor {
 
         if (this.rootNode) {
             if (reverseFetch === ReverseFetch.OFF) {
-                this.parentId = this.rootNode.getId() as Buffer;
+                this.parentId = this.rootNode.getProps().id as Buffer;
             }
             else {
-                this.parentId = this.rootNode.getParentId() as Buffer;
+                this.parentId = this.rootNode.getProps().parentId as Buffer;
             }
         }
 
@@ -245,13 +245,15 @@ export class QueryProcessor {
         this.nextLevelIds[parentIdStr] = this.parentId;
 
         if (this.rootNode) {
-            const parentIdStr = (this.rootNode.getParentId() ?? Buffer.alloc(0)).toString("hex");
-            const idStr = (this.rootNode.getId() as Buffer).toString("hex");
-            const id1Str = (this.rootNode.getId1() as Buffer).toString("hex");
-            const owner = this.rootNode.getOwner() as Buffer;
-            const childMinDifficulty = this.rootNode.getChildMinDifficulty() ?? 0;
-            const disallowPublicChildren = this.rootNode.disallowPublicChildren();
-            const onlyOwnChildren = this.rootNode.onlyOwnChildren();
+            const flags = this.rootNode.loadFlags();
+
+            const parentIdStr = (this.rootNode.getProps().parentId ?? Buffer.alloc(0)).toString("hex");
+            const idStr = (this.rootNode.getProps().id as Buffer).toString("hex");
+            const id1Str = (this.rootNode.getProps().id1 as Buffer).toString("hex");
+            const owner = this.rootNode.getProps().owner as Buffer;
+            const childMinDifficulty = this.rootNode.getProps().childMinDifficulty ?? 0;
+            const disallowPublicChildren = flags.disallowPublicChildren ?? false;
+            const onlyOwnChildren = flags.onlyOwnChildren ?? false;
 
             if (this.alreadyProcessedNodes[idStr]) {
                 // Already processed
@@ -363,7 +365,7 @@ export class QueryProcessor {
      * Inject nodes into the already processed cache.
      *
      */
-    public injectNodes(nodes: NodeInterface[]) {
+    public injectNodes(nodes: BaseNodeInterface[]) {
         const nodesLength = nodes.length;
         for (let i=0; i<nodesLength; i++) {
             const node = nodes[i];
@@ -383,8 +385,9 @@ export class QueryProcessor {
         }
 
         try {
-            const node = Decoder.DecodeNode(row.image, true);
-            node.setTransientStorageTime(row.storagetime);
+            const node = UnpackNode(row.image, true);
+
+            node.getProps().transientStorageTime = row.storagetime;
 
             const passed = this.addAlreadyProcessed(node, row.storagetime, row.updatetime, row.trailupdatetime);
 
@@ -415,10 +418,10 @@ export class QueryProcessor {
     /**
      * @returns false if not allowed.
      */
-    protected addAlreadyProcessed(node: NodeInterface, storageTime: number, updateTime: number, trailUpdateTime: number): boolean {
-        const idStr = (node.getId() as Buffer).toString("hex");
-        const id1Str = (node.getId1() as Buffer).toString("hex");
-        const parentIdStr = (node.getParentId() as Buffer).toString("hex");
+    protected addAlreadyProcessed(node: BaseNodeInterface, storageTime: number, updateTime: number, trailUpdateTime: number): boolean {
+        const idStr = (node.getProps().id as Buffer).toString("hex");
+        const id1Str = (node.getProps().id1 as Buffer).toString("hex");
+        const parentIdStr = (node.getProps().parentId as Buffer).toString("hex");
 
         const obj = this.alreadyProcessedNodes[idStr] ?? {matched: [], id1s: {}};
 
@@ -437,15 +440,17 @@ export class QueryProcessor {
         }
         else {
             // Add new obj1
+            const flags = node.loadFlags();
+
             obj1 = {
-                childMinDifficulty: node.getChildMinDifficulty() ?? 0,
-                disallowPublicChildren: node.disallowPublicChildren(),
-                onlyOwnChildren: node.onlyOwnChildren(),
-                endRestrictiveWriterMode: node.isEndRestrictiveWriteMode(),
-                beginRestrictiveWriterMode: node.isBeginRestrictiveWriteMode(),
+                childMinDifficulty: node.getProps().childMinDifficulty ?? 0,
+                disallowPublicChildren: Boolean(flags.disallowPublicChildren),
+                onlyOwnChildren: Boolean(flags.onlyOwnChildren),
+                endRestrictiveWriterMode: Boolean(flags.isEndRestrictiveWriteMode),
+                beginRestrictiveWriterMode: Boolean(flags.isBeginRestrictiveWriteMode),
                 node: node,
                 parentId: parentIdStr,
-                owner: (node.getOwner() as Buffer),
+                owner: (node.getProps().owner as Buffer),
                 flushed: false,
                 passed: false,
                 restrictiveNodes: [],
@@ -476,13 +481,13 @@ export class QueryProcessor {
                 return false;
             }
 
-            if (parentObj1.disallowPublicChildren && node.isPublic()) {
+            if (parentObj1.disallowPublicChildren && node.loadFlags().isPublic) {
                 return false;
             }
-            else if ((node.getDifficulty() ?? 0) < parentObj1.childMinDifficulty) {
+            else if ((node.getProps().difficulty ?? 0) < parentObj1.childMinDifficulty) {
                 return false;
             }
-            else if (parentObj1.onlyOwnChildren && !parentObj1.owner.equals((node.getOwner() as Buffer))) {
+            else if (parentObj1.onlyOwnChildren && !parentObj1.owner.equals((node.getProps().owner as Buffer))) {
                 return false;
             }
 
@@ -512,7 +517,7 @@ export class QueryProcessor {
 
                 if (parentObj1.endRestrictiveWriterMode) {
                     obj1.restrictiveNodes = obj1.restrictiveNodes.filter( node => {
-                        const id1Str = (node.getId1() as Buffer).toString("hex");
+                        const id1Str = (node.getProps().id1 as Buffer).toString("hex");
                         if (parentObj1.restrictiveManager[id1Str]) {
                             return false;
                         }
@@ -572,11 +577,11 @@ export class QueryProcessor {
 
             const currentRows = this.currentRows.splice(0, MAX_BATCH_SIZE);
 
-            const embed: NodeInterface[] = [];
+            const embed: BaseNodeInterface[] = [];
 
-            let nodesToFlush: NodeInterface[] = [];
+            let nodesToFlush: BaseNodeInterface[] = [];
 
-            const nodes: NodeInterface[] = [];
+            const nodes: BaseNodeInterface[] = [];
 
             let includedLicenses: {[nodeId1: string]: {[licenseId1: string]: Buffer}} | undefined;
 
@@ -606,18 +611,14 @@ export class QueryProcessor {
 
                     const includedLicenseEmbedded = permissionsResult.includedLicensesEmbedded[i];
 
-                    if (!includedLicenseEmbedded) {
+                    if (!includedLicenseEmbedded || !includedLicenseEmbedded.getProps().embedded) {
                         continue;
                     }
 
                     try {
-                        const originalNode = includedLicenseEmbedded.getEmbeddedObject();
+                        const originalNode = includedLicenseEmbedded.loadEmbedded();
 
-                        if (!originalNode) {
-                            continue;
-                        }
-
-                        const id1Str = (originalNode.getId1() as Buffer).toString("hex");
+                        const id1Str = (originalNode.getProps().id1 as Buffer).toString("hex");
 
                         if (!this.includedLicensesEmbedded[id1Str]) {
                             embed.push(includedLicenseEmbedded);
@@ -626,6 +627,7 @@ export class QueryProcessor {
                         }
                     }
                     catch(e) {
+                        console.debug(e);
                         // Do nothing
                     }
                 }
@@ -636,8 +638,8 @@ export class QueryProcessor {
                 const nodesToEmbed = this.matchSecond(originalNodes,
                     this.currentLevelMatches).filter(
                         embeddable => {
-                            const idStr = (embeddable.getId() as Buffer).toString("hex");
-                            const id1Str = (embeddable.getId1() as Buffer).toString("hex");
+                            const idStr = (embeddable.getProps().id as Buffer).toString("hex");
+                            const id1Str = (embeddable.getProps().id1 as Buffer).toString("hex");
                             const obj = this.alreadyProcessedNodes[idStr] ?? {matched: [], id1s: {}};
                             const obj1 = obj.id1s[id1Str];
 
@@ -666,7 +668,7 @@ export class QueryProcessor {
                     for (let i=0; i<embeddedNodesLength; i++) {
                         const {originalNode, embeddedNode} = permissionsResult.embed[i];
 
-                        const id1 = originalNode.getId1() as Buffer;
+                        const id1 = originalNode.getProps().id1 as Buffer;
 
                         const id1Str = id1.toString("hex");
 
@@ -674,7 +676,7 @@ export class QueryProcessor {
                             continue;
                         }
 
-                        if (id1.equals(node.getId1() as Buffer)) {
+                        if (id1.equals(node.getProps().id1 as Buffer)) {
                             embed.push(embeddedNode);
                             maxNodesLeft--;
                         }
@@ -693,8 +695,8 @@ export class QueryProcessor {
 
                 const node = nodesToFlush[index];
 
-                const idStr = (node.getId() as Buffer).toString("hex");
-                const id1Str = (node.getId1() as Buffer).toString("hex");
+                const idStr = (node.getProps().id as Buffer).toString("hex");
+                const id1Str = (node.getProps().id1 as Buffer).toString("hex");
 
                 const obj = this.alreadyProcessedNodes[idStr] ?? {matched: [], id1s: {}};
                 const obj1 = obj.id1s[id1Str];
@@ -721,29 +723,31 @@ export class QueryProcessor {
                 //
                 if (this.reverseFetch === ReverseFetch.OFF) {
                     if (!obj1.bottom && this.fetchQuery.cutoffTime <= Math.max(obj1.trailUpdateTime, obj1.updateTime)) {
-                        if (!node.isLeaf() &&
-                            (!node.hasOnlineId() || node.isOnlineIdValidated())) {
 
-                            this.nextLevelIds[(node.getId() as Buffer).toString("hex")] =
-                                node.getId() as Buffer;
+                        // Cannot be leaf nor cannot be inactive when to be used as parent node.
+                        //
+                        const flags = node.loadFlags();
+
+                        if (!flags.isLeaf && !flags.isInactive) {
+                            this.nextLevelIds[(node.getProps().id as Buffer).toString("hex")] =
+                                node.getProps().id as Buffer;
                         }
                     }
                 }
                 else if (this.reverseFetch === ReverseFetch.ALL_PARENTS) {
-                    // NOTE: criterias are handled in the SQL-query.
+                    // NOTE: leaf and isinactive criterias are handled in the SQL-query.
                     //
-                    const parentId = node.getParentId();
+                    const parentId = node.getProps().parentId;
+
                     if (parentId) {
                         this.nextLevelIds[parentId.toString("hex")] = parentId;
                     }
                 }
                 else if (this.reverseFetch === ReverseFetch.ONLY_LICENSED) {
-                    // NOTE: criterias are handled in the SQL-query.
+                    // NOTE: leaf and isinactive criterias are handled in the SQL-query.
                     //
-                    if (node.usesParentLicense() && !node.hasOnlineId() &&
-                        (!node.hasOnline() || node.isOnline())) {
-
-                        const parentId = node.getParentId();
+                    if (node.usesParentLicense()) {
+                        const parentId = node.getProps().parentId;
 
                         if (parentId) {
                             this.nextLevelIds[parentId.toString("hex")] = parentId;
@@ -763,8 +767,8 @@ export class QueryProcessor {
 
                     const node = nodes[i];
 
-                    if (node.isLicensed()) {
-                        const nodeId1Str = node.getId1()!.toString("hex");
+                    if (node.loadFlags().isLicensed) {
+                        const nodeId1Str = node.getProps().id1!.toString("hex");
 
                         const il = includedLicenses[nodeId1Str] ?? {};
 
@@ -787,12 +791,12 @@ export class QueryProcessor {
                     }
                 }
 
-                const licenseNodes: LicenseInterface[] = [];
+                const licenseNodes: LicenseNodeInterface[] = [];
 
                 while (licenseNodeId1s.length > 0) {
                     licenseNodes.push(
                         ...await this.getNodesById1(
-                            licenseNodeId1s.splice(0, MAX_BATCH_SIZE)) as LicenseInterface[]);
+                            licenseNodeId1s.splice(0, MAX_BATCH_SIZE)) as LicenseNodeInterface[]);
                 }
 
                 nodes.push(...licenseNodes);
@@ -931,7 +935,7 @@ export class QueryProcessor {
 
             const secondaryOrdering = this.fetchQuery.orderByStorageTime ? `,creationTime ${ordering}` : "";
 
-            const ignoreInactive = this.fetchQuery.ignoreInactive ? `AND (hasonline = 0 OR isonline = 1)` : "";
+            const ignoreInactive = this.fetchQuery.ignoreInactive ? `AND isinactive = 0` : "";
 
             let ignoreOwn = "";
             if (this.fetchQuery.ignoreOwn) {
@@ -968,7 +972,7 @@ export class QueryProcessor {
             }
 
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
-                owner, hasonline, isonline, ispublic, difficulty, transienthash, sharedhash, image,
+                owner, isinactive, ispublic, difficulty, transienthash, uniquehash, image,
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM openodin_nodes
                 WHERE parentid IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
@@ -978,22 +982,22 @@ export class QueryProcessor {
         }
         else if (this.reverseFetch === ReverseFetch.ALL_PARENTS) {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
-                owner, hasonline, isonline, ispublic, difficulty, transienthash, sharedhash, image,
+                owner, isinactive, ispublic, difficulty, transienthash, uniquehash, image,
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM openodin_nodes
                 WHERE id IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
                 AND creationtime <= ${now2}
-                AND isleaf = 0
+                AND isleaf = 0 AND isinactive = 0
                 ORDER BY ${orderByColumn}, id1 LIMIT ${limit} OFFSET ${offset};`;
         }
         else if (this.reverseFetch === ReverseFetch.ONLY_LICENSED) {
             sql = `SELECT id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction,
-                owner, hasonline, isonline, ispublic, difficulty, transienthash, sharedhash, image,
+                owner, isinactive, ispublic, difficulty, transienthash, uniquehash, image,
                 storagetime, updatetime, trailupdatetime, islicensed, disallowparentlicensing, isleaf
                 FROM openodin_nodes
                 WHERE id IN ${ph} AND (expiretime IS NULL OR expiretime > ${now})
                 AND creationtime <= ${now2}
-                AND islicensed = 1 AND disallowparentlicensing = 0 AND isleaf = 0
+                AND islicensed = 1 AND disallowparentlicensing = 0 AND isleaf = 0 AND isinactive = 0
                 ORDER BY ${orderByColumn}, id1 LIMIT ${limit} OFFSET ${offset};`;
         }
         else {
@@ -1010,11 +1014,11 @@ export class QueryProcessor {
      *
      * Set obj1.matchIndexes with the matched indexes.
      */
-    protected matchFirst(node: NodeInterface, currentLevelMatches: [Match, MatchState][]): boolean {
+    protected matchFirst(node: BaseNodeInterface, currentLevelMatches: [Match, MatchState][]): boolean {
         let matched = false;
 
-        const idStr = (node.getId() as Buffer).toString("hex");
-        const id1Str = (node.getId1() as Buffer).toString("hex");
+        const idStr = (node.getProps().id as Buffer).toString("hex");
+        const id1Str = (node.getProps().id1 as Buffer).toString("hex");
 
         const obj1 = this.alreadyProcessedNodes[idStr]?.id1s[id1Str];
 
@@ -1030,12 +1034,12 @@ export class QueryProcessor {
                 continue;
             }
 
-            if (!match.nodeType.equals(node.getType().slice(0, match.nodeType.length))) {
+            if (!match.nodeType.equals(node.getProps().modelType!.slice(0, match.nodeType.length))) {
                 continue;
             }
 
             if (match.requireId > 0) {
-                const parentId = node.getParentId();
+                const parentId = node.getProps().parentId;
 
                 if (!parentId) {
                     continue;
@@ -1056,7 +1060,7 @@ export class QueryProcessor {
 
             // filters
             try {
-                if (!node.checkFilters(match.filters)) {
+                if (!this.checkFilters(node, match.filters)) {
                     continue;
                 }
             }
@@ -1066,7 +1070,7 @@ export class QueryProcessor {
             }
 
             if (match.limitField?.name && match.limitField.name.length > 0) {
-                const hashedValue = node.getHashedValue(match.limitField.name);
+                const hashedValue = node.hashField(match.limitField.name);
                 if (hashedValue) {
                     const group = state.group[match.limitField.name] ?? {};
                     const counter = (group[hashedValue] ?? 0) + 1;
@@ -1080,7 +1084,7 @@ export class QueryProcessor {
             // Can mutate state
             //
             if (match.cursorId1.length > 0 && !state.cursorPassed) {
-                if ((node.getId1() as Buffer).equals(match.cursorId1)) {
+                if ((node.getProps().id1 as Buffer).equals(match.cursorId1)) {
                     state.cursorPassed = true;
                 }
 
@@ -1097,16 +1101,16 @@ export class QueryProcessor {
         return matched;
     }
 
-    protected matchSecond(nodes: NodeInterface[], currentLevelMatches: [Match, MatchState][]): NodeInterface[] {
+    protected matchSecond(nodes: BaseNodeInterface[], currentLevelMatches: [Match, MatchState][]): BaseNodeInterface[] {
 
-        const nodesMatched: NodeInterface[] = [];
+        const nodesMatched: BaseNodeInterface[] = [];
 
         const nodesLength = nodes.length;
         for (let index=0; index<nodesLength; index++) {
             const node = nodes[index];
 
-            const idStr = (node.getId() as Buffer).toString("hex");
-            const id1Str = (node.getId1() as Buffer).toString("hex");
+            const idStr = (node.getProps().id as Buffer).toString("hex");
+            const id1Str = (node.getProps().id1 as Buffer).toString("hex");
 
             let matched = false;
             let discard = true;
@@ -1133,7 +1137,7 @@ export class QueryProcessor {
                 }
 
                 if (match.limitField?.name && match.limitField.name.length > 0) {
-                    const hashedValue = node.getHashedValue(match.limitField.name);
+                    const hashedValue = node.hashField(match.limitField.name);
                     if (hashedValue) {
                         const group = state.group[match.limitField.name] ?? {};
                         const counter = (group[hashedValue] ?? 0) + 1;
@@ -1168,8 +1172,8 @@ export class QueryProcessor {
             if (matched) {
                 nodesMatched.push(node);
 
-                const idStr = (node.getId() as Buffer).toString("hex");
-                const id1Str = (node.getId1() as Buffer).toString("hex");
+                const idStr = (node.getProps().id as Buffer).toString("hex");
+                const id1Str = (node.getProps().id1 as Buffer).toString("hex");
                 const obj = this.alreadyProcessedNodes[idStr] ?? {matched: [], id1s: {}};
                 const obj1 = obj.id1s[id1Str];
 
@@ -1187,10 +1191,10 @@ export class QueryProcessor {
      * Return nodes which the caller has permissions to and also nodes which can be embedded.
      *
      */
-    public async filterPermissions(allNodes: NodeInterface[],
+    public async filterPermissions(allNodes: BaseNodeInterface[],
         allowRightsByAssociation: boolean = true): Promise<PermissionsResult>
     {
-        const includedLicensesEmbedded: LicenseInterface[] = [];
+        const includedLicensesEmbedded: LicenseNodeInterface[] = [];
 
         const includeLicenses = (this.fetchQuery.includeLicenses === "Include" ||
             this.fetchQuery.includeLicenses === "IncludeExtend");
@@ -1214,19 +1218,20 @@ export class QueryProcessor {
                 licenseNodeId1s.push(...Object.values(addedEmbeddableLicenses[nodeId1Str]));
             }
 
-            const embeddableLicenses: LicenseInterface[] = [];
+            const embeddableLicenses: LicenseNodeInterface[] = [];
 
             while (licenseNodeId1s.length > 0) {
                 embeddableLicenses.push(
                     ...await this.getNodesById1(licenseNodeId1s.splice(0,
-                        MAX_BATCH_SIZE)) as LicenseInterface[]);
+                        MAX_BATCH_SIZE)) as LicenseNodeInterface[]);
             }
 
             const embeddable = embeddableLicenses.filter( license => {
-                if (license.isPrivate() && license.isUnique() && !license.canSendPrivately(
-                    this.fetchQuery.sourcePublicKey, this.fetchQuery.targetPublicKey) &&
-                    license.canSendEmbedded(this.fetchQuery.sourcePublicKey,
-                        this.fetchQuery.targetPublicKey)) {
+                const flags = license.loadFlags();
+
+                if (!flags.isPublic && !flags.isLicensed && flags.isUnique &&
+                    !license.canSendPrivately(this.fetchQuery.sourcePublicKey, this.fetchQuery.targetPublicKey) &&
+                    license.canSendEmbedded(this.fetchQuery.sourcePublicKey, this.fetchQuery.targetPublicKey)) {
 
                     return true;
                 }
@@ -1236,7 +1241,7 @@ export class QueryProcessor {
 
             const embeddedNodes = (await this.embedNodes(embeddable)).map( b => b.embeddedNode );
 
-            includedLicensesEmbedded.push(...(embeddedNodes as LicenseInterface[]));
+            includedLicensesEmbedded.push(...(embeddedNodes as LicenseNodeInterface[]));
         }
 
         const [nodes, toEmbed] = await this.filterPrivateNodes(allowedNodes,
@@ -1259,14 +1264,14 @@ export class QueryProcessor {
      * @returns the original nodes and their embeddings. Any nodes who
      * cannot be successfully embedded are ignored and not returned.
      */
-    protected async embedNodes(nodes: NodeInterface[]):
-        Promise<{originalNode: NodeInterface, embeddedNode: NodeInterface}[]>
+    protected async embedNodes(nodes: BaseNodeInterface[]):
+        Promise<{originalNode: BaseNodeInterface, embeddedNode: BaseNodeInterface}[]>
     {
-        const triples: {originalNode: NodeInterface, embeddedNode: NodeInterface, sharedHashStr: string}[] = [];
+        const triples: {originalNode: BaseNodeInterface, embeddedNode: BaseNodeInterface, uniqueHashStr: string}[] = [];
 
-        const allSharedHashes: Buffer[] = [];
+        const allUniqueHashes: Buffer[] = [];
 
-        const friendLicenses: [LicenseInterface, LicenseInterface][] = [];
+        const friendLicenses: [LicenseNodeInterface, LicenseNodeInterface][] = [];
         const distinctLicenseOwners: {[friendAPublicKey: string]: Buffer} = {};
 
         const nodesLength = nodes.length;
@@ -1274,7 +1279,15 @@ export class QueryProcessor {
             const node = nodes[i];
 
             try {
-                const embeddedNode = node.embed(this.fetchQuery.targetPublicKey);
+                // The outer node
+                let embeddedNode: LicenseNodeInterface | DataNodeInterface | undefined = undefined;
+
+                if (LicenseNode.Is(node.getProps().modelType)) {
+                    embeddedNode = (node as LicenseNodeInterface).embed(this.fetchQuery.targetPublicKey);
+                }
+                else if (DataNode.Is(node.getProps().modelType)) {
+                    embeddedNode = (node as DataNodeInterface).embed(this.fetchQuery.targetPublicKey);
+                }
 
                 if (!embeddedNode) {
                     continue;
@@ -1282,31 +1295,38 @@ export class QueryProcessor {
 
                 // Check if this is a friend license.
                 //
-                if (node.getType(4).equals(License.GetType(4)) &&
-                    embeddedNode.getType(4).equals(License.GetType(4))) {
+                if (LicenseNode.Is(node.getProps().modelType) &&
+                    LicenseNode.Is(embeddedNode.getProps().modelType)) {
 
-                    const license = node as LicenseInterface;
-                    const embeddedLicense = embeddedNode as LicenseInterface;
+                    const license = node as LicenseNodeInterface;
+                    const extendedLicense = embeddedNode as LicenseNodeInterface;
 
-                    if (license.getFriendLevel() !== undefined) {
-                        const friendAPublicKey = license.getOwner();
+                    if (license.getProps().friendLevel !== undefined) {
+                        const friendAPublicKey = license.getProps().owner;
 
                         if (friendAPublicKey) {
-                            friendLicenses.push([license, embeddedLicense]);
-                            distinctLicenseOwners[friendAPublicKey.toString("hex")] = friendAPublicKey;
+                            friendLicenses.push([license, extendedLicense]);
+
+                            distinctLicenseOwners[friendAPublicKey.toString("hex")] =
+                                friendAPublicKey;
                         }
 
                         continue;
                     }
                 }
 
-                const sharedHash = embeddedNode.hashShared();
-                const sharedHashStr = sharedHash.toString("hex");
+                embeddedNode.pack();
 
-                triples.push({originalNode: node, embeddedNode, sharedHashStr});
-                allSharedHashes.push(sharedHash);
+                const uniqueHash = embeddedNode.uniqueHash();
+
+                const uniqueHashStr = uniqueHash.toString("hex");
+
+                triples.push({originalNode: node, embeddedNode, uniqueHashStr});
+
+                allUniqueHashes.push(uniqueHash);
             }
             catch(e) {
+                console.debug(e);
                 // Do nothing
             }
         }
@@ -1314,12 +1334,14 @@ export class QueryProcessor {
         const friendLicensesLength = friendLicenses.length;
 
         if (friendLicensesLength > 0) {
+            // For every license owner, get all possible licenses to match.
+            //
             const friendCertPairs = await this.getFriendCerts(Object.values(distinctLicenseOwners));
 
             for (let i=0; i<friendLicensesLength; i++) {
-                const [license, embeddedLicense] = friendLicenses[i];
+                const [license, extendedLicense] = friendLicenses[i];
 
-                const friendAPublicKey = license.getOwner();
+                const friendAPublicKey = license.getProps().owner;
 
                 if (!friendAPublicKey) {
                     continue;
@@ -1336,14 +1358,14 @@ export class QueryProcessor {
                 for (let i2=0; i2<rowsLength; i2++) {
                     const row = rows[i2];
 
-                    const certObjectA = row.aCertObject;
-                    const certObjectB = row.bCertObject;
+                    const aCert = row.aCert;
+                    const bCert = row.bCert;
 
-                    if (!certObjectA || !certObjectB) {
+                    if (!aCert || !bCert) {
                         continue;
                     }
 
-                    if (await this.applyFriendCerts(embeddedLicense, certObjectA, certObjectB)) {
+                    if (await this.applyFriendCerts(extendedLicense, aCert, bCert)) {
                         certsApplied = true;
                         break;
                     }
@@ -1354,68 +1376,73 @@ export class QueryProcessor {
                     continue;
                 }
 
-                const sharedHash = embeddedLicense.hashShared();
-                const sharedHashStr = sharedHash.toString("hex");
+                extendedLicense.pack();
 
-                triples.push({originalNode: license, embeddedNode: embeddedLicense, sharedHashStr});
-                allSharedHashes.push(sharedHash);
+                const uniqueHash = extendedLicense.uniqueHash();
+                const uniqueHashStr = uniqueHash.toString("hex");
+
+                triples.push({originalNode: license, embeddedNode: extendedLicense, uniqueHashStr});
+
+                allUniqueHashes.push(uniqueHash);
             }
         }
 
-        const existingHashes = await this.getExistingSharedHashes(allSharedHashes);
+        const existingHashes = await this.getExistingUniqueHashes(allUniqueHashes);
 
-        return triples.filter( triple => !existingHashes[triple.sharedHashStr] ).map( triple => {
+        return triples.filter( triple => !existingHashes[triple.uniqueHashStr] ).map( triple => {
             return {originalNode: triple.originalNode, embeddedNode: triple.embeddedNode}; } );
     }
 
     /**
      * Attempt to set the friend certificates on the embedded license in place.
      *
-     * @param embeddingLicense the license which has embedded the license that has friendLevel set.
+     * @param extendedLicense the license which has embedded the license that has friendLevel set.
      * This license is modified in place with friend certs and possible expireTime.
      * @param aCert the certificate of user A.
      * @param bCert the certificate of user B.
      * @returns boolean true if found and set (the license is modified in place).
      */
-    protected async applyFriendCerts(embeddingLicense: LicenseInterface, aCert: FriendCertInterface, bCert: FriendCertInterface): Promise<boolean> {
-        const expireTime = embeddingLicense.getExpireTime();  // Save for later.
+    protected async applyFriendCerts(extendedLicense: LicenseNodeInterface, aCert: FriendCertInterface, bCert: FriendCertInterface): Promise<boolean> {
+        const expireTime = extendedLicense.getProps().expireTime;  // Save for later.
 
-        const certATargetMaxExpireTime = aCert.getTargetMaxExpireTime();
-        const certBTargetMaxExpireTime = bCert.getTargetMaxExpireTime();
+        const certALicenseMaxExpireTime = aCert.getProps().licenseMaxExpireTime;
+        const certBLicenseMaxExpireTime = bCert.getProps().licenseMaxExpireTime;
 
-        if (certATargetMaxExpireTime !== undefined || certBTargetMaxExpireTime !== undefined) {
+        if (certALicenseMaxExpireTime !== undefined || certBLicenseMaxExpireTime !== undefined) {
 
-            const targetMaxExpireTime = Math.min(
-                certATargetMaxExpireTime ?? Number.MAX_SAFE_INTEGER,
-                certBTargetMaxExpireTime ?? Number.MAX_SAFE_INTEGER);
+            const licenseMaxExpireTime = Math.min(
+                certALicenseMaxExpireTime ?? Number.MAX_SAFE_INTEGER,
+                certBLicenseMaxExpireTime ?? Number.MAX_SAFE_INTEGER);
 
-            if (expireTime === undefined || targetMaxExpireTime < expireTime) {
+            if (expireTime === undefined || licenseMaxExpireTime < expireTime) {
                 // Limit the license's expireTime to not exceed the friend connections expire time.
-                embeddingLicense.setExpireTime(targetMaxExpireTime);
+                extendedLicense.getProps().expireTime = licenseMaxExpireTime;
             }
         }
 
         // Attempt to validate the license now that it has friend certs to see if it validates.
         try {
-            embeddingLicense.setFriendACertObject(aCert);
-            embeddingLicense.setFriendBCertObject(bCert);
+            extendedLicense.getProps().friendCert1 = aCert.getProps();
+            extendedLicense.getProps().friendCert2 = bCert.getProps();
 
-            // Validate embedded license proposal.
-            // Parameter 2 means do not validate signatures (since embeddingLicense is not signed yet).
+            // Deep validate embedded license proposal.
             //
-            if (embeddingLicense.validate(2)[0]) {
-                // The License is happy with the certs, now check that
+            if (extendedLicense.validate(true)[0]) {
+                // The License is happy with the certs.
+                // Return with values set.
+                //
                 return true;
             }
         }
         catch(e) {
-            // try next.
+            // Fall through.
         }
 
         // Restore values and return.
-        embeddingLicense.setExpireTime(expireTime);
-        embeddingLicense.setFriendACertObject(undefined);
-        embeddingLicense.setFriendBCertObject(undefined);
+        //
+        extendedLicense.getProps().expireTime = expireTime;
+        extendedLicense.getProps().friendCert1 = undefined;
+        extendedLicense.getProps().friendCert2 = undefined;
 
         return false;
     }
@@ -1451,51 +1478,57 @@ export class QueryProcessor {
             const ph2 = this.db.generatePlaceholders(friendAPublicKeys.length, 1, 2);
             params.push(...friendAPublicKeys);
 
-            const sql = `SELECT a.id1 AS aid1, a.issuer AS aissuer, a.constraints AS aconstraints, a.image AS aimage,
-                b.id1 AS bid1, b.issuer AS bissuer, b.constraints AS bconstraints, b.image AS bimage
+            const sql = `SELECT a.id1 AS aid1, a.owner AS aowner, a.constraints AS aconstraints,
+                a.image AS aimage, b.id1 AS bid1, b.owner AS bowner,
+                b.constraints AS bconstraints, b.image AS bimage
                 FROM openodin_friend_certs AS a, openodin_friend_certs AS b,
                 openodin_nodes AS nodesa, openodin_nodes AS nodesb
-                WHERE b.issuer = ${ph1} AND
-                a.issuer IN ${ph2} AND a.constraints = b.constraints
+                WHERE b.owner = ${ph1} AND
+                a.owner IN ${ph2} AND a.constraints = b.constraints
                 AND a.id1 = nodesa.id1 AND (nodesa.expiretime IS NULL OR nodesa.expiretime > ${now})
                 AND nodesa.creationTime <= ${now2}
                 AND b.id1 = nodesb.id1 AND (nodesb.expiretime IS NULL OR nodesb.expiretime > ${now})
                 AND nodesb.creationTime <= ${now2};`;
 
-            try {
-                const rows = await this.db.all(sql, params);
+            const rows = await this.db.all(sql, params);
 
-                const rowsLength = rows.length;
+            const rowsLength = rows.length;
 
-                const id1s: Buffer[] = [];
+            const id1s: Buffer[] = [];
 
-                for (let index=0; index<rowsLength; index++) {
-                    const row = rows[index] as SelectFriendCertPair;
-                    id1s.push(row.aid1, row.bid1);
-                }
+            for (let index=0; index<rowsLength; index++) {
+                const row = rows[index] as SelectFriendCertPair;
+                id1s.push(row.aid1, row.bid1);
+            }
 
-                const nodesWithPermissions = await this.checkSourceNodesPermissions(id1s);
+            const nodesWithPermissions = await this.checkSourceNodesPermissions(id1s);
 
-                for (let index=0; index<rowsLength; index++) {
+            for (let index=0; index<rowsLength; index++) {
+                try {
                     const row = rows[index] as SelectFriendCertPair;
 
                     const id1StrA = row.aid1.toString("hex");
                     const id1StrB = row.bid1.toString("hex");
 
                     if (nodesWithPermissions[id1StrA] && nodesWithPermissions[id1StrB]) {
-                        row.aCertObject = Decoder.DecodeFriendCert(row.aimage);
-                        row.bCertObject = Decoder.DecodeFriendCert(row.bimage);
+                        row.aCert = new FriendCert(row.aimage);
 
-                        const friendAPublicKey = row.aissuer.toString("hex");
+                        row.aCert.unpack();
+
+                        row.bCert = new FriendCert(row.bimage);
+
+                        row.bCert.unpack();
+
+                        const friendAPublicKey = row.aowner.toString("hex");
                         const list = friendCerts[friendAPublicKey] ?? [];
                         friendCerts[friendAPublicKey] = list;
                         list.push(row);
                     }
                 }
-            }
-            catch(e) {
-                console.error(e);
-                return {};
+                catch(e) {
+                    console.error(e);
+                    // Do nothing
+                }
             }
         }
 
@@ -1519,7 +1552,7 @@ export class QueryProcessor {
 
         const nodes = await this.getNodesById1(nodeId1s);
 
-        const nodesPerParent: {[parentId: string]: NodeInterface[]} = {};
+        const nodesPerParent: {[parentId: string]: BaseNodeInterface[]} = {};
         const parentIdsMap: {[id1Str: string]: Buffer} = {};
 
         const handleFetchReplyData: HandleFetchReplyData = () => {
@@ -1529,13 +1562,15 @@ export class QueryProcessor {
         const nodesLength = nodes.length;
         for (let i=0; i<nodesLength; i++) {
             const node = nodes[i];
-            const id1Str = (node.getId1() as Buffer).toString("hex");
+            const id1Str = (node.getProps().id1 as Buffer).toString("hex");
 
-            if (node.isPublic()) {
+            const flags = node.loadFlags();
+
+            if (flags.isPublic) {
                 nodesWithPermissions[id1Str] = true;
             }
-            else if (node.isLicensed() || node.hasRightsByAssociation()) {
-                const parentId = node.getParentId();
+            else if (flags.isLicensed || flags.hasRightsByAssociation) {
+                const parentId = node.getProps().parentId;
                 if (parentId) {
                     const parentIdStr = parentId.toString("hex");
                     const list = nodesPerParent[parentIdStr] ?? [];
@@ -1586,7 +1621,7 @@ export class QueryProcessor {
             const nodesLength = permissionsResult.nodes.length;
             for (let i=0; i<nodesLength; i++) {
                 const node = permissionsResult.nodes[i];
-                const id1Str = (node.getId1() as Buffer).toString("hex");
+                const id1Str = (node.getProps().id1 as Buffer).toString("hex");
                 nodesWithPermissions[id1Str] = true;
             }
         }
@@ -1594,7 +1629,7 @@ export class QueryProcessor {
         return nodesWithPermissions;
     }
 
-    protected async getExistingSharedHashes(hashes: Buffer[]): Promise<{[sharedHash: string]: boolean}> {
+    protected async getExistingUniqueHashes(hashes: Buffer[]): Promise<{[uniqueHash: string]: boolean}> {
         if (hashes.length === 0) {
             return {};
         }
@@ -1609,18 +1644,18 @@ export class QueryProcessor {
 
         const ph = this.db.generatePlaceholders(hashes.length);
 
-        const sql = `SELECT sharedhash FROM openodin_nodes WHERE sharedhash IN ${ph}
+        const sql = `SELECT uniquehash FROM openodin_nodes WHERE uniquehash IN ${ph}
             AND (expiretime IS NULL OR expiretime > ${now})
             AND creationtime <= ${now2};`;
 
         const rows = await this.db.all(sql, hashes);
 
-        const existingHashes: {[sharedHash: string]: boolean} = {};
+        const existingHashes: {[uniqueHash: string]: boolean} = {};
 
         const rowsLength = rows.length;
         for (let index=0; index<rowsLength; index++) {
             const row = rows[index];
-            existingHashes[row.sharedhash.toString("hex")] = true;
+            existingHashes[row.uniquehash.toString("hex")] = true;
         }
 
         return existingHashes;
@@ -1658,22 +1693,24 @@ export class QueryProcessor {
      *
      * @returns tuple of nodes and licenses found (if includeLicenses is set).
      */
-    protected async filterLicensedNodes(nodes: NodeInterface[], targetPublicKey: Buffer,
+    protected async filterLicensedNodes(nodes: BaseNodeInterface[], targetPublicKey: Buffer,
         includeLicenses: boolean = false):
-        Promise<[nodes: NodeInterface[],
+        Promise<[nodes: BaseNodeInterface[],
         includedLicenses: {[nodeId1: string]: {[licenseId1: string]: Buffer}}]>
     {
         const nodeTrees: {[id1: string]: LicenseNodeEntry[]} = {};
 
         const distinctHashes: {[hash: string]: Buffer} = {};
 
-        const allowedNodes: NodeInterface[] = [];
+        const allowedNodes: BaseNodeInterface[] = [];
 
         const includedLicenses: {[nodeId1: string]: {[licenseId1: string]: Buffer}} = {};
 
+        // First part is only relevant to run if QueryProcessor is allowed to return licensed nodes at all.
+        //
         if (this.allowLicensed) {
             for (const node of nodes) {
-                const parentId = node.getParentId();
+                const parentId = node.getProps().parentId;
 
                 if (!parentId) {
                     continue;
@@ -1681,17 +1718,17 @@ export class QueryProcessor {
 
                 // Check licensed nodes and any licensed embedded nodes.
                 //
-                let eyesOnNode: NodeInterface | undefined = node;
+                let eyesOnNode: BaseNodeInterface | undefined = node;
 
                 const id1List: Buffer[] = [];
 
                 while (eyesOnNode) {
-                    const id1 = eyesOnNode.getId1() as Buffer;
+                    const id1 = eyesOnNode.getProps().id1 as Buffer;
 
                     id1List.push(id1);
 
-                    if (eyesOnNode.isLicensed()) {
-                        const parentId2 = eyesOnNode.getParentId();
+                    if (eyesOnNode.loadFlags().isLicensed) {
+                        const parentId2 = eyesOnNode.getProps().parentId;
 
                         if (!parentId2) {
                             break;
@@ -1718,165 +1755,165 @@ export class QueryProcessor {
                         }
                     }
 
-                    if (eyesOnNode.getEmbedded()) {
+                    // Check for embedded licensed node
+                    if (!DataNode.Is(eyesOnNode.getProps().modelType)) {
+                        // We only look for embedded nodes in data nodes.
+                        break;
+                    }
+
+                    const dataNode = eyesOnNode as DataNodeInterface;
+
+                    if (dataNode.getProps().embedded) {
                         try {
-                            const dataModel = eyesOnNode.getEmbeddedObject();
-                            // Check if data model is of primary interface Node,
-                            // since node is the datamodel which can be licensed.
-                            if (dataModel.getType(2).equals(Data.GetType(2))) {
-                                eyesOnNode = dataModel as NodeInterface;
-                                if (!eyesOnNode.allowEmbed()) {
-                                    break;
-                                }
+                            const embeddedDataNode = dataNode.loadEmbedded();
 
-                                const parentId2 = eyesOnNode.getParentId();
+                            const flags = embeddedDataNode.loadFlags();
 
-                                if (!parentId2) {
-                                    break;
-                                }
-
-                                const sameParentId = parentId2.equals(parentId);
-
-                                if (!sameParentId && !eyesOnNode.allowEmbedMove()) {
-                                    // The embedded node has another parentId but it is apparently
-                                    // not allowed to be moved around.
-                                    break;
-                                }
+                            if (!flags.allowEmbed) {
+                                break;
                             }
-                            else {
-                                // Not a node, do not check any further.
-                                eyesOnNode = undefined;
+
+                            const parentId2 = embeddedDataNode.getProps().parentId;
+
+                            if (!parentId2) {
+                                break;
                             }
+
+                            const sameParentId = parentId2.equals(parentId);
+
+                            if (!sameParentId && !flags.allowEmbedMove) {
+                                // The embedded node has another parentId but it is apparently
+                                // not allowed to be moved around.
+                                break;
+                            }
+
+                            eyesOnNode = embeddedDataNode;
                         }
                         catch (e) {
                             console.error(e);
-                            eyesOnNode = undefined;
+                            break;
                         }
                     }
                     else {
-                        eyesOnNode = undefined;
+                        break;
                     }
                 }
             }
+        }
 
 
-            // Get as many of all possible relevant licenses as we can.
-            //
-            const licenseRows = await this.fetchLicenses(Object.values(distinctHashes));
+        // Get as many of all possible relevant licenses as we can.
+        //
+        const licenseRows = await this.fetchLicenses(Object.values(distinctHashes));
 
-            // Iterate over all nodes AGAIN and now check if any of the relevant licenses
-            // needed are available for each licensed node and also for every embedded node
-            // which is licensed.
-            //
-            for (const node of nodes) {
-                const parentId = node.getParentId();
-                const nodeId1 = node.getId1();
+        // Iterate over all nodes AGAIN and now check if any of the relevant licenses
+        // needed are available for each licensed node and also for every embedded node
+        // which is licensed.
+        //
+        for (const node of nodes) {
+            const parentId = node.getProps().parentId;
+            const nodeId1 = node.getProps().id1;
 
-                if (!parentId || !nodeId1) {
-                    continue;
-                }
+            if (!parentId || !nodeId1) {
+                continue;
+            }
 
-                const nodeId1Str = nodeId1.toString("hex");
+            const nodeId1Str = nodeId1.toString("hex");
 
-                const id1List: Buffer[] = [];
+            const id1List: Buffer[] = [];
 
-                let eyesOnNode: NodeInterface | undefined = node;
+            let eyesOnNode: BaseNodeInterface | undefined = node;
 
-                let found = true;
+            let found = true;
 
-                while (eyesOnNode) {
-                    const id1 = eyesOnNode.getId1() as Buffer;
+            while (eyesOnNode) {
+                const id1 = eyesOnNode.getProps().id1 as Buffer;
 
-                    id1List.push(id1);
+                id1List.push(id1);
 
-                    if (eyesOnNode.isLicensed()) {
-                        const parentId2 = eyesOnNode.getParentId();
+                if (eyesOnNode.loadFlags().isLicensed) {
+                    const parentId2 = eyesOnNode.getProps().parentId;
 
-                        if (!parentId2) {
-                            found = false;
-                            break;
+                    if (!parentId2) {
+                        found = false;
+                        break;
+                    }
+
+                    const sameParentId = parentId2.equals(parentId);
+
+                    const id1Concated = id1List.map( id1 => id1.toString("hex") ).join("_");
+
+                    const entries = nodeTrees[id1Concated];
+
+                    if (!entries) {
+                        found = false;
+                        break;
+                    }
+
+                    const creationTime = eyesOnNode.getProps().creationTime ?? 0;
+
+                    let innerFound = false;
+
+                    for (const entry of entries) {
+                        if (entry.distance > 0 && !sameParentId) {
+                            // For moved embedded nodes we only accept sibling licenses
+                            // of distance 0.
+                            continue;
                         }
 
-                        const sameParentId = parentId2.equals(parentId);
-
-                        const id1Concated = id1List.map( id1 => id1.toString("hex") ).join("_");
-
-                        const entries = nodeTrees[id1Concated];
-
-                        if (!entries) {
-                            found = false;
-                            break;
+                        if (entry.distance < (eyesOnNode.getProps().licenseMinDistance ?? 0)) {
+                            continue;
                         }
 
-                        const creationTime = eyesOnNode.getCreationTime() ?? 0;
+                        // Note we do not need to check getLicenseMaxDistance
+                        // for eyesOnNode since entries was already fetched with that in mind.
 
-                        let innerFound = false;
+                        for (const hash of entry.licenseHashes) {
+                            const hashStr = hash.toString("hex");
 
-                        for (const entry of entries) {
-                            if (entry.distance > 0 && !sameParentId) {
-                                // For moved embedded nodes we only accept sibling licenses
-                                // of distance 0.
-                                continue;
-                            }
+                            const licenses = licenseRows[hashStr] ?? [];
 
-                            if (entry.distance < eyesOnNode.getLicenseMinDistance()) {
-                                continue;
-                            }
-
-                            // Note we do not need to check getLicenseMaxDistance
-                            // for eyesOnNode since entries was already fetched with that in mind.
-
-                            for (const hash of entry.licenseHashes) {
-                                const hashStr = hash.toString("hex");
-
-                                const licenses = licenseRows[hashStr] ?? [];
-
-                                for (const license of licenses) {
-                                    if (license.disallowretrolicensing) {
-                                        if (license.creationtime > creationTime) {
-                                            continue;
-                                        }
+                            for (const license of licenses) {
+                                if (license.disallowretrolicensing) {
+                                    if (license.creationtime > creationTime) {
+                                        continue;
                                     }
-
-                                    if (license.parentpathhash) {
-                                        if (entry.pathHashes.findIndex( hash =>
-                                            hash.equals(license.parentpathhash as Buffer)) === -1) {
-
-                                            continue;
-                                        }
-                                    }
-
-                                    if (includeLicenses) {
-                                        // Collect all active licenses, read and write.
-                                        //
-                                        const id1Str = license.id1.toString("hex");
-                                        const o = includedLicenses[nodeId1Str] ?? {};
-                                        o[id1Str] = license.id1;
-                                        includedLicenses[nodeId1Str] = o;
-                                    }
-
-                                    // Check so it is a read license.
-                                    //
-                                    if (!license.restrictivemodewriter &&
-                                        !license.restrictivemodemanager)
-                                    {
-                                        // We can only allow read license to license the node
-                                        // when fetching.
-                                        innerFound = true;
-
-                                        if (!includeLicenses) {
-                                            // We don't need more confirmation than one license.
-                                            break;
-                                        }
-                                    }
-
-                                    // If it is a write license then keep iterating.
-                                    //
                                 }
 
-                                if (innerFound && !includeLicenses) {
-                                    break;
+                                if (license.parentpathhash) {
+                                    if (entry.pathHashes.findIndex( hash =>
+                                        hash.equals(license.parentpathhash as Buffer)) === -1) {
+
+                                        continue;
+                                    }
                                 }
+
+                                if (includeLicenses) {
+                                    // Collect all active licenses, read and write.
+                                    //
+                                    const id1Str = license.id1.toString("hex");
+                                    const o = includedLicenses[nodeId1Str] ?? {};
+                                    o[id1Str] = license.id1;
+                                    includedLicenses[nodeId1Str] = o;
+                                }
+
+                                // Check so it is a read license.
+                                //
+                                if (!license.restrictivemodewriter &&
+                                    !license.restrictivemodemanager)
+                                {
+                                    // We can only allow read license to license the node
+                                    // when fetching.
+                                    innerFound = true;
+
+                                    if (!includeLicenses) {
+                                        // We don't need more confirmation than one license.
+                                        break;
+                                    }
+                                }
+
+                                // If it is a write license then keep iterating.
+                                //
                             }
 
                             if (innerFound && !includeLicenses) {
@@ -1884,42 +1921,45 @@ export class QueryProcessor {
                             }
                         }
 
-                        if (!innerFound) {
-                            found = false;
+                        if (innerFound && !includeLicenses) {
                             break;
                         }
                     }
 
-                    // Load next embedded node to be checked.
-                    //
-                    if (eyesOnNode.getEmbedded()) {
-                        try {
-                            const dataModel = eyesOnNode.getEmbeddedObject();
-                            // Check if data model is of primary interface Node,
-                            // since node is the datamodel which can be licensed.
-                            if (dataModel.getType(2).equals(Data.GetType(2))) {
-                                eyesOnNode = dataModel as NodeInterface;
-                            }
-                            else {
-                                // Not a node, do not check any further.
-                                eyesOnNode = undefined;
-                            }
-                        }
-                        catch (e) {
-                            console.error(e);
-                            eyesOnNode = undefined;
-                        }
-                    }
-                    else {
-                        eyesOnNode = undefined;
+                    if (!innerFound) {
+                        found = false;
+                        break;
                     }
                 }
 
-                // Node and all embedded nodes have now been checked.
-
-                if (found) {
-                    allowedNodes.push(node);
+                // Check for embedded licensed node
+                if (!DataNode.Is(eyesOnNode.getProps().modelType)) {
+                    // We only look for embedded nodes in data nodes.
+                    break;
                 }
+
+                const dataNode = eyesOnNode as DataNodeInterface;
+
+                // Load next embedded node to be checked.
+                //
+                if (dataNode.getProps().embedded) {
+                    try {
+                        eyesOnNode = dataNode.loadEmbedded();
+                    }
+                    catch (e) {
+                        console.error(e);
+                        break;
+                    }
+                }
+                else {
+                    break;
+                }
+            }
+
+            // Node and all embedded nodes have now been checked.
+
+            if (found) {
+                allowedNodes.push(node);
             }
         }
 
@@ -1941,12 +1981,12 @@ export class QueryProcessor {
      * If the node is beginRestrictiveWriterMode then it will add it self to the list to be inherited.
      *
      */
-    protected async filterRestrictiveMode(allNodes: NodeInterface[]): Promise<NodeInterface[]> {
+    protected async filterRestrictiveMode(allNodes: BaseNodeInterface[]): Promise<BaseNodeInterface[]> {
         const distinctHashes: {[hash: string]: Buffer} = {};
 
         for (const node of allNodes) {
-            const idStr = (node.getId() as Buffer).toString("hex");
-            const id1Str = (node.getId1() as Buffer).toString("hex");
+            const idStr = (node.getProps().id as Buffer).toString("hex");
+            const id1Str = (node.getProps().id1 as Buffer).toString("hex");
 
             const obj1 = this.alreadyProcessedNodes[idStr]?.id1s[id1Str];
 
@@ -1955,8 +1995,8 @@ export class QueryProcessor {
             }
 
             for (const restrictiveWriterNode of obj1.restrictiveNodes) {
-                const hashes = restrictiveWriterNode.getLicensingHashes(restrictiveWriterNode.getOwner(),
-                    node.getOwner());
+                const hashes = restrictiveWriterNode.getLicenseHashes(true, restrictiveWriterNode.getProps().owner,
+                    node.getProps().owner);
 
                 for (const hash of hashes) {
                     distinctHashes[hash.toString("hex")] = hash;
@@ -1965,12 +2005,12 @@ export class QueryProcessor {
         }
 
 
-        const licenseRows = await this.fetchLicenses(Object.values(distinctHashes), true);
+        const licenseRows = await this.fetchLicenses(Object.values(distinctHashes));
 
 
         return allNodes.filter( node => {
-            const idStr = (node.getId() as Buffer).toString("hex");
-            const id1Str = (node.getId1() as Buffer).toString("hex");
+            const idStr = (node.getProps().id as Buffer).toString("hex");
+            const id1Str = (node.getProps().id1 as Buffer).toString("hex");
 
             const obj1 = this.alreadyProcessedNodes[idStr]?.id1s[id1Str];
 
@@ -1980,8 +2020,8 @@ export class QueryProcessor {
 
 
             for (const restrictiveWriterNode of obj1.restrictiveNodes) {
-                const hashes = restrictiveWriterNode.getLicensingHashes(restrictiveWriterNode.getOwner(),
-                    node.getOwner());
+                const hashes = restrictiveWriterNode.getLicenseHashes(true, restrictiveWriterNode.getProps().owner,
+                    node.getProps().owner);
 
                 let found = false;
                 for (const hash of hashes) {
@@ -1991,7 +2031,7 @@ export class QueryProcessor {
 
                     for (const license of licenses) {
                         if (license.restrictivemodemanager) {
-                            const id1Str = (restrictiveWriterNode.getId1() as Buffer).toString("hex");
+                            const id1Str = (restrictiveWriterNode.getProps().id1 as Buffer).toString("hex");
                             obj1.restrictiveManager[id1Str] = true;
                         }
 
@@ -2026,10 +2066,8 @@ export class QueryProcessor {
      * 2. Each parent nodes min/maxLicenseDistance does not matter,
      *    as long as each parent node use parent licenses themselves. It is the first
      *    node given as first argument which decide the maximum distance used.
-     * 3. Parents are not fetched if the parent node to get parents by has online id (id2).
-     *    We do not go past such a node.
-     * 4. A parent is allowed to be validated online, but it must be valid.
-     * 5. A parent cannot be configured with disallowParentLicensing.
+     * 3. Parents are not fetched if the parent node to get parents by is inactive.
+     * 4. A parent cannot be configured with disallowParentLicensing.
      *
      * @param node The node to start building the tree from (bottom node).
      * @param ownerPublicKey
@@ -2043,33 +2081,35 @@ export class QueryProcessor {
      *
      * @return array of nodes and each node's set of calculated pathHashes.
      */
-    protected getLicenseNodeTree(node: NodeInterface, ownerPublicKey: Buffer | undefined,
+    protected getLicenseNodeTree(node: BaseNodeInterface, ownerPublicKey: Buffer | undefined,
         targetPublicKey: Buffer, actualParentId?: Buffer): LicenseNodeEntry[]
     {
         const entries: LicenseNodeEntry[] = [];
 
-        const maxDistance = Math.min(node.getLicenseMaxDistance(),
+        const maxDistance = Math.min(node.getProps().licenseMaxDistance ?? 0,
             actualParentId ? 0 : MAX_LICENSE_DISTANCE);
 
 
-        let currentLevelNodes: [NodeInterface, Buffer[]][] = [ [node, []] ];
+        let currentLevelNodes: [BaseNodeInterface, Buffer[]][] = [ [node, []] ];
 
         for (let distance=0; distance<=maxDistance; distance++) {
-            const nextLevelNodes: [NodeInterface, Buffer[]][] = [];
+            const nextLevelNodes: [BaseNodeInterface, Buffer[]][] = [];
 
             for (const [node, prevHashes] of currentLevelNodes) {
-                if (!node.isLicensed()) {
+                const flags = node.loadFlags();
+
+                if (!flags.isLicensed || flags.isInactive) {
                     continue;
                 }
 
-                const licenseHashes = node.getLicensingHashes(ownerPublicKey, targetPublicKey,
+                const licenseHashes = node.getLicenseHashes(false, ownerPublicKey, targetPublicKey,
                     actualParentId);
 
                 const pathHashes: Buffer[] = prevHashes.map( prevHash => {
-                    return Hash([node.getId1() as Buffer, Buffer.from([1]), prevHash]);
+                    return HashList([node.getProps().id1 as Buffer, Buffer.from([1]), prevHash]);
                 });
 
-                pathHashes.push(Hash(node.getId1() as Buffer));
+                pathHashes.push(Hash(node.getProps().id1 as Buffer));
 
                 entries.push({
                     licenseHashes,
@@ -2082,20 +2122,15 @@ export class QueryProcessor {
                     break;
                 }
 
-                if (distance > 0 && node.hasOnlineId()) {
-                    // We can't step past a parent node who has online id.
-                    continue;
-                }
-
                 if (!node.usesParentLicense()) {
                     continue;
                 }
 
                 // Get parents.
                 //
-                const parentId = node.getParentId();
-                const id = node.getId();
-                const id1 = node.getId1();
+                const parentId = node.getProps().parentId;
+                const id = node.getProps().id;
+                const id1 = node.getProps().id1;
 
                 if (distance < maxDistance && parentId && id1 && id) {
                     const parentIdStr = parentId.toString("hex");
@@ -2112,16 +2147,18 @@ export class QueryProcessor {
                             continue;
                         }
 
-                        if (parentNode.isLeaf()) {
+                        const parentFlags = parentNode.loadFlags();
+
+                        if (parentFlags.isLeaf) {
                             continue;
                         }
 
-                        if (!parentNode.isLicensed() || parentNode.disallowParentLicensing()) {
+                        if (!parentFlags.isLicensed || parentFlags.disallowParentLicensing) {
                             continue;
                         }
 
-                        if (parentNode.hasOnline() && !parentNode.isOnline()) {
-                            // We can't use a parent node who is not online.
+                        if (parentFlags.isInactive) {
+                            // We can't use a parent node which is inactive.
                             continue;
                         }
 
@@ -2139,17 +2176,16 @@ export class QueryProcessor {
 
     /**
      * Returns map of all found licenses by their licensing hashes.
+     * Inactive license nodes are ignored.
      *
      * @param licenseHashes
-     * @param selectOnlyWriteLicenses if true then only get for restrictivemodewriter and/or
-     * restrictivemodemanager.
      * @returns array of found license rows.
      */
-    protected async fetchLicenses(licenseHashes: Buffer[], selectOnlyWriteLicenses: boolean = false):
-        Promise<{[hash: string]: SelectLicenseeHash[]}>
+    protected async fetchLicenses(licenseHashes: Buffer[]):
+        Promise<{[hash: string]: SelectLicensingHash[]}>
     {
 
-        const licenseRows: {[hash: string]: SelectLicenseeHash[]} = {};
+        const licenseRows: {[hash: string]: SelectLicensingHash[]} = {};
 
         const now = this.now;
 
@@ -2158,9 +2194,6 @@ export class QueryProcessor {
         }
 
         const now2 = now + NOW_TOLERANCE;
-
-        const onlyWriteLicensesSQL = selectOnlyWriteLicenses ?
-            "AND (restrictivemodewriter = 1 OR restrictivemodemanager = 1)" : "";
 
         // Apply some sanity.
         if (licenseHashes.length > 10000) {
@@ -2174,18 +2207,17 @@ export class QueryProcessor {
 
             const sql = `SELECT hash, disallowretrolicensing, parentpathhash, restrictivemodewriter,
                 restrictivemodemanager, nodes.creationtime AS creationtime, hashes.id1 AS id1
-                FROM openodin_licensee_hashes AS hashes, openodin_nodes AS nodes
-                WHERE hashes.hash IN ${ph} AND hashes.id1 = nodes.id1
-                ${onlyWriteLicensesSQL} AND
+                FROM openodin_licensing_hashes AS hashes, openodin_nodes AS nodes
+                WHERE hashes.hash IN ${ph} AND hashes.id1 = nodes.id1 AND
                 (nodes.expiretime IS NULL OR nodes.expiretime > ${now})
-                AND nodes.creationtime <= ${now2};`;
+                AND nodes.creationtime <= ${now2} AND nodes.isinactive = 0;`;
 
             try {
                 const rows = await this.db.all(sql, hashes);
 
                 const rowsLength = rows.length;
                 for (let index=0; index<rowsLength; index++) {
-                    const row = rows[index] as SelectLicenseeHash;
+                    const row = rows[index] as SelectLicensingHash;
                     const hashStr = row.hash.toString("hex");
                     const list = licenseRows[hashStr] ?? [];
                     licenseRows[hashStr] = list;
@@ -2207,8 +2239,8 @@ export class QueryProcessor {
      *
      * @returns tuple of allowedNodes, nodesToEmbed,
      */
-    protected async filterPrivateNodes(allNodes: NodeInterface[], allowRightsByAssociation: boolean):
-        Promise<[NodeInterface[], NodeInterface[]]>
+    protected async filterPrivateNodes(allNodes: BaseNodeInterface[], allowRightsByAssociation: boolean):
+        Promise<[BaseNodeInterface[], BaseNodeInterface[]]>
     {
         const keep: {[index: number]: boolean} = {};
         const checkAssociation: {[index: number]: Buffer} = {};
@@ -2217,14 +2249,16 @@ export class QueryProcessor {
         for (let index=0; index<nodesLength; index++) {
             const node = allNodes[index];
 
-            if (node.isPublic() || node.isLicensed()) {
+            const flags = node.loadFlags();
+
+            if (flags.isPublic || flags.isLicensed) {
                 keep[index] = true;
             }
             else if (node.canSendPrivately(this.fetchQuery.sourcePublicKey, this.fetchQuery.targetPublicKey)) {
                 keep[index] = true;
             }
-            else if (node.hasRightsByAssociation()) {
-                const refId = node.getRefId();
+            else if (flags.hasRightsByAssociation) {
+                const refId = node.getProps().refId;
                 if (refId && allowRightsByAssociation) {
                     checkAssociation[index] = refId;
                 }
@@ -2244,17 +2278,17 @@ export class QueryProcessor {
                 const nodesLength = nodes.length;
                 for (let index=0; index<nodesLength; index++) {
                     const node = nodes[index];
-                    const id1Str = node.getId1()!.toString("hex");
+                    const id1Str = node.getProps().id1!.toString("hex");
                     id1s[id1Str] = true;
                 }
 
                 for (const index in checkAssociation) {
                     const refId = checkAssociation[index];
-                    const index2 = nodes.findIndex( node2 => node2.getId1()?.equals(refId) );
+                    const index2 = nodes.findIndex( node2 => node2.getProps().id1?.equals(refId) );
                     if (index2 > -1) {
                         const node2 = nodes[index2];
-                        if ((allNodes[index].getParentId() as Buffer).equals(node2.getParentId() as Buffer)) {
-                            if (!node2.hasOnline() || node2.isOnline()) {
+                        if ((allNodes[index].getProps().parentId as Buffer).equals(node2.getProps().parentId as Buffer)) {
+                            if (!node2.loadFlags().isInactive) {
                                 keep[index] = true;
                             }
                         }
@@ -2263,25 +2297,30 @@ export class QueryProcessor {
             }
         }
 
-        const nodes: NodeInterface[] = [];
 
-        const embed: NodeInterface[] = [];
+        const nodes: BaseNodeInterface[] = [];
+
+        const embed: BaseNodeInterface[] = [];
 
         const nodesLength2 = allNodes.length;
         for (let index=0; index<nodesLength2; index++) {
-            if (keep[index]) {
-                nodes.push(allNodes[index]);
-            }
-
             const node = allNodes[index];
 
-            if (!keep[index] || node?.getType(4).equals(License.GetType(4))) {
+            if (keep[index]) {
+                nodes.push(allNodes[index]);
+                // Fall through
+            }
+
+            const flags = node.loadFlags();
+
+            //if (!keep[index] || LicenseNode.Is(node?.getProps().modelType)) {
+            if (flags.allowEmbed && flags.isUnique) {
                 // If node was not allowed to send privately or if it is a license, then
                 // see if we can embed the node to send it.
                 // Licenses are a special case where the license created by target will be sent
                 // but also it could get embedded towards target and also sent.
                 if (node.canSendEmbedded(this.fetchQuery.sourcePublicKey, this.fetchQuery.targetPublicKey) &&
-                    node.isUnique() && this.allowEmbedNode(node)) {
+                    this.allowEmbedNode(node)) {
                     embed.push(node);
                 }
             }
@@ -2290,7 +2329,7 @@ export class QueryProcessor {
         return [nodes, embed];
     }
 
-    protected allowEmbedNode(node: NodeInterface): boolean {
+    protected allowEmbedNode(node: BaseNodeInterface): boolean {
         if (!this.allowEmbed || this.reverseFetch !== ReverseFetch.OFF) {
             return false;
         }
@@ -2300,8 +2339,8 @@ export class QueryProcessor {
         try {
             for (let i=0; i<allowEmbed.length; i++) {
                 const ae = allowEmbed[i];
-                if (ae.nodeType.equals(node.getType().slice(0, ae.nodeType.length))) {
-                    if (node.checkFilters(ae.filters)) {
+                if (ae.nodeType.equals(node.getProps().modelType!.slice(0, ae.nodeType.length))) {
+                    if (this.checkFilters(node, ae.filters)) {
                         return true;
                     }
                 }
@@ -2320,9 +2359,13 @@ export class QueryProcessor {
      *
      * @param id1s the ID1s of the nodes.
      */
-    protected async getNodesById1(id1s: Buffer[]): Promise<NodeInterface[]> {
+    protected async getNodesById1(id1s: Buffer[]): Promise<BaseNodeInterface[]> {
         if (id1s.length > MAX_BATCH_SIZE) {
             throw new Error("Overflow in batch size of id1s");
+        }
+
+        if (id1s.length === 0) {
+            return [];
         }
 
         const ph = this.db.generatePlaceholders(id1s.length);
@@ -2341,13 +2384,15 @@ export class QueryProcessor {
 
         const rows = await this.db.all(sql, id1s);
 
-        const nodes: NodeInterface[] = [];
+        const nodes: BaseNodeInterface[] = [];
 
         const rowsLength = rows.length;
         for (let index=0; index<rowsLength; index++) {
             try {
-                const node = Decoder.DecodeNode(rows[index].image, true);
-                node.setTransientStorageTime(rows[index].storagetime);
+                const node = UnpackNode(rows[index].image, true);
+
+                node.getProps().transientStorageTime = rows[index].storagetime;
+
                 nodes.push(node);
             }
             catch(e) {
@@ -2355,7 +2400,7 @@ export class QueryProcessor {
             }
         }
 
-        const nodes2: NodeInterface[] = [];
+        const nodes2: BaseNodeInterface[] = [];
 
         // Preserve the order of nodes as given in id1s.
         const id1sLength = id1s.length;
@@ -2364,12 +2409,31 @@ export class QueryProcessor {
             const nodesLength = nodes.length;
             for (let i=0; i<nodesLength; i++) {
                 const node = nodes[i];
-                if ((node.getId1() as Buffer).equals(id1)) {
+                if ((node.getProps().id1 as Buffer).equals(id1)) {
                     nodes2.push(node);
                 }
             }
         }
 
         return nodes2;
+    }
+
+    /**
+     * Check a list of filters against a node.
+     *
+     * @param filters list of filters to compare to, if empty list then this function returns true.
+     * @returns false if any filter does not match this node, true if all filters match.
+     * @throws on badly formatted filters.
+     */
+    public checkFilters(node: BaseNodeInterface, filters: Filter[]): boolean {
+        for (let index=0; index<filters.length; index++) {
+            const filter = filters[index];
+
+            if (!node.filter(filter)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

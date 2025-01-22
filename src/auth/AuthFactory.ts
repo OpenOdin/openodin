@@ -5,7 +5,7 @@ import {
 
 import {
     KeyPair,
-    Crypto,
+    Krypto,
 } from "../datamodel";
 
 import {
@@ -29,7 +29,7 @@ export class AuthFactory implements AuthFactoryInterface {
     protected keyPair: KeyPair;
 
     constructor(keyPair: KeyPair) {
-        if (!Crypto.IsEd25519(keyPair.publicKey)) {
+        if (!Krypto.IsEd25519(keyPair.publicKey)) {
             throw new Error("AuthFactory must be constructed with an Ed25519 keypair.");
         }
 

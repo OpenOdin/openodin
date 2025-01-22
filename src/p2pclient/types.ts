@@ -1,4 +1,8 @@
 import {
+    BaseNodeType,
+} from "../datamodel";
+
+import {
     FetchRequest,
     AllowEmbed,
 } from "../types";
@@ -12,6 +16,10 @@ import {
 import {
     EmbedSchema,
 } from "../request/jsonSchema";
+
+import {
+    ParseSchemaType,
+} from "../util/SchemaUtil";
 
 import {
     ParseEnum,
@@ -195,13 +203,13 @@ export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     fetchPermissions: {
         allowEmbed: [
             {
-                nodeType: Buffer.from("0004", "hex"),
+                nodeType: Buffer.from("01", "hex"),
                 filters: []
             }
         ],
         allowIncludeLicenses: "IncludeExtend",
         allowTrigger: true,
-        allowNodeTypes: [Buffer.from("0004", "hex")],
+        allowNodeTypes: [Buffer.from(BaseNodeType)],
         allowAlgos: [
             AlgoSorted.GetId(),
             AlgoRefId.GetId(),
@@ -215,14 +223,14 @@ export const UNCHECKED_PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     }
 };
 
-export const P2PClientPermissionsUncheckedPermissiveSchema = {
+export const P2PClientPermissionsUncheckedPermissiveSchema: ParseSchemaType = {
     "allowUncheckedAccess?": true,
     "fetchPermissions?": {
-        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], ["0004"]),
+        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], [Buffer.from(BaseNodeType)]),
         "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""],
             "IncludeExtend"),
         "allowTrigger?": true,
-        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "0004", filters: []}]),
+        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "01", filters: []}]),
         "allowAlgos?": ParseArrayWithDefault([""], [
             AlgoSorted.GetId(),
             AlgoRefId.GetId(),
@@ -241,13 +249,13 @@ export const DEFAULT_PEER_PERMISSIONS: P2PClientPermissions = {
     fetchPermissions: {
         allowEmbed: [
             {
-                nodeType: Buffer.from("0004", "hex"),
+                nodeType: Buffer.from("01", "hex"),
                 "filters": []
             }
         ],
         allowIncludeLicenses: "IncludeExtend",
         allowTrigger: true,
-        allowNodeTypes: [Buffer.from("0004", "hex")],
+        allowNodeTypes: [Buffer.from(BaseNodeType)],
         allowAlgos: [],
         allowReadBlob: true,
     },
@@ -257,14 +265,14 @@ export const DEFAULT_PEER_PERMISSIONS: P2PClientPermissions = {
     }
 };
 
-export const P2PClientPermissionsDefaultSchema = {
+export const P2PClientPermissionsDefaultSchema: ParseSchemaType = {
     "allowUncheckedAccess?": false,
     "fetchPermissions?": {
-        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], ["0004"]),
+        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], [Buffer.from(BaseNodeType)]),
         "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""],
             "IncludeExtend"),
         "allowTrigger?": true,
-        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "0004", filters: []}]),
+        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "01", filters: []}]),
         "allowAlgos?": [""],
         "allowReadBlob?": true,
     },
@@ -279,13 +287,13 @@ export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     fetchPermissions: {
         allowEmbed: [
             {
-                nodeType: Buffer.from("0004", "hex"),
+                nodeType: Buffer.from("01", "hex"),
                 "filters": []
             }
         ],
         allowIncludeLicenses: "IncludeExtend",
         allowTrigger: true,
-        allowNodeTypes: [Buffer.from("0004", "hex")],
+        allowNodeTypes: [Buffer.from(BaseNodeType)],
         allowAlgos: [
             AlgoSorted.GetId(),
             AlgoRefId.GetId(),
@@ -299,14 +307,14 @@ export const PERMISSIVE_PERMISSIONS: P2PClientPermissions = {
     }
 };
 
-export const P2PClientPermissionsPermissiveSchema = {
+export const P2PClientPermissionsPermissiveSchema: ParseSchemaType = {
     "allowUncheckedAccess?": false,
     "fetchPermissions?": {
-        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], ["0004"]),
+        "allowNodeTypes?": ParseArrayWithDefault([new Uint8Array(0)], [Buffer.from(BaseNodeType)]),
         "allowIncludeLicenses?": ParseEnum(["Include", "Extend", "IncludeExtend", ""],
             "IncludeExtend"),
         "allowTrigger?": true,
-        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "0004", filters: []}]),
+        "allowEmbed?": ParseArrayWithDefault([EmbedSchema], [{nodeType: "01", filters: []}]),
         "allowAlgos?": ParseArrayWithDefault([""], [
             AlgoSorted.GetId(),
             AlgoRefId.GetId(),
@@ -336,7 +344,7 @@ export const LOCKED_PERMISSIONS: P2PClientPermissions = {
     }
 };
 
-export const P2PClientPermissionsLockedSchema = {
+export const P2PClientPermissionsLockedSchema: ParseSchemaType = {
     "allowUncheckedAccess?": false,
     "fetchPermissions?": {
         "allowNodeTypes?": [new Uint8Array(0)],
@@ -386,7 +394,7 @@ export type PeerInfo = {
     sessionTimeout: number,
 };
 
-const ParseVersion = function(version: string): string {
+const ParseVersion = function(schema: ParseSchemaType, version: string): string {
     const a = version.split(".").map(n => parseInt(n));
 
     const version2 = a.join(".");
@@ -398,7 +406,7 @@ const ParseVersion = function(version: string): string {
     return version2;
 };
 
-export const PeerInfoSchema = {
+export const PeerInfoSchema: ParseSchemaType = {
     // This comes from the parses peer data and we need to actively ignore it.
     //
     peerDataFormat: undefined,

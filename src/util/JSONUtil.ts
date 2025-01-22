@@ -17,7 +17,7 @@ export class JSONUtil {
     /**
      * @throws
      */
-    public static LoadJSON(file: string, allowedExternalLoading: string[] = []): any {
+    public static LoadJSON(file: string, allowedExternalLoading?: string[]): any {
         if (file.substr(0, 2) === "~/") {
             file = path.join(os.homedir(), file.substr(1));
         }
@@ -57,7 +57,7 @@ export class JSONUtil {
      * String values mathcing /^!path.json:.keyname/ will be substituted with loaded value from path.json and ".keyname" value,
      * if allowedExternalLoading contains the ".varname" of the value we are substituting.
      */
-    public static ParseJSON(obj: any, varName: string, allowedExternalLoading: string[], orgFile: string): any {
+    public static ParseJSON(obj: any, varName: string, allowedExternalLoading: string[] | undefined, orgFile: string): any {
         if (Array.isArray(obj)) {
             return obj.map( (elm: any) => {
                 return JSONUtil.ParseJSON(elm, `${varName}[]`, allowedExternalLoading, orgFile);
@@ -79,16 +79,20 @@ export class JSONUtil {
                 const file = match[1];
                 const key = match[2];
 
-                const allowed = allowedExternalLoading.some( path => {
-                    if (varName.startsWith(path)) {
-                        const isBoundary = varName[path.length];
-                        if (path === "." || isBoundary === undefined || isBoundary === "." || isBoundary === "[") {
-                            return true;
-                        }
-                    }
+                let allowed = true;
 
-                    return false;
-                });
+                if (allowedExternalLoading) {
+                    allowed = allowedExternalLoading.some( path => {
+                        if (varName.startsWith(path)) {
+                            const isBoundary = varName[path.length];
+                            if (path === "." || isBoundary === undefined || isBoundary === "." || isBoundary === "[") {
+                                return true;
+                            }
+                        }
+
+                        return false;
+                    });
+                }
 
                 if (allowed) {
                     let filePath = file;

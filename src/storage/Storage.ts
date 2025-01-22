@@ -21,14 +21,12 @@ import {
 } from "../signatureoffloader/types";
 
 import {
-    Decoder,
-} from "../decoder";
-
-import {
-    NodeInterface,
-    DataInterface,
-    Hash,
-    DATA0_NODE_TYPE,
+    BaseNodeInterface,
+    UnpackNode,
+    BaseDataNode,
+    DataNode,
+    DataNodeInterface,
+    HashList,
 } from "../datamodel";
 
 import {
@@ -238,9 +236,9 @@ export class Storage {
         // Collect all locks here in case finally needs to release all locks.
         const locks: Mutex[] = [];
 
-        const hashStr = Hash([storeRequest.targetPublicKey,
+        const hashStr = HashList([storeRequest.targetPublicKey,
             storeRequest.sourcePublicKey,
-            storeRequest.batchId]).toString("hex");
+            Buffer.from([storeRequest.batchId])]).toString("hex");
 
         // Grab lock here, but wait for our turn later on
         //
@@ -276,25 +274,28 @@ export class Storage {
 
             const now = this.timeFreeze.now();
 
-            const decodedNodes: NodeInterface[] = [];
+            const decodedNodes: BaseNodeInterface[] = [];
             const images = storeRequest.nodes;
             const imagesLength = images.length;
             for (let index=0; index<imagesLength; index++) {
                 const image = images[index];
                 try {
-                    const node = Decoder.DecodeNode(image, storeRequest.preserveTransient);
+                    const node = UnpackNode(image, storeRequest.preserveTransient);
 
-                    if (node.isPrivate()) {
+                    const props = node.getProps();
+                    const flags = node.loadFlags();
+
+                    if (!flags.isPublic && !flags.isLicensed) {
                         if (!node.canReceivePrivately(storeRequest.sourcePublicKey,
                             storeRequest.targetPublicKey)) {
-
+                            console.debug("Node could not be received privately");
                             continue;
                         }
                     }
 
-                    const expireTime = node.getExpireTime();
-                    if (expireTime !== undefined && expireTime <= now) {
+                    if (props.expireTime !== undefined && props.expireTime <= now) {
                         // Node already expired, do not store it.
+                        console.debug("Node already expired");
                         continue;
                     }
 
@@ -304,6 +305,7 @@ export class Storage {
                     decodedNodes.push(node);
                 }
                 catch(e) {
+                    console.debug(e);
                     // Do nothing
                 }
             }
@@ -312,7 +314,7 @@ export class Storage {
             // TODO: first filter out existing nodes to not do heavy verify unnecessarily.
             //
             const verifiedNodes =
-                await this.signatureOffloader.verify(decodedNodes) as NodeInterface[];
+                await this.signatureOffloader.verify(decodedNodes) as BaseNodeInterface[];
 
             // Now wait for our turn to proceed.
             //
@@ -386,13 +388,19 @@ export class Storage {
                         const blobId1 = blobId1s[i];
                         if (!existingMap[blobId1.toString("hex")]) {
 
-                            const node = verifiedNodes.find( node => node.getId1()?.equals(blobId1) );
+                            const node = verifiedNodes.find( node => node.getProps().id1?.equals(blobId1) );
 
-                            const blobSize = node?.getBlobLength();
+                            if (node && BaseDataNode.Is(node.getProps().modelType)) {
+                                const baseDataNode = node as BaseDataNode;
 
-                            if (blobSize !== undefined) {
-                                missingBlobId1List.push(blobId1);
-                                missingBlobSizes.push(blobSize);
+                                const dataProps = baseDataNode.getProps();
+
+                                const blobLength = dataProps.blobLength;
+
+                                if (blobLength !== undefined) {
+                                    missingBlobId1List.push(blobId1);
+                                    missingBlobSizes.push(blobLength);
+                                }
                             }
                         }
                     }
@@ -514,6 +522,7 @@ export class Storage {
             const triggers = this.triggers[triggerNodeIdStr];
 
             const triggersLength = triggers?.length ?? 0;
+
             for (let index=0; index<triggersLength; index++) {
                 const trigger = triggers[index];
                 if (muteMsgIds.findIndex( msgId => msgId.equals(trigger.msgId) ) === -1) {
@@ -528,11 +537,9 @@ export class Storage {
         const now = this.timeFreeze.now();
 
         this.driver.getNodesById(triggerNodeIds, now).then( nodes => {
-            const parentIds = nodes.map(node =>
-                (node.bubbleTrigger() && !node.isLeaf()) ? node.getParentId() : undefined).
-                    filter( nodeId => {
-                        return nodeId && !doneTriggerNodeIds.has(nodeId);
-                    }) as Buffer[];
+            const parentIds = nodes.map(node => { const flags = node.loadFlags();
+                return (flags.bubbleTrigger && !flags.isLeaf) ? node.getProps().parentId : undefined }).
+                    filter( nodeId => nodeId && !doneTriggerNodeIds.has(nodeId) ) as Buffer[];
 
             if (parentIds.length > 0) {
                 this.triggerInsertEvent(parentIds, muteMsgIds, doneTriggerNodeIds);
@@ -955,7 +962,7 @@ export class Storage {
 
                     const node = nodes[0];
                     if (node) {
-                        const image = node.export(preserveTransient, preserveTransient);
+                        const image = node.pack(preserveTransient);
                         if (responseSize + image.length >= MESSAGE_SPLIT_BYTES) {
                             break;
                         }
@@ -969,7 +976,7 @@ export class Storage {
 
                     const nodeEmbed = embed[0];
                     if (nodeEmbed) {
-                        const image = nodeEmbed.export(preserveTransient, preserveTransient);
+                        const image = nodeEmbed.pack(preserveTransient);
                         if (responseSize + image.length >= MESSAGE_SPLIT_BYTES) {
                             break;
                         }
@@ -1105,6 +1112,8 @@ export class Storage {
         // Collect all locks here in case finally needs to release all locks.
         const locks: Mutex[] = [];
 
+        let ts;
+
         try {
             if (!this.blobDriver) {
                 throw new Error("Blob driver is not configured");
@@ -1128,7 +1137,7 @@ export class Storage {
 
             const pos = Number(posn);
 
-            const now = this.timeFreeze.read();
+            ts = this.timeFreeze.freeze();
 
             const mutex1 = this.lock.acquire("blobDriver");
 
@@ -1146,7 +1155,7 @@ export class Storage {
                 await mutex2.p;
             }
 
-            let node = await this.driver.getNodeById1(nodeId1, now);
+            let node = await this.driver.getNodeById1(nodeId1, ts);
 
             if (!node) {
                 status = Status.NotAllowed;
@@ -1157,8 +1166,8 @@ export class Storage {
             // This is so that the owner can always write blob data even if
             // there is no active license (yet).
             //
-            if (!writeBlobRequest.sourcePublicKey.equals(node.getOwner() as Buffer)) {
-                node = await this.driver.fetchSingleNode(nodeId1, now,
+            if (!writeBlobRequest.sourcePublicKey.equals(node.getProps().owner as Buffer)) {
+                node = await this.driver.fetchSingleNode(nodeId1, ts,
                     writeBlobRequest.targetPublicKey, writeBlobRequest.sourcePublicKey);
             }
 
@@ -1172,10 +1181,17 @@ export class Storage {
                 throw new Error("node not found or not allowed writing blob data");
             }
 
-            const blobLengthn = node.getBlobLength();
-            const blobHash = node.getBlobHash();
+            if (!DataNode.Is(node.getProps().modelType)) {
+                status = Status.Malformed;
+                throw new Error("node not configured for blob");
+            }
 
-            if (!node.hasBlob() || blobLengthn === undefined || blobHash === undefined) {
+            const dataNode = node as DataNode;
+
+            const blobLengthn = dataNode.getProps().blobLength;
+            const blobHash = dataNode.getProps().blobHash;
+
+            if (blobLengthn === undefined || blobHash === undefined) {
                 status = Status.Malformed;
                 throw new Error("node not configured for blob");
             }
@@ -1206,13 +1222,13 @@ export class Storage {
             }
 
 
-            const dataId = Hash([blobHash, writeBlobRequest.sourcePublicKey]);
+            const dataId = HashList([blobHash, writeBlobRequest.sourcePublicKey]);
 
             let done = false;
 
             for (let retry=0; retry<=MAX_BUSY_RETRIES; retry++) {
                 try {
-                    await this.blobDriver.writeBlob(dataId, pos, data, now);
+                    await this.blobDriver.writeBlob(dataId, pos, data, ts);
                     done = true;
                     break;
                 }
@@ -1253,7 +1269,7 @@ export class Storage {
                 for (let retry=0; retry<=MAX_BUSY_RETRIES; retry++) {
                     try {
                         await this.blobDriver.finalizeWriteBlob(nodeId1, dataId, blobLength,
-                            blobHash, now);
+                            blobHash, ts);
 
                         done = true;
 
@@ -1283,7 +1299,7 @@ export class Storage {
                         error: "",
                     };
 
-                    const parentId = node.getParentId();
+                    const parentId = node.getProps().parentId;
 
                     assert(parentId);
 
@@ -1295,7 +1311,7 @@ export class Storage {
                         await mutex5.p;
                     }
 
-                    await this.driver.bumpBlobNode(node, now);
+                    await this.driver.bumpBlobNode(node, ts);
 
                     this.lock.release(mutex5);
 
@@ -1337,6 +1353,10 @@ export class Storage {
             }
         }
         finally {
+            if (ts !== undefined) {
+                this.timeFreeze.unfreeze(ts);
+            }
+
             locks.forEach( lock => {
                 this.lock.release(lock);
             });
@@ -1407,11 +1427,18 @@ export class Storage {
                 throw new Error("node not found or not allowed");
             }
 
-            const blobLengthn = node.getBlobLength();
-
-            if (!node.hasBlob() || blobLengthn === undefined) {
+            if (!DataNode.Is(node.getProps().modelType)) {
                 status = Status.Malformed;
-                throw new Error("node not configured for blob");
+                throw new Error("node not data node");
+            }
+
+            const dataNode = node as DataNodeInterface;
+
+            const blobLengthn = dataNode.getProps().blobLength;
+
+            if (!dataNode.getProps().blobHash || blobLengthn === undefined) {
+                status = Status.Malformed;
+                throw new Error("dataNode not configured for blob");
             }
 
             if (blobLengthn > Number.MAX_SAFE_INTEGER) {
@@ -1506,7 +1533,7 @@ export class Storage {
 
         let rowCount: number = 0
 
-        const allNodesToAdd: DataInterface[] = [];
+        const allNodesToAdd: DataNodeInterface[] = [];
 
         // The fetch drives through here.
         //
@@ -1519,11 +1546,11 @@ export class Storage {
             }
 
             // For CRDT models we only include data nodes,
-            // which are not flagged as special nodes.
+            // which are not flagged as destroy nodes.
             //
             const nodesToAdd = (fetchReplyData.nodes ?? []).
-                filter( node => node.getType().equals(DATA0_NODE_TYPE) &&
-                    !(node as DataInterface).isSpecial() ) as DataInterface[];
+                filter( node => DataNode.Is(node.getProps().modelType) &&
+                    !(node as DataNodeInterface).loadFlags().isDestroy) as DataNodeInterface[];
 
             const embed = fetchReplyData.embed ?? [];
 
@@ -1579,13 +1606,13 @@ export class Storage {
                     const nodes = await this.driver.getNodesById1(id1s, now);
 
                     nodes.forEach( node => {
-                        const id1Str = node.getId1()!.toString("hex");
+                        const id1Str = node.getProps().id1!.toString("hex");
 
                         const annotations = crdtView.annotations[id1Str];
 
                         if (annotations) {
                             try {
-                                (node as DataInterface).setAnnotations(annotations);
+                                (node as DataNodeInterface).getProps().annotations = annotations;
                             }
                             catch(e) {
                                 // Ignore error, could be a too large annotation.

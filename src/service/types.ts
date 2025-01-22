@@ -20,7 +20,7 @@ import {
 
 import {
     KeyPair,
-    KeyPairSchema,
+    ParseKeyPairSchema,
 } from "../datamodel";
 
 import {
@@ -37,6 +37,7 @@ import {
 
 import {
     ParseEnum,
+    ParseSchemaType,
 } from "../util/SchemaUtil";
 
 export type ConnectionConfig = {
@@ -61,7 +62,7 @@ export type ConnectionConfig = {
     serializeFormat: number,
 };
 
-export const ConnectionConfigSchema = {
+export const ConnectionConfigSchema: ParseSchemaType = {
     connection: {
         "handshake??": HandshakeFactoryConfigSchema,
         "api??": APIAuthFactoryConfigSchema,
@@ -142,14 +143,14 @@ const DriverConfigSchemaPost = function(obj: DriverConfig): DriverConfig {
     return obj;
 };
 
-const DriverConfigSchema = {
+const DriverConfigSchema: ParseSchemaType = {
     "sqlite?": ":memory:",
     "pg??": "",
     "reconnectDelay?": 0,
     _postFn: DriverConfigSchemaPost,
 } as const;
 
-export const DatabaseConfigSchema = {
+export const DatabaseConfigSchema: ParseSchemaType = {
     "permissions?": P2PClientPermissionsUncheckedPermissiveSchema,
     "appPermissions?": P2PClientPermissionsPermissiveSchema,
     "driver?": DriverConfigSchema,
@@ -193,7 +194,7 @@ export type SyncConf = {
     }[],
 };
 
-export const SyncConfSchema = {
+export const SyncConfSchema: ParseSchemaType = {
     peerPublicKeys: [new Uint8Array(0)],
     "blobSizeMaxLimit?": -1,
     threads: [{
@@ -238,7 +239,7 @@ const ApplicationConfSchemaPost = function(obj: ApplicationConf): ApplicationCon
     return obj;
 };
 
-export const ApplicationConfSchema = {
+export const ApplicationConfSchema: ParseSchemaType = {
     "format?": 1,
     name: "",
     version: "",
@@ -264,20 +265,20 @@ export type WalletConf = {
     format:     1,
     keyPairs:   KeyPair[],
     authCert?:  Buffer,
-    nodeCerts:  Buffer[],
+    signCerts:  Buffer[],
     storage:    StorageConf,
 };
 
-export const StorageConfSchema = {
+export const StorageConfSchema: ParseSchemaType = {
     "peer??": ConnectionConfigSchema,
     "database?": DatabaseConfigSchema,
 } as const;
 
-export const WalletConfSchema = {
+export const WalletConfSchema: ParseSchemaType = {
     "format?":  1,
-    "keyPairs?": [KeyPairSchema],
+    "keyPairs?": [ParseKeyPairSchema],
     "authCert??": new Uint8Array(0),
-    "nodeCerts?": [new Uint8Array(0)],
+    "signCerts?": [new Uint8Array(0)],
     "storage?": StorageConfSchema,
     _postFn: function(obj: WalletConf): WalletConf {
         if(obj.format !== 1) {

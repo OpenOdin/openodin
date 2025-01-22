@@ -1,9 +1,0 @@
-{
-    "#--": "This file represents the parameters extracted from the handshake and it is used with the tools to calculate the constraints hash which the handshake parameters must match.",
-    "#--": "The values here can be used to calculate the constraints hash for the AuthCert",
-
-    "#--": "The creation time of the session in UNIX time milliseconds. This must fall within the certs creation/expireTime.",
-    "#--": "Setting this value here only effects the process of verifying the cert using the SDK, it simulates how the cert is verified in the wild.",
-    "#--": "In the wild creationTime is automatically set to now() upon handshake.",
-    "creationTime": 1664316000000
-}

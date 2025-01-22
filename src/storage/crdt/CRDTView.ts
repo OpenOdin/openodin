@@ -1,17 +1,16 @@
 /**
  * This class is to keep a local view of the CRDT model.
  *
- * The model only uses Data nodes who are not flagged as isSpecial, all other nodes are ignored.
+ * The model only uses Data nodes who are not flagged as isDestroy, all other nodes are ignored.
  */
 
 import {
-    DataInterface,
-    Data,
+    DataNodeInterface,
+    BaseDataNode,
+    BaseDataNodeInterface,
+    UnpackNode,
+    GetModelType,
 } from "../../datamodel";
-
-import {
-    Decoder,
-} from "../../decoder/Decoder";
 
 import {
     FetchResponse,
@@ -57,11 +56,21 @@ export class CRDTView {
         protected unsetDataFn?: UnsetDataFn) {}
 
     /**
-     * Will only use data nodes which are not flagged as special, other nodes are ignored.
+     * Will only use data nodes which are not flagged as destroy, other nodes are ignored.
      */
     public handleResponse(fetchResponse: FetchResponse) {
-        const nodes = Decoder.DecodeNodes(fetchResponse.result.nodes,
-            this.preserveTransient, Data.GetType(4));
+        const nodes: BaseDataNodeInterface[] = []
+
+        fetchResponse.result.nodes.forEach( image => {
+            try {
+                if (BaseDataNode.Is(GetModelType(image))) {
+                    nodes.push(UnpackNode(image, this.preserveTransient));
+                }
+            }
+            catch(e) {
+                // Do nothing
+            }
+        });
 
         // Apply nodes to model.
         //
@@ -69,11 +78,11 @@ export class CRDTView {
         for (let i=0; i<nodesLength; i++) {
             const node = nodes[i];
 
-            if ((node as DataInterface).isSpecial()) {
+            if ((node as DataNodeInterface).loadFlags().isDestroy) {
                 continue;
             }
 
-            const id1 = node.getId1() as Buffer;
+            const id1 = node.getProps().id1 as Buffer;
 
             const id1Str = id1.toString("hex");
 
@@ -85,13 +94,13 @@ export class CRDTView {
             }
 
             // Always replace the node in case it has updated transient values.
-            this.model.nodes[id1Str] = node as DataInterface;
+            this.model.nodes[id1Str] = node as DataNodeInterface;
 
             // If none already existing lingering or preset data exists, we create the data object.
             //
             if (!this.model.datas[id1Str]) {
                 const custom = {};
-                this.setDataFn?.(node as DataInterface, custom);
+                this.setDataFn?.(node as DataNodeInterface, custom);
 
                 this.model.datas[id1Str] = {_deleted: undefined, custom};
             }
@@ -100,7 +109,7 @@ export class CRDTView {
                 //
                 this.model.datas[id1Str]._deleted = undefined
 
-                this.setDataFn?.(node as DataInterface, this.model.datas[id1Str].custom);
+                this.setDataFn?.(node as DataNodeInterface, this.model.datas[id1Str].custom);
             }
         }
 
@@ -363,7 +372,7 @@ export class CRDTView {
         return undefined;
     }
 
-    public getNode(id1: Buffer): DataInterface | undefined {
+    public getNode(id1: Buffer): DataNodeInterface | undefined {
         const id1Str = id1.toString("hex");
 
         return this.model.nodes[id1Str];

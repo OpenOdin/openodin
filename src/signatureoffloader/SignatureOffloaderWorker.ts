@@ -1,10 +1,7 @@
 import {
     KeyPair,
-} from "../datamodel/types";
-
-import {
-    Crypto,
-} from "../datamodel/Crypto";
+    Krypto,
+} from "../datamodel";
 
 import {
     ToBeSigned,
@@ -52,7 +49,7 @@ export class SignatureOffloaderWorker {
                 const signature2 = Buffer.from(signature);
                 const publicKey2 = Buffer.from(publicKey);
 
-                if (Crypto.IsEd25519(publicKey2)) {
+                if (Krypto.IsEd25519(publicKey2)) {
                     // Use sodium to verify signature in high speed.
                     //
                     try {
@@ -76,24 +73,23 @@ export class SignatureOffloaderWorker {
                         break;
                     }
                 }
-                else {
-                    // Resolve other cases which are not ed25519
-                    //
+                else if (Krypto.IsEthereum(publicKey2)) {
                     try {
-                        if (Crypto.Verify({message: message2, signature: signature2,
-                                publicKey: publicKey2, index}))
+                        if (Krypto.Verify({message: message2, signature: signature2,
+                            publicKey: publicKey2, type: Krypto.ETHEREUM.TYPE}))
                         {
                             validCount++
                             continue;
                         }
                     }
                     catch(e) {
-                        // Fall through
+                        // Could not verify signature,
+                        // do not attempt to verify any further.
+                        //
+                        break;
                     }
-
-                    // Could not verify signature,
-                    // do not attempt to verify any further.
-                    //
+                }
+                else {
                     break;
                 }
             }
@@ -141,7 +137,7 @@ export class SignatureOffloaderWorker {
                 continue;
             }
 
-            if (Crypto.IsEd25519(publicKey)) {
+            if (Krypto.IsEd25519(publicKey)) {
                 try {
                     // Use sodium to sign in high speed.
                     //
@@ -164,7 +160,7 @@ export class SignatureOffloaderWorker {
                         secretKey,
                     };
 
-                    const signature = Crypto.Sign(message2, keyPair);
+                    const signature = Krypto.Sign(message2, keyPair);
 
                     result.push({index, signature});
                 }

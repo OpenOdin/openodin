@@ -33,16 +33,15 @@ import {
 } from "../../util/TemplateUtil";
 
 import {
-    DataParams,
-    LicenseParams,
-    LicenseInterface,
-    NodeInterface,
-    DataInterface,
-    SPECIAL_NODES,
-    Hash,
-    DataConfig,
-    DataNodeSchema,
-    LicenseNodeSchema,
+    ParseDataNodeSchema,
+    ParseLicenseNodeSchema,
+    BaseNodeInterface,
+    DataNodeProps,
+    DataNodeFlags,
+    LicenseNodeProps,
+    LicenseNodeInterface,
+    DataNodeInterface,
+    DataNode,
 } from "../../datamodel";
 
 import {
@@ -85,7 +84,7 @@ import {
  *
  * A Thread's definition include both query and post actions.
  *
- * Only Data (not License) nodes are kept in the model and nodes flagged as isSpecial are ignored.
+ * Only Data (not License) nodes are kept in the model and nodes flagged as isDestroy are ignored.
  * This is because the underlying fetch request might need to includes License nodes and special
  * nodes (which are used for deleting nodes), but those nodes are not interesting for making up
  * the model provided by Thread (license still apply and are handled automatically).
@@ -532,7 +531,7 @@ export class Thread {
      * @throws if data node could not be created or stored, or if parentId is not set
      */
     public async post(name: string,
-        threadVariables: ThreadVariables = {}): Promise<DataInterface>
+        threadVariables: ThreadVariables = {}): Promise<DataNodeInterface>
     {
         const dataParams = this.parsePost(name, threadVariables);
 
@@ -567,16 +566,27 @@ export class Thread {
      * @returns the edit node.
      * @throws if edit node cannot be stored.
      */
-    public async postEdit(name: string, nodeToEdit: NodeInterface,
-        threadVariables: ThreadVariables = {}): Promise<DataInterface>
+    public async postEdit(name: string, nodeToEdit: BaseNodeInterface,
+        threadVariables: ThreadVariables = {}): Promise<DataNodeInterface>
     {
-        const dataParams = this.parsePost(name, threadVariables);
+        const props = this.parsePost(name, threadVariables);
 
-        dataParams.parentId = nodeToEdit.getId();
-        dataParams.expireTime = nodeToEdit.getExpireTime();
-        dataParams.dataConfig = (dataParams.dataConfig ?? 0) | (1 << DataConfig.IS_ANNOTATION_EDIT);
+        props.parentId = nodeToEdit.getProps().id;
+        props.expireTime = nodeToEdit.getProps().expireTime;
 
-        const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
+        const tmpNode = new DataNode();
+
+        tmpNode.mergeProps(props);
+
+        tmpNode.storeFlags(props);
+
+        const flags = tmpNode.loadFlags();
+
+        flags.isAnnotationEdit = true;
+
+        tmpNode.storeFlags(flags);
+
+        const dataNode = await this.nodeUtil.createDataNode(tmpNode.getProps(), this.signerPublicKey,
             this.secretKey);
 
         const storedId1List = await this.storeNodes([dataNode]);
@@ -600,16 +610,27 @@ export class Thread {
      * Buffer.from("react/thumbsup") or Buffer.from("unreact/thumbsup"),
      * where "thumbsup" is the reaction name.
      */
-    public async postReaction(name: string, node: NodeInterface,
-        threadVariables: ThreadVariables = {}): Promise<DataInterface>
+    public async postReaction(name: string, node: BaseNodeInterface,
+        threadVariables: ThreadVariables = {}): Promise<DataNodeInterface>
     {
-        const dataParams = this.parsePost(name, threadVariables);
+        const props = this.parsePost(name, threadVariables);
 
-        dataParams.parentId = node.getId();
-        dataParams.expireTime = node.getExpireTime();
-        dataParams.dataConfig = (dataParams.dataConfig ?? 0) | (1 << DataConfig.IS_ANNOTATION_REACTION);
+        props.parentId = node.getProps().id;
+        props.expireTime = node.getProps().expireTime;
 
-        const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
+        const tmpNode = new DataNode();
+
+        tmpNode.mergeProps(props);
+
+        tmpNode.storeFlags(props);
+
+        const flags = tmpNode.loadFlags();
+
+        flags.isAnnotationReaction = true;
+
+        tmpNode.storeFlags(flags);
+
+        const dataNode = await this.nodeUtil.createDataNode(tmpNode.getProps(), this.signerPublicKey,
             this.secretKey);
 
         const storedId1List = await this.storeNodes([dataNode]);
@@ -623,7 +644,7 @@ export class Thread {
 
     /**
      * Create destroy node(s) and post them.
-     * 
+     *
      * If the given node is destructible then create a destroy node for it specifically.
      *
      * Also/if the given node is licensed then create a destroy node which targets all licenses
@@ -647,53 +668,26 @@ export class Thread {
      *
      * @throws if given node cannot be destructed.
      */
-    public async delete(node: DataInterface): Promise<DataInterface[]> {
-        const destroyNodes: DataInterface[] = [];
+    public async delete(node: DataNodeInterface): Promise<DataNodeInterface[]> {
+        const destroyNodes: DataNodeInterface[] = [];
+
+        const props = node.getProps();
+        const flags = node.loadFlags();
 
         // If the node is destructible we destroy it.
         //
-        if (!node.isIndestructible()) {
-            const innerHash = Hash([SPECIAL_NODES.DESTROY_NODE,
-                this.publicKey, node.getId1()]);
-
+        if (!flags.isIndestructible) {
             const dataParams = {
-                parentId: node.getParentId(),
+                parentId: props.parentId,
                 owner: this.publicKey,
-                isLicensed: node.isLicensed(),
-                licenseMinDistance: node.getLicenseMinDistance(),
-                licenseMaxDistance: node.getLicenseMaxDistance(),
-                isPublic: node.isPublic(),
-                isSpecial: true,
-                contentType: node.getContentType(),
-                refId: innerHash,
-                data: Buffer.from(SPECIAL_NODES.DESTROY_NODE),
-                expireTime: node.getExpireTime(),
-            };
-
-            const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
-                this.secretKey);
-
-            destroyNodes.push(dataNode);
-        }
-
-        // Also/or if the node is licensed we destroy all its licenses,
-        // if license min distance is 0.
-        //
-        if (node.isLicensed() && node.getLicenseMinDistance() === 0) {
-            const innerHash = Hash([SPECIAL_NODES.DESTROY_LICENSES_FOR_NODE,
-                this.publicKey, node.getId1()]);
-
-            const dataParams = {
-                parentId: node.getParentId(),
-                owner: this.publicKey,
-                isLicensed: true,
-                licenseMinDistance: 0,
-                licenseMaxDistance: node.getLicenseMaxDistance(),
-                isSpecial: true,
-                contentType: node.getContentType(),
-                refId: innerHash,
-                data: Buffer.from(SPECIAL_NODES.DESTROY_LICENSES_FOR_NODE),
-                expireTime: node.getExpireTime(),
+                isLicensed: flags.isLicensed,
+                licenseMinDistance: props.licenseMinDistance,
+                licenseMaxDistance: props.licenseMaxDistance,
+                isPublic: flags.isPublic,
+                isDestroy: true,
+                contentType: props.contentType,
+                refId: props.id1,  // point to the node to destroy, owner of nodes must be same
+                expireTime: props.expireTime,
             };
 
             const dataNode = await this.nodeUtil.createDataNode(dataParams, this.signerPublicKey,
@@ -709,7 +703,7 @@ export class Thread {
         const storedId1List = await this.storeNodes(destroyNodes);
 
         return destroyNodes.filter( node =>
-            storedId1List.findIndex( id1 => node.getId1()?.equals(id1) ) > -1 );
+            storedId1List.findIndex( id1 => node.getProps().id1?.equals(id1) ) > -1 );
     }
 
     /**
@@ -725,21 +719,24 @@ export class Thread {
      * @throws if targetPublicKey is set in the template or if owner is set but mismatch,
      * or if nodes cannot be created
      */
-    public async postLicense(name: string, nodes: DataInterface | DataInterface[],
+    public async postLicense(name: string, nodes: DataNodeInterface | DataNodeInterface[],
         targetPublicKeys: Buffer[],
-        threadVariables: ThreadVariables = {}): Promise<LicenseInterface[]>
+        threadVariables: ThreadVariables = {}): Promise<LicenseNodeInterface[]>
     {
         if (!Array.isArray(nodes)) {
             nodes = [nodes];
         }
 
-        const licenseNodes: LicenseInterface[] = [];
+        const licenseNodes: LicenseNodeInterface[] = [];
 
         const nodesLength = nodes.length;
         for (let i=0; i<nodesLength; i++) {
             const node = nodes[i];
 
-            if (!node.isLicensed() || node.getLicenseMinDistance() !== 0) {
+            const props = node.getProps();
+            const flags = node.loadFlags();
+
+            if (!flags.isLicensed || (props.licenseMinDistance ?? 0) !== 0) {
                 continue;
             }
 
@@ -760,7 +757,7 @@ export class Thread {
         const storedId1List = await this.storeNodes(licenseNodes);
 
         return licenseNodes.filter( license => {
-            const id1 = license.getId1()!;
+            const id1 = license.getProps().id1!;
             return storedId1List.findIndex( id1b => id1b.equals(id1) ) > -1;
         });
     }
@@ -785,11 +782,11 @@ export class Thread {
         return new BlobStreamReader(nodeId1, [this.storageClient], expectedLength);
     }
 
-    protected parsePostLicense(name: string, node: DataInterface, targetPublicKey: Buffer,
-        threadVariables: ThreadVariables): LicenseParams
+    protected parsePostLicense(name: string, node: DataNodeInterface, targetPublicKey: Buffer,
+        threadVariables: ThreadVariables): LicenseNodeProps
     {
-        const nodeId1   = node.getId1();
-        const parentId  = node.getParentId();
+        const nodeId1   = node.getProps().id1;
+        const parentId  = node.getProps().parentId;
 
         assert(nodeId1);
         assert(parentId);
@@ -818,15 +815,15 @@ export class Thread {
 
         licenseParams.parentId = parentId;
 
-        licenseParams.nodeId1 = nodeId1;
+        licenseParams.refId = nodeId1;
 
-        const licenseParams2 = ParseSchema(LicenseNodeSchema, licenseParams);
+        const licenseParams2 = ParseSchema(ParseLicenseNodeSchema, licenseParams);
 
         if (licenseParams2.expireTime === undefined) {
             licenseParams2.expireTime = Date.now() + 30 * 24 * 3600 * 1000;
         }
 
-        const nodeExpireTime = node.getExpireTime();
+        const nodeExpireTime = node.getProps().expireTime;
 
         if (nodeExpireTime !== undefined) {
             licenseParams2.expireTime = Math.min(licenseParams2.expireTime, nodeExpireTime);
@@ -835,7 +832,7 @@ export class Thread {
         return licenseParams2;
     }
 
-    protected parsePost(name: string, threadVariables: ThreadVariables): DataParams {
+    protected parsePost(name: string, threadVariables: ThreadVariables): DataNodeProps & DataNodeFlags {
         const obj = TemplateSubstitute(this.threadTemplate, threadVariables);
 
         assert(obj.post[name], `Missing thread.post template for ${name}`);
@@ -859,7 +856,7 @@ export class Thread {
             dataParams.parentId = fetchRequest.query.parentId;
         }
 
-        return ParseSchema(DataNodeSchema, dataParams);
+        return ParseSchema(ParseDataNodeSchema, dataParams);
     }
 
     /**
@@ -867,9 +864,9 @@ export class Thread {
      * @returns list of stored ID1s
      * @throws on error
      */
-    protected async storeNodes(nodes: NodeInterface[]): Promise<Buffer[]> {
+    protected async storeNodes(nodes: BaseNodeInterface[]): Promise<Buffer[]> {
         const storeRequest = ParseSchema(StoreRequestSchema,
-            {nodes: nodes.map( node => node.export())});
+            {nodes: nodes.map( node => node.pack())});
 
         const {getResponse} = this.storageClient.store(storeRequest);
 

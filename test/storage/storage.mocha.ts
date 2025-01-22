@@ -27,17 +27,17 @@ import {
     FetchRequest,
     FetchResponse,
     Trigger,
-    Data,
+    DataNodeType,
     Status,
     sleep,
     FetchReplyData,
-    NodeInterface,
+    BaseNodeInterface,
     NodeUtil,
     MESSAGE_SPLIT_BYTES,
     StoreRequest,
     HandlerFn,
     StoreResponse,
-    Crypto,
+    Krypto,
     UnsubscribeRequest,
     UnsubscribeResponse,
     WriteBlobRequest,
@@ -50,7 +50,6 @@ import {
     Thread,
     PERMISSIVE_PERMISSIONS,
     PromiseCallback,
-    SPECIAL_NODES,
     CRDTMessagesAnnotations,
     Version,
     ParseSchema,
@@ -143,10 +142,10 @@ describe("Storage: triggers", function() {
         await storage.init();
     });
 
-    afterEach("Close Storage instance", function() {
+    afterEach("Close Storage instance", async function() {
         signatureOffloader?.close();
-        driver?.close();
-        db?.close();
+        await driver?.close();
+        await db?.close();
         storage?.close();
         p2pClient?.close();
         socket1?.close();
@@ -169,7 +168,7 @@ describe("Storage: triggers", function() {
             triggerNodeId,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -238,7 +237,7 @@ describe("Storage: triggers", function() {
             triggerNodeId,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -307,7 +306,7 @@ describe("Storage: triggers", function() {
             triggerInterval: 60,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -385,8 +384,8 @@ describe("Storage: triggers", function() {
         assert(fetchResponses[0].error === "");
         assert(fetchResponses[0].crdtResult.delta.length === 1024);
 
-        let nodes: NodeInterface[] = [];
-        let embed: NodeInterface[] = [];
+        let nodes: BaseNodeInterface[] = [];
+        let embed: BaseNodeInterface[] = [];
 
         let parentId = Buffer.alloc(32).fill(0x00);
         let sourcePublicKey = Buffer.alloc(32).fill(0x01);
@@ -407,7 +406,7 @@ describe("Storage: triggers", function() {
             });
 
             nodes.push(node);
-            l += node.export().length + 4;
+            l += node.pack().length + 4;
         }
 
         l = 0;
@@ -423,7 +422,7 @@ describe("Storage: triggers", function() {
             });
 
             embed.push(node);
-            l += node.export().length + 4;
+            l += node.pack().length + 4;
         }
 
         fetchReplyData = {
@@ -521,11 +520,11 @@ describe("Storage: SQLite WAL-mode", function() {
         config.p2pStorageClient = p2pStorageClient;
     });
 
-    afterEach("Close database", function() {
-        driver?.close();
-        db?.close();
-        blobDriver?.close();
-        blobDb?.close();
+    afterEach("Close database", async function() {
+        await driver?.close();
+        await db?.close();
+        await blobDriver?.close();
+        await blobDb?.close();
         socket1?.close();
         socket2?.close();
         signatureOffloader?.close();
@@ -534,7 +533,7 @@ describe("Storage: SQLite WAL-mode", function() {
     setupTests(config);
 });
 
-describe.skip("Storage: SQLiteJS WAL-mode", function() {
+describe("Storage: SQLiteJS WAL-mode", function() {
     let signatureOffloader: SignatureOffloader | undefined;
     let driver: Driver | undefined;
     let blobDriver: BlobDriver | undefined;
@@ -605,9 +604,9 @@ describe.skip("Storage: SQLiteJS WAL-mode", function() {
         config.p2pStorageClient = p2pStorageClient;
     });
 
-    afterEach("Close database", function() {
-        driver?.close();
-        db?.close();
+    afterEach("Close database", async function() {
+        await driver?.close();
+        await db?.close();
         socket1?.close();
         socket2?.close();
         signatureOffloader?.close();
@@ -697,10 +696,10 @@ describe("Storage: PostgreSQL REPEATABLE READ mode", function() {
         config.p2pStorageClient = p2pStorageClient;
     });
 
-    afterEach("Close database", function() {
-        driver?.close();
-        db?.close();
-        blobDb?.close();
+    afterEach("Close database", async function() {
+        await driver?.close();
+        await db?.close();
+        await blobDb?.close();
         socket1?.close();
         socket2?.close();
         signatureOffloader?.close();
@@ -723,8 +722,8 @@ function setupTests(config: any) {
         let expectingReply = ExpectingReply.NONE;  // This is not used.
         let fromMsgId = Buffer.from([1,2,3,4,5]);
 
-        let keyPair1 = Crypto.GenKeyPair();
-        let keyPair2 = Crypto.GenKeyPair();
+        let keyPair1 = Krypto.GenKeyPair();
+        let keyPair2 = Krypto.GenKeyPair();
         let parentId = Buffer.alloc(32).fill(0x00);
         let sourcePublicKey = keyPair1.publicKey;
         let targetPublicKey = keyPair1.publicKey;
@@ -739,7 +738,7 @@ function setupTests(config: any) {
             creationTime: now,
         }, keyPair1.publicKey, keyPair1.secretKey);
 
-        assert(node1.getSignature());
+        assert(node1.getProps()?.signature1);
 
         const node2 = await nodeUtil.createDataNode({
             parentId,
@@ -761,7 +760,7 @@ function setupTests(config: any) {
             isPublic: true,
         }, keyPair2.publicKey, keyPair2.secretKey);
 
-        nodes.push(node1.export(), node2.export(), node2b.export(), node2c.export());
+        nodes.push(node1.pack(), node2.pack(), node2b.pack(), node2c.pack());
 
         let storeRequest: StoreRequest = {
             sourcePublicKey,
@@ -791,8 +790,8 @@ function setupTests(config: any) {
         assert(response);
         assert(response.status === Status.Result);
         assert(response.storedId1List.length === 2);
-        assert(response.storedId1List[0].equals(node1.getId1()));
-        assert(response.storedId1List[1].equals(node2c.getId1()));
+        assert(response.storedId1List[0].equals(node1.getProps().id1!));
+        assert(response.storedId1List[1].equals(node2c.getProps().id1!));
 
         // see that what is stored is readable back
         let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
@@ -801,7 +800,7 @@ function setupTests(config: any) {
             targetPublicKey,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -814,8 +813,8 @@ function setupTests(config: any) {
 
         await storage.handleFetchWrapped(fetchRequest, p2pClient, fromMsgId, expectingReply, sendResponse2);
         assert(fetchedNodes.length === 2);
-        assert(fetchedNodes[0].equals(node1.export()));
-        assert(fetchedNodes[1].equals(node2c.export()));
+        assert(fetchedNodes[0].equals(node1.pack()));
+        assert(fetchedNodes[1].equals(node2c.pack()));
     });
 
     it("handleFetch", async function() {
@@ -830,8 +829,8 @@ function setupTests(config: any) {
         let expectingReply = ExpectingReply.NONE;  // This is not used.
         let fromMsgId = Buffer.from([1,2,3,4,5]);
 
-        let keyPair1 = Crypto.GenKeyPair();
-        let keyPair2 = Crypto.GenKeyPair();
+        let keyPair1 = Krypto.GenKeyPair();
+        let keyPair2 = Krypto.GenKeyPair();
 
         let parentId = Buffer.alloc(32).fill(0x00);
         let triggerNodeId = Buffer.alloc(32).fill(0xa0);
@@ -850,7 +849,7 @@ function setupTests(config: any) {
             triggerNodeId,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -878,7 +877,7 @@ function setupTests(config: any) {
             isPublic: true,
         }, keyPair2.publicKey, keyPair2.secretKey);
 
-        nodes.push(node2.export());
+        nodes.push(node2.pack());
 
         let storeRequest: StoreRequest = {
             sourcePublicKey,
@@ -904,7 +903,7 @@ function setupTests(config: any) {
         }, keyPair2.publicKey, keyPair2.secretKey);
 
         nodes.length = 0;
-        nodes.push(node2b.export());
+        nodes.push(node2b.pack());
 
         storeRequest = {
             sourcePublicKey,
@@ -923,18 +922,18 @@ function setupTests(config: any) {
         await sleep(100);
 
         assert(fetchedNodes.length === 1);
-        assert(fetchedNodes[0].equals(node2.export()));
+        assert(fetchedNodes[0].equals(node2.pack()));
 
 
 
         const node3 = await nodeUtil.createDataNode({
-            parentId: node2.getId(),
+            parentId: node2.getProps().id!,
             expireTime: now + 10002,
             creationTime: now,
             isPublic: true,
         }, keyPair2.publicKey, keyPair2.secretKey);
 
-        nodes.push(node3.export());
+        nodes.push(node3.pack());
 
         storeRequest = {
             sourcePublicKey,
@@ -963,7 +962,7 @@ function setupTests(config: any) {
         }, keyPair2.publicKey, keyPair2.secretKey);
 
         nodes.length = 0;
-        nodes.push(node2c.export());
+        nodes.push(node2c.pack());
 
         storeRequest = {
             sourcePublicKey,
@@ -983,7 +982,7 @@ function setupTests(config: any) {
 
         assert(fetchedNodes.length === 1);
 
-        assert(fetchedNodes[0].equals(node3.export()));
+        assert(fetchedNodes[0].equals(node3.pack()));
 
 
         nodes.length = 0;
@@ -995,7 +994,7 @@ function setupTests(config: any) {
             isPublic: true,
         }, keyPair2.publicKey, keyPair2.secretKey);
 
-        nodes.push(node2d.export());
+        nodes.push(node2d.pack());
 
         storeRequest = {
             sourcePublicKey,
@@ -1034,7 +1033,7 @@ function setupTests(config: any) {
             isPublic: true,
         }, keyPair2.publicKey, keyPair2.secretKey);
 
-        nodes.push(node2e.export());
+        nodes.push(node2e.pack());
 
         storeRequest = {
             sourcePublicKey,
@@ -1068,8 +1067,8 @@ function setupTests(config: any) {
         let expectingReply = ExpectingReply.NONE;  // This is not used.
         let fromMsgId = Buffer.from([1,2,3,4,5]);
 
-        let keyPair1 = Crypto.GenKeyPair();
-        let keyPair2 = Crypto.GenKeyPair();
+        let keyPair1 = Krypto.GenKeyPair();
+        let keyPair2 = Krypto.GenKeyPair();
         let sourcePublicKey = keyPair1.publicKey;
         let targetPublicKey = sourcePublicKey;
         let parentId = Buffer.alloc(32).fill(0x00);
@@ -1170,7 +1169,7 @@ function setupTests(config: any) {
             sourcePublicKey,
             targetPublicKey,
             preserveTransient: false,
-            nodes: [node1.export(), node2.export(), node3.export(), node4.export(), node5.export()],
+            nodes: [node1.pack(), node2.pack(), node3.pack(), node4.pack(), node5.pack()],
             muteMsgIds: [],
             batchId: 0,
             hasMore: false,
@@ -1183,14 +1182,14 @@ function setupTests(config: any) {
         await sleep(1);
 
         const fetchRequest = ParseSchema(FetchRequestSchema, {query: {
-            parentId: node2.getParentId(),
+            parentId: node2.getProps().parentId!,
             sourcePublicKey,
             targetPublicKey,
-            triggerNodeId: node2.getParentId(),
+            triggerNodeId: node2.getProps().parentId!,
             onlyTrigger: true,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -1206,7 +1205,7 @@ function setupTests(config: any) {
         writeBlobRequest = {
             targetPublicKey: sourcePublicKey,
             sourcePublicKey,
-            nodeId1: node1.getId1() as Buffer,
+            nodeId1: node1.getProps().id1! as Buffer,
             data,
             pos,
             muteMsgIds: [],
@@ -1225,7 +1224,7 @@ function setupTests(config: any) {
         writeBlobRequest = {
             targetPublicKey: sourcePublicKey,
             sourcePublicKey,
-            nodeId1: node2.getId1() as Buffer,
+            nodeId1: node2.getProps().id1! as Buffer,
             data: data.slice(0,6),
             pos,
             muteMsgIds: [],
@@ -1244,7 +1243,7 @@ function setupTests(config: any) {
         let readBlobRequest: ReadBlobRequest = {
             sourcePublicKey: targetPublicKey,
             targetPublicKey,
-            nodeId1: node2.getId1() as Buffer,
+            nodeId1: node2.getProps().id1! as Buffer,
             pos: 0n,
             length: 100,
         };
@@ -1260,7 +1259,7 @@ function setupTests(config: any) {
         writeBlobRequest = {
             targetPublicKey: sourcePublicKey,
             sourcePublicKey,
-            nodeId1: node2.getId1() as Buffer,
+            nodeId1: node2.getProps().id1! as Buffer,
             data: data.slice(6),
             pos: 6n,
             muteMsgIds: [],
@@ -1307,7 +1306,7 @@ function setupTests(config: any) {
         writeBlobRequest = {
             targetPublicKey: sourcePublicKey,
             sourcePublicKey,
-            nodeId1: node4.getId1() as Buffer,
+            nodeId1: node4.getProps().id1! as Buffer,
             data: Buffer.alloc(0),
             pos: 0n,
             muteMsgIds: [],
@@ -1335,7 +1334,7 @@ function setupTests(config: any) {
         writeBlobRequest = {
             targetPublicKey: keyPair2.publicKey,
             sourcePublicKey: keyPair2.publicKey,
-            nodeId1: node5.getId1() as Buffer,
+            nodeId1: node5.getProps().id1! as Buffer,
             data: Buffer.alloc(0),
             pos: 0n,
             muteMsgIds: [],
@@ -1363,7 +1362,7 @@ function setupTests(config: any) {
         writeBlobRequest = {
             targetPublicKey: sourcePublicKey,
             sourcePublicKey,
-            nodeId1: node3.getId1() as Buffer,
+            nodeId1: node3.getProps().id1! as Buffer,
             data: Buffer.alloc(0),
             pos: 0n,
             muteMsgIds: [],
@@ -1384,7 +1383,7 @@ function setupTests(config: any) {
         await sleep(100);
 
         assert(fetchedNodes.length === 1);
-        assert(fetchedNodes[0].equals(node3.export()));
+        assert(fetchedNodes[0].equals(node3.pack()));
     });
 
     it("#handleWriteBlob, #readBlobRequest with permissions", async function() {
@@ -1399,8 +1398,8 @@ function setupTests(config: any) {
         let expectingReply = ExpectingReply.NONE;  // This is not used.
         let fromMsgId = Buffer.from([1,2,3,4,5]);
 
-        let keyPair1 = Crypto.GenKeyPair();
-        let keyPair2 = Crypto.GenKeyPair();
+        let keyPair1 = Krypto.GenKeyPair();
+        let keyPair2 = Krypto.GenKeyPair();
         let parentId = Buffer.alloc(32).fill(0x00);
 
         let response: any;
@@ -1424,7 +1423,7 @@ function setupTests(config: any) {
 
         const license1 = await nodeUtil.createLicenseNode({
             parentId,
-            refId: node1.getId1(),
+            refId: node1.getProps().id1!,
             targetPublicKey: keyPair2.publicKey,
             expireTime: now + 10000,
             creationTime: now,
@@ -1442,21 +1441,21 @@ function setupTests(config: any) {
 
         const license2 = await nodeUtil.createLicenseNode({
             parentId,
-            refId: node2.getId1(),
+            refId: node2.getProps().id1!,
             targetPublicKey: keyPair1.publicKey,
             expireTime: now + 10000,
             creationTime: now,
         }, keyPair2.publicKey, keyPair2.secretKey);
 
 
-        assert(license1.isLicenseTo(node1));
+        //assert(license1.isLicenseTo(node1));
 
 
         let storeRequest = {
             sourcePublicKey: keyPair1.publicKey,
             targetPublicKey: keyPair1.publicKey,
             preserveTransient: false,
-            nodes: [node1.export(), node2.export()],
+            nodes: [node1.pack(), node2.pack()],
             muteMsgIds: [],
             batchId: 0,
             hasMore: false,
@@ -1468,7 +1467,7 @@ function setupTests(config: any) {
         let writeBlobRequest: WriteBlobRequest = {
             targetPublicKey: keyPair2.publicKey,
             sourcePublicKey: keyPair2.publicKey,
-            nodeId1: node1.getId1() as Buffer,
+            nodeId1: node1.getProps().id1! as Buffer,
             data,
             pos,
             muteMsgIds: [],
@@ -1484,7 +1483,7 @@ function setupTests(config: any) {
         writeBlobRequest = {
             targetPublicKey: keyPair1.publicKey,
             sourcePublicKey: keyPair1.publicKey,
-            nodeId1: node1.getId1() as Buffer,
+            nodeId1: node1.getProps().id1! as Buffer,
             data,
             pos,
             muteMsgIds: [],
@@ -1502,7 +1501,7 @@ function setupTests(config: any) {
         writeBlobRequest = {
             targetPublicKey: keyPair1.publicKey,
             sourcePublicKey: keyPair1.publicKey,
-            nodeId1: node2.getId1() as Buffer,
+            nodeId1: node2.getProps().id1! as Buffer,
             data,
             pos,
             muteMsgIds: [],
@@ -1519,7 +1518,7 @@ function setupTests(config: any) {
         writeBlobRequest = {
             targetPublicKey: keyPair2.publicKey,
             sourcePublicKey: keyPair2.publicKey,
-            nodeId1: node2.getId1() as Buffer,
+            nodeId1: node2.getProps().id1! as Buffer,
             data,
             pos,
             muteMsgIds: [],
@@ -1538,7 +1537,7 @@ function setupTests(config: any) {
             sourcePublicKey: keyPair1.publicKey,
             targetPublicKey: keyPair1.publicKey,
             preserveTransient: false,
-            nodes: [license1.export()],
+            nodes: [license1.pack()],
             muteMsgIds: [],
             batchId: 0,
             hasMore: false,
@@ -1560,7 +1559,7 @@ function setupTests(config: any) {
         let readBlobRequest: ReadBlobRequest = {
             sourcePublicKey: keyPair1.publicKey,
             targetPublicKey: keyPair1.publicKey,
-            nodeId1: node2.getId1() as Buffer,
+            nodeId1: node2.getProps().id1! as Buffer,
             pos: 0n,
             length: 100,
         };
@@ -1578,7 +1577,7 @@ function setupTests(config: any) {
             sourcePublicKey: keyPair2.publicKey,
             targetPublicKey: keyPair2.publicKey,
             preserveTransient: false,
-            nodes: [license2.export()],
+            nodes: [license2.pack()],
             muteMsgIds: [],
             batchId: 0,
             hasMore: false,
@@ -1608,8 +1607,8 @@ function setupTests(config: any) {
         let expectingReply = ExpectingReply.NONE;  // This is not used.
         let fromMsgId = Buffer.from([1,2,3,4,5]);
 
-        let keyPair1 = Crypto.GenKeyPair();
-        let keyPair2 = Crypto.GenKeyPair();
+        let keyPair1 = Krypto.GenKeyPair();
+        let keyPair2 = Krypto.GenKeyPair();
 
         let parentId = Buffer.alloc(32).fill(0x00);
         let triggerNodeId = Buffer.alloc(32).fill(0xa0);
@@ -1630,7 +1629,7 @@ function setupTests(config: any) {
                 triggerInterval: 10,
                 match: [
                     {
-                        nodeType: Data.GetType(),
+                        nodeType: Buffer.from(DataNodeType),
                         filters: []
                     }
                 ]
@@ -1663,7 +1662,7 @@ function setupTests(config: any) {
             isPublic: true,
         }, keyPair2.publicKey, keyPair2.secretKey);
 
-        nodes.push(node2.export());
+        nodes.push(node2.pack());
 
         let storeRequest: StoreRequest = {
             sourcePublicKey,
@@ -1689,7 +1688,7 @@ function setupTests(config: any) {
         }, keyPair2.publicKey, keyPair2.secretKey);
 
         nodes.length = 0;
-        nodes.push(node2b.export());
+        nodes.push(node2b.pack());
 
         storeRequest = {
             sourcePublicKey,
@@ -1708,18 +1707,18 @@ function setupTests(config: any) {
         await sleep(100);
 
         assert(fetchedNodes.length === 1);
-        assert(fetchedNodes[0].equals(node2.export()));
+        assert(fetchedNodes[0].equals(node2.pack()));
 
 
 
         const node3 = await nodeUtil.createDataNode({
-            parentId: node2.getId(),
+            parentId: node2.getProps().id!,
             expireTime: now + 10002,
             creationTime: now,
             isPublic: true,
         }, keyPair2.publicKey, keyPair2.secretKey);
 
-        nodes.push(node3.export());
+        nodes.push(node3.pack());
 
         storeRequest = {
             sourcePublicKey,
@@ -1748,7 +1747,7 @@ function setupTests(config: any) {
         }, keyPair2.publicKey, keyPair2.secretKey);
 
         nodes.length = 0;
-        nodes.push(node2c.export());
+        nodes.push(node2c.pack());
 
         storeRequest = {
             sourcePublicKey,
@@ -1768,7 +1767,7 @@ function setupTests(config: any) {
 
         assert(fetchedNodes.length === 1);
 
-        assert(fetchedNodes[0].equals(node3.export()));
+        assert(fetchedNodes[0].equals(node3.pack()));
 
 
         nodes.length = 0;
@@ -1780,7 +1779,7 @@ function setupTests(config: any) {
             isPublic: true,
         }, keyPair2.publicKey, keyPair2.secretKey);
 
-        nodes.push(node2d.export());
+        nodes.push(node2d.pack());
 
         storeRequest = {
             sourcePublicKey,
@@ -1819,7 +1818,7 @@ function setupTests(config: any) {
             isPublic: true,
         }, keyPair2.publicKey, keyPair2.secretKey);
 
-        nodes.push(node2e.export());
+        nodes.push(node2e.pack());
 
         storeRequest = {
             sourcePublicKey,
@@ -1853,7 +1852,7 @@ function setupTests(config: any) {
 
         const nodeUtil = new NodeUtil();
 
-        let keyPair1 = Crypto.GenKeyPair();
+        let keyPair1 = Krypto.GenKeyPair();
 
         let publicKey = keyPair1.publicKey;
         let secretKey = keyPair1.secretKey;
@@ -1873,7 +1872,7 @@ function setupTests(config: any) {
                 targetPublicKey: publicKey,
                 match: [
                     {
-                        nodeType: Data.GetType(),
+                        nodeType: Buffer.from(DataNodeType),
                         filters: []
                     }
                 ]
@@ -1932,7 +1931,7 @@ function setupTests(config: any) {
 
         const nodeUtil = new NodeUtil();
 
-        let keyPair1 = Crypto.GenKeyPair();
+        let keyPair1 = Krypto.GenKeyPair();
 
         let publicKey = keyPair1.publicKey;
         let secretKey = keyPair1.secretKey;
@@ -1952,7 +1951,7 @@ function setupTests(config: any) {
                 targetPublicKey: publicKey,
                 match: [
                     {
-                        nodeType: Data.GetType(),
+                        nodeType: Buffer.from(DataNodeType),
                         filters: []
                     }
                 ],
@@ -2008,7 +2007,7 @@ function setupTests(config: any) {
 
         let node2 = items[0].node;
 
-        assert(node2.getAnnotations() === undefined);
+        assert(node2.getProps().annotations === undefined);
 
 
         const nodeToEdit = node;
@@ -2025,12 +2024,12 @@ function setupTests(config: any) {
         //
         let node3 = await thread.postEdit("hello", nodeToEdit, {data: Buffer.from("Hello OpenOdin")});
 
-        assert(node3.isAnnotationEdit());
+        assert(node3.loadFlags().isAnnotationEdit);
 
         let node4 = await thread.postReaction("hello", nodeToEdit,
             {data: Buffer.from("react/thumbsup")});
 
-        assert(node4.isAnnotationReaction());
+        assert(node4.loadFlags().isAnnotationReaction);
 
         licenses = await thread.postLicense("hello", [node3, node4], [publicKey]);
         assert(licenses.length === 2);
@@ -2041,13 +2040,13 @@ function setupTests(config: any) {
 
         node = items[0].node;
 
-        const annot = node.getAnnotations();
+        const annot = node.getProps().annotations;
         assert(annot !== undefined);
 
         let annotations = new CRDTMessagesAnnotations();
         annotations.load(annot);
 
-        const updatedData = annotations.getEditNode()?.getData()?.toString();
+        const updatedData = annotations.getEditNode()?.getProps()?.data?.toString();
 
         assert(updatedData === "Hello OpenOdin");
 

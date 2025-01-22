@@ -1,10 +1,10 @@
 /**
  * NOTE: This file is TypeScript compiled into
- * "./build/src/datamodel/decoder/signatureOffloader-worker.js" which is the file loaded into
+ * "./build/src/signatureoffloader/signatureOffloader-worker.js" which is the file loaded into
  * the worker thread when running in NodeJS.
  *
  * That compiled file is also browserified during the build process to
- * "./build/src/storage/crdt/signatureOffloader-worker-browser.js" which is the file loaded
+ * "./build/src/signatureoffloader/signatureOffloader-worker-browser.js" which is the file loaded
  * when running in a browser, and this file must always be copied to the browser application
  * public root directory so it is accessible to be loaded by the browser's Worker() in run-time.
  *
@@ -21,7 +21,7 @@ import {
 
 import {
     KeyPair,
-} from "../datamodel/types";
+} from "../datamodel";
 
 import {
     SignatureOffloaderWorker,

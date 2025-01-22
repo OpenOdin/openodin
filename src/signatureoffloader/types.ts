@@ -1,11 +1,8 @@
 import {
-    Signature,
+    BaseModelInterface,
     KeyPair,
-} from "../datamodel/types";
-
-import {
-    DataModelInterface,
-} from "../datamodel/interface";
+    SignatureVerification,
+} from "../datamodel";
 
 export interface SignatureOffloaderInterface {
     init(): Promise<void>;
@@ -13,13 +10,13 @@ export interface SignatureOffloaderInterface {
     getPublicKeys(): Promise<Buffer[]>;
     countWorkers(): Promise<number>;
     close(): Promise<void>;
-    sign(datamodels: DataModelInterface[], publicKey: Buffer, deepValidate?: boolean): Promise<void>;
-    verify(datamodels: DataModelInterface[]): Promise<DataModelInterface[]>;
+    sign(baseModels: BaseModelInterface[], publicKey: Buffer, deepValidate?: boolean): Promise<void>;
+    verify(baseModels: BaseModelInterface[]): Promise<BaseModelInterface[]>;
 }
 
 export type SignaturesCollection = {
     index: number,
-    signatures: Signature[],
+    signatures: SignatureVerification[],
 };
 
 export type ToBeSigned = {

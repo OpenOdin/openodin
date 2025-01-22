@@ -137,12 +137,12 @@ export class GetResponse<ResponseDataType> {
                     Array.isArray((response as unknown as FetchResponse).result.embed))
                 {
                     this.fetchCount += (response as unknown as FetchResponse).result.nodes.length
-                        + (response as unknown as FetchResponse).result.nodes.length;
+                        + (response as unknown as FetchResponse).result.embed.length;
 
                     if (this.limit > -1 && this.fetchCount > this.limit) {
                         // Overflow detected.
                         //
-                        console.error("Overflow detected in GetResponse, too many nodes/embed returned on query. Cancelling.");
+                        console.error(`Overflow detected in GetResponse, too many nodes/embed returned on query. limit=${this.limit}, fetchCount=${this.fetchCount}. Cancelling.`);
 
                         this.cancel();
 

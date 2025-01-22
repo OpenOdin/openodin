@@ -9,7 +9,7 @@ import {
     AuthServerProcessHandshake,
     sleep,
     APIAuthFactoryConfig,
-    Crypto,
+    Krypto,
     APIAuthRequest,
     PromiseCallback,
     ParseSchema,
@@ -18,8 +18,8 @@ import {
 
 describe("AuthProcessHandshake", function() {
 
-    const keyPair1 = Crypto.GenKeyPair();
-    const keyPair2 = Crypto.GenKeyPair();
+    const keyPair1 = Krypto.GenKeyPair();
+    const keyPair2 = Krypto.GenKeyPair();
 
     it("Should be able to perform mutual handshake", async function() {
         const [socket1, socket2] = CreatePair();

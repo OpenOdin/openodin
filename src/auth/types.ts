@@ -14,8 +14,8 @@ import {
 } from "../types";
 
 import {
-    Crypto,
-} from "../datamodel/Crypto";
+    Krypto,
+} from "../datamodel";
 
 import {
     ClientInterface,
@@ -43,6 +43,7 @@ import {
 
 import {
     ParseEnum,
+    ParseSchemaType,
 } from "../util/SchemaUtil";
 
 import {
@@ -99,7 +100,7 @@ export const HandshakeFactoryConfigSchemaPost = function(obj: any): HandshakeFac
     const serverPublicKey = obj.client?.serverPublicKey;
 
     if (serverPublicKey) {
-        if (!Crypto.IsEd25519(serverPublicKey)) {
+        if (!Krypto.IsEd25519(serverPublicKey)) {
             throw new Error("HandshakeFactoryConfig serverPublicKey must be Ed25519 public key.");
         }
     }
@@ -110,7 +111,7 @@ export const HandshakeFactoryConfigSchemaPost = function(obj: any): HandshakeFac
         // We need to check so every key is Ed22519.
         //
         allowedClients.forEach( publicKey => {
-            if (!Crypto.IsEd25519(publicKey)) {
+            if (!Krypto.IsEd25519(publicKey)) {
                 throw new Error("HandshakeFactoryConfig allowedClients must all be Ed25519 public keys.");
             }
         });
@@ -130,7 +131,7 @@ export const HandshakeFactoryConfigSchemaPost = function(obj: any): HandshakeFac
 
 // A simplified format of the HandshakeFactoryConfig structure.
 //
-export const HandshakeFactoryConfigSchema = {
+export const HandshakeFactoryConfigSchema: ParseSchemaType = {
     "discriminator?": new Uint8Array(0),
     "maxConnections??": 0,
     "maxConnectionsPerIp??": 0,
@@ -176,7 +177,7 @@ export type APIAuthFactoryConfig = HandshakeFactoryConfig & {
     },
 };
 
-export const APIAuthFactoryConfigSchema = {
+export const APIAuthFactoryConfigSchema: ParseSchemaType = {
     "discriminator?": new Uint8Array(0),
     "maxConnections??": 0,
     "maxConnectionsPerIp??": 0,

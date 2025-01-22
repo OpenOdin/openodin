@@ -5,6 +5,7 @@ import {
 import {
     CRDTView,
     NodeUtil,
+    Krypto,
 } from "../../../src";
 
 import * as fossilDelta from "fossil-delta";
@@ -12,24 +13,21 @@ import * as fossilDelta from "fossil-delta";
 describe("CRDTView", function() {
     it("should handle incoming nodes", async function() {
         const crdtView = new CRDTView();
+        const keyPair = Krypto.GenKeyPair();
 
         const nodeUtil = new NodeUtil();
 
         const node1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(10),
-            owner: Buffer.alloc(32).fill(2),
             parentId: Buffer.alloc(32).fill(3),
             expireTime: 10000,
             creationTime: 1,
-        });
+        }, keyPair.publicKey, keyPair.secretKey);
 
         const node2 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(11),
-            owner: Buffer.alloc(32).fill(2),
             parentId: Buffer.alloc(32).fill(3),
             expireTime: 10000,
             creationTime: 1,
-        });
+        }, keyPair.publicKey, keyPair.secretKey);
 
         let currentList = Buffer.alloc(0);
         let newList = Buffer.concat([node1.getId1() as Buffer]);
@@ -41,7 +39,7 @@ describe("CRDTView", function() {
         crdtView.handleResponse({
             //@ts-ignore
             result: {
-                nodes: [node1.export()],
+                nodes: [node1.pack()],
             },
             //@ts-ignore
             crdtResult: {
@@ -64,7 +62,7 @@ describe("CRDTView", function() {
         crdtView.handleResponse({
             //@ts-ignore
             result: {
-                nodes: [node2.export()],
+                nodes: [node2.pack()],
             },
             //@ts-ignore
             crdtResult: {
@@ -91,7 +89,7 @@ describe("CRDTView", function() {
         crdtView.handleResponse({
             //@ts-ignore
             result: {
-                nodes: [node2.export()],
+                nodes: [node2.pack()],
             },
             //@ts-ignore
             crdtResult: {

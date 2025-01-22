@@ -11,7 +11,7 @@ import {
 
 import {
     Connection,
-} from "postgresql-client";
+} from "postgrejs";
 
 import {
     PromiseCallback,

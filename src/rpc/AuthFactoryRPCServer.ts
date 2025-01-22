@@ -8,7 +8,7 @@ import {
 
 import {
     KeyPair,
-    Crypto,
+    Krypto,
 } from "../datamodel";
 
 import {
@@ -70,7 +70,7 @@ export class AuthFactoryRPCServer {
                     throw new Error("No KeyPair configured");
                 }
 
-                if (!Crypto.IsEd25519(keyPair.publicKey)) {
+                if (!Krypto.IsEd25519(keyPair.publicKey)) {
                     throw new Error("Auth must be done with an Ed25519 keypair.");
                 }
 
@@ -79,7 +79,7 @@ export class AuthFactoryRPCServer {
                 const serverPublicKey = authFactoryConfig.serverPublicKey;
 
                 if (serverPublicKey) {
-                    if (!Crypto.IsEd25519(serverPublicKey)) {
+                    if (!Krypto.IsEd25519(serverPublicKey)) {
                         throw new Error("Auth must be done with serverPublicKey being an Ed25519 public key.");
                     }
                 }
@@ -90,7 +90,7 @@ export class AuthFactoryRPCServer {
                     // We need to check every public key so it is Ed25519.
                     //
                     allowedClients.forEach( publicKey => {
-                        if (!Crypto.IsEd25519(publicKey)) {
+                        if (!Krypto.IsEd25519(publicKey)) {
                             throw new Error("Auth must be done with native Ed25519 keypairs, also all public keys in allowedClients must be Ed25519 public keys.");
                         }
                     });

@@ -1,5 +1,5 @@
 import {
-    NodeInterface,
+    BaseNodeInterface,
     FriendCertInterface,
 } from "../datamodel";
 
@@ -69,8 +69,7 @@ export const TABLES: {[table: string]: any} = {
             "region char(2) NULL",
             "jurisdiction char(2) NULL",
             "owner bytea NOT NULL",
-            "hasonline smallint NOT NULL",
-            "isonline smallint NOT NULL",
+            "isinactive smallint NOT NULL",
             "ispublic smallint NOT NULL",
             "islicensed smallint NOT NULL",
             "disallowparentlicensing smallint NOT NULL",
@@ -81,9 +80,10 @@ export const TABLES: {[table: string]: any} = {
             "updatetime bigint NOT NULL",
             "trailupdatetime bigint NOT NULL",
 
-            /** This UNIQUE index MUST be defined here on the column and not below as a seperate index declaration 
-             *  for Postgres to work as Sqlite when it comes to ON CONFLICT. */
-            "sharedhash bytea UNIQUE NOT NULL",
+            /** This UNIQUE index MUST be defined here on the column and not below as a
+             * seperate index declaration, for Postgres to work as Sqlite when it
+             * comes to ON CONFLICT. */
+            "uniquehash bytea UNIQUE NOT NULL",
 
             "bumphash bytea NULL",
 
@@ -124,10 +124,6 @@ export const TABLES: {[table: string]: any} = {
             },
             "idx_openodin_nodes_bumphash": {
                 columns: ["bumphash"],
-                unique: false,
-            },
-            "idx_openodin_nodes_hasonline": {
-                columns: ["hasonline"],
                 unique: false,
             },
         },
@@ -182,7 +178,7 @@ export const TABLES: {[table: string]: any} = {
             //},
         },
     },
-    "openodin_licensee_hashes": {
+    "openodin_licensing_hashes": {
         columns: [
             /** The id1 of the license node. */
             "id1 bytea NOT NULL",
@@ -196,11 +192,11 @@ export const TABLES: {[table: string]: any} = {
             "restrictivemodemanager smallint NOT NULL",
         ],
         indexes: {
-            "idx_openodin_licensee_hashes_id1": {
+            "idx_openodin_licensing_hashes_id1": {
                 columns: ["id1"],
                 unique: false,
             },
-            "idx_openodin_licensee_hashes_hash": {
+            "idx_openodin_licensing_hashes_hash": {
                 columns: ["hash"],
                 unique: false,
             },
@@ -211,7 +207,7 @@ export const TABLES: {[table: string]: any} = {
             /** The id1 of the node bringing in the friend cert. */
             "id1 bytea NOT NULL",
 
-            "issuer bytea NOT NULL",
+            "owner bytea NOT NULL",
             "constraints bytea NOT NULL",
             "image bytea NOT NULL",
         ],
@@ -273,8 +269,8 @@ export const BLOB_TABLES: {[table: string]: any} = {
 export type FetchReplyData = {
     status?: StatusValues,
     error?: string,
-    nodes?: NodeInterface[],
-    embed?: NodeInterface[],
+    nodes?: BaseNodeInterface[],
+    embed?: BaseNodeInterface[],
     rowCount?: number,
     delta?: Buffer,
     cursorIndex?: number,
@@ -424,21 +420,21 @@ export type DriverInterface = {
      * @returns node if found, undefined if not found.
      * @throws on decoding error.
      */
-    getNodeById1(nodeId1: Buffer, now: number): Promise<NodeInterface | undefined>;
+    getNodeById1(nodeId1: Buffer, now: number): Promise<BaseNodeInterface | undefined>;
 
     /**
      * Fetch nodes by their id1.
      * @returns found nodes
      * @throws on decoding error.
      */
-    getNodesById1(nodesId1: Buffer[], now: number): Promise<NodeInterface[]>;
+    getNodesById1(nodesId1: Buffer[], now: number): Promise<BaseNodeInterface[]>;
 
     /**
      * Fetch nodes by their id.
      * @returns found nodes
      * @throws on decoding error.
      */
-    getNodesById(nodesId: Buffer[], now: number): Promise<NodeInterface[]>;
+    getNodesById(nodesId: Buffer[], now: number): Promise<BaseNodeInterface[]>;
 
     /**
      * Fetch a single node based on its id1, permissions apply.
@@ -448,7 +444,7 @@ export type DriverInterface = {
      * @returns the node if found and permissions allow.
      */
     fetchSingleNode(nodeId1: Buffer, now: number, sourcePublicKey: Buffer, targetPublicKey: Buffer):
-        Promise<NodeInterface | undefined>;
+        Promise<BaseNodeInterface | undefined>;
 
     /**
      * Insert nodes into the database.
@@ -470,7 +466,7 @@ export type DriverInterface = {
      * @returns triple of inserted node id1s and their parentIds, also list of node ID1s of nodes who are configured with blobs.
      * @throws
      */
-    store(nodes: NodeInterface[], now: number, preserveTransient?: boolean):
+    store(nodes: BaseNodeInterface[], now: number, preserveTransient?: boolean):
         Promise<[Buffer[], Buffer[], Buffer[]]>;
 
     /**
@@ -485,13 +481,13 @@ export type DriverInterface = {
      * Call this when the blob has finalized and exists to trigger peers to download the blob.
      * This function is not meant to bump license nodes.
      */
-    bumpBlobNode(node: NodeInterface, now: number): Promise<void>;
+    bumpBlobNode(node: BaseNodeInterface, now: number): Promise<void>;
 
     onClose(fn: ()=>void): void;
 
     offClose(fn: ()=>void): void;
 
-    close(): void;
+    close(): Promise<void>;
 
     /**
      * Fetch list of node ID1s of expired nodes.
@@ -506,7 +502,7 @@ export type InsertAchillesHash = {
     hash: Buffer,
 };
 
-export type InsertLicenseeHash = {
+export type InsertLicensingHash = {
     id1: Buffer,
     hash: Buffer,
     disallowretrolicensing: number,
@@ -521,7 +517,7 @@ export type InsertDestroyHash = {
 };
 
 export type InsertFriendCert = {
-    issuer: Buffer,
+    owner: Buffer,
     constraints: Buffer,
     image: Buffer,
     id1: Buffer,
@@ -533,7 +529,7 @@ export type LicenseNodeEntry = {
     distance: number,
 };
 
-export type SelectLicenseeHash = {
+export type SelectLicensingHash = {
     hash: Buffer,
     disallowretrolicensing: number,
     parentpathhash?: Buffer,
@@ -545,15 +541,15 @@ export type SelectLicenseeHash = {
 
 export type SelectFriendCertPair = {
     aid1: Buffer,
-    aissuer: Buffer,
+    aowner: Buffer,
     aconstraints: Buffer,
     aimage: Buffer,
-    aCertObject?: FriendCertInterface,  // Set later, decoded image.
+    aCert?: FriendCertInterface,  // Set later, decoded image.
     bid1: Buffer,
-    bissuer: Buffer,
+    bowner: Buffer,
     bconstraints: Buffer,
     bimage: Buffer,
-    bCertObject?: FriendCertInterface,  // Set later, decoded image.
+    bCert?: FriendCertInterface,  // Set later, decoded image.
 };
 
 export type Trigger = {

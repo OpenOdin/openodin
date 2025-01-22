@@ -81,7 +81,7 @@ export class BlobDriver implements BlobDriverInterface {
             await db.exec("COMMIT;");
         }
         catch(e) {
-            db.exec("ROLLBACK;");
+            await db.exec("ROLLBACK;");
             throw(e);
         }
 
@@ -110,7 +110,7 @@ export class BlobDriver implements BlobDriverInterface {
     public async deleteBlobs(nodeId1s: Buffer[]): Promise<number> {
         assert(this.blobDb, "Blob driver is not available");
 
-        this.blobDb.exec("BEGIN;");
+        await this.blobDb.exec("BEGIN;");
 
         try {
             const ph = this.blobDb.generatePlaceholders(nodeId1s.length);
@@ -124,12 +124,12 @@ export class BlobDriver implements BlobDriverInterface {
             await this.blobDb.run(`DELETE FROM openodin_blob_data AS bd WHERE bd.dataid IN ${ph2}
                 AND bd.dataid NOT IN (SELECT dataid from openodin_blob);`, dataIds);
 
-            this.blobDb.exec("COMMIT;");
+            await this.blobDb.exec("COMMIT;");
 
             return dataIds.length;
         }
         catch(e) {
-            this.blobDb.exec("ROLLBACK;");
+            await this.blobDb.exec("ROLLBACK;");
             throw e;
         }
     }
@@ -137,7 +137,7 @@ export class BlobDriver implements BlobDriverInterface {
     public async deleteNonfinalizedBlobData(timestamp: number, limit: number = 1000): Promise<number> {
         assert(this.blobDb, "Blob driver is not available");
 
-        this.blobDb.exec("BEGIN;");
+        await this.blobDb.exec("BEGIN;");
 
         try {
             const sql = `DELETE FROM openodin_blob_data WHERE dataid IN
@@ -146,12 +146,12 @@ export class BlobDriver implements BlobDriverInterface {
 
             const timestamps = await this.blobDb.all(sql);
 
-            this.blobDb.exec("COMMIT;");
+            await this.blobDb.exec("COMMIT;");
 
             return timestamps.length;
         }
         catch(e) {
-            this.blobDb.exec("ROLLBACK;");
+            await this.blobDb.exec("ROLLBACK;");
 
             throw e;
         }

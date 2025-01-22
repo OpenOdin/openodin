@@ -115,6 +115,8 @@ import {
     DeepCopy,
 } from "./common";
 
+export type ParseSchemaType = any;
+
 /**
  * @param schema the schema
  * @param obj the object to apply the schema to
@@ -122,15 +124,15 @@ import {
  * @returns new adapted object
  * @throws if schema cannot be applied to obj
  */
-export function ParseSchema(schema: any, obj: any, pKey: string = ""): any {
+export function ParseSchema(schema: any, obj: any, pKey: string = "", allowAlienKeys: boolean = false, parentSchema?: any): any {
     // Validate value
     //
     if (typeof schema === "function") {
         try {
-            return schema(obj);
+            return schema(parentSchema, obj, pKey, allowAlienKeys);
         }
         catch(e) {
-            throw new Error(`Error parsing with function for key ${pKey}: ${e}`);
+            throw new Error(`Error when parsing with function for key ${pKey}: ${e}`);
         }
     }
 
@@ -229,12 +231,14 @@ export function ParseSchema(schema: any, obj: any, pKey: string = ""): any {
 
                         const subSchema = schema[key];
 
-                        obj2[objKey] = ParseSchema(subSchema, v, `${pKey}.${objKey}`);
+                        obj2[objKey] = ParseSchema(subSchema, v, `${pKey}.${objKey}`, allowAlienKeys, schema);
 
                         return;
                     }
 
-                    throw new Error(`Unknown key ${pKey}.${objKey} provided in object but not in schema`);
+                    if (!allowAlienKeys) {
+                        throw new Error(`Unknown key ${pKey}.${objKey} provided in object but not in schema`);
+                    }
                 }
             });
 
@@ -291,7 +295,7 @@ export function ParseSchema(schema: any, obj: any, pKey: string = ""): any {
                     }
                 }
 
-                obj2[name] = ParseSchema(subSchema, v, `${pKey}.${name}`);
+                obj2[name] = ParseSchema(subSchema, v, `${pKey}.${name}`, allowAlienKeys, schema);
             });
 
             if (schema._postFn) {
@@ -321,7 +325,7 @@ export function ParseSchema(schema: any, obj: any, pKey: string = ""): any {
 
         const subSchema = schema[0];
 
-        return obj.map( (elm, index) => ParseSchema(subSchema, elm, `${pKey}[${index}]`));
+        return obj.map( (elm, index) => ParseSchema(subSchema, elm, `${pKey}[${index}]`, allowAlienKeys, schema));
     }
     else {
         throw new Error(`Unknown schema type for key ${pKey}`);
@@ -334,9 +338,9 @@ export function ParseSchema(schema: any, obj: any, pKey: string = ""): any {
  */
 export function ParseEnum(list: Array<string | number | bigint | boolean>,
     defaultValue?: string | number | bigint | boolean):
-    (value: string | number | bigint | boolean | undefined | null) => string | number | bigint | boolean
+    (parentSchema: any, value: string | number | bigint | boolean | undefined | null) => string | number | bigint | boolean
 {
-    return function(value: string | number | bigint | boolean | undefined | null) {
+    return function(parentSchema: any, value: string | number | bigint | boolean | undefined | null) {
         if (value === undefined || value === null || value === "") {
             if (defaultValue !== undefined) {
                 return defaultValue;
@@ -355,15 +359,46 @@ export function ParseEnum(list: Array<string | number | bigint | boolean>,
 }
 
 export function ParseArrayWithDefault(schema: [any], defaultValue: any[]):
-    (value: any[] | undefined | null) => any[]
+    (parentSchema: any, value: any[] | undefined | null, pKey: string, allowAlienKeys: boolean) => any[]
 {
-    return function(value: any[] | undefined | null) {
+    return function(parentSchema: any, value: any[] | undefined | null, pKey: string, allowAlienKeys: boolean) {
         if (!Array.isArray(value)) {
             value = defaultValue;
         }
 
-        return ParseSchema(schema, value);
+        return ParseSchema(schema, value, pKey, allowAlienKeys, parentSchema);
     };
+}
+
+export function ParseRawOrSchema(schema?: any):
+    (parentSchema: any, value: any[] | undefined | null, pKey: string, allowAlienKeys: boolean) => any[]
+{
+    return function(parentSchema: any, v: any, pKey: string, allowAlienKeys: boolean): any {
+        if (typeof(v) === "string") {
+            return Buffer.from(v, "hex");
+        }
+        else if (v) {
+            return ParseSchema(schema ?? parentSchema, v, pKey, allowAlienKeys, parentSchema);
+        }
+
+        return undefined;
+    };
+}
+
+export function ParseTime(parentSchema: any, v: any, pKey: string, allowAlienKeys: boolean): number {
+    if (typeof(v) === "number") {
+        return new Date(v).getTime();
+    }
+    else if (typeof(v) === "string") {
+        if (v[0] === '+') {
+            return new Date(Date.now() + parseInt(v.slice(1))).getTime();
+        }
+
+        return new Date(v).getTime();
+    }
+    else {
+        throw new Error("Expecting number or string");
+    }
 }
 
 /**

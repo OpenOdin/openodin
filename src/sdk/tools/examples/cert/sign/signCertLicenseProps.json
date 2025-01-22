@@ -1,0 +1,51 @@
+{
+    " ## ": "The hex-encoded 3 byte header of the model type or the ascii-alias.",
+    " ## ": "This dictates what exact cert class will be created. A list of model types is available running `cert list`",
+    "modelType": "SignCert",
+
+    " ## ": "The publicKey owning this cert and given sign authority to targetPublicKey",
+    " ## ": "As we do not use a SignCert this is also the key needing to sign this cert.",
+    "owner": "!keyFileIssuer.json:.keyPair.publicKey",
+
+    " ## ": "The publicKey of the signer of the nodes. Only have one key here unless using multisig",
+    "targetPublicKeys": ["!keyFileUser.json:.keyPair.publicKey"],
+
+    " ## ": "From the UNIX time (ms) when this cert is valid.",
+    " ## ": "This value must fall within any sign certs creationTime and expireTime.",
+    "creationTime": 1717171717000,
+
+    " ## ": "The cert has expired on this UNIX time ms.",
+    " ## ": "If a sign cert has targetMaxExpireTime set then this value must be lesser or equal to that value.",
+    "expireTime": 1818181818000,
+
+    "countdown": 0,
+
+    " ## multisigThreshold": 0,
+
+    "lockedConfig": 0,
+
+    " ## ": "We do not use any sign cert in this example.",
+    " ## ": "If we were to use it then first constraints of this SignCert must been hashed and stored in the sign cert.",
+    "signCert": null,
+
+    " ## ": "targetType determines what this SignCert can sign",
+    "targetType": "LicenseNode",
+
+    " ## ": "AuthCert's constraints field is unused as for now, but could be used to place constraints on the connection being made.",
+    " ## ": "It will depend on the environment targeted by the targetType field",
+    " ## ": "This is not the same value as the constraints hashed in and on AuthCert but stored in SignCert.",
+    "constraints": null,
+
+    " ## ": "Set the max expire time of the target node",
+    "targetMaxExpireTime": null,
+
+    " ## ": "We set this using flags instead",
+    "baseSignCertConfig": null,
+
+    "isIndestructible": false,
+
+    " ## ": "If the signature is already created put it here as hexadecimal, otherwise make sure to pass the --keyfile argument to sign the created cert.",
+    "signature1": null,
+    "signature2": null,
+    "signature3": null
+}

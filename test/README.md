@@ -18,3 +18,14 @@ Exposing the port:
 ```sh
 docker run --rm --name some-postgres -e POSTGRES_PASSWORD="THIS-WILL-DESTROY-ALL-YOUR-DATA" -p 5432:5432 postgres
 ```
+
+## 20250219
+As for now with postgrejs 2.22.3 and Postgresql 17 the following lines need to be added to `node_modules/postgrejs/cjs/connection/portal.js` at line 121 before the `default:` case.
+
+```js
+case protocol_js_1.Protocol.BackendMessageCode.CloseComplete:
+case protocol_js_1.Protocol.BackendMessageCode.ParseComplete:
+case protocol_js_1.Protocol.BackendMessageCode.ReadyForQuery:
+```
+
+Without these lines cursors are not working with Postgres.

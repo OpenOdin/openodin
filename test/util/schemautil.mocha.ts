@@ -4,7 +4,7 @@ import {
     ParseSchema,
     ToJSONObject,
     FetchRequestSchema,
-    LICENSE0_NODE_TYPE,
+    LicenseNodeType,
     DeepEquals,
     ApplicationConfSchema,
     WalletConfSchema,
@@ -30,7 +30,7 @@ describe("SchemaUtil", function() {
 
         const parsed = ParseSchema(FetchRequestSchema, obj);
 
-        assert(parsed.query.match[0].nodeType.equals(LICENSE0_NODE_TYPE));
+        assert(parsed.query.match[0].nodeType.equals(Buffer.from(LicenseNodeType)));
 
         const obj2 = ToJSONObject(parsed);
 

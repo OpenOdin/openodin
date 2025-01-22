@@ -15,14 +15,11 @@ import {
 } from "./P2PClientForwarder";
 
 import {
-    NodeInterface,
-    PrimaryNodeCertInterface,
-    License,
+    LicenseNode,
+    LicenseNodeInterface,
+    SignCertInterface,
+    GetModelType,
 } from "../datamodel";
-
-import {
-    Decoder,
-} from "../decoder";
 
 import {
     SignatureOffloaderInterface,
@@ -43,7 +40,7 @@ import {
 const console = PocketConsole({module: "P2PClientExtender"});
 
 export class P2PClientExtender extends P2PClientForwarder {
-    protected nodeCerts: PrimaryNodeCertInterface[];
+    protected signCerts: SignCertInterface[] = [];
     protected signatureOffloader: SignatureOffloaderInterface;
     protected publicKey: Buffer;
 
@@ -51,12 +48,11 @@ export class P2PClientExtender extends P2PClientForwarder {
      * @param publicKey The cryptographic public key of the user running the Service.
      * @param signatureOffloader is required to have a default keypair set for signing nodes.
      */
-    constructor(senderClient: P2PClient, targetClient: P2PClient, publicKey: Buffer, nodeCerts: PrimaryNodeCertInterface[], signatureOffloader: SignatureOffloaderInterface, muteMsgIds?: Buffer[]) {
+    constructor(senderClient: P2PClient, targetClient: P2PClient, publicKey: Buffer, signCerts: SignCertInterface[], signatureOffloader: SignatureOffloaderInterface, muteMsgIds?: Buffer[]) {
         super(senderClient, targetClient, muteMsgIds);
 
         this.publicKey = publicKey;
-        this.nodeCerts = [];
-        this.setNodeCerts(nodeCerts);
+        this.setSignCerts(signCerts);
         this.signatureOffloader = signatureOffloader;
     }
 
@@ -64,8 +60,8 @@ export class P2PClientExtender extends P2PClientForwarder {
      * When authorizing using an auth cert we need node certs to sign new nodes as the auth cert issuer public key.
      * @param nodeCert the node certs to have available for signing nodes as the auth cert issuer.
      */
-    public setNodeCerts(nodeCerts: PrimaryNodeCertInterface[]) {
-        this.nodeCerts = nodeCerts.slice();
+    public setSignCerts(signCerts: SignCertInterface[]) {
+        this.signCerts = signCerts.slice();
     }
 
     protected handleFetchResponse(sendResponse: SendResponseFn<FetchResponse>, targetClient: P2PClient, fetchResponse: FetchResponse, fetchRequest: FetchRequest) {
@@ -107,10 +103,14 @@ export class P2PClientExtender extends P2PClientForwarder {
             return;
         }
 
-        const nodes: (NodeInterface | undefined)[] = images.map( image => {
+        const licenseNodes: (LicenseNodeInterface | undefined)[] = images.map( image => {
             try {
                 // Note that we do not verify the node at this point since we trust our Storage to have done that.
-                return Decoder.DecodeNode(image);
+                if (LicenseNode.Is(GetModelType(image))) {
+                    return new LicenseNode(image);
+                }
+
+                return undefined;
             }
             catch(e) {
                 return undefined;
@@ -119,13 +119,16 @@ export class P2PClientExtender extends P2PClientForwarder {
 
         const embeddedImages: Buffer[] = [];
 
-        for (let i=0; i<nodes.length; i++) {
-            const embeddingNode = nodes[i];
-            if (!embeddingNode) {
+        for (let i=0; i<licenseNodes.length; i++) {
+            const licenseNode = licenseNodes[i];
+
+            if (!licenseNode) {
                 continue;
             }
 
             try {
+                const props = licenseNode.getProps();
+
                 // Terms for a newly extended License node will depend on the terms set on the inner
                 // most license object and the height of the license stack.
 
@@ -133,38 +136,49 @@ export class P2PClientExtender extends P2PClientForwarder {
                 // be signed using our key.
                 // If we do not trust the storage we should not have allowEmbed
                 // set to anything so that we do not automatically sign embeddings.
-                if (!embeddingNode.hasEmbedded()) {
+                if (!props.embedded) {
                     continue;
                 }
 
-                if (!embeddingNode.getType(4).equals(License.GetType(4))) {
-                    continue;
-                }
-
-                if (!embeddingNode.getOwner()?.equals(this.publicKey)) {
+                if (!props.owner?.equals(this.publicKey)) {
                     // We need to sign using a cert
-                    if (!this.nodeCerts) {
+                    if (!this.signCerts) {
                         // No certs provided, we can't sign
                         continue;
                     }
-                    const cert = Decoder.MatchNodeCert(embeddingNode, this.publicKey, this.nodeCerts);
-                    if (!cert) {
-                        // No matching cert to sign it
+
+                    let signCert;
+                    const l = this.signCerts.length;
+                    for (let i=0; i<l; i++) {
+                        signCert = this.signCerts[i];
+
+                        const validated = licenseNode.matchSignCert(signCert.getProps(),
+                            this.publicKey);
+
+                        if (!validated[0]) {
+                            signCert = undefined;
+                            continue;
+                        }
+
+                        break;
+                    }
+
+                    if (!signCert) {
+                        // No matching cert to sign it,
+                        // skip it.
                         continue;
                     }
 
-                    embeddingNode.setCertObject(cert);
+                    props.signCert = signCert.getProps();
+
+                    licenseNode.pack();
                 }
 
                 // We sign the new node, but we do not deep verify the stack of nodes at this point
                 // because we trust the storage has already done that.
-                await this.signatureOffloader.sign([embeddingNode], this.publicKey);
+                await this.signatureOffloader.sign([licenseNode], this.publicKey);
 
-                const image = embeddingNode.export();
-
-                if (image) {
-                    embeddedImages.push(image);
-                }
+                embeddedImages.push(licenseNode.getPacked());
             }
             catch(e) {
                 console.error("Failed embedding license", e);

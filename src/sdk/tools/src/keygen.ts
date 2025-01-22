@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import {
-    Crypto,
-} from "../../../datamodel/Crypto";
+    Krypto,
+} from "../../../datamodel";
 
 const keyType = process.argv[2] || "ed25519";
 
@@ -15,11 +15,11 @@ let keyPair;
 let keyTypeNote;
 
 if (keyType === "ed25519") {
-    keyPair = Crypto.GenKeyPair();
+    keyPair = Krypto.GenKeyPair();
     keyTypeNote = "Ed25519: generated with NaCl";
 }
 else {
-    keyPair = Crypto.GenEthereumKeyPair();
+    keyPair = Krypto.GenEthereumKeyPair();
     keyTypeNote = "Ethereum: ECDSA key pair generated with @ethereumjs/wallet, publicKey=address";
 }
 

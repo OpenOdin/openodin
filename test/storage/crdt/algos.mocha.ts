@@ -4,8 +4,7 @@
 import { assert, expect } from "chai";
 
 import {
-    DataInterface,
-    Crypto,
+    Krypto,
     NodeUtil,
     NodeValues,
     ExtractNodeValues,
@@ -23,14 +22,15 @@ import {
 async function testSorted(algoSorted: AlgoInterface) {
     const nodeUtil = new NodeUtil();
 
-    const keyPair = Crypto.GenKeyPair();
+    const keyPair = Krypto.GenKeyPair();
 
-    const node1 = await nodeUtil.createDataNode({hasOnlineValidation: true, creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
-    const node1copy = await nodeUtil.createDataNode({hasOnlineValidation: true, creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+    const node1 = await nodeUtil.createDataNode({creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
+    const node1copy = await nodeUtil.createDataNode({creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
 
-    assert(node1.getId1()?.equals(node1copy.getId1()!));
+    assert(node1.getId1().equals(node1copy.getId1()));
 
-    node1copy.setOnlineIdValidated();
+    node1copy.storeFlags({isInactive: true});
+    node1copy.pack(true);
 
     let [addedNodes, transientNodes] = algoSorted.add([node1]);
     assert(addedNodes.length === 1);
@@ -201,39 +201,48 @@ describe("CRDT AlgoSorted", function() {
     it("should be able to sort on storageTime instead of creationTime", async function() {
         const nodeUtil = new NodeUtil();
 
-        const keyPair = Crypto.GenKeyPair();
+        const keyPair = Krypto.GenKeyPair();
 
         const node1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x01),
             owner: Buffer.alloc(32).fill(0xa1),
             creationTime: 10,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 2,
         });
 
+        node1.pack();
+
+        node1.getProps().id1 = Buffer.alloc(32).fill(0x01);
+
         const node2 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x02),
             owner: Buffer.alloc(32).fill(0xa1),
             creationTime: 11,
             parentId: Buffer.alloc(32).fill(0xe2),
             transientStorageTime: 1,
         });
 
+        node2.pack();
+        node2.getProps().id1 = Buffer.alloc(32).fill(0x02);
+
         const node3 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x03),
             owner: Buffer.alloc(32).fill(0xa1),
             creationTime: 10,
             parentId: Buffer.alloc(32).fill(0xe0),
             transientStorageTime: 1,
         });
 
+        node3.pack();
+        node3.getProps().id1 = Buffer.alloc(32).fill(0x03);
+
         const node4 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x04),
             owner: Buffer.alloc(32).fill(0xa1),
             creationTime: 10,
             parentId: Buffer.alloc(32).fill(0xe0),
             transientStorageTime: 1,
         });
+
+        node4.pack();
+        node4.getProps().id1 = Buffer.alloc(32).fill(0x04);
 
         let algoSorted = new AlgoSorted(false);
         algoSorted.add([node2, node1, node3]);
@@ -290,7 +299,7 @@ describe("CRDT AlgoSortedRefId", function() {
 
         const algo = new AlgoSortedRefId();
 
-        const keyPair = Crypto.GenKeyPair();
+        const keyPair = Krypto.GenKeyPair();
 
         const node1 = await nodeUtil.createDataNode({data: Buffer.from("node1"), creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
 
@@ -443,33 +452,40 @@ describe("CRDT AlgoSorted with annotations", function() {
     it("should not treat annotation nodes differently if not configured to do so", async function() {
         const nodeUtil = new NodeUtil();
 
-        const keyPair = Crypto.GenKeyPair();
+        const keyPair = Krypto.GenKeyPair();
 
         const node1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x01),
             owner: Buffer.alloc(32).fill(0xa1),
             creationTime: 10,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 2,
         });
 
+        node1.pack(true);
+        node1.getProps().id1 = Buffer.alloc(32).fill(0x01);
+        node1.getProps().id = Buffer.alloc(32).fill(0x01);
+
         const node2 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x02),
             owner: Buffer.alloc(32).fill(0xa1),
             creationTime: 11,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 1,
         });
 
+        node2.pack(true);
+        node2.getProps().id1 = Buffer.alloc(32).fill(0x02);
+
         const annotationNode1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x03),
             owner: Buffer.alloc(32).fill(0xa1),
             creationTime: 10,
             parentId: node1.getId(),
             transientStorageTime: 1,
         });
 
-        annotationNode1.setAnnotationEdit()
+        annotationNode1.pack(true);
+        annotationNode1.getProps().id1 = Buffer.alloc(32).fill(0x03);
+
+        annotationNode1.storeFlags({isAnnotationEdit: true});
 
         const targetPublicKey = Buffer.alloc(32);
 
@@ -485,33 +501,38 @@ describe("CRDT AlgoSorted with annotations", function() {
     it("should detect edit annotations", async function() {
         const nodeUtil = new NodeUtil();
 
-        const keyPair = Crypto.GenKeyPair();
+        const keyPair = Krypto.GenKeyPair();
 
         const node1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x01),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 10,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 2,
         });
 
+        node1.pack(true);
+        node1.getProps().id1 = Buffer.alloc(32).fill(0x01);
+        node1.getProps().id = Buffer.alloc(32).fill(0x01);
+
         const node2 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x02),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 11,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 1,
         });
 
+        node2.pack(true);
+        node2.getProps().id1 = Buffer.alloc(32).fill(0x02);
+
         const annotationNode1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x03),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 13,
             parentId: node1.getId(),
             transientStorageTime: 1,
-        });
+            isAnnotationEdit: true,
+        }, keyPair.publicKey, keyPair.secretKey);
 
-        annotationNode1.setAnnotationEdit()
+        annotationNode1.pack(true);
 
         const targetPublicKey = Buffer.alloc(32);
 
@@ -530,14 +551,15 @@ describe("CRDT AlgoSorted with annotations", function() {
         assert(ret[0][0].annotations?.getEditNode()?.getId1()?.equals(annotationNode1.getId1()!));
 
         const annotationNode2 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x04),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 10,
             parentId: node1.getId(),
             transientStorageTime: 1,
+            isAnnotationEdit: true,
         });
 
-        annotationNode2.setAnnotationEdit()
+        annotationNode2.pack(true);
+        annotationNode2.getProps().id1 = Buffer.alloc(32).fill(0x04);
 
         algoSorted.add([annotationNode2]);
         ret = algoSorted.get(undefined, -1, -1, 0, false);
@@ -548,14 +570,13 @@ describe("CRDT AlgoSorted with annotations", function() {
         assert(ret[0][0].annotations?.getEditNode()?.getId1()?.equals(annotationNode1.getId1()!));
 
         const annotationNode3 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x06),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 14,
             parentId: node1.getId(),
             transientStorageTime: 1,
-        });
-
-        annotationNode3.setAnnotationEdit()
+            isAnnotationEdit: true,
+            data: Buffer.from([1,2,3]),
+        }, keyPair.publicKey, keyPair.secretKey);
 
         algoSorted.add([annotationNode3]);
         ret = algoSorted.get(undefined, -1, -1, 0, false);
@@ -565,14 +586,15 @@ describe("CRDT AlgoSorted with annotations", function() {
         assert(ret[0][0].annotations?.getEditNode()?.getId1()?.equals(annotationNode3.getId1()!));
 
         const annotationNode4 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x05), // lesser id1 than annotationNode3
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 14,
             parentId: node1.getId(),
             transientStorageTime: 1,
+            isAnnotationEdit: true,
         });
 
-        annotationNode4.setAnnotationEdit()
+        annotationNode4.pack(true);
+        annotationNode4.getProps().id1 = Buffer.alloc(32).fill(0x05);
 
         algoSorted.add([annotationNode4]);
         ret = algoSorted.get(undefined, -1, -1, 0, false);
@@ -585,34 +607,40 @@ describe("CRDT AlgoSorted with annotations", function() {
     it("should detect reaction annotations", async function() {
         const nodeUtil = new NodeUtil();
 
-        const keyPair = Crypto.GenKeyPair();
+        const keyPair = Krypto.GenKeyPair();
 
         const node1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x01),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 10,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 2,
         });
 
+        node1.pack(true);
+        node1.getProps().id1 = Buffer.alloc(32).fill(0x01);
+        node1.getProps().id = Buffer.alloc(32).fill(0x01);
+
         const node2 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x02),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 11,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 1,
         });
 
+        node2.pack(true);
+        node2.getProps().id1 = Buffer.alloc(32).fill(0x02);
+
         const annotationNode1 = await nodeUtil.createDataNode({
             id1: Buffer.alloc(32).fill(0x03),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 13,
             parentId: node1.getId(),
             transientStorageTime: 1,
             data: Buffer.from("react/thumbsup"),
-        });
+            isAnnotationReaction: true,
+        }, keyPair.publicKey, keyPair.secretKey);
 
-        annotationNode1.setAnnotationReaction();
+        annotationNode1.pack(true);
 
         const targetPublicKey = Buffer.alloc(32).fill(0xa1);
 
@@ -634,34 +662,38 @@ describe("CRDT AlgoSorted with annotations", function() {
     it("should detect nested conversations annotations", async function() {
         const nodeUtil = new NodeUtil();
 
-        const keyPair = Crypto.GenKeyPair();
+        const keyPair = Krypto.GenKeyPair();
 
         const node1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x01),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 10,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 2,
         });
 
+        node1.pack(true);
+        node1.getProps().id1 = Buffer.alloc(32).fill(0x01);
+        node1.getProps().id = Buffer.alloc(32).fill(0x01);
+
         const node2 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x02),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 11,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 1,
         });
 
+        node2.pack(true);
+        node2.getProps().id1 = Buffer.alloc(32).fill(0x02);
+
         const annotationNode1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x03),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 13,
             parentId: node1.getId(),
             transientStorageTime: 1,
             data: Buffer.from("react/thumbsup"),
-        });
+        }, keyPair.publicKey, keyPair.secretKey);
 
-        const targetPublicKey = Buffer.alloc(32).fill(0xa1);
+        const targetPublicKey = keyPair.publicKey;
 
         const conf = JSON.stringify({
             annotations: {
@@ -684,33 +716,38 @@ describe("CRDT AlgoRefId with annotations", function() {
     it("should not treat annotation nodes differently if not configured to do so", async function() {
         const nodeUtil = new NodeUtil();
 
-        const keyPair = Crypto.GenKeyPair();
+        const keyPair = Krypto.GenKeyPair();
 
         const node1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x01),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 10,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 2,
         });
 
+        node1.pack(true);
+        node1.getProps().id1 = Buffer.alloc(32).fill(0x01);
+        node1.getProps().id = Buffer.alloc(32).fill(0x01);
+
         const node2 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x02),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 11,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 1,
         });
 
+        node2.pack(true);
+        node2.getProps().id1 = Buffer.alloc(32).fill(0x02);
+
         const annotationNode1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x03),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 10,
             parentId: node1.getId(),
             transientStorageTime: 1,
-        });
+            isAnnotationEdit: true,
+        }, keyPair.publicKey, keyPair.secretKey);
 
-        annotationNode1.setAnnotationEdit()
+        annotationNode1.pack(true);
 
         const targetPublicKey = Buffer.alloc(32);
 
@@ -726,33 +763,38 @@ describe("CRDT AlgoRefId with annotations", function() {
     it("should detect edit annotations", async function() {
         const nodeUtil = new NodeUtil();
 
-        const keyPair = Crypto.GenKeyPair();
+        const keyPair = Krypto.GenKeyPair();
 
         const node1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x01),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 10,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 2,
         });
 
+        node1.pack(true);
+        node1.getProps().id1 = Buffer.alloc(32).fill(0x01);
+        node1.getProps().id = Buffer.alloc(32).fill(0x01);
+
         const node2 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x02),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 11,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 1,
         });
 
+        node2.pack(true);
+        node2.getProps().id1 = Buffer.alloc(32).fill(0x02);
+
         const annotationNode1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x03),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 13,
             parentId: node1.getId(),
             transientStorageTime: 1,
-        });
+            isAnnotationEdit: true,
+        }, keyPair.publicKey, keyPair.secretKey);
 
-        annotationNode1.setAnnotationEdit()
+        annotationNode1.pack(true);
 
         const targetPublicKey = Buffer.alloc(32);
 
@@ -771,14 +813,13 @@ describe("CRDT AlgoRefId with annotations", function() {
         assert(ret[0][0].annotations?.getEditNode()?.getId1()?.equals(annotationNode1.getId1()!));
 
         const annotationNode2 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x04),
-            owner: Buffer.alloc(32).fill(0xa1),
             creationTime: 10,
             parentId: node1.getId(),
             transientStorageTime: 1,
-        });
+            isAnnotationEdit: true,
+        }, keyPair.publicKey, keyPair.secretKey);
 
-        annotationNode2.setAnnotationEdit()
+        annotationNode2.pack(true);
 
         algoSorted.add([annotationNode2]);
         ret = algoSorted.get(undefined, -1, -1, 0, false);
@@ -789,14 +830,13 @@ describe("CRDT AlgoRefId with annotations", function() {
         assert(ret[0][0].annotations?.getEditNode()?.getId1()?.equals(annotationNode1.getId1()!));
 
         const annotationNode3 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x06),
-            owner: Buffer.alloc(32).fill(0xa1),
             creationTime: 14,
             parentId: node1.getId(),
             transientStorageTime: 1,
-        });
+            isAnnotationEdit: true,
+        }, keyPair.publicKey, keyPair.secretKey);
 
-        annotationNode3.setAnnotationEdit()
+        annotationNode3.pack(true);
 
         algoSorted.add([annotationNode3]);
         ret = algoSorted.get(undefined, -1, -1, 0, false);
@@ -806,14 +846,15 @@ describe("CRDT AlgoRefId with annotations", function() {
         assert(ret[0][0].annotations?.getEditNode()?.getId1()?.equals(annotationNode3.getId1()!));
 
         const annotationNode4 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x05), // lesser id1 than annotationNode3
-            owner: Buffer.alloc(32).fill(0xa1),
+            id1: Buffer.alloc(32).fill(0x00), // lesser id1 than annotationNode3
+            owner: keyPair.publicKey,
             creationTime: 14,
             parentId: node1.getId(),
             transientStorageTime: 1,
+            isAnnotationEdit: true,
         });
 
-        annotationNode4.setAnnotationEdit()
+        annotationNode4.pack(true);
 
         algoSorted.add([annotationNode4]);
         ret = algoSorted.get(undefined, -1, -1, 0, false);
@@ -826,36 +867,41 @@ describe("CRDT AlgoRefId with annotations", function() {
     it("should detect reaction annotations", async function() {
         const nodeUtil = new NodeUtil();
 
-        const keyPair = Crypto.GenKeyPair();
+        const keyPair = Krypto.GenKeyPair();
 
         const node1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x01),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 10,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 2,
         });
 
+        node1.pack(true);
+        node1.getProps().id1 = Buffer.alloc(32).fill(0x01);
+        node1.getProps().id = Buffer.alloc(32).fill(0x01);
+
         const node2 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x02),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 11,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 1,
         });
 
+        node2.pack(true);
+        node2.getProps().id1 = Buffer.alloc(32).fill(0x02);
+
         const annotationNode1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x03),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 13,
             parentId: node1.getId(),
             transientStorageTime: 1,
             data: Buffer.from("react/thumbsup"),
-        });
+            isAnnotationReaction: true,
+        }, keyPair.publicKey, keyPair.secretKey);
 
-        annotationNode1.setAnnotationReaction();
+        annotationNode1.pack(true);
 
-        const targetPublicKey = Buffer.alloc(32).fill(0xa1);
+        const targetPublicKey = keyPair.publicKey;
 
         const conf = JSON.stringify({
             annotations: {
@@ -875,34 +921,39 @@ describe("CRDT AlgoRefId with annotations", function() {
     it("should detect nested conversations annotations", async function() {
         const nodeUtil = new NodeUtil();
 
-        const keyPair = Crypto.GenKeyPair();
+        const keyPair = Krypto.GenKeyPair();
 
         const node1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x01),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 10,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 2,
         });
 
+        node1.pack(true);
+        node1.getProps().id1 = Buffer.alloc(32).fill(0x01);
+        node1.getProps().id = Buffer.alloc(32).fill(0x01);
+
         const node2 = await nodeUtil.createDataNode({
             id1: Buffer.alloc(32).fill(0x02),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 11,
             parentId: Buffer.alloc(32).fill(0xe1),
             transientStorageTime: 1,
         });
 
+        node2.pack(true);
+        node2.getProps().id1 = Buffer.alloc(32).fill(0x02);
+
         const annotationNode1 = await nodeUtil.createDataNode({
-            id1: Buffer.alloc(32).fill(0x03),
-            owner: Buffer.alloc(32).fill(0xa1),
+            owner: keyPair.publicKey,
             creationTime: 13,
             parentId: node1.getId(),
             transientStorageTime: 1,
             data: Buffer.from("react/thumbsup"),
-        });
+        }, keyPair.publicKey, keyPair.secretKey);
 
-        const targetPublicKey = Buffer.alloc(32).fill(0xa1);
+        const targetPublicKey = keyPair.publicKey;
 
         const conf = JSON.stringify({
             annotations: {
@@ -931,7 +982,7 @@ describe("CRDT AlgoRefId", function() {
 
         const algo = new AlgoRefId();
 
-        const keyPair = Crypto.GenKeyPair();
+        const keyPair = Krypto.GenKeyPair();
 
         const node1 = await nodeUtil.createDataNode({data: Buffer.from("node1"), creationTime: 10, parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);
         const node1_1 = await nodeUtil.createDataNode({data: Buffer.from("node1_1"), creationTime: 9, refId: node1.getId1(), parentId: Buffer.alloc(32).fill(1)}, keyPair.publicKey, keyPair.secretKey);

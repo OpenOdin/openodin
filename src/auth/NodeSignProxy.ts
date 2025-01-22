@@ -7,8 +7,8 @@ import {
 } from "../signatureoffloader/types";
 
 import {
-    Decoder,
-} from "../decoder/Decoder";
+    UnpackNode,
+} from "../datamodel";
 
 export class NodeSignProxy {
     constructor(protected signerPublicKey: Buffer,
@@ -30,20 +30,18 @@ export class NodeSignProxy {
             try {
                 const nodeBin = nodes[i];
 
-                const node = Decoder.DecodeNode(nodeBin, true);
+                const node = UnpackNode(nodeBin, true);
 
-                if (!node.getOwner()) {
-                    node.setOwner(this.signerPublicKey);
+                const props = node.getProps();
+
+                if (!props.owner) {
+                    props.owner = this.signerPublicKey;
                 }
 
-                if (node.getEligibleSigningPublicKeys().length > node.getSignatures().length) {
-                    const keys = node.getEligibleSigningPublicKeys(true);
+                if (node.canKeySign(this.signerPublicKey) >= 0) {
+                    await this.signatureOffloader.sign([node], this.signerPublicKey);
 
-                    if (keys.findIndex( key => key.equals(this.signerPublicKey) ) > -1) {
-                        await this.signatureOffloader.sign([node], this.signerPublicKey);
-
-                        nodes[i] = node.export(true);
-                    }
+                    nodes[i] = node.pack(true);
                 }
             }
             catch(e) {

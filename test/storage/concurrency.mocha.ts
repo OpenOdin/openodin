@@ -13,13 +13,14 @@ import {
 import {
     Driver,
     BlobDriver,
-    NodeInterface,
+    BaseNodeInterface,
     NodeUtil,
     sleep,
     BLOB_FRAGMENT_SIZE,
     DBClient,
     TABLES,
     DatabaseUtil,
+    Krypto,
 } from "../../src";
 
 import fs from "fs";
@@ -29,8 +30,8 @@ import fs from "fs";
  *
  */
 class DriverTestWrapper extends Driver {
-    public async insertNodes(nodes: NodeInterface[], now: number): Promise<Buffer[]> {
-        return super.insertNodes(nodes, now);
+    public async insertNodes(nodes: BaseNodeInterface[], now: number, preserveTransient: boolean = false): Promise<void> {
+        return super.insertNodes(nodes, now, preserveTransient);
     }
 }
 
@@ -75,9 +76,10 @@ describe("Concurrency: SQLite WAL-mode for concurrent Driver access", function()
     let db1: DBClient | undefined;
     let db2: DBClient | undefined;
     let db3: DBClient | undefined;
-    let node0: NodeInterface | undefined;
-    let node1: NodeInterface | undefined;
-    let node2: NodeInterface | undefined;
+    let node0: BaseNodeInterface | undefined;
+    let node1: BaseNodeInterface | undefined;
+    let node2: BaseNodeInterface | undefined;
+    const keyPair1 = Krypto.GenKeyPair();
 
     beforeEach("Open database and create tables", async function() {
         try {
@@ -102,38 +104,39 @@ describe("Concurrency: SQLite WAL-mode for concurrent Driver access", function()
         const now = Date.now();
 
         node0 = await nodeUtil.createLicenseNode({
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(1),
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             targetPublicKey: Buffer.alloc(32).fill(101),
-            nodeId1: Buffer.alloc(32).fill(201),
+            refId: Buffer.alloc(32).fill(201),
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         // Same sharedHash as node0
         node1 = await nodeUtil.createLicenseNode({
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(2),
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             targetPublicKey: Buffer.alloc(32).fill(101),
-            nodeId1: Buffer.alloc(32).fill(201),
+            refId: Buffer.alloc(32).fill(201),
             expireTime: now + 10000,
             creationTime: now + 1,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         node2 = await nodeUtil.createLicenseNode({
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(2),
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             targetPublicKey: Buffer.alloc(32).fill(101),
-            nodeId1: Buffer.alloc(32).fill(202),
+            refId: Buffer.alloc(32).fill(202),
             expireTime: now + 10000,
             creationTime: now + 1,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        assert(node0.hashShared().equals(node1.hashShared()));
-        assert(!node1.hashShared().equals(node2.hashShared()));
+        node0.pack();
+        node1.pack();
+        node2.pack();
+
+        assert(node0.uniqueHash().equals(node1.uniqueHash()));
+        assert(!node1.uniqueHash().equals(node2.uniqueHash()));
 
         config.db1 = db1;
         config.db2 = db2;
@@ -189,9 +192,10 @@ describe("Concurrency: PostgreSQL REPEATABLE READ mode for concurrent Driver acc
     let db1: DBClient | undefined;
     let db2: DBClient | undefined;
     let db3: DBClient | undefined;
-    let node0: NodeInterface | undefined;
-    let node1: NodeInterface | undefined;
-    let node2: NodeInterface | undefined;
+    let node0: BaseNodeInterface | undefined;
+    let node1: BaseNodeInterface | undefined;
+    let node2: BaseNodeInterface | undefined;
+    const keyPair1 = Krypto.GenKeyPair();
 
     beforeEach("Open database and create tables", async function() {
         db1 = new DBClient(await DatabaseUtil.OpenPG());
@@ -216,38 +220,39 @@ describe("Concurrency: PostgreSQL REPEATABLE READ mode for concurrent Driver acc
         const now = Date.now();
 
         node0 = await nodeUtil.createLicenseNode({
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(1),
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             targetPublicKey: Buffer.alloc(32).fill(101),
-            nodeId1: Buffer.alloc(32).fill(201),
+            refId: Buffer.alloc(32).fill(201),
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         // Same sharedHash as node0
         node1 = await nodeUtil.createLicenseNode({
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(2),
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             targetPublicKey: Buffer.alloc(32).fill(101),
-            nodeId1: Buffer.alloc(32).fill(201),
+            refId: Buffer.alloc(32).fill(201),
             expireTime: now + 10000,
             creationTime: now + 1,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         node2 = await nodeUtil.createLicenseNode({
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(2),
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             targetPublicKey: Buffer.alloc(32).fill(101),
-            nodeId1: Buffer.alloc(32).fill(202),
+            refId: Buffer.alloc(32).fill(202),
             expireTime: now + 10000,
             creationTime: now + 1,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        assert(node0.hashShared().equals(node1.hashShared()));
-        assert(!node1.hashShared().equals(node2.hashShared()));
+        node0.pack();
+        node1.pack();
+        node2.pack();
+
+        assert(node0.uniqueHash().equals(node1.uniqueHash()));
+        assert(!node1.uniqueHash().equals(node2.uniqueHash()));
 
         config.db1 = db1;
         config.db2 = db2;
@@ -321,9 +326,9 @@ function setupDriverTests(config: any) {
 
         await expectAsyncException(
             driver2.insertNodes([node1], now),
-            ["SQLITE_CONSTRAINT: UNIQUE constraint failed: openodin_nodes.sharedhash",
+            ["SQLITE_CONSTRAINT: UNIQUE constraint failed: openodin_nodes.uniquehash",
                 "current transaction is aborted, commands ignored until end of transaction block",
-                `duplicate key value violates unique constraint "openodin_nodes_sharedhash_key"`]);
+                `duplicate key value violates unique constraint "openodin_nodes_uniquehash_key"`]);
 
         await db2.exec("ROLLBACK");
     });
@@ -594,9 +599,9 @@ describe("Concurrency: SQLite journalling mode for concurrent BlobDriver access"
         await driver1.createTables();
     });
 
-    afterEach("Close database", function() {
-        db1?.close();
-        db2?.close();
+    afterEach("Close database", async function() {
+        await db1?.close();
+        await db2?.close();
         db1 = undefined;
         db2 = undefined;
         driver1 = undefined;
@@ -650,9 +655,9 @@ describe("Concurrency: PostgreSQL READ COMMITTED mode for concurrent BlobDriver 
         config.driver2 = driver2;
     });
 
-    afterEach("Close database", function() {
-        db1?.close();
-        db2?.close();
+    afterEach("Close database", async function() {
+        await db1?.close();
+        await db2?.close();
         db1 = undefined;
         db2 = undefined;
         driver1 = undefined;

@@ -9,7 +9,7 @@ import {
 import {
     Connection,
     QueryResult,
-} from "postgresql-client";
+} from "postgrejs";
 
 import {
     PromiseCallback,
@@ -172,12 +172,14 @@ export class DBClient {
 
             let qr: QueryResult;
 
+            let statement;
+
             if (params.length > 0) {
-                const statement = await db.prepare(sql);
+                statement = await db.prepare(sql);
                 qr = await statement.execute({params, cursor: true, fetchCount, rollbackOnError: false, objectRows: true});
             }
             else {
-                qr = await db.query(sql, {params, cursor: true, fetchCount, rollbackOnError: false, objectRows: true});
+                qr = await db.query(sql, {cursor: true, fetchCount, rollbackOnError: false, objectRows: true});
             }
 
             assert(qr?.cursor, "cursor not set in DBClient.each");
@@ -199,6 +201,7 @@ export class DBClient {
             }
 
             await qr.cursor.close();
+            await statement?.close();
 
             return rowCount;
         }
@@ -267,7 +270,7 @@ export class DBClient {
                     finally( () => {statement.close();} );
             }
             else {
-                db.query(sql, {params, rollbackOnError: false, objectRows: true}).
+                db.query(sql, {rollbackOnError: false, objectRows: true}).
                     then( (res) => {p.cb(undefined, res.rows ?? [])}).
                     catch( (err) => {p.cb(err)} );
             }
@@ -364,7 +367,7 @@ export class DBClient {
                     finally( () => {statement.close();} );
             }
             else {
-                db.query(sql, {params, rollbackOnError: false, objectRows: true}).
+                db.query(sql, {rollbackOnError: false, objectRows: true}).
                     then( () => {p.cb()}).catch( (err) => {p.cb(err)} );
             }
         }

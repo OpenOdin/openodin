@@ -7,21 +7,20 @@ import {
 } from "../util";
 
 import {
+    FriendCert,
     Driver,
-    NodeInterface,
+    BaseNodeInterface,
     InsertAchillesHash,
-    InsertLicenseeHash,
+    InsertLicensingHash,
     InsertDestroyHash,
     InsertFriendCert,
     NodeUtil,
-    CertUtil,
     DBClient,
     TABLES,
     sleep,
-    SPECIAL_NODES,
     FetchQuery,
     FetchReplyData,
-    Data,
+    DataNodeTypeAlias,
     QueryProcessor,
     FetchRequest,
     DatabaseUtil,
@@ -29,6 +28,7 @@ import {
     NOW_TOLERANCE,
     ParseSchema,
     FetchRequestSchema,
+    Krypto,
 } from "../../src";
 
 /**
@@ -40,16 +40,16 @@ class DriverTestWrapper extends Driver {
         return super.freshenParentTrail(parentIds, now);
     }
 
-    public async filterDestroyed(nodes: NodeInterface[]): Promise<NodeInterface[]> {
+    public async filterDestroyed(nodes: BaseNodeInterface[]): Promise<BaseNodeInterface[]> {
         return super.filterDestroyed(nodes);
     }
 
-    public async filterExisting(nodes: NodeInterface[], preserveTransient: boolean = false):
-        Promise<NodeInterface[]> {
+    public async filterExisting(nodes: BaseNodeInterface[], preserveTransient: boolean = false):
+        Promise<BaseNodeInterface[]> {
         return super.filterExisting(nodes, preserveTransient);
     }
 
-    public async filterUnique(nodes: NodeInterface[]): Promise<NodeInterface[]> {
+    public async filterUnique(nodes: BaseNodeInterface[]): Promise<BaseNodeInterface[]> {
         return super.filterUnique(nodes);
     }
 
@@ -57,8 +57,8 @@ class DriverTestWrapper extends Driver {
         return super.insertAchillesHashes(achillesHashes);
     }
 
-    public async insertLicenseeHashes(licenseeHashes: InsertLicenseeHash[]): Promise<void> {
-        return super.insertLicenseeHashes(licenseeHashes);
+    public async insertLicensingHashes(licensingHashes: InsertLicensingHash[]): Promise<void> {
+        return super.insertLicensingHashes(licensingHashes);
     }
 
     public async insertDestroyHashes(destroyHashes: InsertDestroyHash[]): Promise<void> {
@@ -69,23 +69,23 @@ class DriverTestWrapper extends Driver {
         return super.insertFriendCerts(friendCerts);
     }
 
-    public async insertNodes(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<Buffer[]> {
+    public async insertNodes(nodes: BaseNodeInterface[], now: number, preserveTransient: boolean = false): Promise<void> {
         return super.insertNodes(nodes, now, preserveTransient);
     }
 
-    protected async storeNodes(nodes: NodeInterface[], now: number, preserveTransient: boolean = false) {
+    protected async storeNodes(nodes: BaseNodeInterface[], now: number, preserveTransient: boolean = false) {
         return super.storeNodes(nodes, now, preserveTransient);
     }
 
-    public async getNodeById1(id1: Buffer, now: number): Promise<NodeInterface | undefined> {
+    public async getNodeById1(id1: Buffer, now: number): Promise<BaseNodeInterface | undefined> {
         return super.getNodeById1(id1, now);
     }
 
-    public async getNodesById1(nodesId1: Buffer[], now: number): Promise<NodeInterface[]> {
+    public async getNodesById1(nodesId1: Buffer[], now: number): Promise<BaseNodeInterface[]> {
         return super.getNodesById1(nodesId1, now);
     }
 
-    public async getRootNode(fetchQuery: FetchQuery, now: number): Promise<[NodeInterface | undefined, FetchReplyData | undefined]> {
+    public async getRootNode(fetchQuery: FetchQuery, now: number): Promise<[BaseNodeInterface | undefined, FetchReplyData | undefined]> {
         return super.getRootNode(fetchQuery, now);
     }
 }
@@ -115,8 +115,8 @@ describe("Driver: SQLite WAL-mode", function() {
         await driver.createTables();
     });
 
-    afterEach("Close database", function() {
-        db?.close();
+    afterEach("Close database", async function() {
+        await db?.close();
         db = undefined;
         driver = undefined;
         config.db = undefined;
@@ -148,8 +148,8 @@ describe("Driver: SQLiteJS WAL-mode", function() {
         await driver.createTables();
     });
 
-    afterEach("Close database", function() {
-        db?.close();
+    afterEach("Close database", async function() {
+        await db?.close();
         db = undefined;
         driver = undefined;
         config.db = undefined;
@@ -191,8 +191,8 @@ describe("Driver: PostgreSQL REPEATABLE READ mode", function() {
         await driver.createTables();
     });
 
-    afterEach("Close database", function() {
-        db?.close();
+    afterEach("Close database", async function() {
+        await db?.close();
         db = undefined;
         driver = undefined;
         config.db = undefined;
@@ -241,14 +241,14 @@ function setupDriverTests(config: any) {
         assert(rows[1].hash.equals(hashB));
     });
 
-    it("#insertLicenseeHashes", async function() {
+    it("#insertLicensingHashes", async function() {
         const driver = config.driver;
         const db = config.db;
 
         assert(driver);
         assert(db);
 
-        let licenseeHashes: InsertLicenseeHash[] = [];
+        let licensingHashes: InsertLicensingHash[] = [];
 
         const nodeId1A = Buffer.alloc(32).fill(1);
         const hashA = Buffer.alloc(32).fill(201);
@@ -256,7 +256,7 @@ function setupDriverTests(config: any) {
         const nodeId1B = Buffer.alloc(32).fill(2);
         const hashB = Buffer.alloc(32).fill(202);
 
-        licenseeHashes.push({
+        licensingHashes.push({
             id1: nodeId1A,
             hash: hashA,
             disallowretrolicensing: 0,
@@ -265,7 +265,7 @@ function setupDriverTests(config: any) {
             restrictivemodemanager: 0,
         });
 
-        licenseeHashes.push({
+        licensingHashes.push({
             id1: nodeId1B,
             hash: hashB,
             disallowretrolicensing: 0,
@@ -274,9 +274,9 @@ function setupDriverTests(config: any) {
             restrictivemodemanager: 0,
         });
 
-        await driver.insertLicenseeHashes(licenseeHashes);
+        await driver.insertLicensingHashes(licensingHashes);
 
-        let rows = await db.all(`SELECT * FROM openodin_licensee_hashes ORDER BY id1;`);
+        let rows = await db.all(`SELECT * FROM openodin_licensing_hashes ORDER BY id1;`);
 
         assert(rows.length === 2);
         assert(rows[0].id1.equals(nodeId1A));
@@ -345,14 +345,14 @@ function setupDriverTests(config: any) {
 
         friendCerts.push({
             id1: nodeId1A,
-            issuer: issuerA,
+            owner: issuerA,
             constraints: constraintsA,
             image: imageA,
         });
 
         friendCerts.push({
             id1: nodeId1B,
-            issuer: issuerB,
+            owner: issuerB,
             constraints: constraintsB,
             image: imageB,
         });
@@ -363,12 +363,12 @@ function setupDriverTests(config: any) {
 
         assert(rows.length === 2);
         assert(rows[0].id1.equals(nodeId1A));
-        assert(rows[0].issuer.equals(issuerA));
+        assert(rows[0].owner.equals(issuerA));
         assert(rows[0].constraints.equals(constraintsA));
         assert(rows[0].image.equals(imageA));
 
         assert(rows[1].id1.equals(nodeId1B));
-        assert(rows[1].issuer.equals(issuerB));
+        assert(rows[1].owner.equals(issuerB));
         assert(rows[1].constraints.equals(constraintsB));
         assert(rows[1].image.equals(imageB));
     });
@@ -376,6 +376,7 @@ function setupDriverTests(config: any) {
     it("#insertNodes, #filterExisting", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -385,89 +386,98 @@ function setupDriverTests(config: any) {
         const now = Date.now();
 
         const node0 = await nodeUtil.createDataNode({
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(1),
+            owner: keyPair1.publicKey,
             id2: undefined,
             parentId: Buffer.alloc(32).fill(11),
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        node0.getProps();
+        node0.pack(true);
 
         const node1 = await nodeUtil.createDataNode({
-            hasOnlineValidation: true,
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(2),
+            isInactive: true,
+            owner: keyPair1.publicKey,
             id2: Buffer.alloc(32).fill(22),
             parentId: Buffer.alloc(32).fill(12),
             expireTime: now + 10001,
             creationTime: now+1,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        node1.getProps();
+        node1.pack(true);
 
         const node2 = await nodeUtil.createDataNode({
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(3),
+            owner: keyPair1.publicKey,
             id2: Buffer.alloc(32).fill(23),
             parentId: Buffer.alloc(32).fill(13),
             expireTime: now + 10002,
             creationTime: now+2,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        const nodes: NodeInterface[] = [
+        node2.getProps();
+        node2.pack(true);
+
+        const nodes: BaseNodeInterface[] = [
             node0,
             node1,
         ];
 
-        await driver.insertNodes(nodes, now);
+        await driver.insertNodes(nodes, now, true);
 
         let rows = await db.all(`SELECT id1, id2, id, parentid, creationtime, expiretime,
-            transienthash, sharedhash, image
-            FROM openodin_nodes ORDER BY id1;`);
+            transienthash, uniquehash, image
+            FROM openodin_nodes ORDER BY creationtime;`);
 
         assert(rows.length === 2);
 
-        assert(rows[0].id1.equals(nodes[0].getId1() as Buffer));
+        assert(rows[0].id1.equals(nodes[0].getProps().id1 as Buffer));
         assert(rows[0].id2 === null);
-        assert(rows[0].id.equals(nodes[0].getId() as Buffer));
-        assert(rows[0].parentid.equals(nodes[0].getParentId() as Buffer));
+        assert(rows[0].id.equals(nodes[0].getProps().id as Buffer));
+        assert(rows[0].parentid.equals(nodes[0].getProps().parentId as Buffer));
         assert(parseInt(rows[0].expiretime) === now + 10000);
         assert(parseInt(rows[0].creationtime) === now);
-        assert(rows[0].sharedhash.equals(nodes[0].hashShared()));
+        assert(rows[0].uniquehash.equals(rows[0].id1));
         assert((rows[0].transienthash == null ) || rows[0].transienthash.equals(nodes[0].hashTransient()));
-        assert(rows[0].image.equals(nodes[0].export()));
+        assert(rows[0].image.equals(nodes[0].pack(true)));
 
-        assert(rows[1].id1.equals(nodes[1].getId1() as Buffer));
-        assert(rows[1].id2.equals(nodes[1].getId2() as Buffer));
-        assert(rows[1].id.equals(nodes[1].getId() as Buffer));
-        assert(rows[1].parentid.equals(nodes[1].getParentId() as Buffer));
+        assert(rows[1].id1.equals(nodes[1].getProps().id1 as Buffer));
+        assert(rows[1].id2.equals(nodes[1].getProps().id2 as Buffer));
+        assert(rows[1].id.equals(nodes[1].getProps().id as Buffer));
+        assert(rows[1].parentid.equals(nodes[1].getProps().parentId as Buffer));
         assert(parseInt(rows[1].expiretime) === now + 10001);
         assert(parseInt(rows[1].creationtime) === now + 1);
-        assert(rows[1].sharedhash.equals(nodes[1].hashShared()));
+        assert(rows[1].uniquehash.equals(rows[1].id1));
         assert(rows[1].transienthash == null || rows[1].transienthash.equals(nodes[1].hashTransient()));
-        assert(rows[1].image.equals(nodes[1].export()));
+        assert(rows[1].image.equals(nodes[1].pack(true)));
 
 
         // #filterExisting
         //
 
         // Change the transient hash.
-        node1.setOnlineValidated();
+        node1.storeFlags({isInactive: false});
+
+        node1.pack(true);
 
         let nodes3 = await driver.filterExisting([node0, node1, node2]);
 
         assert(nodes3.length === 1);
-        assert((nodes3[0].getId1() as Buffer).equals(node2.getId1() as Buffer));
+        assert((nodes3[0].getProps().id1 as Buffer).equals(node2.getProps().id1 as Buffer));
 
         // Now also detect transient hash changes as non-existing.
         nodes3 = await driver.filterExisting([node0, node1, node2], true);
 
         assert(nodes3.length === 2);
-        assert((nodes3[0].getId1() as Buffer).equals(node1.getId1() as Buffer));
-        assert((nodes3[1].getId1() as Buffer).equals(node2.getId1() as Buffer));
+        assert((nodes3[0].getProps().id1 as Buffer).equals(node1.getProps().id1 as Buffer));
+        assert((nodes3[1].getProps().id1 as Buffer).equals(node2.getProps().id1 as Buffer));
     });
 
     it("#filterDestroyed", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -477,38 +487,32 @@ function setupDriverTests(config: any) {
         const now = Date.now();
 
         const node0 = await nodeUtil.createDataNode({
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(1),
-            id2: undefined,
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         const node1 = await nodeUtil.createDataNode({
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(2),
-            id2: Buffer.alloc(32).fill(22),
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(12),
             expireTime: now + 10001,
             creationTime: now+1,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         const node2 = await nodeUtil.createDataNode({
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(3),
-            id2: Buffer.alloc(32).fill(23),
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(13),
             expireTime: now + 10002,
             creationTime: now+2,
             isIndestructible: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         let achillesHashes = node0.getAchillesHashes();
-        assert(achillesHashes.length === 2);
+        assert(achillesHashes.length === 1);
 
         achillesHashes = node1.getAchillesHashes();
-        assert(achillesHashes.length === 2);
+        assert(achillesHashes.length === 1);
 
         achillesHashes = node2.getAchillesHashes();
         assert(achillesHashes.length === 0);
@@ -524,7 +528,7 @@ function setupDriverTests(config: any) {
 
         achillesHashes.forEach( hash => {
             destroyHashes.push({
-                id1: node0.getId1() as Buffer,
+                id1: node0.getProps().id1 as Buffer,
                 hash: hash,
             });
         });
@@ -540,7 +544,7 @@ function setupDriverTests(config: any) {
         achillesHashes = node1.getAchillesHashes();
 
         destroyHashes.push({
-            id1: node1.getId1() as Buffer,
+            id1: node1.getProps().id1 as Buffer,
             hash: achillesHashes[0],
         });
 
@@ -553,7 +557,7 @@ function setupDriverTests(config: any) {
         let allHashes: Buffer[] = [];
         allHashes.push(...node0.getAchillesHashes());
         allHashes.push(...node1.getAchillesHashes());
-        assert(allHashes.length === 4);
+        assert(allHashes.length === 2);
 
         const ph = db.generatePlaceholders(allHashes.length);
 
@@ -564,13 +568,14 @@ function setupDriverTests(config: any) {
         const rows = await db.all(sql, allHashes);
 
         assert(rows.length === 2);
-        assert(rows[0].count === 2);
+        assert(rows[0].count === 1);
         assert(rows[1].count === 1);
     });
 
     it("#filterUnique", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -582,52 +587,49 @@ function setupDriverTests(config: any) {
         // License nodes are by default flagged as unique.
         //
         const node0 = await nodeUtil.createLicenseNode({
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(1),
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             targetPublicKey: Buffer.alloc(32).fill(101),
-            nodeId1: Buffer.alloc(32).fill(201),
+            refId: Buffer.alloc(32).fill(201),
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         // Same sharedHash as node0
         const node1 = await nodeUtil.createLicenseNode({
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(2),
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             targetPublicKey: Buffer.alloc(32).fill(101),
-            nodeId1: Buffer.alloc(32).fill(201),
+            refId: Buffer.alloc(32).fill(201),
             expireTime: now + 10000,
             creationTime: now + 1,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         // Different sharedHash
         const node2 = await nodeUtil.createLicenseNode({
-            owner: Buffer.alloc(32).fill(16),
-            id1: Buffer.alloc(32).fill(2),
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             targetPublicKey: Buffer.alloc(32).fill(101),
-            nodeId1: Buffer.alloc(32).fill(202),
+            refId: Buffer.alloc(32).fill(202),
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        assert(node0.hashShared().equals(node1.hashShared()));
-        assert(!node0.hashShared().equals(node2.hashShared()));
+        assert(node0.uniqueHash().equals(node1.uniqueHash()));
+        assert(!node0.uniqueHash().equals(node2.uniqueHash()));
 
         await driver.insertNodes([node0], now);
 
         let rows = await db.all(`SELECT id1 FROM openodin_nodes ORDER BY id1;`);
 
         assert(rows.length === 1);
-        assert(rows[0].id1.equals(node0.getId1() as Buffer));
+        assert(rows[0].id1.equals(node0.getProps().id1 as Buffer));
 
         await expectAsyncException(
             driver.insertNodes([node1], now),
-            ["SQLITE_CONSTRAINT: UNIQUE constraint failed: openodin_nodes.sharedhash",
-                `duplicate key value violates unique constraint "openodin_nodes_sharedhash_key"`,
-                `UNIQUE constraint failed: openodin_nodes.sharedhash`]);
+            ["SQLITE_CONSTRAINT: UNIQUE constraint failed: openodin_nodes.uniquehash",
+                `duplicate key value violates unique constraint "openodin_nodes_uniquehash_key"`,
+                `UNIQUE constraint failed: openodin_nodes.uniquehash`]);
 
         // postgres-client sometimes need a little breather after insert rejections.
         await sleep(50);
@@ -638,73 +640,74 @@ function setupDriverTests(config: any) {
         let nodes = await driver.filterUnique([node0, node1, node2]);
 
         assert(nodes.length === 2);
-        assert(nodes[0].getId1().equals(node0.getId1()));
-        assert(nodes[1].getId1().equals(node2.getId1()));
+        assert(nodes[0].getProps().id1.equals(node0.getProps().id1));
+        assert(nodes[1].getProps().id1.equals(node2.getProps().id1));
     });
 
     it("#storeNodes, #delete", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
 
         const nodeUtil = new NodeUtil();
-        const certUtil = new CertUtil();
 
         const now = Date.now();
 
         const node0 = await nodeUtil.createDataNode({
-            owner: Buffer.alloc(32).fill(100),
-            id1: Buffer.alloc(32).fill(1),
-            id2: undefined,
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        const friendCert = await certUtil.createFriendCert({
-            owner: Buffer.alloc(32).fill(121),
+        const friendCert = new FriendCert();
+
+        friendCert.mergeProps({
+            owner: keyPair1.publicKey,
             constraints: Buffer.alloc(32).fill(201),
-            signature: Buffer.alloc(64),
+            creationTime: now,
+            expireTime: now + 10000,
+            salt: Buffer.alloc(8),
+            friendLevel: 1,
         });
 
-        const node1 = await nodeUtil.createDataNode({
-            owner: Buffer.alloc(32).fill(100),
-            id1: Buffer.alloc(32).fill(2),
-            id2: Buffer.alloc(32).fill(22),
+        friendCert.sign(keyPair1);
+
+        const node1 = await nodeUtil.createCarrierNode({
+            owner: keyPair1.publicKey,
+            //id2: Buffer.alloc(32).fill(22),
             parentId: Buffer.alloc(32).fill(12),
             expireTime: now + 10001,
             creationTime: now+1,
-            isSpecial: true,
-            embedded: friendCert.export(),
-            data: Buffer.from(SPECIAL_NODES.FRIENDCERT),
-        });
+            friendCert: friendCert.pack(),
+            info: "FriendCert",
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         const node2 = await nodeUtil.createDataNode({
-            owner: Buffer.alloc(32).fill(100),
-            id1: Buffer.alloc(32).fill(3),
-            id2: Buffer.alloc(32).fill(23),
+            owner: keyPair1.publicKey,
+            //id2: Buffer.alloc(32).fill(23),
             parentId: Buffer.alloc(32).fill(13),
             expireTime: now + 10002,
             creationTime: now+2,
             isIndestructible: true,
-            isSpecial: true,
-            refId: Hash("innerHash"),
-            data: Buffer.from(SPECIAL_NODES.DESTROY_NODE),
-        });
+            isDestroy: true,
+            refId: Buffer.alloc(32),
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        assert(node2.isSpecial());
+        assert(node2.loadFlags().isDestroy);
 
         const license0 = await nodeUtil.createLicenseNode({
-            owner: Buffer.alloc(32).fill(101),
-            id1: Buffer.alloc(32).fill(10),
+            owner: keyPair2.publicKey,
             parentId: Buffer.alloc(32).fill(11),
-            targetPublicKey: Buffer.alloc(32).fill(101),
-            nodeId1: Buffer.alloc(32).fill(202),
+            targetPublicKey: keyPair2.publicKey,
+            refId: Buffer.alloc(32).fill(202),
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
 
 
         await driver.storeNodes([node0, node1, node2, license0], now);
@@ -717,14 +720,14 @@ function setupDriverTests(config: any) {
 
         assert(rows.length === 1);
         assert(rows[0].count === 1);
-        assert(rows[0].id1.equals(node2.getId1()));
+        assert(rows[0].id1.equals(node2.getProps().id1));
 
 
         rows = await db.all(`SELECT * FROM openodin_achilles_hashes ORDER BY id1;`);
 
-        assert(rows.length === 11);
+        assert(rows.length === 4);
 
-        rows = await db.all(`SELECT * FROM openodin_licensee_hashes ORDER BY id1;`);
+        rows = await db.all(`SELECT * FROM openodin_licensing_hashes ORDER BY id1;`);
 
         assert(rows.length === 4);
 
@@ -736,28 +739,28 @@ function setupDriverTests(config: any) {
         //
 
         let ph = db.generatePlaceholders(1);
-        rows = await db.all(`SELECT * FROM openodin_nodes WHERE id1=${ph}`, [node0.getId1()]);
+        rows = await db.all(`SELECT * FROM openodin_nodes WHERE id1=${ph}`, [node0.getProps().id1]);
         assert(rows.length === 1);
 
-        rows = await db.all(`SELECT * FROM openodin_achilles_hashes WHERE id1=${ph}`, [node0.getId1()]);
-        assert(rows.length === 2);
+        rows = await db.all(`SELECT * FROM openodin_achilles_hashes WHERE id1=${ph}`, [node0.getProps().id1]);
+        assert(rows.length === 1);
 
-        await driver.deleteNodes([node0.getId1()]);
+        await driver.deleteNodes([node0.getProps().id1]);
 
-        rows = await db.all(`SELECT * FROM openodin_nodes WHERE id1=${ph}`, [node0.getId1()]);
+        rows = await db.all(`SELECT * FROM openodin_nodes WHERE id1=${ph}`, [node0.getProps().id1]);
         assert(rows.length === 0);
 
-        rows = await db.all(`SELECT * FROM openodin_achilles_hashes WHERE id1=${ph}`, [node0.getId1()]);
+        rows = await db.all(`SELECT * FROM openodin_achilles_hashes WHERE id1=${ph}`, [node0.getProps().id1]);
         assert(rows.length === 0);
 
 
 
-        rows = await db.all(`SELECT * FROM openodin_licensee_hashes WHERE id1=${ph}`, [license0.getId1()]);
+        rows = await db.all(`SELECT * FROM openodin_licensing_hashes WHERE id1=${ph}`, [license0.getProps().id1]);
         assert(rows.length === 4);
 
-        await driver.deleteNodes([license0.getId1()]);
+        await driver.deleteNodes([license0.getProps().id1]);
 
-        rows = await db.all(`SELECT * FROM openodin_licensee_hashes WHERE id1=${ph}`, [license0.getId1()]);
+        rows = await db.all(`SELECT * FROM openodin_licensing_hashes WHERE id1=${ph}`, [license0.getProps().id1]);
         assert(rows.length === 0);
 
 
@@ -765,42 +768,42 @@ function setupDriverTests(config: any) {
         rows = await db.all(sqlDestroy);
         assert(rows.length === 1);
 
-        await driver.deleteNodes([node2.getId1()]);
+        await driver.deleteNodes([node2.getProps().id1]);
 
         rows = await db.all(sqlDestroy);
         assert(rows.length === 0);
 
-        await driver.deleteNodes([node1.getId1()]);
+        await driver.deleteNodes([node1.getProps().id1]);
 
-        rows = await db.all(`SELECT * FROM openodin_friend_certs WHERE id1=${ph}`, [node1.getId1()]);
+        rows = await db.all(`SELECT * FROM openodin_friend_certs WHERE id1=${ph}`, [node1.getProps().id1]);
         assert(rows.length === 0);
     });
 
     it("#getNodeById1 also with transient values", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
 
         const nodeUtil = new NodeUtil();
-        const certUtil = new CertUtil();
 
         const now = Date.now();
 
         const node0 = await nodeUtil.createDataNode({
-            hasOnlineValidation: true,
-            owner: Buffer.alloc(32).fill(100),
-            id1: Buffer.alloc(32).fill(1),
-            id2: undefined,
+            isInactive: false,
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        node0.pack(true);
 
         let oldTransientHash = node0.hashTransient();
 
-        let node = await driver.getNodeById1(node0.getId1(), 1);
+        let node = await driver.getNodeById1(node0.getProps().id1, 1);
         assert(!node);
 
         // Store
@@ -808,76 +811,79 @@ function setupDriverTests(config: any) {
         let result = await driver.store([node0], now, true);
         assert(result[0].length === 1);
         assert(result[1].length === 1);
-        assert(result[0][0].equals(node0.getId1()));
-        assert(result[1][0].equals(node0.getParentId()));
+        assert(result[0][0].equals(node0.getProps().id1));
+        assert(result[1][0].equals(node0.getProps().parentId));
 
         let ph = db.generatePlaceholders(1);
-        let rows = await db.all(`SELECT * FROM openodin_nodes WHERE id1=${ph}`, [node0.getId1()]);
+        let rows = await db.all(`SELECT * FROM openodin_nodes WHERE id1=${ph}`, [node0.getProps().id1]);
         assert(rows.length === 1);
-        assert(rows[0].image.equals(node0.export()));
+        assert(rows[0].image.equals(node0.pack(true)));
         assert(rows[0].transienthash.equals(oldTransientHash));
         assert(rows[0].storagetime === now);
 
         // getNodeById1
         //
 
-        node = await driver.getNodeById1(node0.getId1(), now);
+        node = await driver.getNodeById1(node0.getProps().id1, now);
         assert(node);
         assert(node !== node0);
-        assert(node.getId1().equals(node0.getId1()));
+        assert(node.getProps().id1.equals(node0.getProps().id1));
         assert(node.hashTransient().equals(node0.hashTransient()));
-        assert(!node.isOnlineValidated());
+        assert(!node.loadFlags().isInactive);
 
+        const old0Packed = node0.getPacked();
 
         // update transient values, store again, expect no changes.
         //
-        node0.setOnlineValidated();
+        node0.storeFlags({isInactive: true});
+        node0.pack(true);
+
         assert(!node.hashTransient().equals(node0.hashTransient()));
 
         result = await driver.store([node0], now + 1);
         assert(result[0].length === 0);
 
         ph = db.generatePlaceholders(1);
-        rows = await db.all(`SELECT * FROM openodin_nodes WHERE id1=${ph}`, [node0.getId1()]);
+        rows = await db.all(`SELECT * FROM openodin_nodes WHERE id1=${ph}`, [node0.getProps().id1]);
         assert(rows.length === 1);
-        assert(rows[0].image.equals(node0.export()));
+        assert(rows[0].image.equals(old0Packed));
         assert(rows[0].transienthash.equals(oldTransientHash));
         assert(!rows[0].transienthash.equals(node0.hashTransient()));
 
 
-        node = await driver.getNodeById1(node0.getId1(), now);
+        node = await driver.getNodeById1(node0.getProps().id1, now);
         assert(node);
         assert(node !== node0);
-        assert(node.getId1().equals(node0.getId1()));
+        assert(node.getProps().id1.equals(node0.getProps().id1));
         assert(!node.hashTransient().equals(node0.hashTransient()));
         assert(node.hashTransient().equals(oldTransientHash));
-        assert(node.getTransientStorageTime() === now);
-        assert(!node.isOnlineValidated());
+        assert(node.getProps().transientStorageTime === now);
+        assert(!node.loadFlags().isInactive);
 
         // Store and update transient hash
         //
         result = await driver.store([node0], now + 1, true);
         assert(result[0].length === 1);
         assert(result[1].length === 1);
-        assert(result[0][0].equals(node0.getId1()));
-        assert(result[1][0].equals(node0.getParentId()));
+        assert(result[0][0].equals(node0.getProps().id1));
+        assert(result[1][0].equals(node0.getProps().parentId));
 
 
         ph = db.generatePlaceholders(1);
-        rows = await db.all(`SELECT * FROM openodin_nodes WHERE id1=${ph}`, [node0.getId1()]);
+        rows = await db.all(`SELECT * FROM openodin_nodes WHERE id1=${ph}`, [node0.getProps().id1]);
         assert(rows.length === 1);
         assert(!rows[0].transienthash.equals(oldTransientHash));
-        assert(rows[0].image.equals(node0.export(true)));
+        assert(rows[0].image.equals(node0.pack(true)));
         assert(rows[0].transienthash.equals(node0.hashTransient()));
 
-        node = await driver.getNodeById1(node0.getId1(), now);
+        node = await driver.getNodeById1(node0.getProps().id1, now);
         assert(node);
         assert(node !== node0);
-        assert(node.getId1().equals(node0.getId1()));
+        assert(node.getProps().id1.equals(node0.getProps().id1));
         assert(node.hashTransient().equals(node0.hashTransient()));
         assert(!node.hashTransient().equals(oldTransientHash));
-        assert(node.getTransientStorageTime() === now);
-        assert(node.isOnlineValidated());
+        assert(node.getProps().transientStorageTime === now);
+        assert(node.loadFlags().isInactive);
     });
 
     it.skip("#getNodesById1 also with transient values", async function() {
@@ -887,92 +893,81 @@ function setupDriverTests(config: any) {
     it("#getRootNode", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
 
         const nodeUtil = new NodeUtil();
-        const certUtil = new CertUtil();
 
         const now = Date.now();
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
-        let targetPublicKey = Buffer.alloc(32).fill(110);
+        let clientPublicKey = keyPair2.publicKey;
+        let targetPublicKey = keyPair2.publicKey;
 
+        // This node not getting stored
         const nodeNo = await nodeUtil.createDataNode({
-            owner: Buffer.alloc(32).fill(100),
-            id1: Buffer.alloc(32).fill(0),
-            id2: undefined,
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         const node0 = await nodeUtil.createDataNode({
-            owner: Buffer.alloc(32).fill(100),
-            id1: Buffer.alloc(32).fill(1),
-            id2: undefined,
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             expireTime: now + 10000,
-            creationTime: now,
-        });
+            creationTime: now+1,
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         const node1 = await nodeUtil.createDataNode({
-            owner: Buffer.alloc(32).fill(100),
-            id1: Buffer.alloc(32).fill(2),
-            id2: undefined,
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now+2,
             isLicensed: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        assert(node1.isLicensed());
+        assert(node1.loadFlags().isLicensed);
 
         const node2 = await nodeUtil.createDataNode({
-            owner: Buffer.alloc(32).fill(100),
-            id1: Buffer.alloc(32).fill(3),
-            id2: undefined,
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now+3,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        assert(node2.isBeginRestrictiveWriteMode());
+        assert(node2.loadFlags().isBeginRestrictiveWriteMode);
 
         const node3 = await nodeUtil.createDataNode({
-            owner: Buffer.alloc(32).fill(100),
-            id1: Buffer.alloc(32).fill(4),
-            id2: undefined,
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now+4,
             hasRightsByAssociation: true,
-        });
+            refId: Buffer.alloc(32),
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        assert(node3.hasRightsByAssociation());
+        assert(node3.loadFlags().hasRightsByAssociation);
 
         const node4 = await nodeUtil.createDataNode({
             owner: clientPublicKey,
-            id1: Buffer.alloc(32).fill(5),
-            id2: undefined,
             parentId: Buffer.alloc(32).fill(11),
             expireTime: now + 10000,
-            creationTime: now,
-        });
+            creationTime: now+5,
+        }, keyPair2.publicKey, keyPair2.secretKey);
 
         const node5 = await nodeUtil.createDataNode({
-            owner: Buffer.alloc(32).fill(100),
-            id1: Buffer.alloc(32).fill(5),
-            id2: undefined,
+            owner: keyPair1.publicKey,
             parentId: Buffer.alloc(32).fill(11),
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now+6,
             isPublic: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        assert(node5.isPublic());
+        assert(node5.loadFlags().isPublic);
 
         let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             rootNodeId1: Buffer.alloc(0),
@@ -980,13 +975,13 @@ function setupDriverTests(config: any) {
             targetPublicKey,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: DataNodeTypeAlias,
                     filters: []
                 }
             ]
         }});
 
-        await driver.insertNodes([node0, node1, node2, node3, node4], now);
+        await driver.insertNodes([node0, node1, node2, node3, node4, node5], now);
 
         let index = 0;
         for (let tuple of [
@@ -999,11 +994,12 @@ function setupDriverTests(config: any) {
             [node5, ""],
         ]) {
 
-            const [node, error] = tuple as [NodeInterface, string];
+            const [node, error] = tuple as [BaseNodeInterface, string];
 
-            fetchRequest.query.rootNodeId1 = node.getId1() as Buffer;
+            fetchRequest.query.rootNodeId1 = node.getProps().id1 as Buffer;
 
             let [eNode, fetchReplyData] = await driver.getRootNode(fetchRequest.query, now);
+
             if (error) {
                 assert(!eNode);
                 assert(fetchReplyData);
@@ -1011,7 +1007,7 @@ function setupDriverTests(config: any) {
             }
             else {
                 assert(eNode);
-                assert(eNode.getId1().equals(node.getId1()));
+                assert(eNode.getProps().id1.equals(node.getProps().id1));
             }
 
             index++;
@@ -1021,6 +1017,8 @@ function setupDriverTests(config: any) {
     it("#fetchSingleNode", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -1030,50 +1028,41 @@ function setupDriverTests(config: any) {
         const now = Date.now();
 
         let rootNode = undefined;
-        let clientPublicKey = Buffer.alloc(32).fill(210);
-        let clientPublicKey2 = Buffer.alloc(32).fill(211);
+        let clientPublicKey = keyPair1.publicKey;
+        let clientPublicKey2 = keyPair2.publicKey;
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA  = Buffer.alloc(32).fill(1);
-        let nodeIdB1 = Buffer.alloc(32).fill(2);
-        let nodeIdB2 = Buffer.alloc(32).fill(3);
-        let nodeIdB3 = Buffer.alloc(32).fill(4);
-        let nodeIdC1 = Buffer.alloc(32).fill(5);
-        let nodeIdC2 = Buffer.alloc(32).fill(6);
-        let nodeIdD  = Buffer.alloc(32).fill(7);
-        let nodeIdE1 = Buffer.alloc(32).fill(8);
-        let nodeIdE2 = Buffer.alloc(32).fill(9);
-
-        let licenseIdA = Buffer.alloc(32).fill(100);
 
         const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             isLicensed: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getProps().id1 as Buffer;
 
             const licenseA = await nodeUtil.createLicenseNode({
-                id1: licenseIdA,
                 refId: nodeIdA,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId,
                 expireTime: now + 10000,
                 creationTime: now,
-            });
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdA = licenseA.getProps().id1 as Buffer;
 
         const nodeB1 = await nodeUtil.createDataNode({
-            id1: nodeIdB1,
             owner: clientPublicKey2,
             parentId: nodeIdA,
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdB1 = nodeB1.getProps().id1 as Buffer;
 
         const nodeB2 = await nodeUtil.createDataNode({
-            id1: nodeIdB2,
             owner: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
@@ -1081,20 +1070,22 @@ function setupDriverTests(config: any) {
             licenseMinDistance: 1,
             licenseMaxDistance: 1,
             isLicensed: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB2 = nodeB2.getProps().id1 as Buffer;
 
         const nodeB3 = await nodeUtil.createDataNode({
-            id1: nodeIdB3,
             owner: clientPublicKey2,
             parentId: nodeIdA,
             expireTime: now + 10000,
             creationTime: now,
             hasRightsByAssociation: true,
             refId: nodeIdB2,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdB3 = nodeB3.getProps().id1 as Buffer;
 
         const nodeC1 = await nodeUtil.createDataNode({
-            id1: nodeIdC1,
             owner: clientPublicKey,
             parentId: nodeIdB1,
             expireTime: now + 10000,
@@ -1102,13 +1093,15 @@ function setupDriverTests(config: any) {
             licenseMinDistance: 2,
             licenseMaxDistance: 2,
             isLicensed: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdC1 = nodeC1.getProps().id1 as Buffer;
 
         const nodeC2 = nodeC1.copy(nodeIdB2);
-        nodeC2.setId1(nodeIdC2);
+        nodeC2.sign(keyPair1);
+        const nodeIdC2 = nodeC2.getProps().id1 as Buffer;
 
         const nodeD = await nodeUtil.createDataNode({
-            id1: nodeIdD,
             owner: clientPublicKey,
             parentId: nodeIdC1,
             expireTime: now + 10000,
@@ -1116,10 +1109,11 @@ function setupDriverTests(config: any) {
             isLicensed: true,
             licenseMinDistance: 3,
             licenseMaxDistance: 3,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdD = nodeD.getProps().id1 as Buffer;
 
         const nodeE1 = await nodeUtil.createDataNode({
-            id1: nodeIdE1,
             owner: clientPublicKey,
             parentId: nodeIdD,
             expireTime: now + 10000,
@@ -1127,16 +1121,19 @@ function setupDriverTests(config: any) {
             isLicensed: true,
             licenseMinDistance: 4,
             licenseMaxDistance: 4,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdE1 = nodeE1.getProps().id1 as Buffer;
 
         const nodeE2 = await nodeUtil.createDataNode({
-            id1: nodeIdE2,
             owner: clientPublicKey,
             parentId: nodeIdD,
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdE2 = nodeE2.getProps().id1 as Buffer;
 
         let [id1s, parentIds] = await driver.store([nodeA, nodeB1, nodeB2, nodeB3, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], now);
         assert(id1s.length === 9);
@@ -1211,6 +1208,7 @@ function setupDriverTests(config: any) {
     it("#freshenParentTrail", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -1220,91 +1218,89 @@ function setupDriverTests(config: any) {
         const now = Date.now();
 
         let rootNode = undefined;
-        let clientPublicKey = Buffer.alloc(32).fill(210);
+        let clientPublicKey = keyPair1.publicKey;
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(1);
-        let nodeIdB1 = Buffer.alloc(32).fill(2);
-        let nodeIdB2 = Buffer.alloc(32).fill(3);
-        let nodeIdC1 = Buffer.alloc(32).fill(4);
-        let nodeIdC2 = Buffer.alloc(32).fill(5);
-        let nodeIdD = Buffer.alloc(32).fill(6);
-        let nodeIdE1 = Buffer.alloc(32).fill(7);
-        let nodeIdE2 = Buffer.alloc(32).fill(8);
 
         const nodeA = await nodeUtil.createDataNode({
-            hasOnlineValidation: true,
-            isOnlineValidated: true,
-            id1: nodeIdA,
-            id2: Buffer.alloc(32).fill(0x0a),
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 1,
             isPublic: true,
-        });
+            data: Buffer.from("A"),
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getProps().id1 as Buffer;
 
         const nodeB1 = await nodeUtil.createDataNode({
-            id1: nodeIdB1,
             owner: clientPublicKey,
-            parentId: nodeA.getId(),
+            parentId: nodeA.getProps().id,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 2,
             isPublic: true,
-        });
+            data: Buffer.from("B1"),
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB1 = nodeB1.getProps().id1 as Buffer;
 
         const nodeB2 = await nodeUtil.createDataNode({
-            id1: nodeIdB2,
             owner: clientPublicKey,
-            parentId: nodeA.getId(),
+            parentId: nodeA.getProps().id,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 3,
             isPublic: true,
-        });
+            data: Buffer.from("B2"),
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB2 = nodeB2.getProps().id1 as Buffer;
 
         const nodeC1 = await nodeUtil.createDataNode({
-            hasOnlineValidation: true,
-            isOnlineValidated: true,
-            id2: Buffer.alloc(32).fill(0xa1),
-            id1: nodeIdC1,
             owner: clientPublicKey,
             parentId: nodeIdB1,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 4,
             isPublic: true,
-        });
+            data: Buffer.from("C1"),
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        const nodeC2 = nodeC1.copy(nodeIdB2);
-        nodeC2.setId1(nodeIdC2);
+        const nodeIdC1 = nodeC1.getProps().id1 as Buffer;
+
+        const nodeC2 = nodeC1.copy(nodeIdB2, nodeC1.getProps().creationTime! + 1);
+        nodeC2.sign(keyPair1);
+        const nodeIdC2 = nodeC2.getProps().id1 as Buffer;
 
         const nodeD = await nodeUtil.createDataNode({
-            id1: nodeIdD,
             owner: clientPublicKey,
-            parentId: nodeC1.getId(),
+            parentId: nodeC1.getProps().id,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 5,
             isPublic: true,
-        });
+            data: Buffer.from("D"),
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdD = nodeD.getProps().id1 as Buffer;
 
         const nodeE1 = await nodeUtil.createDataNode({
-            hasOnlineValidation: true,
-            isOnlineValidated: true,
-            id2: Buffer.alloc(32).fill(0xa2),
-            id1: nodeIdE1,
             owner: clientPublicKey,
             parentId: nodeIdD,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 6,
             isPublic: true,
-        });
+            data: Buffer.from("E1"),
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdE1 = nodeE1.getProps().id1 as Buffer;
 
         const nodeE2 = await nodeUtil.createDataNode({
-            id1: nodeIdE2,
             owner: clientPublicKey,
             parentId: nodeIdD,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 7,
             isPublic: true,
-        });
+            data: Buffer.from("E2"),
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdE2 = nodeE2.getProps().id1 as Buffer;
 
         let [id1s, parentIds] = await driver.store([nodeA, nodeB1, nodeB2, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], now, true);
         assert(id1s.length === 8);
@@ -1317,7 +1313,7 @@ function setupDriverTests(config: any) {
             cutoffTime: BigInt(now),
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: DataNodeTypeAlias,
                     filters: []
                 }
             ]
@@ -1334,11 +1330,16 @@ function setupDriverTests(config: any) {
         assert(nodes.length === 0);
 
 
-        nodeA.setOnlineValidated(false);  // Change transient state so we can re-store node.
+        // Change transient state so we can re-store node.
+        nodeA.storeFlags({isInactive: true});
+        nodeA.pack(true);
         [id1s, parentIds] = await driver.store([nodeA], now + 1, true);
         assert(id1s.length === 1);
+        nodes = await fetch(db, fetchRequest, now, rootNode);
+        assert(nodes.length === 1)
 
-        nodeA.setOnlineValidated(true);  // Change transient state so we can re-store node.
+        nodeA.storeFlags({isInactive: false});
+        nodeA.pack(true);
         [id1s, parentIds] = await driver.store([nodeA], now + 1, true);
         assert(id1s.length === 1);
 
@@ -1350,11 +1351,21 @@ function setupDriverTests(config: any) {
         nodes = await fetch(db, fetchRequest, now, rootNode);
         assert(nodes.length === 0);
 
-        nodeC1.setOnlineValidated(false);
+        //nodeC1.setOnlineValidated(false);
         [id1s, parentIds] = await driver.store([nodeC1], now + 3, true);
         assert(id1s.length === 1);
 
-        nodeC1.setOnlineValidated();
+        nodeC1.storeFlags({isInactive: true});
+        nodeC1.pack(true);
+        [id1s, parentIds] = await driver.store([nodeC1], now + 3, true);
+        assert(id1s.length === 1);
+
+        nodes = await fetch(db, fetchRequest, now, rootNode);
+        same = diffNodes([nodeC1], nodes);
+        assert(same);
+
+        nodeC1.storeFlags({isInactive: false});
+        nodeC1.pack(true);
         [id1s, parentIds] = await driver.store([nodeC1], now + 3, true);
         assert(id1s.length === 1);
 
@@ -1366,13 +1377,13 @@ function setupDriverTests(config: any) {
         nodes = await fetch(db, fetchRequest, now, rootNode);
         assert(nodes.length === 0);
 
-        nodeC2.setOnlineValidated(false);
-        nodeE1.setOnlineValidated(false);
         [id1s, parentIds] = await driver.store([nodeC2, nodeE1], now + 5, true);
         assert(id1s.length === 2);
 
-        nodeC2.setOnlineValidated();
-        nodeE1.setOnlineValidated();
+        nodeC2.storeFlags({isInactive: true});
+        nodeC2.pack(true);
+        nodeE1.storeFlags({isInactive: true});
+        nodeE1.pack(true);
         [id1s, parentIds] = await driver.store([nodeC2, nodeE1], now + 5, true);
         assert(id1s.length === 2);
 
@@ -1384,6 +1395,7 @@ function setupDriverTests(config: any) {
     it("#bumpNodes", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -1393,41 +1405,42 @@ function setupDriverTests(config: any) {
         const now = Date.now();
 
         let rootNode = undefined;
-        let clientPublicKey = Buffer.alloc(32).fill(210);
+        let clientPublicKey = keyPair1.publicKey;
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(1);
-        let nodeIdB1 = Buffer.alloc(32).fill(2);
-        let nodeIdB2 = Buffer.alloc(32).fill(3);
+
 
         const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             hasRightsByAssociation: true,
             refId: Buffer.alloc(32).fill(100),
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
         const nodeB1 = await nodeUtil.createDataNode({
-            id1: nodeIdB1,
             owner: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 1,
             hasRightsByAssociation: true,
             refId: Buffer.alloc(32).fill(100),
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB1 = nodeB1.getId1();
 
         const nodeB2 = await nodeUtil.createDataNode({
-            id1: nodeIdB2,
             owner: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 2,
             hasRightsByAssociation: true,
             refId: Buffer.alloc(32).fill(100),
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB2 = nodeB2.getId1();
 
         let [id1s, parentIds] = await driver.store([nodeA, nodeB1, nodeB2], now);
         assert(id1s.length === 3);
@@ -1486,6 +1499,8 @@ function setupDriverTests(config: any) {
     it("#getRelatedBumpHashes", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -1495,96 +1510,96 @@ function setupDriverTests(config: any) {
         const now = Date.now();
 
         let rootNode = undefined;
-        let clientPublicKey = Buffer.alloc(32).fill(210);
-        let clientPublicKey2 = Buffer.alloc(32).fill(211);
-        let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(1);
-        let nodeIdB1 = Buffer.alloc(32).fill(2);
-        let nodeIdB2 = Buffer.alloc(32).fill(3);
-        let nodeIdC1 = Buffer.alloc(32).fill(4);
-        let nodeIdC2 = Buffer.alloc(32).fill(5);
-        let nodeIdD = Buffer.alloc(32).fill(6);
-        let nodeIdE1 = Buffer.alloc(32).fill(7);
-        let nodeIdE2 = Buffer.alloc(32).fill(8);
+        let clientPublicKey = keyPair1.publicKey;
+        let clientPublicKey2 = keyPair2.publicKey;
 
-        let licenseIdB1 = Buffer.alloc(32).fill(100);
+        let parentId = Buffer.alloc(32).fill(0);
 
         const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
         const nodeB1 = await nodeUtil.createDataNode({
-            id1: nodeIdB1,
             owner: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 1,
             isLicensed: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB1 = nodeB1.getId1();
 
             const licenseB1 = await nodeUtil.createLicenseNode({
-                id1: licenseIdB1,
                 refId: nodeIdB1,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdA,
                 expireTime: now + 10000,
-                creationTime: now,
-            });
+                creationTime: now + 2,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdB1 = licenseB1.getId1();
 
         const nodeB2 = await nodeUtil.createDataNode({
-            id1: nodeIdB2,
             owner: clientPublicKey2,
             parentId: nodeIdA,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 3,
             hasRightsByAssociation: true,
             refId: nodeIdB1,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdB2 = nodeB2.getId1();
 
         const nodeC1 = await nodeUtil.createDataNode({
-            id1: nodeIdC1,
             owner: clientPublicKey,
             parentId: nodeIdB1,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 4,
             isPublic: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        const nodeC2 = nodeC1.copy(nodeIdB2);
-        nodeC2.setId1(nodeIdC2);
+        const nodeIdC1 = nodeC1.getId1();
+
+        const nodeC2 = nodeC1.copy(nodeIdB2, now + 5);
+        nodeC2.sign(keyPair1);
+        const nodeIdC2 = nodeC2.getId1();
 
         const nodeD = await nodeUtil.createDataNode({
-            id1: nodeIdD,
             owner: clientPublicKey,
             parentId: nodeIdC1,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 5,
             isPublic: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdD = nodeD.getId1();
 
         const nodeE1 = await nodeUtil.createDataNode({
-            id1: nodeIdE1,
             owner: clientPublicKey,
             parentId: nodeIdD,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 6,
             isPublic: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdE1 = nodeE1.getId1();
 
         const nodeE2 = await nodeUtil.createDataNode({
-            id1: nodeIdE2,
             owner: clientPublicKey,
             parentId: nodeIdD,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 7,
             isPublic: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdE2 = nodeE2.getId1();
 
         let [id1s, parentIds] = await driver.store([nodeA, nodeB1, nodeB2, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], now);
         assert(id1s.length === 8);
@@ -1596,7 +1611,7 @@ function setupDriverTests(config: any) {
             cutoffTime: BigInt(now),
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: DataNodeTypeAlias,
                     filters: []
                 }
             ]
@@ -1614,9 +1629,9 @@ function setupDriverTests(config: any) {
     });
 }
 
-async function fetch(db: DBClient, fetchRequest: FetchRequest, now: number, rootNode?: NodeInterface): Promise<NodeInterface[]> {
+async function fetch(db: DBClient, fetchRequest: FetchRequest, now: number, rootNode?: BaseNodeInterface): Promise<BaseNodeInterface[]> {
 
-    const nodes: NodeInterface[] = [];
+    const nodes: BaseNodeInterface[] = [];
     let handleFetchReplyData = (fetchReplyData: FetchReplyData) => {
         nodes.push(...fetchReplyData.nodes ?? []);
     };
@@ -1627,19 +1642,21 @@ async function fetch(db: DBClient, fetchRequest: FetchRequest, now: number, root
     return nodes;
 }
 
-function diffNodes(nodes1: NodeInterface[], nodes2: NodeInterface[]): boolean {
+function diffNodes(nodes1: BaseNodeInterface[], nodes2: BaseNodeInterface[]): boolean {
 
     if (nodes1.length !== nodes2.length) {
         return false;
     }
 
-    const diff: [NodeInterface, NodeInterface | undefined][] = [];
+    const diff: [BaseNodeInterface, BaseNodeInterface | undefined][] = [];
 
     const nodes1Length = nodes1.length;
     for (let i=0; i<nodes1Length; i++) {
         const node1 = nodes1[i];
         const node2 = nodes2[i];
-        if (!(node1.getId1() as Buffer).equals(node2.getId1() as Buffer)) {
+        if (!(node1.getProps().id1 as Buffer).equals(node2.getProps().id1 as Buffer)) {
+            console.error("nope1", node1.getProps().id1);
+            console.error("nope1", node2.getProps().id1);
             return false;
         }
     }

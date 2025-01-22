@@ -1,10 +1,8 @@
 import {
+    Krypto,
     KeyPair,
-} from "../datamodel/types";
-
-import {
-    DataModelInterface,
-} from "../datamodel/interface";
+    BaseModelInterface,
+} from "../datamodel";
 
 import {
     ToBeSigned,
@@ -53,56 +51,60 @@ export class SignatureOffloaderRPCClient implements SignatureOffloaderInterface 
         return await this.rpc.call("countWorkers");
     }
 
-    public async sign(datamodels: DataModelInterface[], publicKey: Buffer, deepValidate: boolean = true): Promise<void> {
+    public async sign(baseModels: BaseModelInterface[], publicKey: Buffer, deepValidate: boolean = true): Promise<void> {
         const toBeSigned: ToBeSigned[] = [];
 
-        const datamodelsLength = datamodels.length;
+        const datamodelsLength = baseModels.length;
         for (let index=0; index<datamodelsLength; index++) {
-            const dataModel = datamodels[index];
+            const baseModel = baseModels[index];
 
-            const val = dataModel.validate(deepValidate ? 2 : 0);
+            const val = baseModel.validate(deepValidate);
             if (!val[0]) {
-                throw new Error(`A datamodel did not validate prior to signing: ${val[1]}`);
+                throw new Error(`A baseModel did not validate prior to signing: ${val[1]}`);
             }
 
-            // Might throw
-            dataModel.enforceSigningKey(publicKey);
-
-            // Note that we are sending the full datamodel export here, so that one cannot
-            // sign arbitrary data, it must be a validatable datamodel.
-            toBeSigned.push({index, message: dataModel.export(), publicKey});
+            // Note that we are sending the full model export here, so that one cannot
+            // sign arbitrary data, it must be a validatable model.
+            toBeSigned.push({index, message: baseModel.pack(), publicKey});
         }
 
         // Might throw
         const signatures: SignedResult[] = await this.rpc.call("signer", [toBeSigned]);
 
-        if (signatures.length !== datamodels.length) {
-            throw new Error("Not all datamodels could be signed.");
+        if (signatures.length !== baseModels.length) {
+            throw new Error("Not all baseModels could be signed.");
         }
 
-        // Apply signatures to all datamodels.
+        let type = -1;
+        if (Krypto.IsEd25519(publicKey)) {
+            type = Krypto.ED25519.TYPE;
+        }
+        else if (Krypto.IsEthereum(publicKey)) {
+            type = Krypto.ETHEREUM.TYPE;
+        }
+
+        // Apply signatures to all baseModels.
         for (let i=0; i<signatures.length; i++) {
             const {index, signature} = signatures[i];
-            const dataModel = datamodels[index];
-            dataModel.addSignature(Buffer.from(signature), publicKey);
-            dataModel.setId1(dataModel.calcId1());
+            const baseModel = baseModels[index];
+            baseModel.addSignature(Buffer.from(signature), publicKey, type);
         }
     }
 
-    public async verify(datamodels: DataModelInterface[]): Promise<DataModelInterface[]> {
+    public async verify(baseModels: BaseModelInterface[]): Promise<BaseModelInterface[]> {
         if (this.dedicatedVerifier) {
-            return this.dedicatedVerifier.verify(datamodels);
+            return this.dedicatedVerifier.verify(baseModels);
         }
 
-        const verifiedNodes: DataModelInterface[] = [];
+        const verifiedNodes: BaseModelInterface[] = [];
         // Extract all signatures from the node, also including from embedded nodes and certs.
         const signaturesList: SignaturesCollection[] = [];
 
-        const datamodelsLength = datamodels.length;
+        const datamodelsLength = baseModels.length;
         for (let index=0; index<datamodelsLength; index++) {
-            const datamodel = datamodels[index];
+            const baseModel = baseModels[index];
             try {
-                signaturesList.push({index, signatures: datamodel.extractSignatures()});
+                signaturesList.push({index, signatures: baseModel.getSignatures()});
             }
             catch(e) {
                 // Deep unpacking not available on model, skip this model.
@@ -118,10 +120,10 @@ export class SignatureOffloaderRPCClient implements SignatureOffloaderInterface 
         for (let i=0; i<verifiedIndexesLength; i++) {
             const index = verifiedIndexes[i];
 
-            const datamodel = datamodels[index];
+            const baseModel = baseModels[index];
 
-            if (datamodel.validate(1)[0]) {
-                verifiedNodes.push(datamodel);
+            if (baseModel.validate(true)[0]) {
+                verifiedNodes.push(baseModel);
             }
         }
 

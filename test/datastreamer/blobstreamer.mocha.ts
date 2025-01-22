@@ -31,7 +31,7 @@ import {
     PeerInfo,
     DatabaseUtil,
     Hash,
-    Crypto,
+    Krypto,
     NodeUtil,
     StoreRequest,
     sleep,
@@ -64,8 +64,8 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
     let messaging1: Messaging | undefined;
     let messaging2: Messaging | undefined;
 
-    const keyPair1 = Crypto.GenKeyPair();
-    const keyPairServer = Crypto.GenKeyPair();
+    const keyPair1 = Krypto.GenKeyPair();
+    const keyPairServer = Krypto.GenKeyPair();
     const parentId = Buffer.alloc(32).fill(0x00);
 
     const nodeUtil = new NodeUtil();
@@ -181,7 +181,7 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
             sourcePublicKey: keyPair1.publicKey,
             targetPublicKey: keyPair1.publicKey,
             preserveTransient: false,
-            nodes: [node1.export()],
+            nodes: [node1.pack()],
             muteMsgIds: [],
             batchId: 0,
             hasMore: false,
@@ -232,7 +232,7 @@ describe("BlobStreamWriter, BlobStreamReader", function() {
             sourcePublicKey: keyPair1.publicKey,
             targetPublicKey: keyPair1.publicKey,
             preserveTransient: false,
-            nodes: [license1.export()],
+            nodes: [license1.pack()],
             muteMsgIds: [],
             batchId: 0,
             hasMore: false,

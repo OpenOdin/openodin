@@ -8,7 +8,7 @@ import {
 
 import {
     KeyPair,
-} from "../datamodel/types";
+} from "../datamodel";
 
 import {
     ToBeSigned,

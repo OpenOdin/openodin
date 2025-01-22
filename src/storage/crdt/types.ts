@@ -1,5 +1,5 @@
 import {
-    DataInterface,
+    DataNodeInterface,
 } from "../../datamodel";
 
 import {
@@ -21,7 +21,7 @@ export interface AlgoInterface {
     getId(): string;
     getLength(): number;
     getAllNodes(): {[id1: string]: NodeValues};
-    add(nodes: DataInterface[]): [NodeValues[], Buffer[]];
+    add(nodes: DataNodeInterface[]): [NodeValues[], Buffer[]];
     delete(indexes: number[]): void;
     get(cursorId1: Buffer | undefined, cursorIndex: number, head: number, tail: number,
         reverse: boolean): [NodeValues[], number[]] | undefined;
@@ -46,10 +46,10 @@ export interface NodeValuesRefId extends NodeValues {
     refId?: Buffer,
 }
 
-export function ExtractNodeValues(node: DataInterface): NodeValues {
-    const id1 = node.getId1();
+export function ExtractNodeValues(node: DataNodeInterface): NodeValues {
+    const id1 = node.getProps().id1;
 
-    const owner = node.getOwner();
+    const owner = node.getProps().owner;
 
     if (!id1 || !owner) {
         throw new Error("Missing id1|owner");
@@ -58,19 +58,19 @@ export function ExtractNodeValues(node: DataInterface): NodeValues {
     return {
         id1,
         owner,
-        id2: node.getId2(),
+        id2: node.getProps().id2,
         transientHash: node.hashTransient(),
-        creationTime: node.getCreationTime() ?? 0,
-        transientStorageTime: node.getTransientStorageTime() ?? 0,
+        creationTime: node.getProps().creationTime ?? 0,
+        transientStorageTime: node.getProps().transientStorageTime ?? 0,
     }
 }
 
-export function ExtractNodeValuesRefId(node: DataInterface): NodeValuesRefId {
+export function ExtractNodeValuesRefId(node: DataNodeInterface): NodeValuesRefId {
     const nodeValues = ExtractNodeValues(node);
 
     return {
         ...nodeValues,
-        refId: node.getRefId(),
+        refId: node.getProps().refId,
     };
 }
 
@@ -90,7 +90,7 @@ export type CRDTViewItem = {
     index: number,
 
     id1: Buffer,
-    node: DataInterface,
+    node: DataNodeInterface,
     data: CRDTCustomData,
 };
 
@@ -101,7 +101,7 @@ export type CRDTViewModel = {
     list: Buffer[],
 
     /** Exactly all nodes referenced in above list. */
-    nodes: {[id1: string]: DataInterface},
+    nodes: {[id1: string]: DataNodeInterface},
 
     /**
      * Storage area for the controller and UI to use.
@@ -134,5 +134,5 @@ export type UpdateStreamParams = {
     triggerInterval?: number,
 };
 
-export type SetDataFn = (node: DataInterface, data: CRDTCustomData) => void;
+export type SetDataFn = (node: DataNodeInterface, data: CRDTCustomData) => void;
 export type UnsetDataFn = (id1: Buffer, data: CRDTCustomData) => void;

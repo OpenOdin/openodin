@@ -5,8 +5,8 @@ import {
 } from "./types";
 
 import {
-    DataInterface,
-} from "../../datamodel/node/secondary/interface";
+    DataNodeInterface,
+} from "../../datamodel";
 
 import {
     CRDTMessagesAnnotations,
@@ -77,7 +77,7 @@ export class AlgoSorted implements AlgoInterface {
      * @returns [newNodes, transientUpdatesNodesId1s][]
      * @throws on overflow
      */
-    public add(nodes: DataInterface[]): [NodeValues[], Buffer[]] {
+    public add(nodes: DataNodeInterface[]): [NodeValues[], Buffer[]] {
         const newNodes: NodeValues[] = [];
         const transientNodes: Set<Buffer> = new Set();
 
@@ -85,9 +85,9 @@ export class AlgoSorted implements AlgoInterface {
         for (let i=0; i<nodesLength; i++) {
             const node = nodes[i];
 
-            const id1 = node.getId1();
+            const id1 = node.getProps().id1;
 
-            const parentId = node.getParentId();
+            const parentId = node.getProps().parentId;
 
             if (!id1 || !parentId) {
                 continue;

@@ -7,14 +7,15 @@ import {
 } from "../util/common";
 
 import {
-    DATA0_NODE_TYPE,
-    DATA0_NODE_TYPE_ALIAS,
-    LICENSE0_NODE_TYPE,
-    LICENSE0_NODE_TYPE_ALIAS,
+    DataNodeType,
+    DataNodeTypeAlias,
+    LicenseNodeType,
+    LicenseNodeTypeAlias,
 } from "../datamodel";
 
 import {
     ParseEnum,
+    ParseSchemaType,
 } from "../util/SchemaUtil";
 
 import {
@@ -31,10 +32,10 @@ import {
  * Parse given nodetype to check for node aliases.
  * @param v string as alias or hexadecimal node type, or buffer as node type
  */
-export const ParseNodeType = function(v: string | Buffer | Uint8Array): Buffer {
+export const ParseNodeType = function(schema: ParseSchemaType, v: string | Buffer | Uint8Array): Buffer {
     const nodeAliases: {[alias: string]: Buffer} = {
-        [DATA0_NODE_TYPE_ALIAS]: CopyBuffer(DATA0_NODE_TYPE),
-        [LICENSE0_NODE_TYPE_ALIAS]: CopyBuffer(LICENSE0_NODE_TYPE),
+        [DataNodeTypeAlias]: Buffer.from(DataNodeType),
+        [LicenseNodeTypeAlias]: Buffer.from(LicenseNodeType),
     };
 
     if (Buffer.isBuffer(v)) {
@@ -65,19 +66,19 @@ export const ParseNodeType = function(v: string | Buffer | Uint8Array): Buffer {
     return b;
 }
 
-export const FilterSchema = {
+export const FilterSchema: ParseSchemaType = {
     field: "",
     "operator?": "",
     cmp: "",
     value: "",
 } as const;
 
-export const EmbedSchema = {
+export const EmbedSchema: ParseSchemaType = {
     nodeType: ParseNodeType,
     "filters?": [FilterSchema],
 } as const;
 
-export const FetchQuerySchema = {
+export const FetchQuerySchema: ParseSchemaType = {
     "depth?": -1,
     "limit?": -1,
     "cutoffTime?": 0n,
@@ -115,7 +116,7 @@ export const FetchQuerySchema = {
     "includeLicenses?": "",
 } as const;
 
-export const FetchCRDTSchema = {
+export const FetchCRDTSchema: ParseSchemaType = {
     "algo?": ParseEnum([AlgoSorted.GetId(), AlgoRefId.GetId(), AlgoSortedRefId.GetId()], ""),
     "conf?": "",
     "msgId?": new Uint8Array(0),
@@ -126,12 +127,12 @@ export const FetchCRDTSchema = {
     "cursorIndex?": -1,
 } as const;
 
-export const FetchRequestSchema = {
+export const FetchRequestSchema: ParseSchemaType = {
     query: FetchQuerySchema,
     "crdt?": FetchCRDTSchema,
 } as const;
 
-export const StoreRequestSchema = {
+export const StoreRequestSchema: ParseSchemaType = {
     nodes: [new Uint8Array(0)],
     "sourcePublicKey?": new Uint8Array(0),
     "targetPublicKey?": new Uint8Array(0),
@@ -141,12 +142,12 @@ export const StoreRequestSchema = {
     "hasMore?": false,
 } as const;
 
-export const UnsubscribeRequestSchema = {
+export const UnsubscribeRequestSchema: ParseSchemaType = {
     originalMsgId: new Uint8Array(0),
     "targetPublicKey?": new Uint8Array(0),
 } as const;
 
-export const WriteBlobRequestSchema = {
+export const WriteBlobRequestSchema: ParseSchemaType = {
     nodeId1: new Uint8Array(0),
     data: new Uint8Array(0),
     "pos?": 0n,
@@ -155,7 +156,7 @@ export const WriteBlobRequestSchema = {
     "muteMsgIds?": [new Uint8Array(0)],
 } as const;
 
-export const ReadBlobRequestSchema = {
+export const ReadBlobRequestSchema: ParseSchemaType = {
     nodeId1: new Uint8Array(0),
     "pos?": 0n,
     length: 0,
@@ -163,25 +164,25 @@ export const ReadBlobRequestSchema = {
     "targetPublicKey?": new Uint8Array(0),
 } as const;
 
-export const GenericMessageRequestSchema = {
+export const GenericMessageRequestSchema: ParseSchemaType = {
     action: "",
     "sourcePublicKey?": new Uint8Array(0),
     data: new Uint8Array(0),
 } as const;
 
-export const FetchResultSchema = {
+export const FetchResultSchema: ParseSchemaType = {
     nodes: [new Uint8Array(0)],
     "embed?": [new Uint8Array(0)],
     cutoffTime: 0n,
 } as const;
 
-export const CRDTResultSchema = {
+export const CRDTResultSchema: ParseSchemaType = {
     delta: new Uint8Array(0),
     cursorIndex: 0,
     length: 0,
 } as const;
 
-export const FetchResponseSchema = {
+export const FetchResponseSchema: ParseSchemaType = {
     status: ParseEnum(Object.values(Status)),
     result: FetchResultSchema,
     crdtResult: CRDTResultSchema,
@@ -191,7 +192,7 @@ export const FetchResponseSchema = {
     "error?": "",
 } as const;
 
-export const StoreResponseSchema = {
+export const StoreResponseSchema: ParseSchemaType = {
     status: ParseEnum(Object.values(Status)),
     storedId1List: [new Uint8Array(0)],
     missingBlobId1List: [new Uint8Array(0)],
@@ -199,13 +200,13 @@ export const StoreResponseSchema = {
     "error?": "",
 } as const;
 
-export const WriteBlobResponseSchema = {
+export const WriteBlobResponseSchema: ParseSchemaType = {
     status: ParseEnum(Object.values(Status)),
     currentLength: 0n,
     "error?": "",
 } as const;
 
-export const ReadBlobResponseSchema = {
+export const ReadBlobResponseSchema: ParseSchemaType = {
     status: ParseEnum(Object.values(Status)),
     data: new Uint8Array(0),
     seq: 0,
@@ -214,13 +215,13 @@ export const ReadBlobResponseSchema = {
     "error?": "",
 } as const;
 
-export const GenericMessageResponseSchema = {
+export const GenericMessageResponseSchema: ParseSchemaType = {
     status: ParseEnum(Object.values(Status)),
     data: new Uint8Array(0),
     "error?": "",
 } as const;
 
-export const UnsubscribeResponseSchema = {
+export const UnsubscribeResponseSchema: ParseSchemaType = {
     status: ParseEnum(Object.values(Status)),
     "error?": "",
 } as const;

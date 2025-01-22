@@ -10,7 +10,7 @@ import {
 import {
     Connection,
     ConnectionConfiguration,
-} from "postgresql-client";
+} from "postgrejs";
 
 import {
     PromiseCallback,

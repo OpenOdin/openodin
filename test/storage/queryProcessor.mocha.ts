@@ -5,58 +5,40 @@ import {
 import {
     DatabaseUtil,
     Driver,
-    NodeInterface,
+    BaseNodeInterface,
     NodeUtil,
     DBClient,
     TABLES,
     FetchRequest,
     FetchReplyData,
-    Data,
-    License,
+    DataNodeType,
+    LicenseNodeType,
+    UnpackCert,
     QueryProcessor,
     MatchState,
     Match,
     CMP,
     Hash,
     LicenseNodeEntry,
-    SelectLicenseeHash,
+    SelectLicensingHash,
     ReverseFetch,
-    Decoder,
-    LicenseInterface,
+    LicenseNodeInterface,
     FriendCertInterface,
     SelectFriendCertPair,
-    SPECIAL_NODES,
     ParseSchema,
     FetchRequestSchema,
+    KeyPair,
+    Krypto,
+    DataNodeInterface,
+    FriendCert,
 } from "../../src";
 
-// These are exported friend certificates taken from
-// ./src/sdk/tools/cert/examples/cert/friend/cert{a,b,certself}.
-// If the need arises to regenerate these use the script provided examples/cert/friend/test.sh.
-// Then copy the hexadecimal values from the json files into these variables.
-//
-// Friend cert A (certa/friendCert.json:cert hex string).
-const friendCertImageA = Buffer.from("00020002000015000020b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c05a0af6fe01f07481be2f981c937299ce3b6d8bab835778fedebfaf52c79d52626b7fcd21d0a8d020901150a004100f135788c20d0100afc81296e458f70a57797441e58581c90eead941b144802be5d98230fe8013e1aedbc589ecaab58961b856837ab3a82cb6ab75a818c406909151e0002abba", "hex");
-
-const friendCertAIssuer = Buffer.from("b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868", "hex");
-
-// Friend cert B (certb/friendCert.json:cert hex string).
-const friendCertImageB = Buffer.from("000200020000150000207b16e7f0d66ab67893e5927a7e51a3096a99b495b555ef0fe5f0d8dc0c55fcbb150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c05a0af6fe01f07481be2f981c937299ce3b6d8bab835778fedebfaf52c79d52626b7fcd21d0a8d020901150a004100bdd232ac398fb2f828d873a6cd3c8bd5f0167ff0d8483bbc3741ce50d0b3ed40759c5d78303949fb1e57295165a7776803ec9c72e83bf051b384e3a8aee0d101151e0002beef", "hex");
-
-const friendCertBIssuer = Buffer.from("7b16e7f0d66ab67893e5927a7e51a3096a99b495b555ef0fe5f0d8dc0c55fcbb", "hex");
-
-// Self cert
-// Friend certself (certself/friendCert.json:cert hex string).
-const friendCertImageASelf = Buffer.from("00020002000015000020b5d0a63764ba36056a43c0415af79557c34c5ace56b9325923890ec5e0843868150100212041a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa666544802020008030000000c04633372600c05a0af6fe01f0789a1fe894f2f481064804e609b08ca72e20c53a16942009c1077ac260db34f31020901150a0041008b8fd3c628e9099f4c9b2ffdef054f8a9dd08294b5fbb03b509830438b4ee12232166a3b2fa098f4e4852cb47d2cb194d5fe8dc9244aaaba8c7dd6ff212d4d0d151e0005b0bbafe444", "hex");
-
-const friendCertIIssuer = Buffer.from("41a5274e4b16118c68b114debd831013429f50e7a2d014934477e17fa6665448", "hex");
-
 class DriverTestWrapper extends Driver {
-    public async insertNodes(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<Buffer[]> {
+    public async insertNodes(nodes: BaseNodeInterface[], now: number, preserveTransient: boolean = false): Promise<void> {
         return super.insertNodes(nodes, now, preserveTransient);
     }
 
-    protected async storeNodes(nodes: NodeInterface[], now: number, preserveTransient: boolean = false) {
+    protected async storeNodes(nodes: BaseNodeInterface[], now: number, preserveTransient: boolean = false) {
         return super.storeNodes(nodes, now, preserveTransient);
     }
 }
@@ -70,40 +52,40 @@ class QueryProcessorWrapper extends QueryProcessor {
         return super.initNextLevel();
     }
 
-    public matchFirst(node: NodeInterface, currentLevelMatches: [Match, MatchState][]): boolean {
+    public matchFirst(node: BaseNodeInterface, currentLevelMatches: [Match, MatchState][]): boolean {
         return super.matchFirst(node, currentLevelMatches);
     }
 
-    public matchSecond(nodes: NodeInterface[], currentLevelMatches: [Match, MatchState][]): NodeInterface[] {
+    public matchSecond(nodes: BaseNodeInterface[], currentLevelMatches: [Match, MatchState][]): BaseNodeInterface[] {
         return super.matchSecond(nodes, currentLevelMatches);
     }
 
-    public async filterPrivateNodes(allNodes: NodeInterface[], allowRightsByAssociation: boolean): Promise<[NodeInterface[], NodeInterface[]]> {
+    public async filterPrivateNodes(allNodes: BaseNodeInterface[], allowRightsByAssociation: boolean): Promise<[BaseNodeInterface[], BaseNodeInterface[]]> {
         return super.filterPrivateNodes(allNodes, allowRightsByAssociation);
     }
 
-    public async filterLicensedNodes(nodes: NodeInterface[], targetPublicKey: Buffer, includeLicenses: boolean = false):
-        Promise<[nodes: NodeInterface[], licenses: {[nodeId1: string]: {[licenseId1: string]: Buffer}}]> {
+    public async filterLicensedNodes(nodes: BaseNodeInterface[], targetPublicKey: Buffer, includeLicenses: boolean = false):
+        Promise<[nodes: BaseNodeInterface[], licenses: {[nodeId1: string]: {[licenseId1: string]: Buffer}}]> {
         return super.filterLicensedNodes(nodes, targetPublicKey, includeLicenses);
     }
 
-    public async embedNodes(nodes: NodeInterface[]): Promise<{originalNode: NodeInterface, embeddedNode: NodeInterface}[]> {
+    public async embedNodes(nodes: BaseNodeInterface[]): Promise<{originalNode: BaseNodeInterface, embeddedNode: BaseNodeInterface}[]> {
         return super.embedNodes(nodes);
     }
 
-    public getLicenseNodeTree(node: NodeInterface, sourcePublicKey: Buffer | undefined, targetPublicKey: Buffer): LicenseNodeEntry[] {
+    public getLicenseNodeTree(node: BaseNodeInterface, sourcePublicKey: Buffer | undefined, targetPublicKey: Buffer): LicenseNodeEntry[] {
         return super.getLicenseNodeTree(node, sourcePublicKey, targetPublicKey);
     }
 
-    public async fetchLicenses(licensesToCheck: Buffer[], selectOnlyWriteLicenses: boolean): Promise<{[hash: string]: SelectLicenseeHash[]}> {
-        return super.fetchLicenses(licensesToCheck, selectOnlyWriteLicenses);
+    public async fetchLicenses(licensesToCheck: Buffer[]): Promise<{[hash: string]: SelectLicensingHash[]}> {
+        return super.fetchLicenses(licensesToCheck);
     }
 
     public async checkSourceNodesPermissions(nodeId1s: Buffer[]): Promise<{[id1: string]: boolean}> {
         return super.checkSourceNodesPermissions(nodeId1s);
     }
 
-    public async applyFriendCerts(embeddingLicense: LicenseInterface, aCert: FriendCertInterface, bCert: FriendCertInterface): Promise<boolean> {
+    public async applyFriendCerts(embeddingLicense: LicenseNodeInterface, aCert: FriendCertInterface, bCert: FriendCertInterface): Promise<boolean> {
         return super.applyFriendCerts(embeddingLicense, aCert, bCert);
     }
 
@@ -134,8 +116,8 @@ describe("QueryProcessor: SQLite WAL-mode", function() {
         await driver.createTables();
     });
 
-    afterEach("Close database", function() {
-        db?.close();
+    afterEach("Close database", async function() {
+        await db?.close();
         db = undefined;
         driver = undefined;
         config.db = undefined;
@@ -167,8 +149,8 @@ describe("QueryProcessor: SQLiteJS WAL-mode", function() {
         await driver.createTables();
     });
 
-    afterEach("Close database", function() {
-        db?.close();
+    afterEach("Close database", async function() {
+        await db?.close();
         db = undefined;
         driver = undefined;
         config.db = undefined;
@@ -210,8 +192,8 @@ describe("Driver: PostgreSQL REPEATABLE READ mode", function() {
         await driver.createTables();
     });
 
-    afterEach("Close database", function() {
-        db?.close();
+    afterEach("Close database", async function() {
+        await db?.close();
         db = undefined;
         driver = undefined;
         config.db = undefined;
@@ -248,7 +230,7 @@ function setupTests(config: any) {
             jurisdiction: "FI",
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -268,6 +250,7 @@ function setupTests(config: any) {
     it("#matchFirst", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -279,78 +262,78 @@ function setupTests(config: any) {
             // Do nothing
         };
 
-        let sourcePublicKey = Buffer.alloc(32).fill(110);
+        let sourcePublicKey = keyPair1.publicKey;
         let targetPublicKey = Buffer.alloc(32).fill(110);
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(1);
-        let nodeIdB = Buffer.alloc(32).fill(2);
-        let nodeIdC = Buffer.alloc(32).fill(3);
-        let nodeIdAA = Buffer.alloc(32).fill(10);
-        let nodeIdBA = Buffer.alloc(32).fill(11);
-        let nodeIdBB = Buffer.alloc(32).fill(12);
-        let nodeIdCA = Buffer.alloc(32).fill(13);
 
         let rootNode = undefined;
 
         const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
             owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
         const nodeB = await nodeUtil.createDataNode({
-            id1: nodeIdB,
             owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
-            creationTime: now,
-        });
+            creationTime: now + 1,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB = nodeB.getId1();
 
         const nodeC = await nodeUtil.createDataNode({
-            id1: nodeIdC,
             owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
-            creationTime: now,
-        });
+            creationTime: now + 2,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdC = nodeC.getId1();
 
         const nodeAA = await nodeUtil.createDataNode({
-            id1: nodeIdAA,
             owner: sourcePublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 3,
             contentType: "app/one",
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdAA = nodeAA.getId1();
 
         const nodeBA = await nodeUtil.createDataNode({
-            id1: nodeIdBA,
             owner: sourcePublicKey,
             parentId: nodeIdB,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 4,
             contentType: "app/hello",
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdBA = nodeBA.getId1();
 
         const nodeBB = await nodeUtil.createDataNode({
-            id1: nodeIdBB,
             owner: sourcePublicKey,
             parentId: nodeIdB,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 5,
             contentType: "app/one",
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdBB = nodeBB.getId1();
 
         const nodeCA = await nodeUtil.createDataNode({
-            id1: nodeIdCA,
             owner: sourcePublicKey,
             parentId: nodeIdC,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 6,
             contentType: "app/one",
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdCA = nodeCA.getId1();
 
         let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
@@ -362,7 +345,7 @@ function setupTests(config: any) {
         let qp = new QueryProcessorWrapper(db, fetchRequest.query, rootNode, now, handleFetchReplyData);
 
         let match1 = {
-            nodeType: License.GetType(),
+            nodeType: Buffer.from(LicenseNodeType),
             filters: [],
         } as any as Match;
 
@@ -380,7 +363,7 @@ function setupTests(config: any) {
 
 
         let match2 = {
-            nodeType: Data.GetType(),
+            nodeType: Buffer.from(DataNodeType),
             cursorId1: Buffer.alloc(0),
             filters: [
                 {
@@ -410,7 +393,7 @@ function setupTests(config: any) {
 
 
         let match3 = {
-            nodeType: Data.GetType(),
+            nodeType: Buffer.from(DataNodeType),
             cursorId1: Buffer.alloc(0),
             limitField: {
                 name: "contentType",
@@ -434,18 +417,19 @@ function setupTests(config: any) {
         assert(getProcessState(nodeBB, qp).matchIndexes.length === 1);
         assert(state3.counter === 0);  // No state change.
 
-        let hashed = nodeCA.getHashedValue("contentType") as string;
+        let hashed = nodeCA.hashField("contentType") as string;
         state3.group["contentType"] = {[hashed]: 1};
 
         // Create cache
         getProcessState(nodeCA, qp);
 
         qp.matchFirst(nodeCA, matches);
+
         assert(getProcessState(nodeCA, qp).matchIndexes.length === 0);
         assert(state3.counter === 0);  // No state change.
 
         let match4 = {
-            nodeType: Data.GetType(),
+            nodeType: Buffer.from(DataNodeType),
             cursorId1: nodeIdBA,
             filters: []
         } as any as Match;
@@ -478,6 +462,7 @@ function setupTests(config: any) {
     it("#matchSecond", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -489,40 +474,40 @@ function setupTests(config: any) {
             // Do nothing
         };
 
-        let sourcePublicKey = Buffer.alloc(32).fill(110);
+        let sourcePublicKey = keyPair1.publicKey;
         let targetPublicKey = Buffer.alloc(32).fill(110);
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(1);
-        let nodeIdB = Buffer.alloc(32).fill(2);
-        let nodeIdC = Buffer.alloc(32).fill(3);
 
         let rootNode = undefined;
 
         const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
             owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
         const nodeB = await nodeUtil.createDataNode({
-            id1: nodeIdB,
             owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 1,
             contentType: "app/hello",
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB = nodeB.getId1();
 
         const nodeC = await nodeUtil.createDataNode({
-            id1: nodeIdC,
             owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 2,
             contentType: "app/hello",
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdC = nodeC.getId1();
 
         let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
@@ -534,7 +519,7 @@ function setupTests(config: any) {
         let qp = new QueryProcessorWrapper(db, fetchRequest.query, rootNode, now, handleFetchReplyData);
 
         let match1 = {
-            nodeType: Data.GetType(),
+            nodeType: Buffer.from(DataNodeType),
             filters: [],
             bottom: true,
             discard: true,
@@ -549,7 +534,7 @@ function setupTests(config: any) {
         };
 
         let match2 = {
-            nodeType: Data.GetType(),
+            nodeType: Buffer.from(DataNodeType),
             filters: [],
             bottom: true,
             limitField: {
@@ -579,9 +564,11 @@ function setupTests(config: any) {
         assert(getProcessState(nodeB, qp).bottom === true);
     });
 
-    it("#filterPrivateNodes", async function() {
+    it("#isInactive", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -589,17 +576,74 @@ function setupTests(config: any) {
         const nodeUtil = new NodeUtil();
         const now = Date.now();
 
-        let sourcePublicKey = Buffer.alloc(32).fill(110);
-        let targetPublicKey = Buffer.alloc(32).fill(110);
-        let clientPublicKey2 = Buffer.alloc(32).fill(111);
+        let clientPublicKey = keyPair1.publicKey;
+        let targetPublicKey = keyPair1.publicKey;
+        let parentId = Buffer.alloc(32).fill(1);
+
+        const nodeA = await nodeUtil.createDataNode({
+            owner: clientPublicKey,
+            parentId,
+            expireTime: now + 10000,
+            creationTime: now,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getId1();
+
+        const nodeB = await nodeUtil.createDataNode({
+            owner: clientPublicKey,
+            parentId: nodeIdA,
+            expireTime: now + 10000,
+            creationTime: now,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        await driver.storeNodes([nodeA, nodeB], now);
+
+        const fetchRequest = ParseSchema(FetchRequestSchema, {query: {
+            parentId,
+            sourcePublicKey: clientPublicKey,
+            targetPublicKey,
+            ignoreInactive: false,
+            match: [
+                {
+                    nodeType: Buffer.from(DataNodeType),
+                    filters: []
+                }
+            ]
+        }});
+
+        let nodes = await fetch(db, fetchRequest, now);
+        assert(nodes.length == 2);
+
+        nodeA.storeFlags({isInactive: true});
+
+        await driver.storeNodes([nodeA], now + 1, true);
+
+        nodes = await fetch(db, fetchRequest, now);
+        assert(nodes.length == 1);
+
+        fetchRequest.query.ignoreInactive = true;
+
+        nodes = await fetch(db, fetchRequest, now);
+        assert(nodes.length == 0);
+    });
+
+    it("#filterPrivateNodes", async function() {
+        const driver = config.driver;
+        const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
+
+        assert(driver);
+        assert(db);
+
+        const nodeUtil = new NodeUtil();
+        const now = Date.now();
+
+        let sourcePublicKey = keyPair1.publicKey;
+        let clientPublicKey2 = keyPair2.publicKey;
+        let targetPublicKey = sourcePublicKey;
         let clientPublicKey3 = Buffer.alloc(32).fill(112);
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(1);
-        let nodeIdB = Buffer.alloc(32).fill(2);
-        let nodeIdC = Buffer.alloc(32).fill(3);
-        let nodeIdD = Buffer.alloc(32).fill(4);
-        let nodeIdE = Buffer.alloc(32).fill(5);
-        let nodeIdF = Buffer.alloc(32).fill(6);
 
         let rootNode = undefined;
 
@@ -618,74 +662,81 @@ function setupTests(config: any) {
 
         // Private
         const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
             owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
         // Private to clientPublicKey2
         const nodeB = await nodeUtil.createDataNode({
-            id1: nodeIdB,
             owner: clientPublicKey2,
             parentId,
             expireTime: now + 10000,
-            creationTime: now,
-        });
+            creationTime: now + 1,
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdB = nodeB.getId1();
 
         // Licensed
         const nodeC = await nodeUtil.createDataNode({
-            id1: nodeIdC,
             owner: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 2,
             isLicensed: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdC = nodeC.getId1();
 
         // Public
         const nodeD = await nodeUtil.createDataNode({
-            id1: nodeIdD,
             owner: clientPublicKey2,
             parentId,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 3,
             isPublic: true,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdD = nodeD.getId1();
 
         // hasRightsByAssociation
         const nodeE = await nodeUtil.createDataNode({
-            id1: nodeIdE,
             owner: clientPublicKey2,
             parentId,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 4,
             hasRightsByAssociation: true,
             refId: nodeIdA,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdE = nodeE.getId1();
 
         // Create embeddable node
         const nodeF = await nodeUtil.createLicenseNode({
-            id1: nodeIdF,
             owner: clientPublicKey2,
             targetPublicKey: sourcePublicKey,
             parentId,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 5,
             extensions: 1,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdF = nodeF.getId1();
 
         // hasRightsByAssociation but different parentIds, so won't bring permissions.
         const nodeG = await nodeUtil.createDataNode({
-            id1: nodeIdE,
             owner: clientPublicKey2,
             parentId: Buffer.alloc(32).fill(200),
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 6,
             hasRightsByAssociation: true,
             refId: nodeIdA,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdG = nodeG.getId1();
 
         let nodes = [nodeA, nodeB, nodeC, nodeD, nodeE, nodeF, nodeG];
 
@@ -718,7 +769,7 @@ function setupTests(config: any) {
             match: [],
             embed: [
                 {
-                    nodeType: License.GetType(),
+                    nodeType: Buffer.from(LicenseNodeType),
                     filters: [],
                 }
             ]
@@ -734,6 +785,8 @@ function setupTests(config: any) {
     it("#getLicenseNodeTree", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -741,31 +794,48 @@ function setupTests(config: any) {
         const nodeUtil = new NodeUtil();
         const now = Date.now();
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
-        let clientPublicKey2 = Buffer.alloc(32).fill(111);
-
+        let clientPublicKey = keyPair1.publicKey;
+        let clientPublicKey2 = keyPair2.publicKey;
         let rootNodeId = Buffer.alloc(32).fill(1);
 
-        let nodeId1A = Buffer.alloc(32).fill(10);
-        let nodeId1B = Buffer.alloc(32).fill(11);
+        const node4A = await nodeUtil.createDataNode({
+            parentId: rootNodeId,
+            owner: clientPublicKey,
+            creationTime: now,
+            expireTime: now + 10000,
+            isPublic: true,
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        let nodeId2A = Buffer.alloc(32).fill(20);
-        let nodeId2B = Buffer.alloc(32).fill(21);
+        // License for node4A (which is not licensed).
 
-        let nodeId3A = Buffer.alloc(32).fill(30);
-        let nodeId3B = Buffer.alloc(32).fill(31);
+        const nodeId4A = node4A.getId1();
 
-        let nodeId4A = Buffer.alloc(32).fill(40);
+        // Licensed
+        const node3A = await nodeUtil.createDataNode({
+            parentId: nodeId4A,
+            owner: clientPublicKey,
+            creationTime: now + 1,
+            expireTime: now + 10000,
+            isLicensed: true,
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        let licenseId3A = Buffer.alloc(32).fill(36);
-        let licenseId3A2 = Buffer.alloc(32).fill(37);
-        let licenseId3A3 = Buffer.alloc(32).fill(38);
+        const nodeId3A = node3A.getId1();
 
-        let licenseId4A = Buffer.alloc(32).fill(46);
+        // Licensed
+        const node2A = await nodeUtil.createDataNode({
+            parentId: nodeId3A,
+            owner: clientPublicKey,
+            creationTime: now + 1,
+            expireTime: now + 10000,
+            isLicensed: true,
+            licenseMinDistance: 1,
+            licenseMaxDistance: 1,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeId2A = node2A.getId1();
 
         // Licensed
         const node1A = await nodeUtil.createDataNode({
-            id1: nodeId1A,
             parentId: nodeId2A,
             owner: clientPublicKey,
             creationTime: now,
@@ -773,92 +843,62 @@ function setupTests(config: any) {
             isLicensed: true,
             licenseMinDistance: 2,
             licenseMaxDistance: 3,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeId1A = node1A.getId1();
+
+        // Licensed
+        const node2B = await nodeUtil.createDataNode({
+            parentId: nodeId3A,  // note: not 3B
+            owner: clientPublicKey,
+            creationTime: now + 2,
+            expireTime: now + 10001,
+            isLicensed: true,
+            licenseMinDistance: 1,
+            licenseMaxDistance: 1,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeId2B = node2B.getId1();
 
         // Licensed
         const node1B = await nodeUtil.createDataNode({
-            id1: nodeId1B,
             parentId: nodeId2B,
             owner: clientPublicKey,
-            creationTime: now,
+            creationTime: now + 1,
             expireTime: now + 10001,
             isLicensed: true,
             licenseMinDistance: 1,
             licenseMaxDistance: 2,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
-        // Licensed
-        const node2A = await nodeUtil.createDataNode({
-            id1: nodeId2A,
-            parentId: nodeId3A,
-            owner: clientPublicKey,
-            creationTime: now,
-            expireTime: now + 10000,
-            isLicensed: true,
-            licenseMinDistance: 1,
-            licenseMaxDistance: 1,
-        });
-
-        // Licensed
-        const node2B = await nodeUtil.createDataNode({
-            id1: nodeId2B,
-            parentId: nodeId3A,  // note: not 3B
-            owner: clientPublicKey,
-            creationTime: now,
-            expireTime: now + 10001,
-            isLicensed: true,
-            licenseMinDistance: 1,
-            licenseMaxDistance: 1,
-        });
-
-        // Licensed
-        const node3A = await nodeUtil.createDataNode({
-            id1: nodeId3A,
-            parentId: nodeId4A,
-            owner: clientPublicKey,
-            creationTime: now,
-            expireTime: now + 10000,
-            isLicensed: true,
-            hasOnlineValidation: true,
-            isOnlineValidated: true,
-            hasOnlineCert: true,
-            isOnlineCertOnline: true,
-        });
+        const nodeId1B = node1B.getId1();
 
         // Public
         const node3B = await nodeUtil.createDataNode({
-            id1: nodeId3B,
             parentId: nodeId4A,
             owner: clientPublicKey,
-            creationTime: now,
+            creationTime: now + 2,
             expireTime: now + 10001,
             isPublic: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
         // Public
-        const node4A = await nodeUtil.createDataNode({
-            id1: nodeId4A,
-            parentId: rootNodeId,
-            owner: clientPublicKey,
-            creationTime: now,
-            expireTime: now + 10000,
-            isPublic: true,
-        });
 
-        // License for node4A (which is not licensed).
+        const nodeId3B = node3B.getId1();
+
         const license4A = await nodeUtil.createLicenseNode({
-            id1: licenseId4A,
             parentId: rootNodeId,
             refId: nodeId4A,
             owner: clientPublicKey,
             targetPublicKey: clientPublicKey,
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
 
+
+        const licenseId4A = license4A.getId1();
         // License for node3A
         const license3A = await nodeUtil.createLicenseNode({
-            id1: licenseId3A,
             parentId: nodeId4A,
             refId: nodeId3A,
             owner: clientPublicKey,
@@ -866,23 +906,25 @@ function setupTests(config: any) {
             expireTime: now + 10000,
             creationTime: now,
             parentPathHash: Hash(nodeId3A),
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const licenseId3A = license3A.getId1();
 
         // Second license for node3A
         const license3A2 = await nodeUtil.createLicenseNode({
-            id1: licenseId3A2,
             parentId: nodeId4A,
             refId: nodeId3A,
             owner: clientPublicKey,
             targetPublicKey: clientPublicKey2,
             expireTime: now + 10000,
-            creationTime: now+1,
+            creationTime: now+2,
             disallowRetroLicensing: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const licenseId3A2 = license3A2.getId1();
 
         // Third license for node3A
         const license3A3 = await nodeUtil.createLicenseNode({
-            id1: licenseId3A3,
             parentId: nodeId4A,
             refId: nodeId3A,
             owner: clientPublicKey,
@@ -890,11 +932,13 @@ function setupTests(config: any) {
             expireTime: now + 10001,
             creationTime: now-1,
             disallowRetroLicensing: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const licenseId3A3 = license3A3.getId1();
 
         let rootNode = undefined;
 
-        let fetchedNodes: NodeInterface[] = [];
+        let fetchedNodes: BaseNodeInterface[] = [];
         let handleFetchReplyData = (fetchReplyData: FetchReplyData) => {
             fetchedNodes.push(...fetchReplyData.nodes ?? []);
         };
@@ -907,7 +951,7 @@ function setupTests(config: any) {
             targetPublicKey: clientPublicKey,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: [],
                 }
             ],
@@ -953,7 +997,7 @@ function setupTests(config: any) {
             targetPublicKey: clientPublicKey2,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: [],
                 }
             ],
@@ -1001,6 +1045,7 @@ function setupTests(config: any) {
     it("#filterLicensedNodes basic test", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -1009,24 +1054,22 @@ function setupTests(config: any) {
         const now = Date.now();
 
         let targetPublicKey = Buffer.alloc(32).fill(110);
-        let clientPublicKey2 = Buffer.alloc(32).fill(111);
+        let clientPublicKey2 = keyPair2.publicKey;
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA1 = Buffer.alloc(32).fill(1);
-        let nodeIdL1 = Buffer.alloc(32).fill(10);
 
         // Licensed
         const nodeA1 = await nodeUtil.createDataNode({
-            id1: nodeIdA1,
             owner: clientPublicKey2,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             isLicensed: true,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdA1 = nodeA1.getId1();
 
         // License
         const nodeL1 = await nodeUtil.createLicenseNode({
-            id1: nodeIdL1,
             owner: clientPublicKey2,
             targetPublicKey,
             parentId,
@@ -1034,7 +1077,9 @@ function setupTests(config: any) {
             creationTime: now,
             extensions: 1,
             refId: nodeIdA1,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdL1 = nodeL1.getId1();
 
         let rootNode = undefined;
 
@@ -1061,6 +1106,8 @@ function setupTests(config: any) {
     it("#embedNodes", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -1068,25 +1115,25 @@ function setupTests(config: any) {
         const nodeUtil = new NodeUtil();
         const now = Date.now();
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
-        let clientPublicKey2 = Buffer.alloc(32).fill(111);
+        let clientPublicKey = keyPair1.publicKey;
+        let clientPublicKey2 = keyPair2.publicKey;
         let targetPublicKey = Buffer.alloc(32).fill(112);
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdF = Buffer.alloc(32).fill(6);
-        let nodeIdF2 = Buffer.alloc(32).fill(7);
 
         let rootNode = undefined;
 
         // Create embeddable node
         const nodeF = await nodeUtil.createLicenseNode({
-            id1: nodeIdF,
             owner: clientPublicKey2,
             targetPublicKey: clientPublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             extensions: 1,
-        });
+            refId: Buffer.alloc(32),
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdF = nodeF.getId1();
 
         let handleFetchReplyData = (fetchReplyData: FetchReplyData) => {
             // Do nothing
@@ -1105,7 +1152,9 @@ function setupTests(config: any) {
         assert(embed.length === 1);
 
         const nodeF2 = embed[0].embeddedNode;
-        nodeF2.setId1(nodeIdF2);
+        nodeF2.sign(keyPair1);
+        nodeF2.pack();
+        const nodeIdF2 = nodeF2.getId1();
 
         await driver.storeNodes([nodeF2], now);
 
@@ -1116,6 +1165,7 @@ function setupTests(config: any) {
     it("#run", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -1125,74 +1175,73 @@ function setupTests(config: any) {
 
         let rootNode = undefined;
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
-        let targetPublicKey = Buffer.alloc(32).fill(110);
+        let clientPublicKey = keyPair1.publicKey;
+        let targetPublicKey = keyPair1.publicKey;
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(1);
-        let nodeIdB = Buffer.alloc(32).fill(2);
-        let nodeIdC = Buffer.alloc(32).fill(3);
-        let nodeIdAA = Buffer.alloc(32).fill(10);
-        let nodeIdBA = Buffer.alloc(32).fill(11);
-        let nodeIdBB = Buffer.alloc(32).fill(12);
-        let nodeIdCA = Buffer.alloc(32).fill(13);
-
 
         const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
         const nodeB = await nodeUtil.createDataNode({
-            id1: nodeIdB,
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
-            creationTime: now,
-        });
+            creationTime: now + 1,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB = nodeB.getId1();
 
         const nodeC = await nodeUtil.createDataNode({
-            id1: nodeIdC,
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
-            creationTime: now,
-        });
+            creationTime: now + 2,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdC = nodeC.getId1();
 
         const nodeAA = await nodeUtil.createDataNode({
-            id1: nodeIdAA,
             owner: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
-            creationTime: now,
-        });
+            creationTime: now + 3,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdAA = nodeAA.getId1();
 
         const nodeBA = await nodeUtil.createDataNode({
-            id1: nodeIdBA,
             owner: clientPublicKey,
             parentId: nodeIdB,
             expireTime: now + 10000,
-            creationTime: now,
-        });
+            creationTime: now + 4,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdBA = nodeBA.getId1();
 
 
         const nodeBB = await nodeUtil.createDataNode({
-            id1: nodeIdBB,
             owner: clientPublicKey,
             parentId: nodeIdB,
             expireTime: now + 10000,
-            creationTime: now,
-        });
+            creationTime: now + 5,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdBB = nodeBB.getId1();
 
         const nodeCA = await nodeUtil.createDataNode({
-            id1: nodeIdCA,
             owner: clientPublicKey,
             parentId: nodeIdC,
             expireTime: now + 10000,
-            creationTime: now,
-        });
+            creationTime: now + 6,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdCA = nodeCA.getId1();
 
 
         assert(nodeA.canSendPrivately(clientPublicKey, targetPublicKey));
@@ -1200,7 +1249,7 @@ function setupTests(config: any) {
 
         await driver.insertNodes([nodeA, nodeB, nodeC, nodeAA, nodeBA, nodeBB, nodeCA], now);
 
-        let gottenNodes: NodeInterface[] = [];
+        let gottenNodes: BaseNodeInterface[] = [];
         let handleFetchReplyData = (fetchReplyData: FetchReplyData) => {
             gottenNodes.push(...fetchReplyData.nodes ?? []);
         };
@@ -1211,7 +1260,7 @@ function setupTests(config: any) {
             targetPublicKey,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -1233,33 +1282,34 @@ function setupTests(config: any) {
     it("#run basic queries", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
 
-        const nodeUtil = new NodeUtil();
         const now = Date.now();
 
         let rootNode = undefined;
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
-        let targetPublicKey = Buffer.alloc(32).fill(110);
-        let clientPublicKey2 = Buffer.alloc(32).fill(112);
+        let clientPublicKey = keyPair1.publicKey;
+        let targetPublicKey = keyPair1.publicKey;
+        let clientPublicKey2 = keyPair2.publicKey;
         let parentId = Buffer.alloc(32).fill(1);
 
-        const lvl1 = await createNodes(10, {parentId, owner: clientPublicKey2, isPublic: true}, now, "lvl1");
+        const lvl1 = await createNodes(keyPair2, 10, {parentId, owner: clientPublicKey2, isPublic: true}, now, "lvl1");
 
         const parentId1a = lvl1[0].getId1();
-        const lvl2a = await createNodes(10, {parentId: parentId1a, owner: clientPublicKey}, now, "lvl2a");
+        const lvl2a = await createNodes(keyPair1, 10, {parentId: parentId1a, owner: clientPublicKey}, now, "lvl2a");
 
         const parentId1b = lvl1[1].getId1();
-        const lvl2b = await createNodes(10, {parentId: parentId1b, owner: clientPublicKey}, now+1000, "lvl2b");
+        const lvl2b = await createNodes(keyPair1, 10, {parentId: parentId1b, owner: clientPublicKey}, now+1000, "lvl2b");
 
         const parentId2a = lvl2a[0].getId1();
-        const lvl3a = await createNodes(10, {parentId: parentId2a, owner: clientPublicKey, region: "SE"}, now+2000, "lvl3a");
+        const lvl3a = await createNodes(keyPair1, 10, {parentId: parentId2a, owner: clientPublicKey, region: "SE"}, now+2000, "lvl3a");
 
         const parentId3a = lvl3a[9].getId1();
-        const lvl4a = await createNodes(10, {parentId: parentId3a, owner: clientPublicKey, jurisdiction: "FI"}, now+3000, "lvl4a");
+        const lvl4a = await createNodes(keyPair1, 10, {parentId: parentId3a, owner: clientPublicKey, jurisdiction: "FI"}, now+3000, "lvl4a");
 
         let nodes1 = [...lvl1, ...lvl2a, ...lvl2b];
 
@@ -1273,7 +1323,7 @@ function setupTests(config: any) {
             jurisdiction: "FI",
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -1307,7 +1357,7 @@ function setupTests(config: any) {
             region: "SE",
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -1325,7 +1375,7 @@ function setupTests(config: any) {
             jurisdiction: "FI",
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -1343,7 +1393,7 @@ function setupTests(config: any) {
             jurisdiction: "FI",
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -1363,7 +1413,7 @@ function setupTests(config: any) {
             ignoreInactive: true,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -1375,9 +1425,6 @@ function setupTests(config: any) {
 
 
         const node0 = lvl1[0];
-        node0.setHasOnlineValidation();
-        node0.setHasOnlineValidation();
-        node0.setOnlineValidated(false);
         await driver.insertNodes([node0], now);
 
         fetchRequest = ParseSchema(FetchRequestSchema, {query: {
@@ -1390,19 +1437,20 @@ function setupTests(config: any) {
             ignoreInactive: true,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
         }});
 
         nodes2 = await fetch(db, fetchRequest, now, rootNode);
-        assert(nodes2.length = lvl1.length - 1);
+        assert(nodes2.length == lvl1.length);
     });
 
     it("#run basic query sorted on negative creationTime (sliding window)", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -1412,14 +1460,14 @@ function setupTests(config: any) {
 
         let rootNode = undefined;
 
-        let owner = Buffer.alloc(32).fill(0x10);
+        let owner = keyPair1.publicKey;
         let parentId = Buffer.alloc(32).fill(0x01);
 
-        const lvl1 = await createNodes(3, {parentId, owner, isPublic: true}, now, "lvl1");
+        const lvl1 = await createNodes(keyPair1, 3, {parentId, owner, isPublic: true}, now, "lvl1");
 
         const parentId1a = lvl1[2].getId1();
 
-        const lvl2 = await createNodes(3, {parentId: parentId1a, owner}, now, "lvl2a");
+        const lvl2 = await createNodes(keyPair1, 3, {parentId: parentId1a, owner}, now, "lvl2a");
 
         await driver.storeNodes([...lvl1], now);
 
@@ -1433,7 +1481,7 @@ function setupTests(config: any) {
             targetPublicKey: owner,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: [
                         {
                             field: "creationTime",
@@ -1455,23 +1503,23 @@ function setupTests(config: any) {
     it("#run basic query sorted on storageTime", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
 
-        const nodeUtil = new NodeUtil();
         const now = Date.now();
 
         let rootNode = undefined;
 
-        let owner = Buffer.alloc(32).fill(0x10);
+        let owner = keyPair1.publicKey;
         let parentId = Buffer.alloc(32).fill(0x01);
 
-        const lvl1 = await createNodes(3, {parentId, owner, isPublic: true}, now, "lvl1");
+        const lvl1 = await createNodes(keyPair1, 3, {parentId, owner, isPublic: true}, now, "lvl1");
 
         const parentId1a = lvl1[2].getId1();
 
-        const lvl2 = await createNodes(3, {parentId: parentId1a, owner}, now, "lvl2a");
+        const lvl2 = await createNodes(keyPair1, 3, {parentId: parentId1a, owner}, now, "lvl2a");
 
         await driver.storeNodes([...lvl1], now);
 
@@ -1486,7 +1534,7 @@ function setupTests(config: any) {
             orderByStorageTime: true,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -1507,36 +1555,37 @@ function setupTests(config: any) {
     it("#run depth, disallowPublicChildren, childMinDifficulty, onlyOwnChildren, rootNode, discardRoot", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
 
-        const nodeUtil = new NodeUtil();
         const now = Date.now();
 
         let rootNode = undefined;
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
-        let targetPublicKey = Buffer.alloc(32).fill(110);
-        let clientPublicKey2 = Buffer.alloc(32).fill(112);
+        let clientPublicKey = keyPair1.publicKey;
+        let targetPublicKey = keyPair1.publicKey;
+        let clientPublicKey2 = keyPair2.publicKey;
         let parentId = Buffer.alloc(32).fill(1);
 
-        const lvl1 = await createNodes(10, {parentId, owner: clientPublicKey, isPublic: true, disallowPublicChildren: true}, now, "lvl1");
+        const lvl1 = await createNodes(keyPair1, 10, {parentId, owner: clientPublicKey, isPublic: true, disallowPublicChildren: true}, now, "lvl1");
 
         const parentId1a = lvl1[0].getId1();
-        const lvl2a = await createNodes(10, {parentId: parentId1a, owner: clientPublicKey, isPublic: false, onlyOwnChildren: true}, now, "lvl2a");
+        const lvl2a = await createNodes(keyPair1, 10, {parentId: parentId1a, owner: clientPublicKey, isPublic: false, onlyOwnChildren: true}, now, "lvl2a");
 
-        const lvl2b = await createNodes(10, {parentId: parentId1a, owner: clientPublicKey, isPublic: true}, now, "lvl2b");
+        const lvl2b = await createNodes(keyPair1, 10, {parentId: parentId1a, owner: clientPublicKey, isPublic: true}, now, "lvl2b");
 
         const parentId2a = lvl2a[0].getId1();
-        const lvl3a = await createNodes(10, {parentId: parentId2a, owner: clientPublicKey2, isPublic: true}, now, "lvl3a");
+        const lvl3a = await createNodes(keyPair2, 10, {parentId: parentId2a, owner: clientPublicKey2, isPublic: true}, now, "lvl3a");
 
-        const lvl3b = await createNodes(10, {parentId: parentId2a, owner: clientPublicKey, isPublic: true, childMinDifficulty: 3}, now, "lvl3b");
+        const lvl3b = await createNodes(keyPair1, 10, {parentId: parentId2a, owner: clientPublicKey, isPublic: true, childMinDifficulty: 3}, now, "lvl3b");
 
         const parentId3a = lvl3b[0].getId1();
-        const lvl4a = await createNodes(10, {parentId: parentId3a, owner: clientPublicKey, isPublic: true, difficulty: 3}, now, "lvl4a");
+        const lvl4a = await createNodes(keyPair1, 10, {parentId: parentId3a, owner: clientPublicKey, isPublic: true, difficulty: 3}, now, "lvl4a");
 
-        const lvl4b = await createNodes(10, {parentId: parentId3a, owner: clientPublicKey, isPublic: true}, now, "lvl4b");
+        const lvl4b = await createNodes(keyPair1, 10, {parentId: parentId3a, owner: clientPublicKey, isPublic: true}, now, "lvl4b");
 
 
         await driver.storeNodes([...lvl1, ...lvl2a, ...lvl2b, ...lvl3a, ...lvl3b, ...lvl4a, ...lvl4b], now);
@@ -1548,7 +1597,7 @@ function setupTests(config: any) {
             depth: 3,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -1565,7 +1614,7 @@ function setupTests(config: any) {
             depth: 4,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -1585,7 +1634,7 @@ function setupTests(config: any) {
             limit: 2,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -1606,7 +1655,7 @@ function setupTests(config: any) {
             cutoffTime: BigInt(now),
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -1626,7 +1675,7 @@ function setupTests(config: any) {
             cutoffTime: BigInt(now+1),
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -1638,33 +1687,33 @@ function setupTests(config: any) {
     it("#run match path", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
 
-        const nodeUtil = new NodeUtil();
         const now = Date.now();
 
         let rootNode = undefined;
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
-        let targetPublicKey = Buffer.alloc(32).fill(110);
+        let clientPublicKey = keyPair1.publicKey;
+        let targetPublicKey = keyPair1.publicKey;
         let clientPublicKey2 = Buffer.alloc(32).fill(112);
         let parentId = Buffer.alloc(32).fill(1);
 
 
-        const lvl1 = await createNodes(10, {parentId, owner: clientPublicKey, isPublic: true}, now, "lvl1");
+        const lvl1 = await createNodes(keyPair1, 10, {parentId, owner: clientPublicKey, isPublic: true}, now, "lvl1");
 
         const parentId1a = lvl1[0].getId();
-        const lvl2a = await createNodes(10, {parentId: parentId1a, owner: clientPublicKey, isPublic: true}, now, "lvl2a");
+        const lvl2a = await createNodes(keyPair1, 10, {parentId: parentId1a, owner: clientPublicKey, isPublic: true}, now, "lvl2a");
 
-        const lvl2b = await createNodes(10, {parentId: parentId1a, owner: clientPublicKey, isPublic: true}, now+1000, "lvl2b");
+        const lvl2b = await createNodes(keyPair1, 10, {parentId: parentId1a, owner: clientPublicKey, isPublic: true}, now+1000, "lvl2b");
 
         const parentId2a = lvl2a[0].getId();
-        const lvl3a = await createNodes(10, {parentId: parentId2a, owner: clientPublicKey, isPublic: true}, now, "lvl3a");
+        const lvl3a = await createNodes(keyPair1, 10, {parentId: parentId2a, owner: clientPublicKey, isPublic: true}, now, "lvl3a");
 
         const parentId2b = lvl2b[0].getId();
-        const lvl3b = await createNodes(10, {parentId: parentId2b, owner: clientPublicKey, isPublic: true}, now+1000, "lvl3b");
+        const lvl3b = await createNodes(keyPair1, 10, {parentId: parentId2b, owner: clientPublicKey, isPublic: true}, now+1000, "lvl3b");
 
         await driver.storeNodes([...lvl1, ...lvl2a, ...lvl2b, ...lvl3a, ...lvl3b], now);
 
@@ -1675,13 +1724,13 @@ function setupTests(config: any) {
             match: [
                 {
                     level: [1],
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 },
                 {
                     id: 100,
                     level: [2],
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: [
                         {
                             field: "data",
@@ -1694,7 +1743,7 @@ function setupTests(config: any) {
                 {
                     id: 101,
                     level: [2],
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: [
                         {
                             field: "data",
@@ -1707,14 +1756,14 @@ function setupTests(config: any) {
                 {
                     requireId: 100,
                     level: [3],
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 },
                 {
                     requireId: 101,
                     limit: 5,
                     level: [3],
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 }
             ]
@@ -1728,6 +1777,7 @@ function setupTests(config: any) {
     it("#run updatetime/trailupdatetime", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -1737,28 +1787,28 @@ function setupTests(config: any) {
 
         let rootNode = undefined;
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
-        let targetPublicKey = Buffer.alloc(32).fill(110);
+        let clientPublicKey = keyPair1.publicKey;
+        let targetPublicKey = keyPair1.publicKey;
         let clientPublicKey2 = Buffer.alloc(32).fill(112);
         let parentId = Buffer.alloc(32).fill(1);
 
 
-        const lvl1 = await createNodes(10, {hasOnlineValidation: true, isOnlineValidated: true, parentId,
+        const lvl1 = await createNodes(keyPair1, 10, {hasOnlineValidation: true, isOnlineValidated: true, parentId,
             owner: clientPublicKey, isPublic: true}, now, "lvl1");
 
         const parentId1a = lvl1[0].getId();
-        const lvl2a = await createNodes(10, {parentId: parentId1a, owner: clientPublicKey, isPublic: true}, now, "lvl2a");
+        const lvl2a = await createNodes(keyPair1, 10, {parentId: parentId1a, owner: clientPublicKey, isPublic: true}, now, "lvl2a");
 
-        const lvl2b = await createNodes(10, {parentId: parentId1a, owner: clientPublicKey, isPublic: true}, now+1000, "lvl2b");
+        const lvl2b = await createNodes(keyPair1, 10, {parentId: parentId1a, owner: clientPublicKey, isPublic: true}, now+1000, "lvl2b");
 
         const parentId2a = lvl2a[0].getId();
-        const lvl3a = await createNodes(10, {hasOnlineValidation: true, isOnlineValidated: true,
+        const lvl3a = await createNodes(keyPair1, 10, {hasOnlineValidation: true, isOnlineValidated: true,
             parentId: parentId2a, owner: clientPublicKey, isPublic: true}, now, "lvl3a");
 
         const parentId2b = lvl2b[0].getId();
-        const lvl3b = await createNodes(10, {parentId: parentId2b, owner: clientPublicKey, isPublic: true}, now+1000, "lvl3b");
+        const lvl3b = await createNodes(keyPair1, 10, {parentId: parentId2b, owner: clientPublicKey, isPublic: true}, now+1000, "lvl3b");
 
-        await driver.storeNodes([...lvl1, ...lvl2a, ...lvl2b, ...lvl3a, ...lvl3b], now, true);
+        await driver.storeNodes([...lvl1, ...lvl2a, ...lvl2b, ...lvl3a, ...lvl3b], now, false);
 
         let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
@@ -1768,7 +1818,7 @@ function setupTests(config: any) {
             match: [
                 {
                     level: [],
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 },
             ]
@@ -1797,7 +1847,8 @@ function setupTests(config: any) {
         // Update the transient hash, restore it.
         // the now2 will now be set as the storageTime of the node.
         //
-        node.setOnlineValidated();
+        node.storeFlags({isInactive: false});
+        node.pack(true);
         await driver.storeNodes([node], now2, false);
         nodes2 = await fetch(db, fetchRequest, now, rootNode);
         assert(nodes2.length === 0);
@@ -1815,7 +1866,8 @@ function setupTests(config: any) {
         // Update a node on third level.
         //
         node = lvl3a[5];
-        node.setOnlineValidated(false);
+        node.storeFlags({isInactive: false});
+        node.pack(true);
         await driver.storeNodes([node], now3, false);
         nodes2 = await fetch(db, fetchRequest, now, rootNode);
         assert(nodes2.length === 0);
@@ -1832,6 +1884,7 @@ function setupTests(config: any) {
     it("#detectLoop", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -1841,29 +1894,26 @@ function setupTests(config: any) {
 
         let rootNode = undefined;
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
-        let targetPublicKey = Buffer.alloc(32).fill(110);
-        let clientPublicKey2 = Buffer.alloc(32).fill(112);
+        let clientPublicKey = keyPair1.publicKey;
+        let targetPublicKey = keyPair1.publicKey;
         let parentId = Buffer.alloc(32).fill(1);
-        let cyclicNodeId1 = Buffer.alloc(32).fill(255);
 
-
-        const lvl1 = await createNodes(10, {parentId, owner: clientPublicKey, isPublic: true}, now, "lvl1");
+        const lvl1 = await createNodes(keyPair1, 10, {parentId, owner: clientPublicKey, isPublic: true}, now, "lvl1");
 
         const parentId1a = lvl1[0].getId1();
-        const lvl2a = await createNodes(10, {parentId: parentId1a, owner: clientPublicKey}, now, "lvl2a");
+        const lvl2a = await createNodes(keyPair1, 10, {parentId: parentId1a, owner: clientPublicKey}, now, "lvl2a");
 
         const parentId1b = lvl1[1].getId1();
-        const lvl2b = await createNodes(10, {parentId: parentId1b, owner: clientPublicKey}, now+1000, "lvl2b");
+        const lvl2b = await createNodes(keyPair1, 10, {parentId: parentId1b, owner: clientPublicKey}, now+1000, "lvl2b");
 
         const parentId2a = lvl2a[0].getId1();
-        const lvl3a = await createNodes(10, {parentId: parentId2a, owner: clientPublicKey}, now+2000, "lvl3a");
+        const lvl3a = await createNodes(keyPair1, 10, {parentId: parentId2a, owner: clientPublicKey}, now+2000, "lvl3a");
 
         const parentId3a = lvl3a[9].getId1();
-        const lvl4a = await createNodes(10, {parentId: parentId3a, owner: clientPublicKey}, now+3000, "lvl4a");
+        const lvl4a = await createNodes(keyPair1, 10, {parentId: parentId3a, owner: clientPublicKey}, now+3000, "lvl4a");
 
-        const cyclicNode = lvl1[0].copy(parentId3a);
-        cyclicNode.setId1(cyclicNodeId1);
+        const cyclicNode = (lvl1[0] as DataNodeInterface).copy(parentId3a);
+        cyclicNode.sign(keyPair1);
 
         let nodes1 = [...lvl1, ...lvl2a, ...lvl2b, ...lvl3a, ...lvl4a, cyclicNode];
 
@@ -1893,6 +1943,8 @@ function setupTests(config: any) {
     it("restrictiveWriterNodes #1 - begin single write mode", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -1904,43 +1956,41 @@ function setupTests(config: any) {
             // Do nothing
         };
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
-        let clientPublicKey2 = Buffer.alloc(32).fill(112);
-        let targetPublicKey = Buffer.alloc(32).fill(110);
+        let clientPublicKey = keyPair1.publicKey;
+        let clientPublicKey2 = keyPair2.publicKey;
+        let targetPublicKey = clientPublicKey;
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(1);
-        let nodeIdB = Buffer.alloc(32).fill(2);
-        let nodeIdC = Buffer.alloc(32).fill(3);
-        let nodeIdL1 = Buffer.alloc(32).fill(10);
-        let nodeIdL1b = Buffer.alloc(32).fill(11);
 
         let rootNode = undefined;
 
         const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
         const nodeB = await nodeUtil.createDataNode({
-            id1: nodeIdB,
             owner: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
             creationTime: now,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB = nodeB.getId1();
 
         const nodeC = await nodeUtil.createDataNode({
-            id1: nodeIdC,
             owner: clientPublicKey2,
             parentId: nodeIdB,
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdC = nodeC.getId1();
 
         await driver.storeNodes([nodeA, nodeB, nodeC], now);
 
@@ -1950,7 +2000,7 @@ function setupTests(config: any) {
             targetPublicKey,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 },
             ]
@@ -1961,15 +2011,16 @@ function setupTests(config: any) {
         assert(same);
 
         const nodeL1 = await nodeUtil.createLicenseNode({
-            id1: nodeIdL1,
             owner: clientPublicKey,
             targetPublicKey: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
             creationTime: now,
             refId: nodeIdB,
-            isRestrictiveModeWriter: true,
-        });
+            restrictiveModeWriter: true,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdL1 = nodeL1.getId1();
 
         await driver.storeNodes([nodeL1], now);
 
@@ -1979,15 +2030,16 @@ function setupTests(config: any) {
 
 
         const nodeL1b = await nodeUtil.createLicenseNode({
-            id1: nodeIdL1b,
             owner: clientPublicKey,
             targetPublicKey: clientPublicKey2,
             parentId: nodeIdA,
             expireTime: now + 10000,
             creationTime: now,
             refId: nodeIdB,
-            isRestrictiveModeWriter: true,
-        });
+            restrictiveModeWriter: true,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdL1b = nodeL1b.getId1();
 
         await driver.storeNodes([nodeL1b], now);
 
@@ -1999,6 +2051,9 @@ function setupTests(config: any) {
     it("restrictiveWriterNodes #2 - begin two consecutive write modes of different authors", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
+        const keyPair3 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -2010,47 +2065,44 @@ function setupTests(config: any) {
             // Do nothing
         };
 
-        let clientPublicKey = Buffer.alloc(32).fill(110);
-        let clientPublicKey2 = Buffer.alloc(32).fill(111);
-        let clientPublicKey3 = Buffer.alloc(32).fill(112);
+        let clientPublicKey = keyPair1.publicKey;
+        let clientPublicKey2 = keyPair2.publicKey;
+        let clientPublicKey3 = keyPair3.publicKey;
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(1);
-        let nodeIdB = Buffer.alloc(32).fill(2);
-        let nodeIdC = Buffer.alloc(32).fill(3);
-        let nodeIdL1 = Buffer.alloc(32).fill(10);
-        let nodeIdL1a = Buffer.alloc(32).fill(11);
-        let nodeIdL1b = Buffer.alloc(32).fill(12);
 
         let rootNode = undefined;
 
         const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
         const nodeB = await nodeUtil.createDataNode({
-            id1: nodeIdB,
             owner: clientPublicKey2,
             parentId: nodeIdA,
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdB = nodeB.getId1();
 
         const nodeC = await nodeUtil.createDataNode({
-            id1: nodeIdC,
             owner: clientPublicKey3,
             parentId: nodeIdB,
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
-        });
+        }, keyPair3.publicKey, keyPair3.secretKey);
+
+        const nodeIdC = nodeC.getId1();
 
         await driver.storeNodes([nodeA, nodeB, nodeC], now);
 
@@ -2060,7 +2112,7 @@ function setupTests(config: any) {
             targetPublicKey: clientPublicKey,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 },
             ]
@@ -2071,26 +2123,28 @@ function setupTests(config: any) {
         assert(same);
 
         const nodeL1 = await nodeUtil.createLicenseNode({
-            id1: nodeIdL1,
             owner: clientPublicKey,
             targetPublicKey: clientPublicKey2,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             refId: nodeIdA,
-            isRestrictiveModeWriter: true,
-        });
+            restrictiveModeWriter: true,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdL1 = nodeL1.getId1();
 
         const nodeL1a = await nodeUtil.createLicenseNode({
-            id1: nodeIdL1a,
             owner: clientPublicKey,
             targetPublicKey: clientPublicKey3,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             refId: nodeIdA,
-            isRestrictiveModeWriter: true,
-        });
+            restrictiveModeWriter: true,
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdL1a = nodeL1a.getId1();
 
         await driver.storeNodes([nodeL1, nodeL1a], now);
 
@@ -2100,16 +2154,16 @@ function setupTests(config: any) {
 
 
         const nodeL1b = await nodeUtil.createLicenseNode({
-            id1: nodeIdL1b,
             owner: clientPublicKey2,
             targetPublicKey: clientPublicKey3,
             parentId: nodeIdA,
             expireTime: now + 10000,
             creationTime: now,
             refId: nodeIdB,
-            isRestrictiveModeWriter: true,
-        });
+            restrictiveModeWriter: true,
+        }, keyPair2.publicKey, keyPair2.secretKey);
 
+        const nodeIdL1b = nodeL1b.getId1();
 
         await driver.storeNodes([nodeL1b], now);
 
@@ -2121,6 +2175,9 @@ function setupTests(config: any) {
     it("restrictiveWriterNodes #3 - inheritence and manager permissions to end write modes", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
+        const keyPair3 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -2132,282 +2189,280 @@ function setupTests(config: any) {
             // Do nothing
         };
 
-        let clientPublicKey = Buffer.alloc(32).fill(210);
-        let clientPublicKey2 = Buffer.alloc(32).fill(211);
-        let clientPublicKey3 = Buffer.alloc(32).fill(212);
+        let clientPublicKey = keyPair1.publicKey;
+        let clientPublicKey2 = keyPair2.publicKey;
+        let clientPublicKey3 = keyPair3.publicKey;
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(1);
-        let nodeIdAb = Buffer.alloc(32).fill(2);
-        let nodeIdB = Buffer.alloc(32).fill(3);
-        let nodeIdC = Buffer.alloc(32).fill(4);
-        let nodeIdD1 = Buffer.alloc(32).fill(10);
-        let nodeIdD2 = Buffer.alloc(32).fill(11);
-        let nodeIdD3 = Buffer.alloc(32).fill(12);
-        let nodeIdE1 = Buffer.alloc(32).fill(20);
-        let nodeIdE2 = Buffer.alloc(32).fill(21);
-        let nodeIdE3 = Buffer.alloc(32).fill(22);
-
-
-        let licenseIdA1 = Buffer.alloc(32).fill(100);
-        let licenseIdA2 = Buffer.alloc(32).fill(101);
-        let licenseIdA3 = Buffer.alloc(32).fill(102);
-        let licenseIdB1 = Buffer.alloc(32).fill(103);
-        let licenseIdB2 = Buffer.alloc(32).fill(104);
-        let licenseIdB3 = Buffer.alloc(32).fill(105);
-        let licenseIdB4 = Buffer.alloc(32).fill(106);
-        let licenseIdC1 = Buffer.alloc(32).fill(107);
-        let licenseIdC2 = Buffer.alloc(32).fill(108);
-        let licenseIdC3 = Buffer.alloc(32).fill(109);
-        let licenseIdC4 = Buffer.alloc(32).fill(110);
-        let licenseIdD2 = Buffer.alloc(32).fill(111);
-        let licenseIdD3 = Buffer.alloc(32).fill(112);
 
         let rootNode = undefined;
 
         const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
             const licenseA1 = await nodeUtil.createLicenseNode({
-                id1: licenseIdA1,
                 refId: nodeIdA,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdA1 = licenseA1.getId1();
 
             const licenseA2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdA2,
                 refId: nodeIdA,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdA2 = licenseA2.getId1();
 
             const licenseA3 = await nodeUtil.createLicenseNode({
-                id1: licenseIdA3,
                 refId: nodeIdA,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey3,
                 parentId,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdA3 = licenseA3.getId1();
 
 
         const nodeAb = await nodeUtil.createDataNode({
-            id1: nodeIdAb,
             owner: clientPublicKey2,
             parentId: nodeIdA,
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdAb = nodeAb.getId1();
 
 
         const nodeB = await nodeUtil.createDataNode({
-            id1: nodeIdB,
             owner: clientPublicKey2,
             parentId: nodeIdAb,
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdB = nodeB.getId1();
 
             const licenseB1 = await nodeUtil.createLicenseNode({
-                id1: licenseIdB1,
                 refId: nodeIdB,
                 owner: clientPublicKey2,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdAb,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair2.publicKey, keyPair2.secretKey);
+
+            const licenseIdB1 = licenseB1.getId1();
 
             const licenseB2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdB2,
                 refId: nodeIdB,
                 owner: clientPublicKey2,
                 targetPublicKey: clientPublicKey2,
                 parentId: nodeIdAb,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair2.publicKey, keyPair2.secretKey);
+
+            const licenseIdB2 = licenseB2.getId1();
 
             const licenseB3 = await nodeUtil.createLicenseNode({
-                id1: licenseIdB3,
                 refId: nodeIdB,
                 owner: clientPublicKey2,
                 targetPublicKey: clientPublicKey3,
                 parentId: nodeIdAb,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair2.publicKey, keyPair2.secretKey);
+
+            const licenseIdB3 = licenseB3.getId1();
 
             const licenseB4 = await nodeUtil.createLicenseNode({
-                id1: licenseIdB4,
                 refId: nodeIdB,
                 owner: clientPublicKey2,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdAb,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeManager: true,
-            });
+                restrictiveModeManager: true,
+            }, keyPair2.publicKey, keyPair2.secretKey);
+
+            const licenseIdB4 = licenseB4.getId1();
 
         const nodeC = await nodeUtil.createDataNode({
-            id1: nodeIdC,
             owner: clientPublicKey,
             parentId: nodeIdB,
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdC = nodeC.getId1();
 
             const licenseC1 = await nodeUtil.createLicenseNode({
-                id1: licenseIdC1,
                 refId: nodeIdC,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdB,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdC1 = licenseC1.getId1();
 
             const licenseC2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdC2,
                 refId: nodeIdC,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId: nodeIdB,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdC2 = licenseC2.getId1();
 
             const licenseC3 = await nodeUtil.createLicenseNode({
-                id1: licenseIdC3,
                 refId: nodeIdC,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey3,
                 parentId: nodeIdB,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdC3 = licenseC3.getId1();
 
             const licenseC4 = await nodeUtil.createLicenseNode({
-                id1: licenseIdC4,
                 refId: nodeIdC,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId: nodeIdB,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeManager: true,
-            });
+                restrictiveModeManager: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdC4 = licenseC4.getId1();
 
 
         const nodeD1 = await nodeUtil.createDataNode({
-            id1: nodeIdD1,
             owner: clientPublicKey2,
             parentId: nodeIdC,
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
             isEndRestrictiveWriteMode: true,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdD1 = nodeD1.getId1();
 
         const nodeD2 = await nodeUtil.createDataNode({
-            id1: nodeIdD2,
             owner: clientPublicKey2,
             parentId: nodeIdC,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 1,
             isPublic: true,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdD2 = nodeD2.getId1();
 
             const licenseD2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdD2,
                 refId: nodeIdD2,
                 owner: clientPublicKey2,
                 targetPublicKey: clientPublicKey3,
                 parentId: nodeIdC,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair2.publicKey, keyPair2.secretKey);
+
+            const licenseIdD2 = licenseD2.getId1();
 
 
         const nodeD3 = await nodeUtil.createDataNode({
-            id1: nodeIdD3,
             owner: clientPublicKey2,
             parentId: nodeIdC,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 2,
             isPublic: true,
             isEndRestrictiveWriteMode: true,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdD3 = nodeD3.getId1();
 
             const licenseD3 = await nodeUtil.createLicenseNode({
-                id1: licenseIdD3,
                 refId: nodeIdD3,
                 owner: clientPublicKey2,
                 targetPublicKey: clientPublicKey3,
                 parentId: nodeIdC,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair2.publicKey, keyPair2.secretKey);
+
+            const licenseIdD3 = licenseD3.getId1();
 
 
         const nodeE1 = await nodeUtil.createDataNode({
-            id1: nodeIdE1,
             owner: clientPublicKey3,
             parentId: nodeIdD1,
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
-        });
+        }, keyPair3.publicKey, keyPair3.secretKey);
+
+        const nodeIdE1 = nodeE1.getId1();
 
         const nodeE2 = await nodeUtil.createDataNode({
-            id1: nodeIdE2,
             owner: clientPublicKey3,
             parentId: nodeIdD2,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 1,
             isPublic: true,
-        });
+        }, keyPair3.publicKey, keyPair3.secretKey);
+
+        const nodeIdE2 = nodeE2.getId1();
 
         const nodeE3 = await nodeUtil.createDataNode({
-            id1: nodeIdE3,
             owner: clientPublicKey3,
             parentId: nodeIdD3,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 2,
             isPublic: true,
-        });
+        }, keyPair3.publicKey, keyPair3.secretKey);
+
+        const nodeIdE3 = nodeE3.getId1();
 
         await driver.storeNodes([nodeA, nodeAb, nodeB, nodeC, nodeD1, nodeD2, nodeD3, nodeE1, nodeE2, nodeE3], now);
 
@@ -2417,7 +2472,7 @@ function setupTests(config: any) {
             targetPublicKey: clientPublicKey,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 },
             ]
@@ -2472,6 +2527,8 @@ function setupTests(config: any) {
     it("restrictiveWriterNodes #4 - inherit write modes from multiple parents & leverage parent licensing", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -2485,76 +2542,57 @@ function setupTests(config: any) {
 
         let rootNode = undefined;
 
-        let clientPublicKey = Buffer.alloc(32).fill(210);
-        let clientPublicKey2 = Buffer.alloc(32).fill(211);
+        let clientPublicKey = keyPair1.publicKey;
+        let clientPublicKey2 = keyPair2.publicKey;
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(1);
-        let nodeIdB1 = Buffer.alloc(32).fill(2);
-        let nodeIdB2 = Buffer.alloc(32).fill(3);
-        let nodeIdC1 = Buffer.alloc(32).fill(4);
-        let nodeIdC2 = Buffer.alloc(32).fill(5);
-        let nodeIdD = Buffer.alloc(32).fill(6);
-        let nodeIdE1 = Buffer.alloc(32).fill(7);
-        let nodeIdE2 = Buffer.alloc(32).fill(8);
-
-        let licenseIdA = Buffer.alloc(32).fill(100);
-        let licenseIdAw = Buffer.alloc(32).fill(101);
-        let licenseIdAw2 = Buffer.alloc(32).fill(102);
-        let licenseIdB1w = Buffer.alloc(32).fill(103);
-        let licenseIdB1w2 = Buffer.alloc(32).fill(104);
-        let licenseIdB2w = Buffer.alloc(32).fill(105);
-        let licenseIdB2w2 = Buffer.alloc(32).fill(106);
-        let licenseIdB2 = Buffer.alloc(32).fill(107);
-        let licenseIdC1w = Buffer.alloc(32).fill(108);
-        let licenseIdC1w2 = Buffer.alloc(32).fill(109);
-        let licenseIdC2w = Buffer.alloc(32).fill(110);
-        let licenseIdC2w2 = Buffer.alloc(32).fill(111);
-        let licenseIdDw = Buffer.alloc(32).fill(112);
 
         const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             isLicensed: true,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
             const licenseA = await nodeUtil.createLicenseNode({
-                id1: licenseIdA,
                 refId: nodeIdA,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId,
                 expireTime: now + 10000,
                 creationTime: now,
-            });
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const licenseIdA = licenseA.getId1();
 
             const licenseAw = await nodeUtil.createLicenseNode({
-                id1: licenseIdAw,
                 refId: nodeIdA,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdAw = licenseAw.getId1();
 
             const licenseAw2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdAw2,
                 refId: nodeIdA,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdAw2 = licenseAw2.getId1();
 
         const nodeB1 = await nodeUtil.createDataNode({
-            id1: nodeIdB1,
             owner: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
@@ -2563,75 +2601,82 @@ function setupTests(config: any) {
             licenseMinDistance: 1,
             licenseMaxDistance: 1,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB1 = nodeB1.getId1();
 
             const licenseB1w = await nodeUtil.createLicenseNode({
-                id1: licenseIdB1w,
                 refId: nodeIdB1,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdA,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdB1w = licenseB1w.getId1();
 
             const licenseB1w2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdB1w2,
                 refId: nodeIdB1,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId: nodeIdA,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdB1w2 = licenseB1w2.getId1();
 
         const nodeB2 = await nodeUtil.createDataNode({
-            id1: nodeIdB2,
             owner: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 1,
             isLicensed: true,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const nodeIdB2 = nodeB2.getId1();
 
             const licenseB2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdB2,
                 refId: nodeIdB2,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdA,
                 expireTime: now + 10000,
                 creationTime: now,
-            });
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdB2 = licenseB2.getId1();
 
             const licenseB2w = await nodeUtil.createLicenseNode({
-                id1: licenseIdB2w,
                 refId: nodeIdB2,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdA,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdB2w = licenseB2w.getId1();
 
             const licenseB2w2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdB2w2,
                 refId: nodeIdB2,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId: nodeIdA,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdB2w2 = licenseB2w2.getId1();
 
 
         const nodeC1 = await nodeUtil.createDataNode({
-            id1: nodeIdC1,
             owner: clientPublicKey,
             parentId: nodeIdB1,
             expireTime: now + 10000,
@@ -2640,57 +2685,63 @@ function setupTests(config: any) {
             licenseMinDistance: 1,
             licenseMaxDistance: 2,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdC1 = nodeC1.getId1();
 
             const licenseC1w = await nodeUtil.createLicenseNode({
-                id1: licenseIdC1w,
                 refId: nodeIdC1,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdB1,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdC1w = licenseC1w.getId1();
 
             const licenseC1w2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdC1w2,
                 refId: nodeIdC1,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId: nodeIdB1,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
 
-        const nodeC2 = nodeC1.copy(nodeIdB2);
-        nodeC2.setId1(nodeIdC2);
+            const licenseIdC1w2 = licenseC1w2.getId1();
+
+        const nodeC2 = nodeC1.copy(nodeIdB2, now + 1);
+        nodeC2.sign(keyPair1);
+        const nodeIdC2 = nodeC2.getId1();
 
             const licenseC2w = await nodeUtil.createLicenseNode({
-                id1: licenseIdC2w,
                 refId: nodeIdC2,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdB2,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdC2w = licenseC2w.getId1();
 
             const licenseC2w2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdC2w2,
                 refId: nodeIdC2,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId: nodeIdB2,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdC2w2 = licenseC2w2.getId1();
 
         const nodeD = await nodeUtil.createDataNode({
-            id1: nodeIdD,
             owner: clientPublicKey,
             parentId: nodeIdC1,
             expireTime: now + 10000,
@@ -2699,21 +2750,23 @@ function setupTests(config: any) {
             licenseMinDistance: 3,
             licenseMaxDistance: 3,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdD = nodeD.getId1();
 
             const licenseDw = await nodeUtil.createLicenseNode({
-                id1: licenseIdDw,
                 refId: nodeIdD,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId: nodeIdC1,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdDw = licenseDw.getId1();
 
         const nodeE1 = await nodeUtil.createDataNode({
-            id1: nodeIdE1,
             owner: clientPublicKey2,
             parentId: nodeIdD,
             expireTime: now + 10000,
@@ -2721,18 +2774,21 @@ function setupTests(config: any) {
             isLicensed: true,
             licenseMinDistance: 4,
             licenseMaxDistance: 4,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdE1 = nodeE1.getId1();
 
         const nodeE2 = await nodeUtil.createDataNode({
-            id1: nodeIdE2,
             owner: clientPublicKey2,
             parentId: nodeIdD,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 1,
             isLicensed: true,
             licenseMinDistance: 3,
             licenseMaxDistance: 3,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdE2 = nodeE2.getId1();
 
         let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
@@ -2740,13 +2796,13 @@ function setupTests(config: any) {
             targetPublicKey: clientPublicKey,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 },
             ]
         }});
 
-        let nodes: NodeInterface[] = [];
+        let nodes: BaseNodeInterface[] = [];
         let same = false;
 
         await driver.storeNodes([nodeA, nodeB1, nodeB2, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], now);
@@ -2775,6 +2831,8 @@ function setupTests(config: any) {
     it("includeLicenses should include all relevant licenses when fetching", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -2788,79 +2846,60 @@ function setupTests(config: any) {
 
         let rootNode = undefined;
 
-        let clientPublicKey = Buffer.alloc(32).fill(210);
-        let clientPublicKey2 = Buffer.alloc(32).fill(211);
+        let clientPublicKey = keyPair1.publicKey;
+        let clientPublicKey2 = keyPair2.publicKey;
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(1);
-        let nodeIdB1 = Buffer.alloc(32).fill(2);
-        let nodeIdB2 = Buffer.alloc(32).fill(3);
-        let nodeIdC1 = Buffer.alloc(32).fill(4);
-        let nodeIdC2 = Buffer.alloc(32).fill(5);
-        let nodeIdD = Buffer.alloc(32).fill(6);
-        let nodeIdE1 = Buffer.alloc(32).fill(7);
-        let nodeIdE2 = Buffer.alloc(32).fill(8);
-
-        let licenseIdA = Buffer.alloc(32).fill(0xa0);
-        let licenseIdAw = Buffer.alloc(32).fill(0xa1);
-        let licenseIdAw2 = Buffer.alloc(32).fill(0xa2);
-        let licenseIdB1w = Buffer.alloc(32).fill(0xb0);
-        let licenseIdB1w2 = Buffer.alloc(32).fill(0xb1);
-        let licenseIdB2w = Buffer.alloc(32).fill(0xb2);
-        let licenseIdB2w2 = Buffer.alloc(32).fill(0xb3);
-        let licenseIdB2 = Buffer.alloc(32).fill(0xb4);
-        let licenseIdC1w = Buffer.alloc(32).fill(0xc0);
-        let licenseIdC1w2 = Buffer.alloc(32).fill(0xc1);
-        let licenseIdC2w = Buffer.alloc(32).fill(0xc2);
-        let licenseIdC2w2 = Buffer.alloc(32).fill(0xc3);
-        let licenseIdDw = Buffer.alloc(32).fill(0xd0);
 
         const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             isLicensed: true,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
             const licenseA = await nodeUtil.createLicenseNode({
-                id1: licenseIdA,
                 refId: nodeIdA,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId,
                 expireTime: now + 10000,
-                creationTime: now,
+                creationTime: now + 1,
                 extensions: 1,
-            });
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdA = licenseA.getId1();
 
             const licenseAw = await nodeUtil.createLicenseNode({
-                id1: licenseIdAw,
                 refId: nodeIdA,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId,
-                expireTime: now + 10000,
-                creationTime: now,
-                isRestrictiveModeWriter: true,
+                expireTime: now + 10001,
+                creationTime: now + 2,
+                restrictiveModeWriter: true,
                 extensions: 1,
-            });
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdAw = licenseAw.getId1();
 
             const licenseAw2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdAw2,
                 refId: nodeIdA,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId,
                 expireTime: now + 10000,
-                creationTime: now,
-                isRestrictiveModeWriter: true,
+                creationTime: now + 3,
+                restrictiveModeWriter: true,
                 extensions: 1,
-            });
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdAw2 = licenseAw2.getId1();
 
         const nodeB1 = await nodeUtil.createDataNode({
-            id1: nodeIdB1,
             owner: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
@@ -2869,75 +2908,82 @@ function setupTests(config: any) {
             licenseMinDistance: 1,
             licenseMaxDistance: 1,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB1 = nodeB1.getId1();
 
             const licenseB1w = await nodeUtil.createLicenseNode({
-                id1: licenseIdB1w,
                 refId: nodeIdB1,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdA,
                 expireTime: now + 10000,
-                creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                creationTime: now + 1,
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdB1w = licenseB1w.getId1();
 
             const licenseB1w2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdB1w2,
                 refId: nodeIdB1,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId: nodeIdA,
                 expireTime: now + 10000,
-                creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                creationTime: now + 2,
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdB1w2 = licenseB1w2.getId1();
 
         const nodeB2 = await nodeUtil.createDataNode({
-            id1: nodeIdB2,
             owner: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 3,
             isLicensed: true,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB2 = nodeB2.getId1();
 
             const licenseB2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdB2,
                 refId: nodeIdB2,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdA,
                 expireTime: now + 10000,
-                creationTime: now,
-            });
+                creationTime: now + 4,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdB2 = licenseB2.getId1();
 
             const licenseB2w = await nodeUtil.createLicenseNode({
-                id1: licenseIdB2w,
                 refId: nodeIdB2,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdA,
                 expireTime: now + 10000,
-                creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                creationTime: now + 5,
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdB2w = licenseB2w.getId1();
 
             const licenseB2w2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdB2w2,
                 refId: nodeIdB2,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId: nodeIdA,
                 expireTime: now + 10000,
-                creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                creationTime: now + 6,
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdB2w2 = licenseB2w2.getId1();
 
 
         const nodeC1 = await nodeUtil.createDataNode({
-            id1: nodeIdC1,
             owner: clientPublicKey,
             parentId: nodeIdB1,
             expireTime: now + 10000,
@@ -2946,57 +2992,63 @@ function setupTests(config: any) {
             licenseMinDistance: 1,
             licenseMaxDistance: 2,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdC1 = nodeC1.getId1();
 
             const licenseC1w = await nodeUtil.createLicenseNode({
-                id1: licenseIdC1w,
                 refId: nodeIdC1,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdB1,
                 expireTime: now + 10000,
-                creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                creationTime: now + 1,
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdC1w = licenseC1w.getId1();
 
             const licenseC1w2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdC1w2,
                 refId: nodeIdC1,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId: nodeIdB1,
                 expireTime: now + 10000,
-                creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                creationTime: now + 2,
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
 
-        const nodeC2 = nodeC1.copy(nodeIdB2);
-        nodeC2.setId1(nodeIdC2);
+            const licenseIdC1w2 = licenseC1w2.getId1();
+
+        const nodeC2 = nodeC1.copy(nodeIdB2, now + 1);
+        nodeC2.sign(keyPair1);
+        const nodeIdC2 = nodeC2.getId1();
 
             const licenseC2w = await nodeUtil.createLicenseNode({
-                id1: licenseIdC2w,
                 refId: nodeIdC2,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdB2,
                 expireTime: now + 10000,
                 creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdC2w = licenseC2w.getId1();
 
             const licenseC2w2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdC2w2,
                 refId: nodeIdC2,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId: nodeIdB2,
                 expireTime: now + 10000,
-                creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                creationTime: now + 1,
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdC2w2 = licenseC2w2.getId1();
 
         const nodeD = await nodeUtil.createDataNode({
-            id1: nodeIdD,
             owner: clientPublicKey,
             parentId: nodeIdC1,
             expireTime: now + 10000,
@@ -3005,21 +3057,23 @@ function setupTests(config: any) {
             licenseMinDistance: 3,
             licenseMaxDistance: 3,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const nodeIdD = nodeD.getId1();
 
             const licenseDw = await nodeUtil.createLicenseNode({
-                id1: licenseIdDw,
                 refId: nodeIdD,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey2,
                 parentId: nodeIdC1,
                 expireTime: now + 10000,
-                creationTime: now,
-                isRestrictiveModeWriter: true,
-            });
+                creationTime: now + 1,
+                restrictiveModeWriter: true,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdDw = licenseDw.getId1();
 
         const nodeE1 = await nodeUtil.createDataNode({
-            id1: nodeIdE1,
             owner: clientPublicKey2,
             parentId: nodeIdD,
             expireTime: now + 10000,
@@ -3027,18 +3081,21 @@ function setupTests(config: any) {
             isLicensed: true,
             licenseMinDistance: 4,
             licenseMaxDistance: 4,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdE1 = nodeE1.getId1();
 
         const nodeE2 = await nodeUtil.createDataNode({
-            id1: nodeIdE2,
             owner: clientPublicKey2,
             parentId: nodeIdD,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 1,
             isLicensed: true,
             licenseMinDistance: 3,
             licenseMaxDistance: 3,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdE2 = nodeE2.getId1();
 
         let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
@@ -3046,14 +3103,14 @@ function setupTests(config: any) {
             targetPublicKey: clientPublicKey,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 },
             ],
             includeLicenses: "Include",
         }});
 
-        let nodes: NodeInterface[] = [];
+        let nodes: BaseNodeInterface[] = [];
         let same = false;
 
         await driver.storeNodes([nodeA, nodeB1, nodeB2, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], now);
@@ -3069,7 +3126,7 @@ function setupTests(config: any) {
             targetPublicKey: clientPublicKey,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 },
             ],
@@ -3092,7 +3149,7 @@ function setupTests(config: any) {
             targetPublicKey: clientPublicKey,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 },
             ],
@@ -3104,7 +3161,7 @@ function setupTests(config: any) {
 
         assert(ret.embed.length === 0);
 
-        same = diffNodes([nodeA, licenseA, licenseAw], ret.nodes);
+        same = diffNodes([nodeA, licenseA], ret.nodes);
         assert(same);
 
 
@@ -3115,7 +3172,7 @@ function setupTests(config: any) {
             targetPublicKey: clientPublicKey2,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 },
             ],
@@ -3125,7 +3182,7 @@ function setupTests(config: any) {
 
         ret = await fetch2(db, fetchRequest, now, rootNode);
 
-        assert(ret.embed.length === 2);
+        assert(ret.embed.length === 1);
 
         same = diffNodes([], ret.nodes);
         assert(same);
@@ -3137,7 +3194,7 @@ function setupTests(config: any) {
             targetPublicKey: clientPublicKey,
             match: [
                 {
-                    nodeType: Data.GetType(),
+                    nodeType: Buffer.from(DataNodeType),
                     filters: []
                 },
             ],
@@ -3149,9 +3206,9 @@ function setupTests(config: any) {
 
         assert(ret.embed.length === 0);
 
-        same = diffNodes([nodeA, licenseA, licenseAw,
-            nodeB1, nodeB2, licenseB2, licenseB2w,
-            nodeC1, nodeC2, licenseB1w, nodeD, nodeE1, nodeE2], ret.nodes);
+        same = diffNodes([nodeA, licenseA,
+            nodeB1, nodeB2, licenseB2,
+            nodeC1, nodeC2, nodeD, nodeE1, nodeE2], ret.nodes);
 
         assert(same);
     });
@@ -3159,6 +3216,8 @@ function setupTests(config: any) {
     it("#run with ReverseFetch", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -3170,52 +3229,42 @@ function setupTests(config: any) {
             // Do nothing
         };
 
-        let clientPublicKey = Buffer.alloc(32).fill(210);
-        let clientPublicKey2 = Buffer.alloc(32).fill(211);
+        let clientPublicKey = keyPair1.publicKey;
+        let clientPublicKey2 = keyPair2.publicKey;
         let parentId = Buffer.alloc(32).fill(254);
-        let nodeId0 = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(0x10);
-        let nodeIdB1 = Buffer.alloc(32).fill(0x20);
-        let nodeIdB2 = Buffer.alloc(32).fill(0x21);
-        let nodeIdC1 = Buffer.alloc(32).fill(0x30);
-        let nodeIdC2 = Buffer.alloc(32).fill(0x31);
-        let nodeIdD = Buffer.alloc(32).fill(0x40);
-        let nodeIdE1 = Buffer.alloc(32).fill(0x50);
-        let nodeIdE2 = Buffer.alloc(32).fill(0x51);
-
-        let licenseIdA = Buffer.alloc(32).fill(100);
-        let licenseIdB2 = Buffer.alloc(32).fill(107);
 
         const node0 = await nodeUtil.createDataNode({
-            id1: nodeId0,
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             isPublic: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeId0 = node0.getId1();
 
         const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
             owner: clientPublicKey,
             parentId: nodeId0,
             expireTime: now + 10000,
             creationTime: now,
             isLicensed: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
             const licenseA = await nodeUtil.createLicenseNode({
-                id1: licenseIdA,
                 refId: nodeIdA,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId,
                 expireTime: now + 10000,
                 creationTime: now,
-            });
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdA = licenseA.getId1();
 
         const nodeB1 = await nodeUtil.createDataNode({
-            id1: nodeIdB1,
             owner: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
@@ -3224,30 +3273,33 @@ function setupTests(config: any) {
             licenseMinDistance: 1,
             licenseMaxDistance: 1,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB1 = nodeB1.getId1();
 
         const nodeB2 = await nodeUtil.createDataNode({
-            id1: nodeIdB2,
             owner: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
             creationTime: now,
             isLicensed: true,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB2 = nodeB2.getId1();
 
             const licenseB2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdB2,
                 refId: nodeIdB2,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdA,
                 expireTime: now + 10000,
                 creationTime: now,
-            });
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdB2 = licenseB2.getId1();
 
         const nodeC1 = await nodeUtil.createDataNode({
-            id1: nodeIdC1,
             owner: clientPublicKey,
             parentId: nodeIdB1,
             expireTime: now + 10000,
@@ -3256,16 +3308,18 @@ function setupTests(config: any) {
             licenseMinDistance: 1,
             licenseMaxDistance: 2,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdC1 = nodeC1.getId1();
 
         const nodeC2 = nodeC1.copy(nodeIdB2);
-        nodeC2.setId1(nodeIdC2);
+        nodeC2.sign(keyPair1);
+        const nodeIdC2 = nodeC2.getId1();
 
         assert((nodeC2.getId() as Buffer).equals(nodeIdC1));
         assert((nodeC2.getId1() as Buffer).equals(nodeIdC2));
 
         const nodeD = await nodeUtil.createDataNode({
-            id1: nodeIdD,
             owner: clientPublicKey,
             parentId: nodeIdC1,
             expireTime: now + 10000,
@@ -3274,10 +3328,11 @@ function setupTests(config: any) {
             licenseMinDistance: 3,
             licenseMaxDistance: 3,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdD = nodeD.getId1();
 
         const nodeE1 = await nodeUtil.createDataNode({
-            id1: nodeIdE1,
             owner: clientPublicKey2,
             parentId: nodeIdD,
             expireTime: now + 10000,
@@ -3285,10 +3340,11 @@ function setupTests(config: any) {
             isLicensed: true,
             licenseMinDistance: 4,
             licenseMaxDistance: 4,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdE1 = nodeE1.getId1();
 
         const nodeE2 = await nodeUtil.createDataNode({
-            id1: nodeIdE2,
             owner: clientPublicKey2,
             parentId: nodeIdD,
             expireTime: now + 10000,
@@ -3296,7 +3352,9 @@ function setupTests(config: any) {
             isLicensed: true,
             licenseMinDistance: 3,
             licenseMaxDistance: 3,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdE2 = nodeE2.getId1();
 
         await driver.storeNodes([node0, nodeA, nodeB1, nodeB2, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], now);
 
@@ -3400,6 +3458,8 @@ function setupTests(config: any) {
     it("#checkSourceNodesPermissions", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPair1 = Krypto.GenKeyPair();
+        const keyPair2 = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -3411,42 +3471,32 @@ function setupTests(config: any) {
             // Do nothing
         };
 
-        let clientPublicKey = Buffer.alloc(32).fill(210);
-        let clientPublicKey2 = Buffer.alloc(32).fill(211);
+        let clientPublicKey = keyPair1.publicKey;
+        let clientPublicKey2 = keyPair2.publicKey;
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(1);
-        let nodeIdB1 = Buffer.alloc(32).fill(2);
-        let nodeIdB2 = Buffer.alloc(32).fill(3);
-        let nodeIdC1 = Buffer.alloc(32).fill(4);
-        let nodeIdC2 = Buffer.alloc(32).fill(5);
-        let nodeIdD = Buffer.alloc(32).fill(6);
-        let nodeIdE1 = Buffer.alloc(32).fill(7);
-        let nodeIdE2 = Buffer.alloc(32).fill(8);
-
-        let licenseIdA = Buffer.alloc(32).fill(100);
-        let licenseIdB2 = Buffer.alloc(32).fill(107);
 
         const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
             owner: clientPublicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             isLicensed: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
             const licenseA = await nodeUtil.createLicenseNode({
-                id1: licenseIdA,
                 refId: nodeIdA,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId,
                 expireTime: now + 10000,
-                creationTime: now,
-            });
+                creationTime: now + 1,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+            const licenseIdA = licenseA.getId1();
 
         const nodeB1 = await nodeUtil.createDataNode({
-            id1: nodeIdB1,
             owner: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
@@ -3455,30 +3505,33 @@ function setupTests(config: any) {
             licenseMinDistance: 1,
             licenseMaxDistance: 1,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB1 = nodeB1.getId1();
 
         const nodeB2 = await nodeUtil.createDataNode({
-            id1: nodeIdB2,
             owner: clientPublicKey,
             parentId: nodeIdA,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 1,
             isLicensed: true,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdB2 = nodeB2.getId1();
 
             const licenseB2 = await nodeUtil.createLicenseNode({
-                id1: licenseIdB2,
                 refId: nodeIdB2,
                 owner: clientPublicKey,
                 targetPublicKey: clientPublicKey,
                 parentId: nodeIdA,
                 expireTime: now + 10000,
-                creationTime: now,
-            });
+                creationTime: now + 2,
+            }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const licenseIdB2 = licenseB2.getId1();
 
         const nodeC1 = await nodeUtil.createDataNode({
-            id1: nodeIdC1,
             owner: clientPublicKey,
             parentId: nodeIdB1,
             expireTime: now + 10000,
@@ -3487,13 +3540,15 @@ function setupTests(config: any) {
             licenseMinDistance: 1,
             licenseMaxDistance: 2,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdC1 = nodeC1.getId1();
 
         const nodeC2 = nodeC1.copy(nodeIdB2);
-        nodeC2.setId1(nodeIdC2);
+        nodeC2.sign(keyPair1);
+        const nodeIdC2 = nodeC2.getId1();
 
         const nodeD = await nodeUtil.createDataNode({
-            id1: nodeIdD,
             owner: clientPublicKey,
             parentId: nodeIdC1,
             expireTime: now + 10000,
@@ -3502,10 +3557,11 @@ function setupTests(config: any) {
             licenseMinDistance: 3,
             licenseMaxDistance: 3,
             isBeginRestrictiveWriteMode: true,
-        });
+        }, keyPair1.publicKey, keyPair1.secretKey);
+
+        const nodeIdD = nodeD.getId1();
 
         const nodeE1 = await nodeUtil.createDataNode({
-            id1: nodeIdE1,
             owner: clientPublicKey2,
             parentId: nodeIdD,
             expireTime: now + 10000,
@@ -3513,18 +3569,21 @@ function setupTests(config: any) {
             isLicensed: true,
             licenseMinDistance: 4,
             licenseMaxDistance: 4,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdE1 = nodeE1.getId1();
 
         const nodeE2 = await nodeUtil.createDataNode({
-            id1: nodeIdE2,
             owner: clientPublicKey2,
             parentId: nodeIdD,
             expireTime: now + 10000,
-            creationTime: now,
+            creationTime: now + 1,
             isLicensed: true,
             licenseMinDistance: 3,
             licenseMaxDistance: 3,
-        });
+        }, keyPair2.publicKey, keyPair2.secretKey);
+
+        const nodeIdE2 = nodeE2.getId1();
 
         await driver.storeNodes([nodeA, nodeB1, nodeB2, nodeC1, nodeC2, nodeD, nodeE1, nodeE2], now);
 
@@ -3564,6 +3623,10 @@ function setupTests(config: any) {
 
     it("#applyFriendCerts", async function() {
         const driver = config.driver;
+        const keyPairA = Krypto.GenKeyPair();
+        const keyPairB = Krypto.GenKeyPair();
+        const keyPairInt = Krypto.GenKeyPair();
+
         const db = config.db;
 
         assert(driver);
@@ -3573,34 +3636,57 @@ function setupTests(config: any) {
         const now = Date.now();
 
         let parentId = Buffer.alloc(32).fill(0);
-        let licenseId1 = Buffer.alloc(32).fill(1);
-        let licenseId2 = Buffer.alloc(32).fill(2);
-        let nodeIdA = Buffer.alloc(32).fill(0x30);
 
         const license1 = await nodeUtil.createLicenseNode({
-            id1: licenseId1,
-            owner: friendCertAIssuer,
-            targetPublicKey: friendCertIIssuer,
+            owner: keyPairA.publicKey,
+            targetPublicKey: keyPairInt.publicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             extensions: 1,
             friendLevel: 1,
-            refId: nodeIdA,
-        });
+            refId: Buffer.alloc(32),
+        }, keyPairA.publicKey, keyPairA.secretKey);
 
-        const embeddingLicense = license1.embed(friendCertBIssuer);
+        const licenseId1 = license1.getId1();
+
+        const embeddingLicense = license1.embed(keyPairB.publicKey);
 
         assert(embeddingLicense);
 
-        const aCert = Decoder.DecodeFriendCert(friendCertImageA);
-        const bCert = Decoder.DecodeFriendCert(friendCertImageB);
+        const aCert = new FriendCert();
 
-        let status = aCert.verify();
-        assert(status);
+        aCert.mergeProps({
+            owner: keyPairA.publicKey,
+            creationTime: now,
+            expireTime: now + 10000,
+            friendLevel: 1,
+            salt: Buffer.alloc(8).fill(0x01),
+            licenseMaxExpireTime: now + 10000,
+        });
 
-        status = bCert.verify();
-        assert(status);
+        const bCert = new FriendCert();
+
+        bCert.mergeProps({
+            owner: keyPairB.publicKey,
+            creationTime: now,
+            expireTime: now + 10000,
+            friendLevel: 1,
+            salt: Buffer.alloc(8).fill(0x02),
+            licenseMaxExpireTime: now + 10000,
+        });
+
+        const constraints = aCert.hashFriendConstraints(bCert.getProps());
+        assert(bCert.hashFriendConstraints(aCert.getProps()).equals(constraints));
+
+        aCert.getProps().constraints = constraints;
+
+        bCert.getProps().constraints = constraints;
+
+        aCert.sign(keyPairA);
+
+        bCert.sign(keyPairB);
+
 
         let handleFetchReplyData = (fetchReplyData: FetchReplyData) => {
             // Do nothing
@@ -3608,21 +3694,26 @@ function setupTests(config: any) {
 
         let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
-            sourcePublicKey: friendCertAIssuer,
-            targetPublicKey: friendCertAIssuer,
+            sourcePublicKey: keyPairA.publicKey,
+            targetPublicKey: keyPairA.publicKey,
             match: [],
         }});
 
         let qp = new QueryProcessorWrapper(db, fetchRequest.query, undefined, now, handleFetchReplyData);
 
         let success = await qp.applyFriendCerts(embeddingLicense, aCert, bCert);
+
         assert(success);
     });
 
     it("#getFriendCerts", async function() {
-        // TODO this test could use some more.
+        // TODO this test could use some more corner case testing.
+        //
         const driver = config.driver;
         const db = config.db;
+        const keyPairA = Krypto.GenKeyPair();
+        const keyPairB = Krypto.GenKeyPair();
+        const keyPairInt = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -3635,50 +3726,78 @@ function setupTests(config: any) {
         };
 
         let parentId = Buffer.alloc(32).fill(0);
-        let licenseIdA = Buffer.alloc(32).fill(0x10);
-        let licenseIdB = Buffer.alloc(32).fill(0x12);
-        let nodeIdA = Buffer.alloc(32).fill(0x30);
-        let nodeIdB = Buffer.alloc(32).fill(0x31);
 
-        const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
-            owner: friendCertAIssuer,
+        const aCert = new FriendCert();
+
+        aCert.mergeProps({
+            owner: keyPairA.publicKey,
+            creationTime: now,
+            expireTime: now + 10000,
+            friendLevel: 1,
+            salt: Buffer.alloc(8).fill(0x01),
+            licenseMaxExpireTime: now + 10000,
+        });
+
+        const bCert = new FriendCert();
+
+        bCert.mergeProps({
+            owner: keyPairB.publicKey,
+            creationTime: now,
+            expireTime: now + 10000,
+            friendLevel: 1,
+            salt: Buffer.alloc(8).fill(0x02),
+            licenseMaxExpireTime: now + 10000,
+        });
+
+        const constraints = aCert.hashFriendConstraints(bCert.getProps());
+        assert(bCert.hashFriendConstraints(aCert.getProps()).equals(constraints));
+
+        aCert.getProps().constraints = constraints;
+
+        bCert.getProps().constraints = constraints;
+
+        aCert.sign(keyPairA);
+
+        bCert.sign(keyPairB);
+
+        const nodeA = await nodeUtil.createCarrierNode({
+            owner: keyPairA.publicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
-            isSpecial: true,
-            data: Buffer.from(SPECIAL_NODES.FRIENDCERT),
-            embedded: friendCertImageA,
+            friendCert: aCert.pack(),
             isPublic: true,
-        });
+        }, keyPairA.publicKey, keyPairA.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
 
-        const nodeB = await nodeUtil.createDataNode({
-            id1: nodeIdB,
-            owner: friendCertBIssuer,
+        const nodeB = await nodeUtil.createCarrierNode({
+            owner: keyPairB.publicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
-            isSpecial: true,
-            data: Buffer.from(SPECIAL_NODES.FRIENDCERT),
-            embedded: friendCertImageB,
+            friendCert: bCert.pack(),
             isLicensed: true,
-        });
+        }, keyPairB.publicKey, keyPairB.secretKey);
+
+        const nodeIdB = nodeB.getId1();
 
         const licenseB = await nodeUtil.createLicenseNode({
-            id1: licenseIdB,
             parentId,
             refId: nodeIdB,
-            owner: friendCertBIssuer,
-            targetPublicKey: friendCertIIssuer,
+            owner: keyPairB.publicKey,
+            targetPublicKey: keyPairInt.publicKey,
             expireTime: now + 10000,
             creationTime: now,
-        });
+        }, keyPairB.publicKey, keyPairB.secretKey);
+
+        const licenseIdB = licenseB.getId1();
 
         let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
-            sourcePublicKey: friendCertIIssuer,
-            targetPublicKey: friendCertBIssuer,
+            sourcePublicKey: keyPairInt.publicKey,
+            targetPublicKey: keyPairB.publicKey,
             match: [
                 {
                     nodeType: Buffer.alloc(0),
@@ -3695,10 +3814,17 @@ function setupTests(config: any) {
 
         assert(Object.keys(friendCerts).length === 0);
 
+        publicKeys = [keyPairA.publicKey];
+
+        friendCerts = await qp.getFriendCerts(publicKeys);
+
+        assert(Object.keys(friendCerts).length === 0);
+
+
         let [a,b] = await driver.store([nodeA, nodeB, licenseB], now);
         assert(a.length === 3);
 
-        publicKeys = [friendCertAIssuer];
+        publicKeys = [keyPairA.publicKey];
 
         friendCerts = await qp.getFriendCerts(publicKeys);
 
@@ -3708,6 +3834,9 @@ function setupTests(config: any) {
     it("#embedNodes using friend certs", async function() {
         const driver = config.driver;
         const db = config.db;
+        const keyPairA = Krypto.GenKeyPair();
+        const keyPairB = Krypto.GenKeyPair();
+        const keyPairInt = Krypto.GenKeyPair();
 
         assert(driver);
         assert(db);
@@ -3715,8 +3844,8 @@ function setupTests(config: any) {
         const nodeUtil = new NodeUtil();
         const now = Date.now();
 
-        const embed: NodeInterface[] = [];
-        const nodes: NodeInterface[] = [];
+        const embed: BaseNodeInterface[] = [];
+        const nodes: BaseNodeInterface[] = [];
 
         let handleFetchReplyData = (fetchReplyData: FetchReplyData) => {
             nodes.push(...fetchReplyData.nodes ?? []);
@@ -3724,104 +3853,118 @@ function setupTests(config: any) {
         };
 
         let parentId = Buffer.alloc(32).fill(0);
-        let nodeIdA = Buffer.alloc(32).fill(0x30);
-        let nodeIdB = Buffer.alloc(32).fill(0x31);      //embed
-        let licenseIdA = Buffer.alloc(32).fill(0x40);  //nodes
-        let licenseIdA2 = Buffer.alloc(32).fill(0x11);
-        let licenseIdAA2 = Buffer.alloc(32).fill(0x12);
-        let licenseIdB = Buffer.alloc(32).fill(0x41);
-        let licenseIdB2 = Buffer.alloc(32).fill(0x13);
-        let nodeFriendIdA = Buffer.alloc(32).fill(0x50);  //nodes
-        let nodeFriendIdAA = Buffer.alloc(32).fill(0x52);  //nodes
-        let nodeFriendIdB = Buffer.alloc(32).fill(0x51);  //nodes
 
-        const nodeA = await nodeUtil.createDataNode({
-            id1: nodeIdA,
-            owner: friendCertAIssuer,
+        const aCert = new FriendCert();
+
+        aCert.mergeProps({
+            owner: keyPairA.publicKey,
+            creationTime: now,
+            expireTime: now + 10000,
+            friendLevel: 1,
+            salt: Buffer.alloc(8).fill(0x01),
+            licenseMaxExpireTime: now + 10000,
+        });
+
+        const bCert = new FriendCert();
+
+        bCert.mergeProps({
+            owner: keyPairB.publicKey,
+            creationTime: now,
+            expireTime: now + 10000,
+            friendLevel: 1,
+            salt: Buffer.alloc(8).fill(0x02),
+            licenseMaxExpireTime: now + 10000,
+        });
+
+        const constraints = aCert.hashFriendConstraints(bCert.getProps());
+        assert(bCert.hashFriendConstraints(aCert.getProps()).equals(constraints));
+
+        aCert.getProps().constraints = constraints;
+
+        bCert.getProps().constraints = constraints;
+
+        aCert.sign(keyPairA);
+
+        bCert.sign(keyPairB);
+
+
+        const nodeA = await nodeUtil.createCarrierNode({
+            owner: keyPairA.publicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             isLicensed: true,
-        });
+        }, keyPairA.publicKey, keyPairA.secretKey);
+
+        const nodeIdA = nodeA.getId1();
 
             const licenseA = await nodeUtil.createLicenseNode({
-                id1: licenseIdA,
                 parentId,
                 refId: nodeIdA,
-                owner: friendCertAIssuer,
-                targetPublicKey: friendCertIIssuer,
+                owner: keyPairA.publicKey,
+                targetPublicKey: keyPairInt.publicKey,
                 expireTime: now + 10000,
                 creationTime: now,
                 friendLevel: 1,
                 extensions: 1,
-            });
+            }, keyPairA.publicKey, keyPairA.secretKey);
 
-        const nodeB = await nodeUtil.createDataNode({
-            id1: nodeIdB,
-            owner: friendCertBIssuer,
+            const licenseIdA = licenseA.getId1();
+
+        const nodeB = await nodeUtil.createCarrierNode({
+            owner: keyPairB.publicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
             isLicensed: true,
-        });
+        }, keyPairB.publicKey, keyPairB.secretKey);
+
+        const nodeIdB = nodeB.getId1();
 
             const licenseB = await nodeUtil.createLicenseNode({
-                id1: licenseIdB,
                 parentId,
                 refId: nodeIdB,
-                owner: friendCertBIssuer,
-                targetPublicKey: friendCertIIssuer,
+                owner: keyPairB.publicKey,
+                targetPublicKey: keyPairInt.publicKey,
                 expireTime: now + 10000,
                 creationTime: now,
                 friendLevel: 1,
                 extensions: 1,
-            });
+            }, keyPairB.publicKey, keyPairB.secretKey);
+
+            const licenseIdB = licenseB.getId1();
 
 
-        const nodeFriendA = await nodeUtil.createDataNode({
-            id1: nodeFriendIdA,
-            owner: friendCertAIssuer,
+        const nodeFriendA = await nodeUtil.createCarrierNode({
+            owner: keyPairA.publicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
-            isSpecial: true,
-            data: Buffer.from(SPECIAL_NODES.FRIENDCERT),
-            embedded: friendCertImageA,
+            friendCert: aCert.pack(),
             isPublic: true,
-        });
+        }, keyPairA.publicKey, keyPairA.secretKey);
 
-        const nodeFriendAA = await nodeUtil.createDataNode({
-            id1: nodeFriendIdAA,
-            owner: friendCertAIssuer,
+        const nodeFriendIdA = nodeFriendA.getId1();
+
+        const nodeFriendB = await nodeUtil.createCarrierNode({
+            owner: keyPairB.publicKey,
             parentId,
             expireTime: now + 10000,
             creationTime: now,
-            isSpecial: true,
-            data: Buffer.from(SPECIAL_NODES.FRIENDCERT),
-            embedded: friendCertImageASelf,
+            friendCert: bCert.pack(),
             isPublic: true,
-        });
+        }, keyPairB.publicKey, keyPairB.secretKey);
 
-        const nodeFriendB = await nodeUtil.createDataNode({
-            id1: nodeFriendIdB,
-            owner: friendCertBIssuer,
-            parentId,
-            expireTime: now + 10000,
-            creationTime: now,
-            isSpecial: true,
-            data: Buffer.from(SPECIAL_NODES.FRIENDCERT),
-            embedded: friendCertImageB,
-            isPublic: true,
-        });
+        const nodeFriendIdB = nodeFriendB.getId1();
 
-        let [a, b] = await driver.store([nodeA, licenseA, nodeB, licenseB, nodeFriendA, nodeFriendAA, nodeFriendB], now);
-        assert(a.length === 7);
+        let [a, b] = await driver.store([nodeA, licenseA, nodeB, licenseB, nodeFriendA, nodeFriendB], now);
+        assert(a.length === 6);
 
         // Connect as Intermediary
         let fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
-            sourcePublicKey: friendCertIIssuer,
-            targetPublicKey: friendCertAIssuer,
+            sourcePublicKey: keyPairInt.publicKey,
+            targetPublicKey: keyPairA.publicKey,
             match: [
                 {
                     nodeType: Buffer.alloc(0),
@@ -3830,7 +3973,7 @@ function setupTests(config: any) {
             ],
             embed: [
                 {
-                    nodeType: License.GetType(),
+                    nodeType: Buffer.from(LicenseNodeType),
                     filters: [],
                 }
             ]
@@ -3840,26 +3983,22 @@ function setupTests(config: any) {
 
         await qp.run();
 
-        assert(nodes.length === 4);
-        assert(embed.length === 2);
+        assert(nodes.length === 3);
+        assert(embed.length === 1);
 
         let nodeIds = nodes.map( node => (node.getId1() as Buffer).toString("hex") );
         assert(nodeIds.includes(licenseIdA.toString("hex")));
         assert(nodeIds.includes(nodeFriendIdA.toString("hex")));
         assert(nodeIds.includes(nodeFriendIdB.toString("hex")));
-        assert(nodeIds.includes(nodeFriendIdAA.toString("hex")));
 
-        nodeIds = embed.map( node => (node.getRefId() as Buffer).toString("hex") );
-        assert(nodeIds.includes(nodeIdA.toString("hex")));
+        nodeIds = embed.map( node => (node.getProps().refId as Buffer).toString("hex") );
         assert(nodeIds.includes(nodeIdB.toString("hex")));
 
         // Store embedded node and query again.
         //
-        //embeddedNode1.setId1(licenseIdB2);
-        embed[0].setId1(licenseIdB2);
-        embed[1].setId1(licenseIdAA2);
+        embed[0].sign(keyPairInt);
         [a, b] = await driver.store(embed, now);
-        assert(a.length === 2);
+        assert(a.length === 1);
 
         nodes.length = 0;
         embed.length = 0;
@@ -3867,19 +4006,15 @@ function setupTests(config: any) {
         qp = new QueryProcessorWrapper(db, fetchRequest.query, undefined, now, handleFetchReplyData);
         await qp.run();
 
-        assert(nodes.length === 8);
+        assert(nodes.length === 5);
         assert(embed.length === 0);
         nodeIds = nodes.map( node => (node.getId1() as Buffer).toString("hex") );
         assert(nodeIds.includes(licenseIdA.toString("hex")));
         assert(nodeIds.includes(nodeFriendIdA.toString("hex")));
         assert(nodeIds.includes(nodeFriendIdB.toString("hex")));
-        assert(nodeIds.includes(nodeFriendIdAA.toString("hex")));
-        assert(nodeIds.includes(nodeIdA.toString("hex")));
-        assert(nodeIds.includes(licenseIdAA2.toString("hex")));
         assert(nodeIds.includes(nodeIdB.toString("hex")));
-        assert(nodeIds.includes(licenseIdB2.toString("hex")));
 
-        fetchRequest.query.targetPublicKey = friendCertBIssuer;
+        fetchRequest.query.targetPublicKey = keyPairB.publicKey;
 
         nodes.length = 0;
         embed.length = 0;
@@ -3887,23 +4022,22 @@ function setupTests(config: any) {
         qp = new QueryProcessorWrapper(db, fetchRequest.query, undefined, now, handleFetchReplyData);
         await qp.run();
 
-        assert(nodes.length === 4);
+        assert(nodes.length === 3);
         assert(embed.length === 1);
 
         nodeIds = nodes.map( node => (node.getId1() as Buffer).toString("hex") );
         assert(nodeIds.includes(licenseIdB.toString("hex")));
         assert(nodeIds.includes(nodeFriendIdA.toString("hex")));
         assert(nodeIds.includes(nodeFriendIdB.toString("hex")));
-        assert(nodeIds.includes(nodeFriendIdAA.toString("hex")));
 
-        nodeIds = embed.map( node => (node.getRefId() as Buffer).toString("hex") );
+        nodeIds = embed.map( node => (node.getProps().refId as Buffer).toString("hex") );
         assert(nodeIds.includes(nodeIdA.toString("hex")));
     });
 }
 
-async function fetch(db: DBClient, fetchRequest: FetchRequest, now: number, rootNode?: NodeInterface): Promise<NodeInterface[]> {
+async function fetch(db: DBClient, fetchRequest: FetchRequest, now: number, rootNode?: BaseNodeInterface): Promise<BaseNodeInterface[]> {
 
-    const nodes: NodeInterface[] = [];
+    const nodes: BaseNodeInterface[] = [];
     let handleFetchReplyData = (fetchReplyData: FetchReplyData) => {
         nodes.push(...fetchReplyData.nodes ?? []);
     };
@@ -3914,10 +4048,10 @@ async function fetch(db: DBClient, fetchRequest: FetchRequest, now: number, root
     return nodes;
 }
 
-async function fetch2(db: DBClient, fetchRequest: FetchRequest, now: number, rootNode?: NodeInterface): Promise<{nodes: NodeInterface[], embed: NodeInterface[]}> {
+async function fetch2(db: DBClient, fetchRequest: FetchRequest, now: number, rootNode?: BaseNodeInterface): Promise<{nodes: BaseNodeInterface[], embed: BaseNodeInterface[]}> {
 
-    const nodes: NodeInterface[] = [];
-    const embed: NodeInterface[] = [];
+    const nodes: BaseNodeInterface[] = [];
+    const embed: BaseNodeInterface[] = [];
 
     let handleFetchReplyData = (fetchReplyData: FetchReplyData) => {
         nodes.push(...fetchReplyData.nodes ?? []);
@@ -3930,22 +4064,22 @@ async function fetch2(db: DBClient, fetchRequest: FetchRequest, now: number, roo
     return {nodes, embed};
 }
 
-async function createNodes(count: number, params: any, now: number, prefix?: string): Promise<NodeInterface[]> {
+async function createNodes(keyPair: KeyPair, count: number, params: any, now: number, prefix?: string): Promise<BaseNodeInterface[]> {
 
     prefix = prefix ?? "";
     const nodeUtil = new NodeUtil();
 
-    const nodes: NodeInterface[] = [];
+    const nodes: BaseNodeInterface[] = [];
 
     for (let i=0; i<count; i++) {
-        const id1 = Hash([params.parentId, prefix, i, ""+now]);
+        //const id1 = Hash([params.parentId, prefix, i, ""+now]);
         const node = await nodeUtil.createDataNode({
             ...params,
             creationTime: now + i,
             expireTime: now + i + 10000,
-            id1,
+            //id1,
             data: Buffer.from(`${prefix}_${i}/${count-1}`),
-        });
+        }, keyPair.publicKey, keyPair.secretKey);
 
         nodes.push(node);
     }
@@ -3953,7 +4087,7 @@ async function createNodes(count: number, params: any, now: number, prefix?: str
     return nodes;
 }
 
-function diffNodes(nodes1: NodeInterface[], nodes2: NodeInterface[]): boolean {
+function diffNodes(nodes1: BaseNodeInterface[], nodes2: BaseNodeInterface[]): boolean {
 
     if (nodes1.length !== nodes2.length) {
         return false;
@@ -3971,9 +4105,9 @@ function diffNodes(nodes1: NodeInterface[], nodes2: NodeInterface[]): boolean {
     return true;
 }
 
-function getProcessState(node: NodeInterface, qp: QueryProcessor, createCache: boolean = true): any {
-    const idStr = (node.getId() as Buffer).toString("hex");
-    const id1Str = (node.getId1() as Buffer).toString("hex");
+function getProcessState(node: BaseNodeInterface, qp: QueryProcessor, createCache: boolean = true): any {
+    const idStr = node.getId().toString("hex");
+    const id1Str = node.getId1().toString("hex");
 
     //@ts-ignore
     let obj1 = qp.alreadyProcessedNodes[idStr]?.id1s[id1Str];
@@ -3984,11 +4118,11 @@ function getProcessState(node: NodeInterface, qp: QueryProcessor, createCache: b
         }
 
         obj1 = {
-            parentId: node.getParentId()!.toString("hex"),
-            owner: node.getOwner()!,
-            childMinDifficulty: node.getChildMinDifficulty() ?? 0,
-            disallowPublicChildren: node.disallowPublicChildren(),
-            onlyOwnChildren: node.onlyOwnChildren(),
+            parentId: node.getProps().parentId!.toString("hex"),
+            owner: node.getProps().owner!,
+            childMinDifficulty: node.getProps().childMinDifficulty ?? 0,
+            disallowPublicChildren: Boolean(node.loadFlags().disallowPublicChildren),
+            onlyOwnChildren: Boolean(node.loadFlags().onlyOwnChildren),
             endRestrictiveWriterMode: false,
             beginRestrictiveWriterMode: false,
             flushed: false,

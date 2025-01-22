@@ -1,0 +1,51 @@
+{
+    " ## ": "The hex-encoded 3 byte header of the model type or the ascii-alias.",
+    " ## ": "This dictates what exact cert class will be created. A list of model types is available running `cert list`",
+    "modelType": "AuthCert",
+
+    " ## ": "The publicKey owning this cert and which identity targetPublicKey will take.",
+    " ## ": "As we do not use a SignCert this is also the key needing to sign this cert.",
+    "owner": "!clientKeyfileOwner.json:.keyPair.publicKey",
+
+    " ## ": "The expected publicKey of the handshaking peer who will get the authorization of this cert owner.",
+    "handshakePublicKey": "!../clientKeyfile.json:.keyPair.publicKey",
+
+    " ## ": "From the UNIX time (ms) when this cert is valid.",
+    " ## ": "This value must fall within any sign certs creationTime and expireTime.",
+    "creationTime": 1717171717000,
+
+    " ## ": "The cert has expired on this UNIX time ms.",
+    " ## ": "If a sign cert has targetMaxExpireTime set then this value must be lesser or equal to that value.",
+    "expireTime": 1818181818000,
+
+    " ## ": "We do not use any sign cert in this example.",
+    " ## ": "If we were to use it then first constraints of this AuthCert must been calculated and stored in the sign cert.",
+    "signCert": null,
+
+    " ## ": "targetType could help control the scope of the AuthCert helping the remote side deciding the applicability of the provided AuthCert. Three-byte hex value, if set",
+    "targetType": null,
+
+    " ## ": "Set to lock the auth cert to a specific region. The authenticator of the cert must apply the restriction.",
+    "region": null,
+
+    " ## ": "Set to lock the auth cert to a specific jurisdiction. The authenticator of the cert must apply the restriction.",
+    "jurisdiction": null,
+
+    " ## ": "AuthCert's constraints field is unused as for now, but could be used to place constraints on the connection being made.",
+    " ## ": "It will depend on the environment targeted by the targetType field",
+    " ## ": "This is not the same value as the constraints calculated in and on AuthCert but stored in SignCert.",
+    "constraints": null,
+
+    " ## ": "Set the expire time of the session in UNIX time milliseconds",
+    "targetMaxExpireTime": null,
+
+    " ## ": "We set this using flags instead",
+    "baseSignCertConfig": null,
+
+    "isIndestructible": false,
+
+    " ## ": "If the signature is already created put it here as hexadecimal, otherwise make sure to pass the --keyfile argument to sign the created cert.",
+    "signature1": null,
+    "signature2": null,
+    "signature3": null
+}

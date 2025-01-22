@@ -141,7 +141,7 @@ export type FetchQuery = {
      * license nodes and also all nodes to be embedded.
      *
      * This limit should be used as a maximum upper bound of nodes tolerated in the resultset and not
-     * to be used for any dataset limit purposess as the mix of data and licenses nodes will vary
+     * to be used for any dataset limit purposes as the mix of data and licenses nodes will vary
      * depending on how many licenses there are available which will effect how many data nodes fit
      * into the limit of the resultset which can yield confusing results.
      *

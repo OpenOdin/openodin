@@ -31,12 +31,9 @@ import {
 } from "./AlgoSortedRefId";
 
 import {
-    DataInterface,
-} from "../../datamodel/node/secondary/interface";
-
-import {
-    Decoder,
-} from "../../decoder";
+    DataNodeInterface,
+    UnpackNode,
+} from "../../datamodel";
 
 // TODO when to ever garbage collect cached algos?
 export class CRDTManagerWorker {
@@ -66,7 +63,7 @@ export class CRDTManagerWorker {
             this.algos[key] = algo;
         }
 
-        const nodes = images.map( image => Decoder.DecodeNode(Buffer.from(image)) ) as DataInterface[];
+        const nodes = images.map( image => UnpackNode(Buffer.from(image)) ) as DataNodeInterface[];
 
         algo.add(nodes);
     }

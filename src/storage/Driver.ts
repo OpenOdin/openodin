@@ -25,7 +25,7 @@ import {
     HandleFetchReplyData,
     TABLES,
     InsertAchillesHash,
-    InsertLicenseeHash,
+    InsertLicensingHash,
     InsertDestroyHash,
     InsertFriendCert,
     MAX_BATCH_SIZE,
@@ -35,7 +35,6 @@ import {
 import {
     FetchQuery,
     Status,
-    MAX_LICENSE_DISTANCE,
 } from "../types";
 
 import {
@@ -48,20 +47,19 @@ import {
 } from "./QueryProcessor";
 
 import {
-    NodeInterface,
-    License,
-    FriendCert,
-    FriendCertInterface,
-    Data,
-    DataInterface,
-    SPECIAL_NODES,
-    Hash,
-    MIN_DIFFICULTY_TOTAL_DESTRUCTION,
+    BaseNodeInterface,
+    BaseDataNode,
+    BaseDataNodeInterface,
+    LicenseNode,
+    LicenseNodeInterface,
+    BaseLicenseNode,
+    BaseLicenseNodeInterface,
+    UnpackNode,
+    HashList,
+    MAX_LICENSE_DISTANCE,
+    CarrierNode,
+    CarrierNodeInterface,
 } from "../datamodel";
-
-import {
-    Decoder,
-} from "../decoder";
 
 import {
     ParseSchema,
@@ -138,7 +136,7 @@ export class Driver implements DriverInterface {
             await this.db.exec("COMMIT;");
         }
         catch(e) {
-            this.db.exec("ROLLBACK;");
+            await this.db.exec("ROLLBACK;");
             throw(e);
         }
 
@@ -150,7 +148,7 @@ export class Driver implements DriverInterface {
      *
      */
     public async fetch(fetchQuery: FetchQuery, now: number, handleFetchReplyData: HandleFetchReplyData) {
-        let rootNode: NodeInterface | undefined;
+        let rootNode: BaseNodeInterface | undefined;
 
         if (fetchQuery.rootNodeId1.length > 0) {
             let errorReply: FetchReplyData | undefined;
@@ -169,7 +167,7 @@ export class Driver implements DriverInterface {
 
         // We wrap the read in a read-transaction to gurantee non-skewed
         // result.
-        this.db.exec("BEGIN;");
+        await this.db.exec("BEGIN;");
 
         try {
             const queryProcessor =
@@ -177,10 +175,10 @@ export class Driver implements DriverInterface {
 
             await queryProcessor.run();
 
-            this.db.exec("COMMIT;");
+            await this.db.exec("COMMIT;");
         }
         catch(e) {
-            this.db.exec("ROLLBACK;");
+            await this.db.exec("ROLLBACK;");
             throw e;
         }
     }
@@ -194,7 +192,7 @@ export class Driver implements DriverInterface {
      *
      * @returns node on success else FetchReplyData is set with error reply.
      */
-    protected async getRootNode(fetchQuery: FetchQuery, now: number): Promise<[NodeInterface | undefined, FetchReplyData | undefined]> {
+    protected async getRootNode(fetchQuery: FetchQuery, now: number): Promise<[BaseNodeInterface | undefined, FetchReplyData | undefined]> {
         const node = await this.getNodeById1(fetchQuery.rootNodeId1, now);
 
         if (!node) {
@@ -204,16 +202,18 @@ export class Driver implements DriverInterface {
             }];
         }
 
-        if (node.isPublic()) {
+        const flags = node.loadFlags();
+
+        if (flags.isPublic) {
             return [node, undefined];
         }
-        else if (node.isLicensed()) {
+        else if (flags.isLicensed) {
             return [undefined, {
                 status: Status.RootnodeLicensed,
                 error: "Licensed node cannot be used as root node.",
             }];
         }
-        else if (node.isBeginRestrictiveWriteMode()) {
+        else if (flags.isBeginRestrictiveWriteMode) {
             return [undefined, {
                 status: Status.RootnodeLicensed,
                 error: "Begin restrictive writer mode node cannot be used as root node.",
@@ -222,7 +222,7 @@ export class Driver implements DriverInterface {
         else if (node.canSendPrivately(fetchQuery.sourcePublicKey, fetchQuery.targetPublicKey)) {
             return [node, undefined];
         }
-        else if (node.hasRightsByAssociation()) {
+        else if (flags.hasRightsByAssociation) {
             return [undefined, {
                 status: Status.RootnodeLicensed,
                 error: "Root node cannot use hasRightsByAssociation.",
@@ -246,7 +246,7 @@ export class Driver implements DriverInterface {
      *
      * @returns node if permissions allow.
      */
-    public async fetchSingleNode(nodeId1: Buffer, now: number, sourcePublicKey: Buffer, targetPublicKey: Buffer): Promise<NodeInterface | undefined> {
+    public async fetchSingleNode(nodeId1: Buffer, now: number, sourcePublicKey: Buffer, targetPublicKey: Buffer): Promise<BaseNodeInterface | undefined> {
         if (!Number.isInteger(now)) {
             throw new Error("now not integer");
         }
@@ -254,10 +254,12 @@ export class Driver implements DriverInterface {
         const node = await this.getNodeById1(nodeId1, now);
 
         if (node) {
-            if (node.isPublic()) {
+            const flags = node.loadFlags();
+
+            if (flags.isPublic) {
                 return node;
             }
-            else if (node.isLicensed() || node.hasRightsByAssociation()) {
+            else if (flags.isLicensed || flags.hasRightsByAssociation) {
 
                 const fetchRequest = ParseSchema(FetchRequestSchema, {query: {
                     sourcePublicKey,
@@ -275,7 +277,7 @@ export class Driver implements DriverInterface {
                     // Do nothing.
                 };
 
-                const reverse = node.hasRightsByAssociation() ? ReverseFetch.ALL_PARENTS :
+                const reverse = flags.hasRightsByAssociation ? ReverseFetch.ALL_PARENTS :
                     ReverseFetch.ONLY_LICENSED;
 
                 const queryProcessor =
@@ -303,7 +305,7 @@ export class Driver implements DriverInterface {
      *
      * @param nodeId1 the ID1 of the node.
      */
-    public async getNodeById1(nodeId1: Buffer, now: number): Promise<NodeInterface | undefined> {
+    public async getNodeById1(nodeId1: Buffer, now: number): Promise<BaseNodeInterface | undefined> {
         const ph = this.db.generatePlaceholders(1);
 
         if (!Number.isInteger(now)) {
@@ -312,25 +314,16 @@ export class Driver implements DriverInterface {
 
         const now2 = now + NOW_TOLERANCE;
 
-        const sql = `SELECT image, isonline, storagetime FROM openodin_nodes
+        const sql = `SELECT image, storagetime FROM openodin_nodes
             WHERE id1 = ${ph} AND (expiretime IS NULL OR expiretime > ${now})
             AND creationTime <= ${now2} LIMIT 1;`;
 
         const row = await this.db.get(sql, [nodeId1]);
 
         if (row) {
-            const node = Decoder.DecodeNode(row.image, true);
+            const node = UnpackNode(row.image, true);
 
-            // We might need to update the node's onlide id validation flag.
-            // If the isonline flag has been turned off in the table row it means that
-            // the node does no longer have the id2 (online id) valid,
-            // so we need to switch it off in the node after deserialising it.
-            //
-            if (!row.isonline && node.isOnlineIdValidated()) {
-                node.setOnlineIdValidated(false);
-            }
-
-            node.setTransientStorageTime(row.storagetime);
+            node.getProps().transientStorageTime = row.storagetime;
 
             return node;
         }
@@ -349,7 +342,7 @@ export class Driver implements DriverInterface {
      *
      * @param id1s the ID1s of the nodes.
      */
-    public async getNodesById1(id1s: Buffer[], now: number): Promise<NodeInterface[]> {
+    public async getNodesById1(id1s: Buffer[], now: number): Promise<BaseNodeInterface[]> {
         if (id1s.length > MAX_BATCH_SIZE) {
             throw new Error("Overflow in batch size of id1s");
         }
@@ -366,31 +359,22 @@ export class Driver implements DriverInterface {
 
         const now2 = now + NOW_TOLERANCE;
 
-        const sql = `SELECT image, isonline, storagetime FROM openodin_nodes WHERE id1 IN ${ph}
+        const sql = `SELECT image, storagetime FROM openodin_nodes WHERE id1 IN ${ph}
             AND (expiretime IS NULL OR expiretime > ${now})
             AND creationTime <= ${now2};`;
 
         const rows = await this.db.all(sql, id1s);
 
-        const nodes: NodeInterface[] = [];
+        const nodes: BaseNodeInterface[] = [];
 
         const rowsLength = rows.length;
         for (let index=0; index<rowsLength; index++) {
             try {
                 const row = rows[index];
 
-                const node = Decoder.DecodeNode(row.image, true);
+                const node = UnpackNode(row.image, true);
 
-                // We might need to update the node's onlide id validation flag.
-                // If the isonline flag has been turned off in the table row it means that
-                // the node does no longer have the id2 (online id) valid,
-                // so we need to switch it off in the node after deserialising it.
-                //
-                if (!row.isonline && node.isOnlineIdValidated()) {
-                    node.setOnlineIdValidated(false);
-                }
-
-                node.setTransientStorageTime(row.storagetime);
+                node.getProps().transientStorageTime = row.storagetime;
 
                 nodes.push(node);
             }
@@ -399,7 +383,7 @@ export class Driver implements DriverInterface {
             }
         }
 
-        const nodes2: NodeInterface[] = [];
+        const nodes2: BaseNodeInterface[] = [];
 
         // Preserve the order of nodes as given in id1s.
         const id1sLength = id1s.length;
@@ -408,7 +392,7 @@ export class Driver implements DriverInterface {
             const nodesLength = nodes.length;
             for (let i=0; i<nodesLength; i++) {
                 const node = nodes[i];
-                if ((node.getId1() as Buffer).equals(id1)) {
+                if ((node.getProps().id1 as Buffer).equals(id1)) {
                     nodes2.push(node);
                 }
             }
@@ -428,7 +412,7 @@ export class Driver implements DriverInterface {
      *
      * @param ids the IDs of the nodes.
      */
-    public async getNodesById(ids: Buffer[], now: number): Promise<NodeInterface[]> {
+    public async getNodesById(ids: Buffer[], now: number): Promise<BaseNodeInterface[]> {
         if (ids.length > MAX_BATCH_SIZE) {
             throw new Error("Overflow in batch size of ids");
         }
@@ -445,31 +429,22 @@ export class Driver implements DriverInterface {
 
         const now2 = now + NOW_TOLERANCE;
 
-        const sql = `SELECT image, isonline, storagetime FROM openodin_nodes WHERE id IN ${ph}
+        const sql = `SELECT image, storagetime FROM openodin_nodes WHERE id IN ${ph}
             AND (expiretime IS NULL OR expiretime > ${now})
             AND creationTime <= ${now2};`;
 
         const rows = await this.db.all(sql, ids);
 
-        const nodes: NodeInterface[] = [];
+        const nodes: BaseNodeInterface[] = [];
 
         const rowsLength = rows.length;
         for (let index=0; index<rowsLength; index++) {
             try {
                 const row = rows[index];
 
-                const node = Decoder.DecodeNode(row.image, true);
+                const node = UnpackNode(row.image, true);
 
-                // We might need to update the node's onlide id validation flag.
-                // If the isonline flag has been turned off in the table row it means that
-                // the node does no longer have the id2 (online id) valid,
-                // so we need to switch it off in the node after deserialising it.
-                //
-                if (!row.isonline && node.isOnlineIdValidated()) {
-                    node.setOnlineIdValidated(false);
-                }
-
-                node.setTransientStorageTime(row.storagetime);
+                node.getProps().transientStorageTime = row.storagetime;
 
                 nodes.push(node);
             }
@@ -506,7 +481,7 @@ export class Driver implements DriverInterface {
      * If the exception indicates a BUSY error then the caller should retry the store.
      * This can happen for concurrent transaction between processes.
      */
-    public async store(nodes: NodeInterface[], now: number, preserveTransient: boolean = false): Promise<[Buffer[], Buffer[], Buffer[]]> {
+    public async store(nodes: BaseNodeInterface[], now: number, preserveTransient: boolean = false): Promise<[Buffer[], Buffer[], Buffer[]]> {
         if (nodes.length > MAX_BATCH_SIZE) {
             throw new Error(`Calling store with too many (${nodes.length} nodes), maximum allowed is ${MAX_BATCH_SIZE}.`);
         }
@@ -539,8 +514,8 @@ export class Driver implements DriverInterface {
             const nodesToStoreLength = nodesToStore.length;
             for (let index=0; index<nodesToStoreLength; index++) {
                 const node = nodesToStore[index];
-                const id1 = node.getId1();
-                const parentId = node.getParentId();
+                const id1 = node.getProps().id1;
+                const parentId = node.getProps().parentId;
 
                 if (!id1 || !parentId) {
                     continue;
@@ -553,9 +528,9 @@ export class Driver implements DriverInterface {
             const nodesToStoreMaybeLength = nodesToStoreMaybe.length;
             for (let i=0; i<nodesToStoreMaybeLength; i++) {
                 const node = nodesToStoreMaybe[i];
-                const id1 = node.getId1();
+                const id1 = node.getProps().id1;
 
-                if (id1 && node.hasBlob()) {
+                if (id1 && BaseDataNode.Is(node.getProps().modelType) && (node as BaseDataNodeInterface).getProps().blobHash) {
                     blobId1sMap[id1.toString("hex")] = id1;
                 }
             }
@@ -566,17 +541,17 @@ export class Driver implements DriverInterface {
             // Also take not of all license nodes so we can bump related nodes.
             //
             const bottomNodeParentIds: {[parentId: string]: Buffer} = {};
-            const licenseNodes: License[] = [];
+            const licenseNodes: LicenseNode[] = [];
 
             for (let index=0; index<nodesToStoreLength; index++) {
                 const node = nodesToStore[index];
-                const id = node.getId();
+                const id = node.getProps().id;
 
                 // Is this node not refered to as parent?
                 // This this node is at the bottom of the inserted graph fragment.
                 //
                 if (id && !parentIdMap[id.toString("hex")]) {
-                    const parentId = node.getParentId();
+                    const parentId = node.getProps().parentId;
 
                     if (parentId) {
                         const parentIdStr = parentId.toString("hex");
@@ -586,8 +561,8 @@ export class Driver implements DriverInterface {
                     }
                 }
 
-                if (node.getType(4).equals(License.GetType(4))) {
-                    const license = node as License;
+                if (LicenseNode.Is(node.getProps().modelType)) {
+                    const license = node as LicenseNode;
                     licenseNodes.push(license);
                 }
             }
@@ -604,12 +579,7 @@ export class Driver implements DriverInterface {
                 }
             }
 
-            const parentIds = await this.storeNodes(nodesToStore, now, preserveTransient);
-
-            parentIds.forEach( parentId => {
-                const parentIdStr = parentId.toString("hex");
-                parentIdMap[parentIdStr] = parentId;
-            });
+            await this.storeNodes(nodesToStore, now, preserveTransient);
 
             await this.freshenParentTrail(Object.values(bottomNodeParentIds), now);
 
@@ -622,6 +592,7 @@ export class Driver implements DriverInterface {
             ];
         }
         catch(e) {
+            console.error(e);
             await this.db.exec("ROLLBACK;");
             throw e;
         }
@@ -631,13 +602,13 @@ export class Driver implements DriverInterface {
      * Bump a data node carrying a blob.
      * Call this when the blob has finalized and exists to trigger peers to download the blob.
      */
-    public async bumpBlobNode(node: NodeInterface, now: number) {
+    public async bumpBlobNode(node: BaseNodeInterface, now: number) {
         if (!Number.isInteger(now)) {
             throw new Error("now not integer");
         }
 
-        const id1 = node.getId1();
-        const parentId = node.getParentId();
+        const id1 = node.getProps().id1;
+        const parentId = node.getProps().parentId;
 
         if (!id1 || !parentId) {
             return;
@@ -657,7 +628,7 @@ export class Driver implements DriverInterface {
     /**
      * @returns array of bumpHashes, array of parent ids
      */
-    protected async getRelatedBumpHashes(licenseNodes: License[], now: number): Promise<Buffer[]> {
+    protected async getRelatedBumpHashes(licenseNodes: LicenseNodeInterface[], now: number): Promise<Buffer[]> {
         const bumpHashes: Buffer[] = [];
 
         const distinctHashes: {[hash: string]: Buffer} = {};
@@ -667,7 +638,7 @@ export class Driver implements DriverInterface {
         for (let i=0; i<licenseNodesLength; i++) {
             const licenseNode = licenseNodes[i];
 
-            const hashes = licenseNode.getLicenseeHashes();
+            const hashes = licenseNode.getLicensingHashes();
 
             const hashesLength = hashes.length;
             for (let i2=0; i2<hashesLength; i2++) {
@@ -681,13 +652,13 @@ export class Driver implements DriverInterface {
         for (let i=0; i<licenseNodesLength; i++) {
             const licenseNode = licenseNodes[i];
 
-            const hashes = licenseNode.getLicenseeHashes();
+            const hashes = licenseNode.getLicensingHashes();
 
             const hashesLength = hashes.length;
             for (let index=0; index<hashesLength; index++) {
                 const hashStr = hashes[index].toString("hex");
                 if (!licenseRows[hashStr]) {
-                    bumpHashes.push(Hash([licenseNode.getNodeId1(), licenseNode.getParentId()]));
+                    bumpHashes.push(HashList([licenseNode.getProps().refId, licenseNode.getProps().parentId]));
                     break;
                 }
             }
@@ -699,7 +670,7 @@ export class Driver implements DriverInterface {
     /**
      * From the given node IDs update the caching timestamp from there and upwards in the graph.
      * Note that since the fetch is done in reverse the node(s) having their ID equal to the
-     * parentId of the query are included * in the resultset.
+     * parentId of the query are included in the resultset.
      *
      * It is expected there is a surrounding transaction in play.
      *
@@ -725,7 +696,7 @@ export class Driver implements DriverInterface {
             for (let i=0; i<nodesLength; i++) {
                 const node = nodes[i];
 
-                const id1 = node.getId1() as Buffer;
+                const id1 = node.getProps().id1 as Buffer;
                 const id1Str = id1.toString("hex");
                 id1s[id1Str] = id1;
             }
@@ -760,6 +731,7 @@ export class Driver implements DriverInterface {
 
     /**
      * It is expected there is a surrounding transaction in play.
+     * Ignore inactive license nodes.
      */
     protected async checkLicenses(licenseHashes: Buffer[], now: number): Promise<{[hash: string]: boolean}> {
         const hashesFound: {[hash: string]: boolean} = {};
@@ -776,10 +748,10 @@ export class Driver implements DriverInterface {
             const ph = this.db.generatePlaceholders(hashes.length);
 
             const sql = `SELECT hash
-            FROM openodin_licensee_hashes AS hashes, openodin_nodes AS nodes
+            FROM openodin_licensing_hashes AS hashes, openodin_nodes AS nodes
             WHERE hashes.hash IN ${ph} AND hashes.id1 = nodes.id1 AND
             (nodes.expiretime IS NULL OR nodes.expiretime > ${now})
-            AND nodes.creationTime <= ${now2};`;
+            AND nodes.creationTime <= ${now2} AND nodes.isinactive = 0;`;
 
             try {
                 const rows = await this.db.all(sql, hashes);
@@ -807,7 +779,7 @@ export class Driver implements DriverInterface {
      *
      * @returns list of nodes not destroyed.
      */
-    protected async filterDestroyed(nodes: NodeInterface[]): Promise<NodeInterface[]> {
+    protected async filterDestroyed(nodes: BaseNodeInterface[]): Promise<BaseNodeInterface[]> {
         const allHashes: Buffer[] = [];
 
         const nodesLength = nodes.length;
@@ -838,8 +810,8 @@ export class Driver implements DriverInterface {
             destroyed[id1Str] = true;
         }
 
-        return nodes.filter( (node: NodeInterface) => {
-            const id1 = node.getId1() as Buffer;
+        return nodes.filter( (node: BaseNodeInterface) => {
+            const id1 = node.getProps().id1 as Buffer;
             const id1Str = id1.toString("hex");
             return !destroyed[id1Str];
         });
@@ -859,18 +831,22 @@ export class Driver implements DriverInterface {
      *
      * @throws on error.
      */
-    protected async filterExisting(nodes: NodeInterface[], preserveTransient: boolean = false): Promise<NodeInterface[]> {
+    protected async filterExisting(nodes: BaseNodeInterface[], preserveTransient: boolean = false): Promise<BaseNodeInterface[]> {
         const toKeep: {[id1: string]: {transientHash: Buffer | undefined, keep: boolean}} = {};
+
+        if (nodes.length === 0) {
+            return [];
+        }
 
         const id1s: Buffer[] = [];
 
         const nodesLength = nodes.length;
         for (let index=0; index<nodesLength; index++) {
             const node = nodes[index];
-            const id1 = node.getId1() as Buffer;
+            const id1 = node.getProps().id1 as Buffer;
             const id1Str = id1.toString("hex");
 
-            const transientHash = preserveTransient && node.hasTransient() ? node.hashTransient() : undefined;
+            const transientHash = preserveTransient ? node.hashTransient() : undefined;
 
             toKeep[id1Str] = {
                 transientHash,
@@ -901,8 +877,8 @@ export class Driver implements DriverInterface {
             nodeObj.keep = false;
         }
 
-        return nodes.filter( (node: NodeInterface) => {
-            const id1Str = (node.getId1() as Buffer).toString("hex");
+        return nodes.filter( (node: BaseNodeInterface) => {
+            const id1Str = (node.getProps().id1 as Buffer).toString("hex");
             return toKeep[id1Str].keep;
         });
     }
@@ -910,7 +886,7 @@ export class Driver implements DriverInterface {
     /**
      * Filter out nodes flagged as unique who's equivalent already exists in the database.
      *
-     * A match on sharedHashes but where also the id1s are equals is not treated
+     * A match on uniqueHashes but where also the id1s are equals is not treated
      * as a clash and such a node is not filterd out but returned instead.
      * This is necessary if a store is updating the transient value of an already
      * existing node which also isUnique.
@@ -921,54 +897,46 @@ export class Driver implements DriverInterface {
      *
      * @throws on error.
      */
-    protected async filterUnique(nodes: NodeInterface[]): Promise<NodeInterface[]> {
-        const exists: {[hash: string]: Buffer} = {};
-
-        const hashes: {[hash: string]: boolean} = {};
-
-        const shared_hashes: Buffer[] = [];
+    protected async filterUnique(nodes: BaseNodeInterface[]): Promise<BaseNodeInterface[]> {
+        const unique_hashes: Buffer[] = [];
 
         const nodesLength = nodes.length;
         for (let index=0; index<nodesLength; index++) {
             const node = nodes[index];
 
-            if (node.isUnique()) {
-                const hash = node.hashShared();
-                const hashStr = hash.toString("hex");
-
-                if (!hashes[hashStr]) {
-                    shared_hashes.push(hash);
-                    hashes[hashStr] = true;
-                }
+            if (node.loadFlags().isUnique) {
+                unique_hashes.push(node.uniqueHash());
             }
         }
 
-        if (shared_hashes.length === 0) {
+        if (unique_hashes.length === 0) {
             return nodes;
         }
 
-        const ph = this.db.generatePlaceholders(shared_hashes.length);
+        const ph = this.db.generatePlaceholders(unique_hashes.length);
 
-        const sql = `SELECT id1, sharedhash from openodin_nodes WHERE sharedhash IN ${ph};`;
+        const sql = `SELECT id1, uniquehash from openodin_nodes WHERE uniquehash IN ${ph};`;
 
-        const rows = await this.db.all(sql, shared_hashes);
+        const rows = await this.db.all(sql, unique_hashes);
+
+        const exists: {[hash: string]: Buffer} = {};
 
         const rowsLength = rows.length;
         for (let index=0; index<rowsLength; index++) {
             const row = rows[index];
-            const sharedHashStr = (row.sharedhash as Buffer).toString("hex");
-            exists[sharedHashStr] = row.id1;
+            const uniqueHashStr = (row.uniquehash as Buffer).toString("hex");
+            exists[uniqueHashStr] = row.id1;
         }
 
-        return nodes.filter( (node: NodeInterface) => {
-            if (node.isUnique()) {
-                const sharedHashStr = node.hashShared().toString("hex");
+        return nodes.filter( (node: BaseNodeInterface) => {
+            if (node.loadFlags().isUnique) {
+                const uniqueHashStr = node.uniqueHash().toString("hex");
 
-                if (!exists[sharedHashStr]) {
+                if (!exists[uniqueHashStr]) {
                     return true;
                 }
 
-                return exists[sharedHashStr].equals(node.getId1() as Buffer);
+                return exists[uniqueHashStr].equals(node.getProps().id1 as Buffer);
             }
 
             return true;
@@ -983,18 +951,16 @@ export class Driver implements DriverInterface {
      *
      * License nodes have their hashes inserted into the `licensing_hashes` table.
      *
-     * Special Data destroy nodes have their hashes inserted into the `killer_hashes` table.
+     * Special Data destroy nodes have their hashes inserted into the `destroy_hashes` table.
      *
      * Special Data friend cert bearer nodes have their embedded certs inserted into the `friend_certs` table.
      *
      * This function expects to be already within a transaction.
      *
-     * @returns parentIds to be triggered for updates due to id2 nodes becoming invalid.
-     *
      * @throws on error
      */
-    protected async storeNodes(nodes: NodeInterface[], now: number,
-        preserveTransient: boolean = false): Promise<Buffer[]>
+    protected async storeNodes(nodes: BaseNodeInterface[], now: number,
+        preserveTransient: boolean = false)
     {
         const destroyHashes = this.extractDestroyHashes(nodes);
 
@@ -1002,7 +968,7 @@ export class Driver implements DriverInterface {
 
         const friendCerts = this.extractFriendCerts(nodes);
 
-        const licenseeHashes = this.extractLicenseeHashes(nodes);
+        const licensingHashes = this.extractLicensingHashes(nodes);
 
         if (destroyHashes.length > 0) {
             await this.insertDestroyHashes(destroyHashes);
@@ -1016,68 +982,54 @@ export class Driver implements DriverInterface {
             await this.insertFriendCerts(friendCerts);
         }
 
-        if (licenseeHashes.length > 0) {
-            await this.insertLicenseeHashes(licenseeHashes);
+        if (licensingHashes.length > 0) {
+            await this.insertLicensingHashes(licensingHashes);
         }
 
-        const parentIds = await this.insertNodes(nodes, now, preserveTransient);
-
-        return parentIds;
+        await this.insertNodes(nodes, now, preserveTransient);
     }
 
-    protected extractDestroyHashes(nodes: NodeInterface[]): InsertDestroyHash[] {
+    protected extractDestroyHashes(nodes: BaseNodeInterface[]): InsertDestroyHash[] {
         const destroyHashes: InsertDestroyHash[] = [];
 
         const nodesLength = nodes.length;
         for (let i=0; i<nodesLength; i++) {
             const node = nodes[i];
-            const id1 = node.getId1() as Buffer;
 
-            if (!node.getType(4).equals(Data.GetType(4))) {
+            if (!BaseDataNode.Is(node.getProps().modelType)) {
                 continue;
             }
 
-            const data = node as DataInterface;
+            const baseDataNode = node as BaseDataNodeInterface;
 
-            if (!data.isSpecial()) {
+            const flags = baseDataNode.loadFlags();
+
+            if (!flags.isDestroy || flags.isInactive) {
                 continue;
             }
 
-            const topic = data.getData()?.toString() ?? "";
+            const id1 = baseDataNode.getProps().id1;
+            const owner = baseDataNode.getProps().owner;
+            const refId = baseDataNode.getProps().refId;
 
-            if (!topic.startsWith(SPECIAL_NODES.DESTROY)) {
-                continue;
+            if (id1 && owner && refId) {
+                destroyHashes.push({
+                    id1,
+                    hash: HashList([Buffer.from("destroy"), owner, refId]),
+                });
             }
-
-            const innerHash = data.getRefId();
-            const ownerPublicKey = data.getOwner();
-
-            if (!innerHash || !ownerPublicKey) {
-                continue;
-            }
-
-            if (topic === SPECIAL_NODES.DESTROY_SELF_TOTAL_DESTRUCT) {
-                if (data.getDifficulty() ?? 0 < MIN_DIFFICULTY_TOTAL_DESTRUCTION) {
-                    continue;
-                }
-            }
-
-            destroyHashes.push({
-                id1,
-                hash: Hash([topic, ownerPublicKey, innerHash]),
-            });
         }
 
         return destroyHashes;
     }
 
-    protected extractAchillesHashes(nodes: NodeInterface[]): InsertAchillesHash[] {
+    protected extractAchillesHashes(nodes: BaseNodeInterface[]): InsertAchillesHash[] {
         const achillesHashes: InsertAchillesHash[] = [];
 
         const nodesLength = nodes.length;
         for (let i=0; i<nodesLength; i++) {
             const node = nodes[i];
-            const id1 = node.getId1() as Buffer;
+            const id1 = node.getProps().id1 as Buffer;
 
             const hashes = node.getAchillesHashes();
 
@@ -1094,91 +1046,78 @@ export class Driver implements DriverInterface {
         return achillesHashes;
     }
 
-    protected extractFriendCerts(nodes: NodeInterface[]): InsertFriendCert[] {
+    protected extractFriendCerts(nodes: BaseNodeInterface[]): InsertFriendCert[] {
         const friendCerts: InsertFriendCert[] = [];
 
         const nodesLength = nodes.length;
         for (let i=0; i<nodesLength; i++) {
             const node = nodes[i];
-            const id1 = node.getId1() as Buffer;
 
-            if (!node.getType(4).equals(Data.GetType(4))) {
+            if (!CarrierNode.Is(node.getProps().modelType)) {
                 continue;
             }
 
-            const data = node as DataInterface;
+            const carrierNode = node as CarrierNodeInterface;
 
-            if (!data.isSpecial()) {
+            if (carrierNode.loadFlags().isInactive) {
                 continue;
             }
 
-            const topic = data.getData()?.toString() ?? "";
-
-            if (topic !== SPECIAL_NODES.FRIENDCERT) {
+            if (!carrierNode.getProps().friendCert) {
                 continue;
             }
 
-            const embedded = data.getEmbedded();
+            const friendCert = carrierNode.loadFriendCert();
 
-            if (!embedded) {
-                continue;
-            }
+            const id1 = carrierNode.getId1();
+            const owner = friendCert.getProps().owner;
+            const constraints = friendCert.getProps().constraints;
 
-            try {
-                const cert = data.getEmbeddedObject() as FriendCertInterface;
-
-                if (cert.getType(4).equals(FriendCert.GetType(4))) {
-                    const issuer = cert.getIssuerPublicKey();
-
-                    const constraints = cert.getConstraints();
-
-                    if (issuer && constraints) {
-                        friendCerts.push({
-                            id1,
-                            issuer,
-                            constraints,
-                            image: embedded,
-                        });
-                    }
-                }
-            }
-            catch(e) {
-                // Do nothing.
+            if (id1 && owner && constraints) {
+                friendCerts.push({
+                    id1,
+                    owner,
+                    constraints,
+                    image: friendCert.getPacked(),
+                });
             }
         }
 
         return friendCerts;
     }
 
-    protected extractLicenseeHashes(nodes: NodeInterface[]): InsertLicenseeHash[] {
-        const licenseeHashes: InsertLicenseeHash[] = [];
+    protected extractLicensingHashes(nodes: BaseNodeInterface[]): InsertLicensingHash[] {
+        const licensingHashes: InsertLicensingHash[] = [];
 
         const nodesLength = nodes.length;
         for (let i=0; i<nodesLength; i++) {
             const node = nodes[i];
-            const id1 = node.getId1() as Buffer;
+            const id1 = node.getProps().id1 as Buffer;
 
-            if (!node.getType(4).equals(License.GetType(4))) {
+            if (!BaseLicenseNode.Is(node.getProps().modelType)) {
                 continue;
             }
 
-            const license = node as License;
-            const hashes = license.getLicenseeHashes();
+            const license = node as BaseLicenseNodeInterface;
+            const hashes = license.getLicensingHashes();
 
             const hashesLength = hashes.length;
             for (let index=0; index<hashesLength; index++) {
-                licenseeHashes.push({
+
+                const flags = license.loadFlags();
+
+                licensingHashes.push({
                     id1,
                     hash: hashes[index],
-                    disallowretrolicensing: license.disallowRetroLicensing() ? 1 : 0,
-                    parentpathhash: license.getParentPathHash(),
-                    restrictivemodewriter: license.isRestrictiveModeWriter() ? 1 : 0,
-                    restrictivemodemanager: license.isRestrictiveModeManager() ? 1 : 0,
+                    disallowretrolicensing: flags.disallowRetroLicensing ? 1 : 0,
+                    parentpathhash: license.getProps().parentPathHash,
+                    restrictivemodewriter: flags.restrictiveModeWriter ? 1 : 0,
+                    restrictivemodemanager: flags.restrictiveModeManager ? 1 : 0,
                 });
             }
         }
 
-        return licenseeHashes;
+        return licensingHashes;
     }
 
     /**
@@ -1207,22 +1146,22 @@ export class Driver implements DriverInterface {
     }
 
     /**
-     * Insert licensee hashes.
+     * Insert licensing hashes.
      *
      * It is expected there is a surrounding transaction in play.
      *
      * @throws on error
      */
-    protected async insertLicenseeHashes(licenseeHashes: InsertLicenseeHash[]): Promise<void> {
-        if (licenseeHashes.length === 0) {
+    protected async insertLicensingHashes(licensingHashes: InsertLicensingHash[]): Promise<void> {
+        if (licensingHashes.length === 0) {
             return;
         }
 
         const params: any[] = [];
 
-        const length = licenseeHashes.length;
+        const length = licensingHashes.length;
         for (let index=0; index<length; index++) {
-            const obj = licenseeHashes[index];
+            const obj = licensingHashes[index];
             params.push(obj.id1,
                 obj.hash,
                 obj.disallowretrolicensing,
@@ -1232,9 +1171,9 @@ export class Driver implements DriverInterface {
             );
         }
 
-        const ph = this.db.generatePlaceholders(6, licenseeHashes.length);
+        const ph = this.db.generatePlaceholders(6, licensingHashes.length);
 
-        await this.db.run(`INSERT INTO openodin_licensee_hashes
+        await this.db.run(`INSERT INTO openodin_licensing_hashes
             (id1, hash, disallowretrolicensing, parentpathhash, restrictivemodewriter, restrictivemodemanager) VALUES ${ph};`,
             params);
     }
@@ -1299,12 +1238,12 @@ export class Driver implements DriverInterface {
         const length = friendCerts.length;
         for (let index=0; index<length; index++) {
             const obj = friendCerts[index];
-            params.push(obj.issuer, obj.constraints, obj.image, obj.id1);
+            params.push(obj.owner, obj.constraints, obj.image, obj.id1);
         }
 
         const ph = this.db.generatePlaceholders(4, friendCerts.length);
 
-        await this.db.run(`INSERT INTO openodin_friend_certs (issuer, constraints, image, id1)
+        await this.db.run(`INSERT INTO openodin_friend_certs (owner, constraints, image, id1)
             VALUES ${ph};`, params);
     }
 
@@ -1314,11 +1253,11 @@ export class Driver implements DriverInterface {
      *
      * @throws on error
      */
-    protected async insertNodes(nodes: NodeInterface[], now: number,
-        preserveTransient: boolean = false): Promise<Buffer[]>
+    protected async insertNodes(nodes: BaseNodeInterface[], now: number,
+        preserveTransient: boolean = false)
     {
         if (nodes.length === 0) {
-            return [];
+            return;
         }
 
         if (!Number.isInteger(now)) {
@@ -1327,9 +1266,6 @@ export class Driver implements DriverInterface {
 
         const params: any[] = [];
 
-        // Keep track of id2 to clear isonline flags for.
-        //
-        const id2List: {[id2: string]: Buffer} = {};
 
         const length = nodes.length;
         for (let index=0; index<length; index++) {
@@ -1337,118 +1273,56 @@ export class Driver implements DriverInterface {
 
             let bumpHash: Buffer | null = null;
 
-            if (node.isLicensed()) {
-                bumpHash = Hash([node.getId1(), node.getParentId()]);
-            }
-            else if (node.hasRightsByAssociation()) {
-                bumpHash = Hash([node.getRefId(), node.getParentId()]);
-            }
+            const flags = node.loadFlags();
 
-            if (preserveTransient && node.hasOnlineId()) {
-                if (node.isOnlineIdValidated()) {
-                    const id1 = node.getId1();
-                    const id2 = node.getId2();
-                    if (id1 && id2) {
-                        const id2Str = id2.toString("hex");
-                        id2List[id2Str] = id1;
-                    }
-                }
+            if (flags.isLicensed) {
+                bumpHash = HashList([node.getProps().id1, node.getProps().parentId]);
+            }
+            else if (flags.hasRightsByAssociation) {
+                bumpHash = HashList([node.getProps().refId, node.getProps().parentId]);
             }
 
             params.push(
-                node.getId1(),
-                node.getId2() ?? null,
-                node.getId(),
-                node.getParentId(),
-                node.getCreationTime(),
-                node.getExpireTime() ?? null,
-                node.getRegion() ?? null,
-                node.getJurisdiction() ?? null,
-                node.getOwner(),
-                node.hasOnline() ? 1 : 0,
-                preserveTransient && node.hasOnline() && node.isOnline() ? 1 : 0,
-                node.isPublic() ? 1 : 0,
-                node.isLicensed() ? 1 : 0,
-                node.disallowParentLicensing() ? 1 : 0,
-                node.isLeaf() ? 1 : 0,
-                node.getDifficulty() ?? 0,
-                node.hashShared(),
-                preserveTransient && node.hasTransient() ? node.hashTransient() : null,
+                node.getProps().id1,
+                node.getProps().id2 ?? null,
+                node.getProps().id,
+                node.getProps().parentId,
+                node.getProps().creationTime,
+                node.getProps().expireTime ?? null,
+                node.getProps().region ?? null,
+                node.getProps().jurisdiction ?? null,
+                node.getProps().owner,
+                preserveTransient && flags.isInactive ? 1 : 0,
+                flags.isPublic ? 1 : 0,
+                flags.isLicensed ? 1 : 0,
+                flags.disallowParentLicensing ? 1 : 0,
+                flags.isLeaf ? 1 : 0,
+                node.getProps().difficulty ?? 0,
+                flags.isUnique ? node.uniqueHash() : node.getProps().id1,  // if not unique then use id1 as placeholder
+                preserveTransient ? node.hashTransient() : null,
                 now,
                 now,
                 now,
                 bumpHash,
-                node.export(preserveTransient && node.hasTransient()));
+                node.pack(preserveTransient));
         }
 
-        const ph = this.db.generatePlaceholders(23, nodes.length);
+        const ph = this.db.generatePlaceholders(22, nodes.length);
 
-        let sql: string;
-
-        if (preserveTransient) {
-            sql = `INSERT INTO openodin_nodes
-            (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner, hasonline,
-            isonline, ispublic, islicensed, disallowparentlicensing, isleaf,
-            difficulty, sharedhash, transienthash, storagetime, updatetime, trailupdatetime, bumphash, image)
-            VALUES ${ph}
-            ON CONFLICT (id1) DO UPDATE SET
-            transienthash=excluded.transienthash,
-            updatetime=excluded.updatetime,
-            trailupdatetime=excluded.trailupdatetime,
-            isonline=excluded.isonline,
-            image=excluded.image;`
-        }
-        else {
-            sql = `INSERT INTO openodin_nodes
-            (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner, hasonline,
-            isonline, ispublic, islicensed, disallowparentlicensing, isleaf,
-            difficulty, sharedhash, transienthash, storagetime, updatetime, trailupdatetime, bumphash, image)
-            VALUES ${ph}
-            ON CONFLICT (id1) DO NOTHING;`
-        }
+        const sql = `INSERT INTO openodin_nodes
+        (id1, id2, id, parentid, creationtime, expiretime, region, jurisdiction, owner,
+        isinactive, ispublic, islicensed, disallowparentlicensing, isleaf, difficulty,
+        uniquehash, transienthash, storagetime, updatetime, trailupdatetime, bumphash, image)
+        VALUES ${ph} ` + (preserveTransient ? `
+        ON CONFLICT (id1) DO UPDATE SET
+        transienthash=excluded.transienthash,
+        updatetime=excluded.updatetime,
+        trailupdatetime=excluded.trailupdatetime,
+        isinactive=excluded.isinactive,
+        image=excluded.image;` :
+        `ON CONFLICT (id1) DO NOTHING;`);
 
         await this.db.run(sql, params);
-
-        const id2s = Object.keys(id2List).map( id2Str => Buffer.from(id2Str, "hex") );
-
-        if (id2s.length > 0) {
-            const id1s = Object.values(id2List);
-
-            const parentIds = await this.clearIsOnlineId2Nodes(id2s, id1s);
-
-            return parentIds;
-        }
-
-        return [];
-    }
-
-    /**
-     * Clear the isonline flag for all nodes who have id2 in the given list but
-     * are not in the given id1 list.
-     *
-     * The reason id2s and id1s are list is to be able to do many updates in a single UPDATE statement.
-     */
-    protected async clearIsOnlineId2Nodes(id2s: Buffer[], id1s: Buffer[]): Promise<Buffer[]> {
-        // TODO test properly
-        //
-        const params: Buffer[] = [];
-
-        const phId2 = this.db.generatePlaceholders(id2s.length);
-
-        params.push(...id2s);
-
-        const phId1 = this.db.generatePlaceholders(id1s.length, 1, params.length + 1);
-
-        params.push(...id1s);
-
-        const sql = `UPDATE openodin_nodes SET isonline=0 WHERE id2 IN ${phId2}
-            AND id1 NOT IN ${phId1} RETURNING id1 as parentid;`;
-
-        const rows = await this.db.all(sql, params);
-
-        const parentIds = rows.map( row => row.parentid );
-
-        return [... new Set(parentIds)];
     }
 
     /**
@@ -1498,17 +1372,17 @@ export class Driver implements DriverInterface {
     }
 
     public async deleteNodes(id1s: Buffer[]) {
-        this.db.exec("BEGIN;");
+        await this.db.exec("BEGIN;");
 
         try {
             await this.deleteNodesInner(id1s);
         }
         catch(e) {
-            this.db.exec("ROLLBACK;");
+            await this.db.exec("ROLLBACK;");
             throw e;
         }
 
-        this.db.exec("COMMIT;");
+        await this.db.exec("COMMIT;");
     }
 
     /**
@@ -1526,7 +1400,7 @@ export class Driver implements DriverInterface {
 
             await this.db.run(`DELETE FROM openodin_achilles_hashes AS t WHERE t.id1 IN ${ph};`, id1s);
 
-            await this.db.run(`DELETE FROM openodin_licensee_hashes AS t WHERE t.id1 IN ${ph};`, id1s);
+            await this.db.run(`DELETE FROM openodin_licensing_hashes AS t WHERE t.id1 IN ${ph};`, id1s);
 
             await this.db.run(`DELETE FROM openodin_destroy_hashes AS t WHERE t.id1 IN ${ph};`, id1s);
 
@@ -1553,7 +1427,7 @@ export class Driver implements DriverInterface {
         this.db.off("error", fn);
     }
 
-    public close() {
-        this.db.close();
+    public async close() {
+        return this.db.close();
     }
 }

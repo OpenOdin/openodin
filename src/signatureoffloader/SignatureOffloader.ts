@@ -5,12 +5,10 @@ import {
 } from "../util/RPC";
 
 import {
+    Krypto,
     KeyPair,
-} from "../datamodel/types";
-
-import {
-    DataModelInterface,
-} from "../datamodel/interface";
+    BaseModelInterface,
+} from "../datamodel";
 
 import Worker from "web-worker";
 
@@ -131,78 +129,87 @@ export class SignatureOffloader implements SignatureOffloaderInterface {
     }
 
     /**
-     * Sign data models in place using workers threads, set signature and id1 of signed datamodels.
+     * Sign data models in place using workers threads, set signature and id1 of signed models.
      * Note that for best performance do batch calls to this function, in contrast to calling the
      * function repeatedly with a single node to be signed (if there are multiple nodes to be signed).
      *
-     * @param datamodels all data models to be signed in place.
+     * @param models all models to be signed in place.
      * @param publicKey the public key used for signing. The key pair must already have been added.
      * @param deepValidate if true (default) then run a deep validation prior to signing,
-     * if any datamodel does not validate then abort signing. Note that any signatures are not checked
+     * if any model does not validate then abort signing. Note that any signatures are not checked
      * as part of the validaton since this is prior to signing.
      *
-     * @throws if threading is not available, validation fails or signing fails, in such case no datamodels will have been signed.
+     * @throws if threading is not available, validation fails or signing fails, in such case no models will have been signed.
      */
-    public async sign(datamodels: DataModelInterface[], publicKey: Buffer, deepValidate: boolean = true): Promise<void> {
+    public async sign(models: BaseModelInterface[], publicKey: Buffer, deepValidate: boolean = true): Promise<void> {
         if (!this.publicKeys.some( publicKey2 => publicKey2.equals(publicKey))) {
             assert(false, "expecting keypair to have been added to SignatureOffloader");
         }
 
         const toBeSigned: ToBeSigned[] = [];
-        const datamodelsLength = datamodels.length;
+        const datamodelsLength = models.length;
         for (let index=0; index<datamodelsLength; index++) {
-            const datamodel = datamodels[index];
+            const model = models[index];
 
-            const val = datamodel.validate(deepValidate ? 2 : 0);
+            const val = model.validate(deepValidate);
+
             if (!val[0]) {
-                throw new Error(`A datamodel did not validate prior to signing: ${val[1]}`);
+                throw new Error(`A model did not validate prior to signing: ${val[1]}`);
             }
 
-            // Might throw
-            datamodel.enforceSigningKey(publicKey);
-            toBeSigned.push({index, message: datamodel.hash(), publicKey});
+            toBeSigned.push({index, message: model.hashToSign(), publicKey});
         }
 
         // Might throw
         const signatures: SignedResult[] = await this.signer(toBeSigned);
-        if (signatures.length !== datamodels.length) {
-            throw new Error("Not all datamodels could be signed.");
+        if (signatures.length !== models.length) {
+            throw new Error("Not all models could be signed.");
         }
 
-        // Apply signatures to all datamodels.
+        let type = -1;
+
+        if (Krypto.IsEd25519(publicKey)) {
+            type = Krypto.ED25519.TYPE;
+        }
+        else if (Krypto.IsEthereum(publicKey)) {
+            type = Krypto.ETHEREUM.TYPE;
+        }
+
+        // Apply signatures to all models.
         for (let i=0; i<signatures.length; i++) {
             const {index, signature} = signatures[i];
-            const datamodel = datamodels[index];
-            datamodel.addSignature(Buffer.from(signature), publicKey);
-            datamodel.setId1(datamodel.calcId1());
+            const model = models[index];
+
+            model.addSignature(Buffer.from(signature), publicKey, type);
         }
     }
 
     /**
-     * Cryptographically deep verify and deep validate datamodels (nodes/certs) using worker threads.
+     * Cryptographically deep verify and deep validate models (nodes/certs) using worker threads.
      * Note that for best performance do batch calls to this function, in contrast to calling the
      * function repeatedly with a single node to be verified (if there are multiple nodes to be verified).
      *
-     * @param datamodels to validate.
-     * @returns array datamodels which did verify.
+     * @param models to validate.
+     * @returns array models which did verify.
      * @throws on threading failure.
      */
-    public async verify(datamodels: DataModelInterface[]): Promise<DataModelInterface[]> {
-        const verifiedNodes: DataModelInterface[] = [];
+    public async verify(models: BaseModelInterface[]): Promise<BaseModelInterface[]> {
+        const verifiedNodes: BaseModelInterface[] = [];
         // Extract all signatures from the node, also including from embedded nodes and certs.
         const signaturesList: SignaturesCollection[] = [];
 
-        const datamodelsLength = datamodels.length;
+        const datamodelsLength = models.length;
         for (let index=0; index<datamodelsLength; index++) {
-            const datamodel = datamodels[index];
+            const model = models[index];
             try {
-                signaturesList.push({index, signatures: datamodel.extractSignatures()});
+                signaturesList.push({index, signatures: model.getSignaturesRecursive()});
             }
             catch(e) {
-                // Deep unpacking not available on model, skip this model.
+                // Cannot extract signatures.
                 // Do nothing.
             }
         }
+
 
         // Cryptographically verify in separate threads all the signatures extracted
         // Will throw on threading failure.
@@ -212,10 +219,10 @@ export class SignatureOffloader implements SignatureOffloaderInterface {
         for (let i=0; i<verifiedIndexesLength; i++) {
             const index = verifiedIndexes[i];
 
-            const datamodel = datamodels[index];
+            const model = models[index];
 
-            if (datamodel.validate(1)[0]) {
-                verifiedNodes.push(datamodel);
+            if (model.validate(true)[0]) {
+                verifiedNodes.push(model);
             }
         }
 
@@ -223,6 +230,8 @@ export class SignatureOffloader implements SignatureOffloaderInterface {
     }
 
     protected async verifier(signaturesCollections: SignaturesCollection[]): Promise<number[]> {
+        signaturesCollections = signaturesCollections.slice();
+
         return new Promise( (resolve, reject) => {
             if (this.cryptoWorkers.length === 0) {
                 reject("No cryptoWorkers available for signature verification.");
@@ -270,6 +279,8 @@ export class SignatureOffloader implements SignatureOffloaderInterface {
     }
 
     protected async signer(toBeSigned: ToBeSigned[]): Promise<SignedResult[]> {
+        toBeSigned = toBeSigned.slice();
+
         return new Promise( (resolve, reject) => {
             if (this.cryptoWorkers.length === 0) {
                 reject("No cryptoWorkers available for signing.");

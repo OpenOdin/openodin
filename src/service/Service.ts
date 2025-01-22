@@ -18,10 +18,6 @@ import {
 } from "../signatureoffloader/types";
 
 import {
-    Decoder,
-} from "../decoder";
-
-import {
     P2PClient,
     AutoFetch,
     P2PClientForwarder,
@@ -43,15 +39,14 @@ import {
 } from "../storage";
 
 import {
-    PrimaryNodeCertInterface,
-    AuthCertInterface,
-    DataInterface,
-    CMP,
-    Hash,
-    DATA0_NODE_TYPE,
     KeyPair,
-    Data,
-    AuthCertConstraintValues,
+    AuthCert,
+    AuthCertInterface,
+    SignCert,
+    SignCertInterface,
+    Hash,
+    CarrierNodeType,
+    CMP,
 } from "../datamodel";
 
 import {
@@ -167,7 +162,7 @@ type ServiceConfig = {
     authCert?: AuthCertInterface,
 
     /** Certificates used for signing new nodes when having authenticated using an Auth Cert. */
-    nodeCerts: PrimaryNodeCertInterface[],
+    signCerts: SignCertInterface[],
 
     /** Set if using a database (either in-mem or disk-backed). Mutually exclusive to storageConnectionConfigs. */
     databaseConfig?: DatabaseConfig,
@@ -268,8 +263,8 @@ export class Service {
             throw new Error("Unknown ApplicationConf format, expecting 1");
         }
 
-        if (walletConf.authCert && !walletConf.nodeCerts?.length) {
-            throw new Error("When using an authCert also nodeCerts are required");
+        if (walletConf.authCert && !walletConf.signCerts?.length) {
+            throw new Error("When using an authCert also signCerts are required");
         }
 
         this.applicationConf   = DeepCopy(applicationConf) as ApplicationConf;
@@ -280,7 +275,7 @@ export class Service {
         this.sharedStorageFactoriesSocketFactoryStats = {counters: {}};
 
         this.config = {
-            nodeCerts: [],
+            signCerts: [],
             peerConnectionConfigs: [],
             storageConnectionConfigs: [],
             autoFetch: {},
@@ -316,8 +311,8 @@ export class Service {
             await this.setAuthCert(this.walletConf.authCert);
         }
 
-        for (let i=0; i<this.walletConf.nodeCerts.length; i++) {
-            await this.addNodeCert(this.walletConf.nodeCerts[i]);
+        for (let i=0; i<this.walletConf.signCerts.length; i++) {
+            await this.addSignCert(this.walletConf.signCerts[i]);
         }
 
         if (this.walletConf.storage.peer) {
@@ -503,7 +498,7 @@ export class Service {
      */
     public getPublicKey(): Buffer {
         if (this.config.authCert) {
-            const publicKey = this.config.authCert.getIssuerPublicKey();
+            const publicKey = this.config.authCert.getProps().owner;
             assert(publicKey && publicKey.length > 0);
             return CopyBuffer(publicKey);
         }
@@ -543,18 +538,20 @@ export class Service {
      * the auth cert will not be online verified at this point.
      * The receiving side of a auth cert always validates it online.
      *
-     * @param image
+     * @param packed
      * @throws
      */
-    public async setAuthCert(image?: Buffer | undefined) {
+    public async setAuthCert(packed?: Buffer | undefined) {
 
         if (this._isRunning) {
             throw new Error("Cannot set auth cert while running.");
         }
 
 
-        if (image) {
-            const authCert = Decoder.DecodeAuthCert(image);
+        if (packed) {
+            const authCert = new AuthCert(packed);
+
+            authCert.unpack();
 
             if (authCert && (await this.signatureOffloader.verify([authCert])).length === 0) {
                 throw new Error("Invalid AuthCert provided, cert could not be verified.");
@@ -586,59 +583,71 @@ export class Service {
     }
 
     /**
-     * Add NodeCert.
+     * Add SignCert.
      *
      * The cert will get decoded and cryptographically verified, but not online verified.
      * The receiving storage will always online verify certificates (if applicable).
-     * @param image
+     * @param packed
      * @throws
      */
-    public async addNodeCert(image: Buffer) {
-        const nodeCert = Decoder.DecodeNodeCert(image);
+    public async addSignCert(packed: Buffer) {
+        const signCert = new SignCert(packed);
 
-        if (this.config.nodeCerts.some( (nodeCert2: PrimaryNodeCertInterface) => nodeCert2.calcId1().equals(nodeCert.calcId1()) )) {
+        signCert.unpack();
+
+        const id1 = signCert.getProps().id1;
+
+        assert(id1);
+
+        if (this.config.signCerts.some(
+            (signCert2: SignCertInterface) => signCert2.getProps().id1?.equals(id1)))
+        {
             // Already exists.
             return;
         }
 
-        if ((await this.signatureOffloader.verify([nodeCert])).length === 0) {
-            throw new Error("Invalid NodeCert provided, could not be verified.");
+        if ((await this.signatureOffloader.verify([signCert])).length === 0) {
+            throw new Error("Invalid signCert provided, could not be verified.");
         }
 
-        this.config.nodeCerts.push(nodeCert);
+        this.config.signCerts.push(signCert);
 
         // hot-update the extenders with new list.
         this.state.extenderServers.forEach( (extender: P2PClientExtender) => {
-            extender.setNodeCerts(this.config.nodeCerts);
+            extender.setSignCerts(this.config.signCerts);
         });
 
         // hot-update the NodeUtil with new cert list.
-        this.nodeUtil.setNodeCerts(this.config.nodeCerts);
+        this.nodeUtil.setSignCerts(this.config.signCerts);
     }
 
     /**
      * Remove specific node cert from the config and from all extenders.
-     * @param nodeCert to be removed.
+     * @param signCert to be removed.
      */
-    public removeNodeCert(nodeCert: PrimaryNodeCertInterface) {
-        this.config.nodeCerts = this.config.nodeCerts.filter( (nodeCert2: PrimaryNodeCertInterface) => {
-            return !nodeCert.calcId1().equals(nodeCert2.calcId1());
+    public removeSignCert(signCert: SignCertInterface) {
+        const id1 = signCert.getProps().id1;
+
+        assert(id1);
+
+        this.config.signCerts = this.config.signCerts.filter( (signCert2: SignCertInterface) => {
+            return signCert2.getProps().id1?.equals(id1);
         });
 
         // hot-update the extenders with new cert list.
         this.state.extenderServers.forEach( (extender: P2PClientExtender) => {
-            extender.setNodeCerts(this.config.nodeCerts);
+            extender.setSignCerts(this.config.signCerts);
         });
 
         // hot-update the NodeUtil with new cert list.
-        this.nodeUtil.setNodeCerts(this.config.nodeCerts);
+        this.nodeUtil.setSignCerts(this.config.signCerts);
     }
 
     /**
      * @returns array copy of all node certs.
      */
-    public getNodeCerts(): PrimaryNodeCertInterface[] {
-        return this.config.nodeCerts.slice();
+    public getSignCerts(): SignCertInterface[] {
+        return this.config.signCerts.slice();
     }
 
     /**
@@ -961,6 +970,8 @@ export class Service {
                             connectionConfig.jurisdiction);
 
                     if (status !== 0) {
+                        console.debug("AuthCert did not validate", error);
+
                         const peerAuthCertErrorEvent: Parameters<ServicePeerAuthCertErrorCallback> =
                             [new Error(error), authCert];
 
@@ -1228,21 +1239,21 @@ export class Service {
      * Init a handshake factory for connecting with remote storage.
      */
     protected async initStorageConnectionFactory(connectionConfig: ConnectionConfig):
-    Promise<HandshakeFactoryInterface>
-        {
-            const pingInterval = connectionConfig.connection.handshake?.pingInterval ??
-            connectionConfig.connection.api?.pingInterval ?? 0;
+        Promise<HandshakeFactoryInterface>
+    {
+        const pingInterval = connectionConfig.connection.handshake?.pingInterval ??
+        connectionConfig.connection.api?.pingInterval ?? 0;
 
-            const handshakeFactory = await this.authFactory.create(connectionConfig.connection);
+        const handshakeFactory = await this.authFactory.create(connectionConfig.connection);
 
-            const storageFactoryCreateEvent: Parameters<ServiceStorageFactoryCreateCallback> =
-            [handshakeFactory];
+        const storageFactoryCreateEvent: Parameters<ServiceStorageFactoryCreateCallback> =
+        [handshakeFactory];
 
-            this.triggerEvent(EVENT_SERVICE_STORAGE_FACTORY_CREATE, ...storageFactoryCreateEvent);
+        this.triggerEvent(EVENT_SERVICE_STORAGE_FACTORY_CREATE, ...storageFactoryCreateEvent);
 
 
-            handshakeFactory.onHandshake( async (isServer: boolean, client: ClientInterface,
-                wrappedClient: ClientInterface, handshakeResult: HandshakeResult) =>
+        handshakeFactory.onHandshake( async (isServer: boolean, client: ClientInterface,
+            wrappedClient: ClientInterface, handshakeResult: HandshakeResult) =>
             {
                 try {
                     if (this.state.storageClient) {
@@ -1272,11 +1283,12 @@ export class Service {
 
                     if (authCert) {
                         const [status, error] = await this.validateAuthCert(authCert, p2pClient,
-                            remotePeerInfo.handshakePublicKey,
-                            connectionConfig.region,
+                            remotePeerInfo.handshakePublicKey, connectionConfig.region,
                             connectionConfig.jurisdiction);
 
                         if (status !== 0) {
+                            console.debug("AuthCert did not validate", error);
+
                             const storageAuthCertErrorEvent: Parameters<ServiceStorageAuthCertErrorCallback> =
                                 [new Error(error), authCert];
 
@@ -1351,7 +1363,7 @@ export class Service {
      * Furthermore if the auth cert is online in it self then we need to see that the cert is marked as validated.
      * We assume that the auth cert is already cryptographically verified and validated against its intended target.
      *
-     * @param authCert the binary to decode and check
+     * @param image the binary to decode and check
      * @param storageP2PClient the storage to be leveraged for checking the certificate
      * @param publicKey the publicKey to check auth cert constraints against
      * @param region the region to check auth cert constraints against
@@ -1359,83 +1371,72 @@ export class Service {
      *
      * @returns 0 if auth cert successfully validates in the storage.
      * 1 if the auth cert cannot be verified likely due to a destroy node destroying the cert.
-     * 2 if a online cert did not become validated within the timeout.
-     * 3 if the cert does not validate against its target.
+     * 2 if the cert does not validate against its target.
      *
      * If status > 0 then return error string as second argument in array
      */
-    protected async validateAuthCert(authCert: Buffer, storageP2PClient: P2PClient,
-        publicKey: Buffer, region?: string, jurisdiction?: string): Promise<[number, string?]> {
+    protected async validateAuthCert(image: Buffer, storageP2PClient: P2PClient,
+        publicKey: Buffer, region?: string, jurisdiction?: string): Promise<[number, string?]>
+    {
         // Validate auth cert against target
         //
-        const authCertObj = Decoder.DecodeAuthCert(authCert);
+        const authCert = new AuthCert(image);
 
-        const authConstraintvalues: AuthCertConstraintValues = {
-            publicKey,
-            creationTime: Date.now(),
-            region,
-            jurisdiction,
-        };
+        authCert.unpack();
 
-        const val = authCertObj.validateAgainstTarget(authConstraintvalues);
+        const val = authCert.validate(true);
 
         if (!val[0]) {
-            console.debug(`Could not validate auth cert againt target: ${val[1]}`);
+            console.debug(`Could not validate auth cert : ${val[1]}`);
 
-            return [3, "The auth cert does not validate against the target constraints (wrong publicKey, region or jurisdiction)"];
+            return [2, "The auth cert does not validate"];
         }
 
+        const props = authCert.getProps();
 
-        let wrappedAuthCertDataNode = await this.fetchAuthCertDataWrapper(authCert, storageP2PClient);
+        if (props.region) {
+            if (props.region !== region) {
+                return [2, "Region does not match in auth cert and connection"];
+            }
+        }
+
+        if (props.jurisdiction) {
+            if (props.jurisdiction !== jurisdiction) {
+                return [2, "Jurisdiction does not match in auth cert and connection"];
+            }
+        }
+
+        let wrappedAuthCertDataNode = await this.fetchAuthCertDataWrapper(image, storageP2PClient);
 
         if (!wrappedAuthCertDataNode) {
             // Attempt to store
-            if (! await this.storeAuthCertDataWrapper(authCert, storageP2PClient)) {
-                return [1, "The auth cert could not be verified likely due to a destroy node destroying the cert"];
+            if (! await this.storeAuthCertDataWrapper(image, storageP2PClient)) {
+                return [1, "The auth cert could not be stored possibly due to a destroy node destroying the cert"];
             }
 
             // Read again
-            wrappedAuthCertDataNode = await this.fetchAuthCertDataWrapper(authCert, storageP2PClient);
+            wrappedAuthCertDataNode = await this.fetchAuthCertDataWrapper(image, storageP2PClient);
         }
 
         if (!wrappedAuthCertDataNode) {
             // It seems as there are destroy nodes present for the auth cert,
             // since it cannot be read back even if stored again.
-            return [1, "The auth cert could not be verified likely due to a destroy node destroying the cert"];
+            return [1, "The auth cert could not be read back possibly due to a destroy node destroying the cert"];
         }
 
-        if (!wrappedAuthCertDataNode.hasOnline()) {
-            // If the node is not online then we are all good already.
-            return [0];
-        }
-
-        // Node is online but not marked as validated.
-        // Fetch is immediately first, then wait i*3 secs before fetching it again
-        // to give it time to become online. Try three times in total.
-        for (let i=0; i<4; i++) {
-            // Sleep some to await cert potentially becoming valid.
-            await sleep(i * 3000);
-
-            // Now fetch the wrapper again, but tell it to ignore any non-valid nodes.
-            // Note we could solve this using preserveTransient, but storages are not require
-            // to support that feature. This way is rock solid.
-            wrappedAuthCertDataNode = await this.fetchAuthCertDataWrapper(authCert, storageP2PClient, true);
-            if (wrappedAuthCertDataNode) {
-                return [0];
-            }
-
-        }
-
-        return [2, "The auth cert could not validate within the timeout"];
+        return [0];
     }
 
-    protected async fetchAuthCertDataWrapper(authCert: Buffer, storageP2PClient: P2PClient, ignoreInactive: boolean = false): Promise<DataInterface | undefined> {
+    protected async fetchAuthCertDataWrapper(authCert: Buffer, storageP2PClient: P2PClient,
+        ignoreInactive: boolean = true): Promise<AuthCertInterface | undefined>
+    {
         const parentId = Hash(authCert);
 
         // A fetch request to query for data nodes wrapping the authcert.
         const fetchRequest = ParseSchema(FetchRequestSchema, {query: {
             parentId,
             depth: 1,
+            limit: 1,
             cutoffTime: 0n,
             ignoreInactive,
             discardRoot: true,
@@ -1443,7 +1444,7 @@ export class Service {
             targetPublicKey: this.publicKey,
             match: [
                 {
-                    nodeType: DATA0_NODE_TYPE,
+                    nodeType: Buffer.from(CarrierNodeType),
                     filters: [
                         {
                             field: "owner",
@@ -1452,13 +1453,13 @@ export class Service {
                             value: this.publicKey.toString("hex"),
                         },
                         {
-                            field: "contentType",
+                            field: "info",
                             operator: "",
                             cmp: CMP.EQ,
-                            value: "temporary/authCert",
+                            value: "AuthCert",
                         },
                         {
-                            field: "embedded",
+                            field: "authCert",
                             operator: "hash",
                             cmp: CMP.EQ,
                             value: Hash(authCert).toString("hex"),
@@ -1480,11 +1481,8 @@ export class Service {
             const fetchResponse = anyData.response;
 
             if (fetchResponse && fetchResponse.status === Status.Result) {
-                const nodes = Decoder.DecodeNodes(fetchResponse.result.nodes, false,
-                    Data.GetType(4)) as DataInterface[];
-
-                if (nodes.length > 0) {
-                    return nodes[0];
+                if (fetchResponse.result.nodes.length > 0) {
+                    return new AuthCert(fetchResponse.result.nodes[0]);
                 }
             }
         }
@@ -1492,25 +1490,30 @@ export class Service {
         return undefined;
     }
 
+    /**
+     * Bundle the AuthCert in a CarrierNode to store it temporarily in the database.
+     * This will detect if the AuthCert has been targeted for destruction, as the CarrierNode
+     * will not be able to be stored.
+     */
     protected async storeAuthCertDataWrapper(authCert: Buffer, storageP2PClient: P2PClient): Promise<boolean> {
-        const authCertObj = Decoder.DecodeAuthCert(authCert);
-
+        // Make up some virtual parentId, doesn't really matter
+        // but we want to avoid placing it somewhere were it might show up and interfere.
+        //
         const parentId = Hash(authCert);
 
-        const dataNode = await this.nodeUtil.createDataNode(
+        const carrierNode = await this.nodeUtil.createCarrierNode(
             {
-                hasOnlineEmbedding: authCertObj.hasOnline(),
                 owner: this.publicKey,
                 parentId,
-                embedded: authCert,
-                contentType: "temporary/authCert",
-                expireTime: Date.now() + 3600 * 1000, // TODO use TimeFreeze
+                authCert,
+                info: "AuthCert",
+                expireTime: Date.now() + 3600 * 1000,
             }, this.publicKey);
 
         const storeRequest = ParseSchema(StoreRequestSchema, {
             sourcePublicKey: this.publicKey,
             targetPublicKey: this.publicKey,
-            nodes: [dataNode.export()],
+            nodes: [carrierNode.pack()],
         });
 
         const {getResponse} = storageP2PClient.store(storeRequest);
@@ -1579,7 +1582,7 @@ export class Service {
                 permissions.fetchPermissions.allowIncludeLicenses === "IncludeExtend"))
         {
             const storageExtender = new P2PClientExtender(p2pClient, this.state.storageClient,
-                this.publicKey, this.config.nodeCerts, this.signatureOffloader, muteMsgIds);
+                this.publicKey, this.config.signCerts, this.signatureOffloader, muteMsgIds);
 
             this.state.extenderServers.push(storageExtender);
 
@@ -1661,11 +1664,12 @@ export class Service {
             appVersion:     this.applicationConf.version,
             region:         connectionConfig.region,
             jurisdiction:   connectionConfig.jurisdiction,
-            authCert:       this.config.authCert?.export(),
+            authCert:       this.config.authCert?.pack(),
             sessionTimeout: 0,
         };
 
         // TODO: we possibly would want this binary packed instead.
+        // or make into an json array to save space
         //
         const peerDataJSONObj = ToJSONObject(peerData);
 
@@ -1688,8 +1692,8 @@ export class Service {
             appVersion:         this.getAppVersion(),
             sessionTimeout:     0,
             handshakePublicKey: this.publicKey,
-            authCert:           this.config.authCert?.export(),
-            authCertPublicKey:  this.config.authCert?.getIssuerPublicKey(),
+            authCert:           this.config.authCert?.pack(),
+            authCertPublicKey:  this.config.authCert?.getProps().owner,
         };
     }
 
@@ -1719,13 +1723,15 @@ export class Service {
         let authCertPublicKey: Buffer | undefined;
 
         if (authCert) {
-            authCertObj = Decoder.DecodeAuthCert(authCert);
+            authCertObj = new AuthCert(authCert);
+
+            authCertObj.unpack();
 
             if ((await this.signatureOffloader.verify([authCertObj])).length !== 1) {
                 throw new Error("Could not verify signatures in auth cert.");
             }
 
-            authCertPublicKey = authCertObj.getIssuerPublicKey();
+            authCertPublicKey = authCertObj.getProps().owner;
         }
 
         peerInfo.authCertPublicKey  = authCertPublicKey;

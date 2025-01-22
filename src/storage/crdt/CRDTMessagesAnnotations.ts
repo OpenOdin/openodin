@@ -1,11 +1,14 @@
 import {
-    Model,
-    Fields,
-    FieldType,
-    ModelType,
-    DataInterface,
-    Data,
+    DataNode,
+    DataNodeInterface,
 } from "../../datamodel";
+
+import {
+    FieldType,
+    Fields,
+    UnpackSchema,
+    PackSchema,
+} from "../../datamodel/PackSchema";
 
 import {
     NodeValues,
@@ -14,40 +17,6 @@ import {
 import {
     IsGreater,
 } from "../../util/common";
-
-/**
- */
-const FIELDS: Fields = {
-    editNode: {
-        name: "editNode",
-        type: FieldType.BYTES,
-        index: 100,
-        maxSize: 8192,
-    },
-    reactions: {
-        name: "reactions",
-        type: FieldType.STRING,
-        index: 101,
-        maxSize: 4096,
-    },
-    hasNestedConversation: {
-        name: "hasNestedConversation",
-        type: FieldType.UINT8,
-        index: 102,
-    },
-};
-
-// Primary interface ID 0 is an undefined namespace which can only be used in known contexts.
-// We use this undefined namespace for models which do not need to clutter the global namespace.
-const PRIMARY_INTERFACE_ID   = 0;
-const SECONDARY_INTERFACE_ID = 1;
-const NODE_CLASS             = 0;
-const CLASS_MAJOR_VERSION    = 0;
-//eslint-disable-next-line @typescript-eslint/no-unused-vars
-const CLASS_MINOR_VERSION    = 0;
-
-const CRDT_MESSAGES_ANNOTATIONS_TYPE: ModelType = Buffer.from([0, PRIMARY_INTERFACE_ID, 0,
-    SECONDARY_INTERFACE_ID, NODE_CLASS, CLASS_MAJOR_VERSION]);
 
 /**
  * The details come from the node representing the reaction.
@@ -101,31 +70,55 @@ export type Reactions = {
     },
 };
 
+type CRDTMessagesAnnotationsProps = {
+    reactions?: string,
+    editNode?: Buffer,
+    reaction?: string,
+    hasNestedConversation?: number,
+};
+
+const CRDTMessagesAnnotationsSchema: Fields = {
+    editNode: {
+        index: 10,
+        type: FieldType.BYTES,
+        maxSize: 8192,
+    },
+    reactions: {
+        index: 11,
+        type: FieldType.STRING,
+        maxSize: 4096,
+    },
+    hasNestedConversation: {
+        type: FieldType.UINT8,
+        index: 12,
+    },
+} as const;
+
 /**
  * This is a serializeable data holder of the CRDT annotations attached to data nodes
  * by the CRDT algorithms.
  */
 export class CRDTMessagesAnnotations {
-    protected model: Model;
+    protected readonly fields = CRDTMessagesAnnotationsSchema;
+    protected props: CRDTMessagesAnnotationsProps = {};
     protected aggregatedReactions: AggregatedReactions = {};
 
     /**
      * @param targetPublicKey hex-encoded public key of the fetch target,
      * which is used when packing and exporting the data.
      */
-    constructor(protected targetPublicKey: string = "") {
-        this.model = new Model(CRDT_MESSAGES_ANNOTATIONS_TYPE, FIELDS);
-    }
+    constructor(protected targetPublicKey: string = "") {}
 
     /**
-     * Load model image Buffer.
+     * Load model packed Buffer.
      *
-     * @param image - image data to load
+     * @param packed - packed data to load
      *
-     * @throws an error containing a message error when image load fails to decode.
+     * @throws an error containing a message error when packed load fails to decode.
      */
-    public load(image: Buffer) {
-        this.model.load(image);
+    public load(packed: Buffer) {
+        this.props =
+            UnpackSchema(packed, this.fields) as CRDTMessagesAnnotationsProps;
     }
 
     /**
@@ -140,9 +133,9 @@ export class CRDTMessagesAnnotations {
 
         this.limitReactionsSize(reactions);
 
-        this.model.setString("reactions", JSON.stringify(reactions));
+        this.props.reactions = JSON.stringify(reactions);
 
-        return this.model.export();
+        return PackSchema(this.fields, this.props);
     }
 
     /**
@@ -249,19 +242,13 @@ export class CRDTMessagesAnnotations {
     }
 
     /**
-     * @returns hash of the model
-     **/
-    //public hash(): Buffer {
-        //return this.model.hash();
-    //}
-
-    /**
      * Set the edited node.
      * A node with a newer creationTime will replace an old node.
      */
-    public setEditNode(node: DataInterface | undefined): boolean {
+    public setEditNode(node: DataNodeInterface | undefined): boolean {
         if (!node) {
-            this.model.setBuffer("editNode", undefined);
+            this.props.editNode = undefined;
+
             return false;
         }
 
@@ -270,20 +257,21 @@ export class CRDTMessagesAnnotations {
         if (currentNode) {
             // We need to diff creation times.
 
-            const creationTimeA = currentNode.getCreationTime() ?? 0;
-            const id1A = currentNode.getId1() as Buffer;
+            const creationTimeA = currentNode.getProps().creationTime ?? 0;
+            const id1A = currentNode.getProps().id1 as Buffer;
 
-            const creationTimeB = node.getCreationTime() ?? 0;
-            const id1B = node.getId1() as Buffer;
+            const creationTimeB = node.getProps().creationTime ?? 0;
+            const id1B = node.getProps().id1 as Buffer;
 
             if (IsGreater(creationTimeB, creationTimeA, id1B, id1A)) {
-                this.model.setBuffer("editNode", node.export());
+
+                this.props.editNode = node.pack();
 
                 return true;
             }
         }
         else {
-            this.model.setBuffer("editNode", node.export());
+            this.props.editNode = node.pack();
 
             return true;
         }
@@ -291,15 +279,15 @@ export class CRDTMessagesAnnotations {
         return false;
     }
 
-    public getEditNode(): DataInterface | undefined {
-        const data = this.model.getBuffer("editNode");
+    public getEditNode(): DataNodeInterface | undefined {
+        const data = this.props.editNode;
 
         if (data) {
-            const node = new Data();
+            const node = new DataNode(data);
 
             // Edit nodes do not preserve transient values as these are ignored.
             //
-            node.load(data);
+            node.unpack();
 
             return node;
         }
@@ -335,7 +323,7 @@ export class CRDTMessagesAnnotations {
     }
 
     public getReactions(): Reactions {
-        const data = this.model.getString("reactions");
+        const data = this.props.reactions;
 
         if (data) {
             return JSON.parse(data) as Reactions;
@@ -350,25 +338,27 @@ export class CRDTMessagesAnnotations {
     public setHasNestedConversation(): boolean {
         const hasNestedConversation = this.hasNestedConversation();
 
-        this.model.setNumber("hasNestedConversation", 1);
+        this.props.hasNestedConversation = 1;
 
         return !hasNestedConversation;
     }
 
     public hasNestedConversation(): boolean {
-        return this.model.getNumber("hasNestedConversation") ? true : false;
+        return this.props.hasNestedConversation ? true : false;
     }
 
     /**
      * Modify all parent nodes in place with annotations.
      */
-    public static Factory(node: DataInterface, parentNodes: NodeValues[], targetPublicKey: string): Buffer[] {
+    public static Factory(node: DataNodeInterface, parentNodes: NodeValues[],
+        targetPublicKey: string): Buffer[]
+    {
         const updatedNodes: Buffer[] = [];
 
-        const owner = node.getOwner();
-        const id1 = node.getId1();
-        const creationTime = node.getCreationTime() ?? 0;
-        const data = node.getData();
+        const owner = node.getProps().owner;
+        const id1 = node.getProps().id1;
+        const creationTime = node.getProps().creationTime ?? 0;
+        const data = node.getProps().data;
 
         if (!id1 || !owner) {
             return [];
@@ -381,7 +371,9 @@ export class CRDTMessagesAnnotations {
 
             let isUpdated = false;
 
-            if (node.isAnnotationEdit()) {
+            const flags = node.loadFlags();
+
+            if (flags.isAnnotationEdit) {
                 // An edit node to replace the main node's content.
                 //
                 if (owner.equals(parentNode.owner)) {
@@ -394,7 +386,7 @@ export class CRDTMessagesAnnotations {
                     // Ignore this node since owner is different.
                 }
             }
-            else if (node.isAnnotationReaction()) {
+            else if (flags.isAnnotationReaction) {
                 // Reactions
                 //
                 parentNode.annotations = parentNode.annotations ?? new CRDTMessagesAnnotations(targetPublicKey);

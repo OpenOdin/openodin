@@ -11,6 +11,7 @@ import {
     BlobDriver,
     BLOB_FRAGMENT_SIZE,
     Hash,
+    HashList,
     DBClient,
     BLOB_TABLES,
     DatabaseUtil,
@@ -67,8 +68,8 @@ describe("BlobDriver: SQLite journalling mode", function() {
         await driver.createTables();
     });
 
-    afterEach("Close database", function() {
-        db?.close();
+    afterEach("Close database", async function() {
+        await db?.close();
         db = undefined;
         driver = undefined;
         config.db = undefined;
@@ -103,8 +104,8 @@ describe("BlobDriver: SQLite WAL-mode", function() {
         await driver.createTables();
     });
 
-    afterEach("Close database", function() {
-        db?.close();
+    afterEach("Close database", async function() {
+        await db?.close();
         db = undefined;
         driver = undefined;
         config.db = undefined;
@@ -139,8 +140,8 @@ describe("BlobDriver: SQLiteJS journalling mode", function() {
         await driver.createTables();
     });
 
-    afterEach("Close database", function() {
-        db?.close();
+    afterEach("Close database", async function() {
+        await db?.close();
         db = undefined;
         driver = undefined;
         config.db = undefined;
@@ -175,8 +176,8 @@ describe("BlobDriver: SQLiteJS WAL-mode", function() {
         await driver.createTables();
     });
 
-    afterEach("Close database", function() {
-        db?.close();
+    afterEach("Close database", async function() {
+        await db?.close();
         db = undefined;
         driver = undefined;
         config.db = undefined;
@@ -218,8 +219,8 @@ describe("BlobDriver: PostgreSQL READ COMMITTED mode", function() {
         await driver.createTables();
     });
 
-    afterEach("Close database", function() {
-        db?.close();
+    afterEach("Close database", async function() {
+        await db?.close();
         db = undefined;
         driver = undefined;
         config.db = undefined;
@@ -261,8 +262,8 @@ describe("BlobDriver: PostgreSQL REPEATABLE READ mode", function() {
         await driver.createTables();
     });
 
-    afterEach("Close database", function() {
-        db?.close();
+    afterEach("Close database", async function() {
+        await db?.close();
         db = undefined;
         driver = undefined;
         config.db = undefined;
@@ -712,7 +713,7 @@ function setupBlobTests(config: any) {
 
                 let blobHash = Hash(blobWrite.finalData);
 
-                const dataId = Hash([blobHash, clientPublicKey]);
+                const dataId = HashList([blobHash, clientPublicKey]);
 
                 let readData = await driver.readBlob(nodeId1, 0, 10);
                 assert(readData === undefined);
@@ -761,7 +762,7 @@ function setupBlobTests(config: any) {
         const blobLength = fullData.length;
         const blobHash = Hash(fullData);
 
-        const dataId = Hash([blobHash, clientPublicKey]);
+        const dataId = HashList([blobHash, clientPublicKey]);
 
         await driver.writeBlob(dataId, 0, fragment1, now);
 
@@ -850,7 +851,7 @@ function setupBlobTests(config: any) {
 
         const nodeId1 = Buffer.alloc(32).fill(0x01);
         const clientPublicKey = Buffer.alloc(32).fill(0xa0);
-        const dataId = Hash([blobHash, clientPublicKey]);
+        const dataId = HashList([blobHash, clientPublicKey]);
 
 
         await driver.writeBlob(dataId, 0, data, now);

@@ -1,7 +1,6 @@
 import { strict as assert } from "assert";
 
 import {
-    DataInterface,
     SignatureOffloader,
     AuthFactory,
     sleep,
@@ -20,6 +19,7 @@ import {
     ParseSchema,
     ApplicationConfSchema,
     WalletConfSchema,
+    LicenseNode,
 } from "../../../";
 
 import {
@@ -77,8 +77,12 @@ async function main() {
 
     await chatClient.init();
 
-    const publicKey1 = chatServer.getPublicKey();
-    const publicKey2 = chatClient.getPublicKey();
+    const serverPublicKey = chatServer.getPublicKey();
+    const clientPublicKey = chatClient.getPublicKey();
+
+    consoleMain.info(`Server publicKey: ${serverPublicKey.toString("hex")}`);
+
+    consoleMain.info(`Client publicKey: ${clientPublicKey.toString("hex")}`);
 
 
     let abortTimeout = setTimeout( () => {
@@ -118,8 +122,6 @@ async function main() {
 
         const threadTemplate = chatServer.getThreadTemplates().channel;
 
-        const targets = [publicKey1];
-
         const threadFetchParams = {query: {parentId: Buffer.alloc(32)}};
 
         const serverThread = Thread.fromService(threadTemplate, threadFetchParams, chatServer);
@@ -141,12 +143,12 @@ async function main() {
 
             assert(dataNode);
 
-            const message = dataNode.getData()?.toString();
+            const message = dataNode.getProps().data?.toString();
 
             consoleServer.info(message);
 
-            if (dataNode.hasBlob()) {
-                const streamReader = serverThread!.getBlobStreamReader(dataNode.getId1()!);
+            if (dataNode.getProps().blobHash) {
+                const streamReader = serverThread!.getBlobStreamReader(dataNode.getProps().id1!);
 
                 const streamWriter = new BufferStreamWriter(streamReader);
 
@@ -169,8 +171,12 @@ async function main() {
         // Here we send as soon as Storage is connected, peer might or might
         // not be connected yet.
         consoleMain.info("Storage connected, send message from Server side");
+
         const node = await serverThread.post("message", {data: Buffer.from("Hello from Server")});
-        serverThread.postLicense("message", node, targets);
+
+        const targets = [serverPublicKey];
+
+        await serverThread.postLicense("message", node, targets);
     });
 
     chatServer.onPeerConnect( () => {
@@ -214,7 +220,8 @@ async function main() {
 
                 assert(dataNode);
 
-                const message = dataNode.getData()?.toString();
+                const message = dataNode.getProps().data?.toString();
+
                 consoleClient.info(message);
             });
         });
@@ -227,11 +234,11 @@ async function main() {
         const streamReader = new BufferStreamReader(BLOB_DATA);
         const node = await clientThread!.post("message", {blobHash, blobLength, data: Buffer.from("Hello from Client with attachment")});
 
-        const targets = [publicKey2];
+        const targets = [clientPublicKey];
 
         await clientThread!.postLicense("message", node, targets);
 
-        const nodeId1 = node.getId1();
+        const nodeId1 = node.getProps().id1;
 
         const streamWriter = clientThread!.getBlobStreamWriter(nodeId1!, streamReader);
 

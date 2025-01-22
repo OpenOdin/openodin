@@ -201,25 +201,16 @@ export async function sleep(ms: number): Promise<void> {
     });
 }
 
-export function CopyBuffer(...buffers: (Buffer | Uint8Array)[]): Buffer {
-    let length = 0;
-    const argsLength = buffers.length;
-    for (let i=0; i<argsLength; i++) {
-        const buffer = buffers[i];
-        length += buffer.byteLength;
+export function CopyBuffer(b: Buffer | Uint8Array): Buffer {
+    const l = b.length;
+
+    const b2 = Buffer.alloc(l);
+
+    for (let i=0; i<l; i++) {
+        b2[i] = b[i];
     }
 
-    let pos = 0;
-    const out = Buffer.alloc(length);
-    for (let i=0; i<argsLength; i++) {
-        const buffer = buffers[i];
-
-        for (let i2=0; i2<buffer.byteLength; i2++) {
-            out[pos++] = buffer[i2];
-        }
-    }
-
-    return out;
+    return b2;
 }
 
 export function DeepHash(o: any): Buffer {
